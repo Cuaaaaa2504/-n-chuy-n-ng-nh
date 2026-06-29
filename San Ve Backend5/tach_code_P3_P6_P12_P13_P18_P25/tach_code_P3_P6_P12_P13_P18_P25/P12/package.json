@@ -1,0 +1,33 @@
+{
+  "name": "p12-extracted-code",
+  "scripts": {
+    "start:dev": "nest start -p tsconfig.json --watch",
+    "start": "nest start -p tsconfig.json",
+    "build": "nest build -p tsconfig.json"
+  },
+  "dependencies": {
+    "@nestjs/common": "latest",
+    "@nestjs/core": "latest",
+    "@nestjs/platform-express": "latest",
+    "@nestjs/typeorm": "latest",
+    "@nestjs/jwt": "latest",
+    "@nestjs/passport": "latest",
+    "@nestjs/config": "latest",
+    "@nestjs/mapped-types": "latest",
+    "typeorm": "latest",
+    "passport": "latest",
+    "passport-jwt": "latest",
+    "bcrypt": "latest",
+    "class-validator": "latest",
+    "class-transformer": "latest",
+    "reflect-metadata": "latest",
+    "rxjs": "latest"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "latest",
+    "@types/node": "latest",
+    "@types/bcrypt": "latest",
+    "@types/passport-jwt": "latest",
+    "typescript": "latest"
+  }
+}

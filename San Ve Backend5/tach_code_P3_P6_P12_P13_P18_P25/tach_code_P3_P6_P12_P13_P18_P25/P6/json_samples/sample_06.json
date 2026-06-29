@@ -1,0 +1,5 @@
+{
+  "bookingOrderId": 1,
+  "paymentMethod": "MOCK_PAYMENT",
+  "result": "SUCCESS"
+}

@@ -1,0 +1,25 @@
+{
+  "name": "tach-code-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "tach_code_P3_P6_P12_P13_P18_P25/P12",
+    "tach_code_P3_P6_P12_P13_P18_P25/P13",
+    "tach_code_P3_P6_P12_P13_P18_P25/P18",
+    "tach_code_P3_P6_P12_P13_P18_P25/P25"
+  ],
+  "scripts": {
+    "bootstrap": "npm install",
+    "install:all": "npm install",
+    "start:all": "npx concurrently \"npm --prefix tach_code_P3_P6_P12_P13_P18_P25/P12 run start\" \"npm --prefix tach_code_P3_P6_P12_P13_P18_P25/P13 run start\" \"npm --prefix tach_code_P3_P6_P12_P13_P18_P25/P18 run start\" \"npm --prefix tach_code_P3_P6_P12_P13_P18_P25/P25 run start\""
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "mssql": "^12.5.5",
+    "mysql2": "^3.22.5",
+    "sqlite3": "^6.0.1"
+  }
+}

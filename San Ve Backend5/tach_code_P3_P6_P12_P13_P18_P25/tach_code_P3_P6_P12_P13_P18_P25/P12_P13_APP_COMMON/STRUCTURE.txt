@@ -1,0 +1,35 @@
+src/
+  auth/
+    decorators/
+      roles.decorator.ts
+    dto/
+      login.dto.ts
+      register.dto.ts
+    guards/
+      jwt-auth.guard.ts
+      roles.guard.ts
+    strategies/
+      jwt.strategy.ts
+    auth.controller.ts
+    auth.module.ts
+    auth.service.ts
+
+  users/
+    entities/
+      user.entity.ts
+    users.module.ts
+    users.service.ts
+
+  movies/
+    dto/
+      create-movie.dto.ts
+      update-movie.dto.ts
+      query-movie.dto.ts
+    entities/
+      movie.entity.ts
+    movies.controller.ts
+    movies.service.ts
+    movies.module.ts
+
+  app.module.ts
+  main.ts
