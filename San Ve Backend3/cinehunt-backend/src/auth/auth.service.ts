@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -91,6 +92,69 @@ export class AuthService {
       throw new UnauthorizedException('Không tìm thấy người dùng');
     }
     return this.toSafeUser(user);
+  }
+
+  async updateProfile(
+    userId: number,
+    dto: { fullName?: string; phone?: string; avatarUrl?: string },
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: userId },
+    });
+    if (!user) throw new NotFoundException('Không tìm thấy người dùng');
+
+    if (dto.fullName !== undefined) user.full_name = dto.fullName.trim();
+    if (dto.phone !== undefined) user.phone = dto.phone?.trim() ?? null;
+    if (dto.avatarUrl !== undefined) user.avatar_url = dto.avatarUrl ?? null;
+
+    const updated = await this.userRepository.save(user);
+    return {
+      message: 'Cập nhật thông tin thành công',
+      user: this.toSafeUser(updated),
+    };
+  }
+
+  async changePassword(
+    userId: number,
+    dto: { currentPassword: string; newPassword: string },
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: userId },
+    });
+    if (!user) throw new NotFoundException('Không tìm thấy người dùng');
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.password_hash);
+    if (!isMatch) throw new BadRequestException('Mật khẩu hiện tại không đúng');
+
+    if (dto.currentPassword === dto.newPassword)
+      throw new BadRequestException('Mật khẩu mới không được trùng mật khẩu cũ');
+
+    user.password_hash = await bcrypt.hash(dto.newPassword, 10);
+    await this.userRepository.save(user);
+
+    return { message: 'Đổi mật khẩu thành công' };
+  }
+
+  async getAllUsers() {
+    const users = await this.userRepository.find({
+      order: { created_at: 'DESC' },
+    });
+    return users.map((u) => this.toSafeUser(u));
+  }
+
+  async setUserStatus(
+    targetId: number,
+    status: 'ACTIVE' | 'BANNED' | 'DELETED',
+  ) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: targetId },
+    });
+    if (!user) throw new NotFoundException('Không tìm thấy người dùng');
+
+    user.status = status;
+    await this.userRepository.save(user);
+
+    return { message: `Đã cập nhật trạng thái người dùng thành ${status}` };
   }
 
   private async generateAccessToken(user: User): Promise<string> {

@@ -2,12 +2,19 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+
 import { AuthModule } from './auth/auth.module';
 import { BookingModule } from './booking/booking.module';
 import { PaymentModule } from './payment/payment.module';
 import { MovieModule } from './movie/movie.module';
 import { ShowtimeModule } from './showtime/showtime.module';
 import { ShowtimeSeatsModule } from './showtime-seats/showtime-seats.module';
+import { UsersModule } from './users/users.module';
+import { VoucherModule } from './voucher/voucher.module';
+import { OtpCodeModule } from './otp-code/otp-code.module';
+import { NotificationModule } from './notification/notification.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
+import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-request.module';
 
 import { User } from './entities/user.entity';
 import { BookingOrder } from './entities/booking-order.entity';
@@ -25,7 +32,10 @@ import { Voucher } from './entities/voucher.entity';
 import { ConcessionCombo } from './entities/concession-combo.entity';
 import { BookingCombo } from './entities/booking-combo.entity';
 import { TicketWatchRequest } from './entities/ticket-watch-request.entity';
-import { Genre } from './entities/genre.entity'; // ← THÊM MỚI
+import { Genre } from './entities/genre.entity';
+import { OtpCode } from './entities/otp-code.entity';
+import { Notification } from './entities/notification.entity';
+import { AuditLog } from './entities/audit-log.entity';
 
 @Module({
   imports: [
@@ -40,23 +50,10 @@ import { Genre } from './entities/genre.entity'; // ← THÊM MỚI
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME', 'MovieTicketHuntingDB'),
         entities: [
-          User,
-          BookingOrder,
-          BookingDetail,
-          SeatHold,
-          ShowtimeSeat,
-          Showtime,
-          Seat,
-          Room,
-          Cinema,
-          Movie,
-          Payment,
-          Ticket,
-          Voucher,
-          ConcessionCombo,
-          BookingCombo,
-          TicketWatchRequest,
-          Genre, // ← THÊM MỚI
+          User, BookingOrder, BookingDetail, SeatHold, ShowtimeSeat,
+          Showtime, Seat, Room, Cinema, Movie, Payment, Ticket,
+          Voucher, ConcessionCombo, BookingCombo, TicketWatchRequest,
+          Genre, OtpCode, Notification, AuditLog,
         ],
         synchronize: false,
         options: {
@@ -75,6 +72,12 @@ import { Genre } from './entities/genre.entity'; // ← THÊM MỚI
     MovieModule,
     ShowtimeModule,
     ShowtimeSeatsModule,
+    UsersModule,
+    VoucherModule,
+    OtpCodeModule,
+    NotificationModule,
+    AuditLogModule,
+    TicketWatchRequestModule,
   ],
 })
 export class AppModule {}
