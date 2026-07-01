@@ -3,34 +3,20 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+import { DataSource } from 'typeorm';
 
 import { Payment } from '../entities/payment.entity';
-import { Ticket } from '../entities/ticket.entity';
-import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
 import { BookingService } from '../booking/booking.service';
+import { PaymentRepository } from './payment.repository';
 import { CreatePaymentDto, PaymentResponse } from './dto';
 
 @Injectable()
 export class PaymentService {
   constructor(
-    @InjectRepository(Payment)
-    private paymentRepository: Repository<Payment>,
-
-    @InjectRepository(Ticket)
-    private ticketRepository: Repository<Ticket>,
-
-    @InjectRepository(BookingDetail)
-    private bookingDetailRepository: Repository<BookingDetail>,
-
-    @InjectRepository(ShowtimeSeat)
-    private showtimeSeatRepository: Repository<ShowtimeSeat>,
-
-    private bookingService: BookingService,
-    private dataSource: DataSource,
+    private readonly paymentRepository: PaymentRepository,
+    private readonly bookingService: BookingService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async createPayment(
@@ -42,20 +28,15 @@ export class PaymentService {
       userId,
     );
 
-    const existingPendingPayment = await this.paymentRepository.findOne({
-      where: {
-        booking_id: dto.bookingId,
-        payment_status: 'PENDING',
-      },
-    });
-
-    if (existingPendingPayment) {
+    const existingPending =
+      await this.paymentRepository.findPendingByBookingId(dto.bookingId);
+    if (existingPending) {
       throw new BadRequestException('Booking đã có payment đang chờ xử lý');
     }
 
-    const transactionCode = this.generatePaymentCode();
+    const transactionCode = this.paymentRepository.generatePaymentCode();
 
-    const payment = this.paymentRepository.create({
+    const payment = await this.paymentRepository.createPayment({
       booking_id: booking.booking_id,
       payment_method: dto.paymentMethod,
       amount: booking.final_amount,
@@ -65,19 +46,17 @@ export class PaymentService {
       provider_response: null,
       failed_reason: null,
       paid_at: null,
-    });
-
-    const savedPayment = await this.paymentRepository.save(payment);
+    } as any);
 
     return {
-      paymentId: savedPayment.payment_id,
-      bookingId: savedPayment.booking_id,
-      amount: Number(savedPayment.amount),
-      paymentMethod: savedPayment.payment_method,
-      paymentStatus: savedPayment.payment_status,
-      transactionCode: savedPayment.transaction_code,
-      paymentUrl: savedPayment.payment_url,
-      createdAt: savedPayment.created_at,
+      paymentId: payment.payment_id,
+      bookingId: payment.booking_id,
+      amount: Number(payment.amount),
+      paymentMethod: payment.payment_method,
+      paymentStatus: payment.payment_status,
+      transactionCode: payment.transaction_code,
+      paymentUrl: payment.payment_url,
+      createdAt: payment.created_at,
     };
   }
 
@@ -87,60 +66,67 @@ export class PaymentService {
     await queryRunner.startTransaction();
 
     try {
+      // 1. Lấy payment
       const payment = await queryRunner.manager.findOne(Payment, {
         where: { payment_id: paymentId },
       });
-
       if (!payment) {
         throw new NotFoundException('Không tìm thấy payment');
       }
-
       if (payment.payment_status !== 'PENDING') {
         throw new BadRequestException(
-          `Payment status is ${payment.payment_status}, only PENDING can be processed`,
+          `Payment status là ${payment.payment_status}, chỉ PENDING mới được xử lý`,
         );
       }
 
+      // 2. Validate booking
       const booking = await this.bookingService.validateBookingForPayment(
         payment.booking_id,
       );
 
-      const bookingDetails = await queryRunner.manager.find(BookingDetail, {
-        where: { booking_id: booking.booking_id },
-        relations: ['showtime_seat', 'showtime_seat.seat'],
-      });
-
+      // 3. Lấy booking details
+      const bookingDetails =
+        await this.paymentRepository.getBookingDetailsByBookingId(
+          payment.booking_id,
+        );
       if (!bookingDetails.length) {
         throw new BadRequestException('Không tìm thấy ghế trong booking');
       }
 
-      await queryRunner.manager.update(Payment, payment.payment_id, {
+      // 4. Update payment → SUCCESS
+      await queryRunner.manager.update(Payment, paymentId, {
         payment_status: 'SUCCESS',
         paid_at: new Date(),
       });
 
-      for (const detail of bookingDetails) {
-        await queryRunner.manager.update(ShowtimeSeat, detail.showtime_seat_id, {
+      // 5. Bulk update tất cả ghế → SOLD (thay vì loop từng cái)
+      const seatIds = bookingDetails.map((d) => d.showtime_seat_id);
+      await queryRunner.manager
+        .createQueryBuilder()
+        .update(ShowtimeSeat)
+        .set({
           status: 'SOLD',
           hold_expires_at: null,
           held_by_user_id: null,
-        });
-      }
+        })
+        .where('showtime_seat_id IN (:...ids)', { ids: seatIds })
+        .execute();
 
+      // 6. Update booking → PAID
       await this.bookingService.updateBookingToPaid(booking.booking_id);
 
+      // 7. Tạo tickets
       const tickets: any[] = [];
-
       for (const detail of bookingDetails) {
-        const existingTicket = await queryRunner.manager.findOne(Ticket, {
-          where: { booking_detail_id: detail.booking_detail_id },
-        });
+        const existing = await this.paymentRepository.findTicketByDetailId(
+          detail.booking_detail_id,
+        );
 
-        if (existingTicket) {
+        if (existing) {
           tickets.push({
-            ticketId: existingTicket.ticket_id,
-            ticketCode: existingTicket.ticket_code,
-            qrCode: existingTicket.qr_code,
+            ticketId: existing.ticket_id,
+            ticketCode: existing.ticket_code,
+            qrCode: existing.qr_code,
             seatLabel: detail.showtime_seat?.seat
               ? `${detail.showtime_seat.seat.seat_row}${detail.showtime_seat.seat.seat_number}`
               : null,
@@ -150,19 +136,17 @@ export class PaymentService {
           continue;
         }
 
-        const ticket = queryRunner.manager.create(Ticket, {
+        const newTicket = await this.paymentRepository.createTicket({
           booking_detail_id: detail.booking_detail_id,
-          ticket_code: this.generateTicketCode(),
-          qr_code: this.generateQrCode(),
+          ticket_code: this.paymentRepository.generateTicketCode(),
+          qr_code: this.paymentRepository.generateQrCode(),
           ticket_status: 'VALID',
-        });
-
-        const savedTicket = await queryRunner.manager.save(Ticket, ticket);
+        } as any);
 
         tickets.push({
-          ticketId: savedTicket.ticket_id,
-          ticketCode: savedTicket.ticket_code,
-          qrCode: savedTicket.qr_code,
+          ticketId: newTicket.ticket_id,
+          ticketCode: newTicket.ticket_code,
+          qrCode: newTicket.qr_code,
           seatLabel: detail.showtime_seat?.seat
             ? `${detail.showtime_seat.seat.seat_row}${detail.showtime_seat.seat.seat_number}`
             : null,
@@ -171,6 +155,7 @@ export class PaymentService {
         });
       }
 
+      // 8. Update booking → ISSUED
       await this.bookingService.updateBookingToIssued(booking.booking_id);
 
       await queryRunner.commitTransaction();
@@ -190,55 +175,27 @@ export class PaymentService {
   }
 
   async processPaymentFailed(paymentId: number, reason?: string) {
-    const payment = await this.paymentRepository.findOne({
-      where: { payment_id: paymentId },
-    });
-
+    const payment =
+      await this.paymentRepository.findPaymentById(paymentId);
     if (!payment) {
       throw new NotFoundException('Không tìm thấy payment');
     }
-
     if (payment.payment_status !== 'PENDING') {
       throw new BadRequestException(
-        `Payment status is ${payment.payment_status}, only PENDING can be failed`,
+        `Payment status là ${payment.payment_status}, chỉ PENDING mới được đổi thành FAILED`,
       );
     }
 
-    await this.paymentRepository.update(paymentId, {
-      payment_status: 'FAILED',
-      failed_reason: reason || 'Payment failed',
-    });
-
+    await this.paymentRepository.updatePaymentFailed(
+      paymentId,
+      reason || 'Payment failed',
+    );
     await this.bookingService.updateBookingToFailed(payment.booking_id);
 
-    return {
-      message: 'Payment failed',
-      bookingStatus: 'FAILED',
-    };
+    return { message: 'Payment failed', bookingStatus: 'FAILED' };
   }
 
   async getPaymentByBookingId(bookingId: number): Promise<Payment | null> {
-    return this.paymentRepository.findOne({
-      where: { booking_id: bookingId },
-      order: { payment_id: 'DESC' },
-    });
-  }
-
-  private generatePaymentCode(): string {
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const randomStr = uuidv4().slice(0, 6).toUpperCase();
-    return `PAY-${dateStr}-${randomStr}`;
-  }
-
-  private generateTicketCode(): string {
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const randomStr = uuidv4().slice(0, 6).toUpperCase();
-    return `TICKET-${dateStr}-${randomStr}`;
-  }
-
-  private generateQrCode(): string {
-    return `QR-${Date.now()}-${uuidv4().slice(0, 8)}`;
+    return this.paymentRepository.findLatestByBookingId(bookingId);
   }
 }

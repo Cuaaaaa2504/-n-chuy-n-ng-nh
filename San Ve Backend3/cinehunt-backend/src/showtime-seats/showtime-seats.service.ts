@@ -20,9 +20,7 @@ export class ShowtimeSeatsService {
   ) {}
 
   async getHello() {
-    return {
-      message: 'showtime-seats module ok',
-    };
+    return { message: 'showtime-seats module ok' };
   }
 
   async getSeatMap(showtimeId: number) {
@@ -45,7 +43,9 @@ export class ShowtimeSeatsService {
     });
 
     if (!seats.length) {
-      throw new NotFoundException('Không tìm thấy sơ đồ ghế cho suất chiếu này');
+      throw new NotFoundException(
+        'Không tìm thấy sơ đồ ghế cho suất chiếu này',
+      );
     }
 
     const first = seats[0];
@@ -93,26 +93,33 @@ export class ShowtimeSeatsService {
 
   async releaseHold(userId: number, holdId: number) {
     await this.seatHoldService.releaseHold(holdId, userId);
-
-    return {
-      message: 'Release hold thành công',
-      holdId,
-    };
+    return { message: 'Release hold thành công', holdId };
   }
 
   async expireSeatHolds() {
     try {
-      await this.dataSource.query(`
-        EXEC sp_expire_seat_holds
-      `);
-
-      return {
-        message: 'expired holds released ok',
-      };
+      await this.dataSource.query(`EXEC sp_expire_seat_holds`);
+      return { message: 'expired holds released ok' };
     } catch {
       throw new InternalServerErrorException(
         'Không thể xử lý expire seat holds.',
       );
     }
+  }
+
+  // ✅ THÊM MỚI — bulk update nhiều ghế → SOLD
+  async updateSeatsToSold(showtimeSeatIds: number[]): Promise<void> {
+    if (!showtimeSeatIds.length) return;
+
+    await this.showtimeSeatRepository
+      .createQueryBuilder()
+      .update(ShowtimeSeat)
+      .set({
+        status: 'SOLD',
+        hold_expires_at: null,
+        held_by_user_id: null,
+      })
+      .where('showtime_seat_id IN (:...ids)', { ids: showtimeSeatIds })
+      .execute();
   }
 }
