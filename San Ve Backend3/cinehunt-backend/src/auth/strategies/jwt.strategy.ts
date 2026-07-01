@@ -1,32 +1,47 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
+import { InjectRepository } from '@nestjs/typeorm';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
-import { AuthService } from '../auth.service';
+import { Repository } from 'typeorm';
+import { User } from '../../entities/user.entity';
+
+export interface JwtPayload {
+  sub: number;
+  email: string;
+  role: string;
+}
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
-    private configService: ConfigService,
-    private authService: AuthService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get('JWT_SECRET'),
+      secretOrKey: process.env.JWT_SECRET || 'dev_secret_change_me',
     });
   }
 
-  async validate(payload: any) {
-    const user = await this.authService.validateUser(payload.sub);
+  async validate(payload: JwtPayload) {
+    const user = await this.userRepository.findOne({
+      where: { user_id: payload.sub },
+    });
+
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Token không hợp lệ');
     }
+
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('Tài khoản đã bị khóa hoặc xóa');
+    }
+
+    // Trả về object này sẽ được gán vào request.user
     return {
-      user_id: user.user_id,
+      userId: user.user_id,
       email: user.email,
       role: user.role,
-      full_name: user.full_name,
     };
   }
 }

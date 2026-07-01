@@ -1,34 +1,41 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
-import { LoginDto, RegisterDto, AuthResponseDto } from './dto';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
-    private userRepository: Repository<User>,
-    private jwtService: JwtService,
+    private readonly userRepository: Repository<User>,
+    private readonly jwtService: JwtService,
   ) {}
 
-  async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const existingUser = await this.userRepository.findOne({
-      where: { email: registerDto.email },
+  async register(dto: RegisterDto) {
+    const normalizedEmail = dto.email.trim().toLowerCase();
+
+    const existedUser = await this.userRepository.findOne({
+      where: { email: normalizedEmail },
     });
 
-    if (existingUser) {
-      throw new BadRequestException('Email đã được đăng ký');
+    if (existedUser) {
+      throw new BadRequestException('Email đã được sử dụng');
     }
 
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     const user = this.userRepository.create({
-      full_name: registerDto.fullName,
-      email: registerDto.email,
-      phone: registerDto.phone,
+      full_name: dto.fullName.trim(),
+      email: normalizedEmail,
+      phone: dto.phone?.trim() ?? null,
       password_hash: hashedPassword,
       role: 'CUSTOMER',
       status: 'ACTIVE',
@@ -37,23 +44,17 @@ export class AuthService {
 
     const savedUser = await this.userRepository.save(user);
 
-    const payload = { sub: savedUser.user_id, email: savedUser.email, role: savedUser.role };
-    const accessToken = this.jwtService.sign(payload);
-
     return {
-      accessToken,
-      user: {
-        userId: savedUser.user_id,
-        fullName: savedUser.full_name,
-        email: savedUser.email,
-        role: savedUser.role,
-      },
+      message: 'Đăng ký tài khoản thành công',
+      user: this.toSafeUser(savedUser),
     };
   }
 
-  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: LoginDto) {
+    const normalizedEmail = dto.email.trim().toLowerCase();
+
     const user = await this.userRepository.findOne({
-      where: { email: loginDto.email },
+      where: { email: normalizedEmail },
     });
 
     if (!user) {
@@ -61,43 +62,59 @@ export class AuthService {
     }
 
     if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Tài khoản đã bị khóa');
+      throw new UnauthorizedException('Tài khoản đã bị khóa hoặc xóa');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password_hash);
-
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password_hash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
 
-    // Cập nhật last login
-    await this.userRepository.update(user.user_id, {
-      last_login_at: new Date(),
-    });
+    user.last_login_at = new Date();
+    await this.userRepository.save(user);
 
-    const payload = { sub: user.user_id, email: user.email, role: user.role };
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = await this.generateAccessToken(user);
 
     return {
+      message: 'Đăng nhập thành công',
       accessToken,
-      user: {
-        userId: user.user_id,
-        fullName: user.full_name,
-        email: user.email,
-        role: user.role,
-      },
+      tokenType: 'Bearer',
+      user: this.toSafeUser(user),
     };
   }
 
-  async validateUser(userId: number): Promise<User> {
+  async getProfile(userId: number) {
     const user = await this.userRepository.findOne({
-      where: { user_id: userId, status: 'ACTIVE' },
+      where: { user_id: userId },
     });
-
     if (!user) {
-      throw new UnauthorizedException('User không hợp lệ');
+      throw new UnauthorizedException('Không tìm thấy người dùng');
     }
+    return this.toSafeUser(user);
+  }
 
-    return user;
+  private async generateAccessToken(user: User): Promise<string> {
+    const payload = {
+      sub: user.user_id,
+      email: user.email,
+      role: user.role,
+    };
+    return this.jwtService.signAsync(payload);
+  }
+
+  private toSafeUser(user: User) {
+    return {
+      userId: user.user_id,
+      fullName: user.full_name,
+      email: user.email,
+      phone: user.phone,
+      avatarUrl: user.avatar_url,
+      emailVerified: user.email_verified,
+      role: user.role,
+      status: user.status,
+      lastLoginAt: user.last_login_at,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    };
   }
 }
