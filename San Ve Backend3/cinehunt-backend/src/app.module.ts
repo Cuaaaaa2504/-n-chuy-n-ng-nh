@@ -16,27 +16,6 @@ import { NotificationModule } from './notification/notification.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-request.module';
 
-import { User } from './entities/user.entity';
-import { BookingOrder } from './entities/booking-order.entity';
-import { BookingDetail } from './entities/booking-detail.entity';
-import { SeatHold } from './entities/seat-hold.entity';
-import { ShowtimeSeat } from './entities/showtime-seat.entity';
-import { Showtime } from './entities/showtime.entity';
-import { Seat } from './entities/seat.entity';
-import { Room } from './entities/room.entity';
-import { Cinema } from './entities/cinema.entity';
-import { Movie } from './entities/movie.entity';
-import { Payment } from './entities/payment.entity';
-import { Ticket } from './entities/ticket.entity';
-import { Voucher } from './entities/voucher.entity';
-import { ConcessionCombo } from './entities/concession-combo.entity';
-import { BookingCombo } from './entities/booking-combo.entity';
-import { TicketWatchRequest } from './entities/ticket-watch-request.entity';
-import { Genre } from './entities/genre.entity';
-import { OtpCode } from './entities/otp-code.entity';
-import { Notification } from './entities/notification.entity';
-import { AuditLog } from './entities/audit-log.entity';
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -49,12 +28,7 @@ import { AuditLog } from './entities/audit-log.entity';
         username: configService.get<string>('DB_USER', 'sa'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME', 'MovieTicketHuntingDB'),
-        entities: [
-          User, BookingOrder, BookingDetail, SeatHold, ShowtimeSeat,
-          Showtime, Seat, Room, Cinema, Movie, Payment, Ticket,
-          Voucher, ConcessionCombo, BookingCombo, TicketWatchRequest,
-          Genre, OtpCode, Notification, AuditLog,
-        ],
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: false,
         options: {
           encrypt: false,
