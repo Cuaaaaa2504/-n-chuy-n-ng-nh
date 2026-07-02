@@ -42,6 +42,10 @@ export class User {
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
+  // ── Refresh Token ────────────────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'refresh_token_hash' })
+  refresh_token_hash: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
 

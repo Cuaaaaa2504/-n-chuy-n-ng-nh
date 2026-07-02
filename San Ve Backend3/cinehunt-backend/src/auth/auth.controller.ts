@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { CurrentUser, CurrentUserPayload } from './decorators/current-user.decorator';
 import { Roles } from './decorators/roles.decorator';
@@ -30,6 +31,18 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('refresh')
+  @UseGuards(JwtRefreshGuard)
+  async refresh(@CurrentUser() user: any) {
+    return this.authService.refresh(user.userId, user.refreshToken);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  async logout(@CurrentUser() user: CurrentUserPayload) {
+    return this.authService.logout(user.userId);
   }
 
   // ── Profile bản thân ────────────────────────────────────────────────────
