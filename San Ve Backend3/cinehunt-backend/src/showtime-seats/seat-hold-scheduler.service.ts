@@ -17,7 +17,8 @@ export class SeatHoldSchedulerService {
 
       this.logger.log('Expired seat holds released');
     } catch (error) {
-      this.logger.error('Failed to expire seat holds', error?.stack);
+      const stack = error instanceof Error ? error.stack : String(error);
+      this.logger.error('Failed to expire seat holds', stack);
     }
   }
 }
