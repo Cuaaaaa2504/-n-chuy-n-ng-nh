@@ -18,22 +18,22 @@ export class PaymentController {
 
   @Post()
   async createPayment(@Request() req, @Body() dto: CreatePaymentDto) {
-    const userId = req.user.user_id;
+    const userId = req.user.userId ?? req.user.user_id;
     return this.paymentService.createPayment(userId, dto);
   }
 
   @Post(':id/success')
   async paymentSuccess(@Param('id') id: string) {
-    return this.paymentService.processPaymentSuccess(+id);
+    return this.paymentService.processPaymentSuccess(id);
   }
 
   @Post(':id/failed')
   async paymentFailed(@Param('id') id: string) {
-    return this.paymentService.processPaymentFailed(+id);
+    return this.paymentService.processPaymentFailed(id);
   }
 
   @Get('booking/:bookingId')
   async getPaymentByBooking(@Param('bookingId') bookingId: string) {
-    return this.paymentService.getPaymentByBookingId(+bookingId);
+    return this.paymentService.getPaymentByBookingId(bookingId);
   }
 }
