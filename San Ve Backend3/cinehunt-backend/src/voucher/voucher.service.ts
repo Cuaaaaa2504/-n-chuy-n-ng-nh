@@ -16,12 +16,12 @@ export class VoucherService {
   ) {}
 
   async findAll() {
-    return this.voucherRepo.find({ order: { voucher_id: 'DESC' } });
+    return this.voucherRepo.find({ order: { promotion_id: 'DESC' } });
   }
 
   async findByCode(code: string) {
     const voucher = await this.voucherRepo.findOne({
-      where: { code: code.toUpperCase() },
+      where: { promotion_code: code.toUpperCase() },
     });
     if (!voucher) throw new NotFoundException('Không tìm thấy voucher');
     return voucher;
@@ -55,8 +55,8 @@ export class VoucherService {
     }
 
     return {
-      voucherId: voucher.voucher_id,
-      code: voucher.code,
+      voucherId: voucher.promotion_id,
+      code: voucher.promotion_code,
       discountType: voucher.discount_type,
       discountValue: voucher.discount_value,
       discountAmount: Math.min(discount, orderAmount),
@@ -65,16 +65,17 @@ export class VoucherService {
 
   async create(dto: CreateVoucherDto) {
     const existed = await this.voucherRepo.findOne({
-      where: { code: dto.code.toUpperCase() },
+      where: { promotion_code: dto.code.toUpperCase() },
     });
     if (existed) throw new BadRequestException('Mã voucher đã tồn tại');
 
     const voucher = this.voucherRepo.create({
-      code: dto.code.toUpperCase(),
+      promotion_code: dto.code.toUpperCase(),
+      promotion_name: dto.code.toUpperCase(),   // fallback; DTO có thể bổ sung tên sau
       discount_type: dto.discountType,
       discount_value: dto.discountValue,
       max_discount: dto.maxDiscount ?? null,
-      min_order_amount: dto.minOrderAmount ?? null,
+      min_order_amount: dto.minOrderAmount ?? 0,
       start_at: new Date(dto.startAt),
       end_at: new Date(dto.endAt),
       usage_limit: dto.usageLimit ?? null,
@@ -86,7 +87,7 @@ export class VoucherService {
   }
 
   async deactivate(id: number) {
-    const voucher = await this.voucherRepo.findOne({ where: { voucher_id: id } });
+    const voucher = await this.voucherRepo.findOne({ where: { promotion_id: id } });
     if (!voucher) throw new NotFoundException('Không tìm thấy voucher');
     voucher.status = 'INACTIVE';
     await this.voucherRepo.save(voucher);

@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
   Post,
   Query,
   UseGuards,
@@ -16,44 +15,46 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 
-@Controller('watch-requests')
+@Controller('ticket-watch-requests')
 @UseGuards(JwtAuthGuard)
 export class TicketWatchRequestController {
   constructor(private readonly service: TicketWatchRequestService) {}
 
   @Post()
   create(
-    @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateWatchRequestDto,
+    @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.service.create(user.userId, dto);
   }
 
-  @Get('me')
+  @Get('my')
   getMyRequests(@CurrentUser() user: CurrentUserPayload) {
     return this.service.getMyRequests(user.userId);
   }
 
+  /** :id là BIGINT -> nhận dạng string, không dùng ParseIntPipe */
   @Delete(':id')
   cancel(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.service.cancel(id, user.userId);
   }
 
-  // ADMIN
-  @Get()
+  // ── ADMIN ──────────────────────────────────────────────────────────────────
+
+  @Get('admin/all')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
   findAll() {
     return this.service.findAll();
   }
 
-  @Get('movie/:movieId')
+  @Get('admin/by-movie')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'STAFF')
-  findByMovie(@Param('movieId', ParseIntPipe) movieId: number) {
-    return this.service.findByMovie(movieId);
+  @Roles('ADMIN')
+  findByMovie(@Query('movieId') movieId: string) {
+    return this.service.findByMovie(Number(movieId));
   }
 }

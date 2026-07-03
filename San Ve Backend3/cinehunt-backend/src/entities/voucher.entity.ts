@@ -1,12 +1,24 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
+/**
+ * Maps to table `promotions` in V5 schema.
+ * Internally named Voucher to keep existing service/controller code intact.
+ * Column aliases bridge the old field names (code, voucher_id) to the actual DB columns.
+ */
 @Entity('promotions')
 export class Voucher {
   @PrimaryGeneratedColumn({ name: 'promotion_id', type: 'int' })
   promotion_id: number;
 
+  /** Alias: service code dùng `voucher.voucher_id` -> trỏ vào promotion_id */
+  get voucher_id(): number { return this.promotion_id; }
+
   @Column({ name: 'promotion_code', type: 'varchar', length: 50, unique: true })
   promotion_code: string;
+
+  /** Alias: service code dùng `voucher.code` -> trỏ vào promotion_code */
+  get code(): string { return this.promotion_code; }
+  set code(v: string) { this.promotion_code = v; }
 
   @Column({ name: 'promotion_name', type: 'nvarchar', length: 150 })
   promotion_name: string;

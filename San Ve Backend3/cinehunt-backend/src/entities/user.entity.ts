@@ -43,8 +43,15 @@ export class User {
   @Column({ name: 'locked_until', type: 'datetime2', precision: 0, nullable: true })
   locked_until: Date | null;
 
+  /** role: CUSTOMER | ADMIN | STAFF  — lấy từ bảng user_roles qua helper getter */
+  @Column({ type: 'varchar', length: 20, default: 'CUSTOMER' })
+  role: string;
+
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
+
+  @Column({ name: 'last_login_at', type: 'datetime2', precision: 0, nullable: true })
+  last_login_at: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   created_at: Date;

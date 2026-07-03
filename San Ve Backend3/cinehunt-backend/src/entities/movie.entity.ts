@@ -9,6 +9,12 @@ import {
 } from 'typeorm';
 import { Genre } from './genre.entity';
 
+export enum MovieStatus {
+  COMING_SOON = 'COMING_SOON',
+  NOW_SHOWING = 'NOW_SHOWING',
+  ENDED = 'ENDED',
+}
+
 @Entity('movies')
 export class Movie {
   @PrimaryGeneratedColumn({ name: 'movie_id', type: 'int' })
@@ -59,7 +65,7 @@ export class Movie {
   @Column({ name: 'average_rating', type: 'decimal', precision: 3, scale: 2, default: 0 })
   average_rating: number;
 
-  @Column({ type: 'varchar', length: 20, default: 'COMING_SOON' })
+  @Column({ type: 'varchar', length: 20, default: MovieStatus.COMING_SOON })
   status: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })

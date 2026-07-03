@@ -28,7 +28,7 @@ export class PaymentService {
     );
 
     const existingPending =
-      await this.paymentRepository.findPendingByBookingId(dto.bookingId);
+      await this.paymentRepository.findPendingByBookingId(String(dto.bookingId));
     if (existingPending) {
       throw new BadRequestException('Booking đã có payment đang chờ xử lý');
     }
@@ -36,15 +36,13 @@ export class PaymentService {
     const transactionCode = this.paymentRepository.generatePaymentCode();
 
     const payment = await this.paymentRepository.createPayment({
-      booking_id: booking.booking_id,
+      booking_id: String(booking.booking_id) as any,
       payment_method: dto.paymentMethod,
       provider: dto.provider ?? null,
       amount: booking.final_amount,
       transaction_code: transactionCode,
       payment_status: 'PENDING',
-      payment_url: null as any,
       provider_response: null,
-      failed_reason: null,
       paid_at: null,
     } as any);
 
@@ -55,12 +53,11 @@ export class PaymentService {
       paymentMethod: payment.payment_method,
       paymentStatus: payment.payment_status,
       transactionCode: payment.transaction_code,
-      paymentUrl: (payment as any).payment_url,
       createdAt: payment.created_at,
     };
   }
 
-  async processPaymentSuccess(paymentId: number) {
+  async processPaymentSuccess(paymentId: string) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -70,9 +67,7 @@ export class PaymentService {
         where: { payment_id: paymentId },
       });
 
-      if (!payment) {
-        throw new NotFoundException('Không tìm thấy payment');
-      }
+      if (!payment) throw new NotFoundException('Không tìm thấy payment');
 
       if (payment.payment_status !== 'PENDING') {
         throw new BadRequestException(
@@ -81,12 +76,13 @@ export class PaymentService {
       }
 
       const booking = await this.bookingService.validateBookingForPayment(
-        payment.booking_id,
+        payment.booking_id as any,
       );
 
-      const bookingDetails = await this.paymentRepository.getBookingDetailsByBookingId(
-        payment.booking_id,
-      );
+      const bookingDetails =
+        await this.paymentRepository.getBookingDetailsByBookingId(
+          payment.booking_id,
+        );
 
       if (!bookingDetails.length) {
         throw new BadRequestException('Không tìm thấy ghế trong booking');
@@ -116,7 +112,7 @@ export class PaymentService {
 
       for (const detail of bookingDetails) {
         const existing = await this.paymentRepository.findTicketByDetailId(
-          detail.booking_detail_id,
+          String(detail.booking_detail_id),
         );
 
         if (existing) {
@@ -134,7 +130,7 @@ export class PaymentService {
         }
 
         const newTicket = await this.paymentRepository.createTicket({
-          booking_detail_id: detail.booking_detail_id,
+          booking_detail_id: String(detail.booking_detail_id) as any,
           ticket_code: this.paymentRepository.generateTicketCode(),
           qr_code: this.paymentRepository.generateQrCode(),
           ticket_status: 'VALID',
@@ -171,12 +167,10 @@ export class PaymentService {
     }
   }
 
-  async processPaymentFailed(paymentId: number) {
+  async processPaymentFailed(paymentId: string) {
     const payment = await this.paymentRepository.findPaymentById(paymentId);
 
-    if (!payment) {
-      throw new NotFoundException('Không tìm thấy payment');
-    }
+    if (!payment) throw new NotFoundException('Không tìm thấy payment');
 
     if (payment.payment_status !== 'PENDING') {
       throw new BadRequestException(
@@ -189,21 +183,16 @@ export class PaymentService {
       'Payment failed by system',
     );
 
-    await this.bookingService.cancelBooking(String(payment.booking_id), payment.user_id as any);
+    // cancelBooking nhận bookingId dạng string (BIGINT)
+    await this.bookingService.cancelBooking(payment.booking_id, undefined as any);
 
-    return {
-      success: true,
-      paymentId,
-      status: 'FAILED',
-    };
+    return { success: true, paymentId, status: 'FAILED' };
   }
 
-  async getPaymentByBookingId(bookingId: number) {
+  async getPaymentByBookingId(bookingId: string) {
     const payment = await this.paymentRepository.findLatestByBookingId(bookingId);
 
-    if (!payment) {
-      throw new NotFoundException('Không tìm thấy payment của booking');
-    }
+    if (!payment) throw new NotFoundException('Không tìm thấy payment của booking');
 
     return {
       paymentId: payment.payment_id,
@@ -212,8 +201,6 @@ export class PaymentService {
       paymentMethod: payment.payment_method,
       paymentStatus: payment.payment_status,
       transactionCode: payment.transaction_code,
-      paymentUrl: (payment as any).payment_url,
-      failedReason: (payment as any).failed_reason,
       paidAt: payment.paid_at,
       createdAt: payment.created_at,
     };
