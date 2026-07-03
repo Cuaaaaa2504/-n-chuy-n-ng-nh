@@ -1,10 +1,10 @@
 export class PaymentResponse {
-  paymentId: number;
-  bookingId: number;
+  paymentId: string;
+  bookingId: string;
   amount: number;
   paymentMethod: string;
   paymentStatus: string;
-  transactionCode?: string;
-  paymentUrl?: string;
-  createdAt?: Date;
+  transactionCode: string;
+  paymentUrl?: string | null;
+  createdAt: Date;
 }

@@ -29,9 +29,9 @@ export class HoldSeatsDto {
 }
 
 export class HoldResponseDto {
-  holdId: number;
+  holdId: string;
   holdToken: string;
-  expiredAt: Date;
+  expiresAt: Date;
   status: string;
   showtimeSeatId: number;
   seatLabel: string;

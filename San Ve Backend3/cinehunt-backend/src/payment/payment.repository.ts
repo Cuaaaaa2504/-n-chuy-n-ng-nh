@@ -10,13 +10,11 @@ import { BookingDetail } from '../entities/booking-detail.entity';
 export class PaymentRepository {
   constructor(
     @InjectRepository(Payment)
-    private paymentRepo: Repository<Payment>,
-
+    private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Ticket)
-    private ticketRepo: Repository<Ticket>,
-
+    private readonly ticketRepo: Repository<Ticket>,
     @InjectRepository(BookingDetail)
-    private bookingDetailRepo: Repository<BookingDetail>,
+    private readonly bookingDetailRepo: Repository<BookingDetail>,
   ) {}
 
   async createPayment(data: Partial<Payment>): Promise<Payment> {
@@ -49,7 +47,9 @@ export class PaymentRepository {
     paidAt?: Date,
   ): Promise<void> {
     const data: Partial<Payment> = { payment_status: status } as any;
-    if (paidAt) (data as any).paid_at = paidAt;
+    if (paidAt) {
+      (data as any).paid_at = paidAt;
+    }
     await this.paymentRepo.update(paymentId, data);
   }
 
@@ -65,7 +65,7 @@ export class PaymentRepository {
   ): Promise<BookingDetail[]> {
     return this.bookingDetailRepo.find({
       where: { booking_id: bookingId },
-      relations: ['showtime_seat', 'showtime_seat.seat'],
+      relations: ['showtime_seat', 'showtime_seat.seat', 'showtime_seat.showtime', 'showtime_seat.showtime.movie', 'showtime_seat.showtime.room', 'showtime_seat.showtime.room.cinema'],
     });
   }
 
@@ -83,18 +83,12 @@ export class PaymentRepository {
   }
 
   generatePaymentCode(): string {
-    const dateStr = new Date()
-      .toISOString()
-      .slice(0, 10)
-      .replace(/-/g, '');
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     return `PAY-${dateStr}-${uuidv4().slice(0, 6).toUpperCase()}`;
   }
 
   generateTicketCode(): string {
-    const dateStr = new Date()
-      .toISOString()
-      .slice(0, 10)
-      .replace(/-/g, '');
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     return `TICKET-${dateStr}-${uuidv4().slice(0, 6).toUpperCase()}`;
   }
 

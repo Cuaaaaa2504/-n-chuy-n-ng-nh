@@ -32,7 +32,7 @@ export class ShowtimeSeat {
   @Column({ name: 'hold_expires_at', type: 'datetime2', precision: 0, nullable: true })
   hold_expires_at: Date | null;
 
-  @Column({ name: 'row_version', type: 'timestamp', nullable: true, select: false })
+  @Column({ name: 'row_version', type: 'rowversion', select: false, nullable: true })
   row_version?: Buffer;
 
   @ManyToOne(() => Showtime)

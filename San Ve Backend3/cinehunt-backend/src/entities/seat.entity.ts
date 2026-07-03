@@ -1,4 +1,10 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Room } from './room.entity';
 import { SeatType } from './seat-type.entity';
 
@@ -10,17 +16,17 @@ export class Seat {
   @Column({ name: 'room_id', type: 'int' })
   room_id: number;
 
-  @Column({ name: 'seat_row', type: 'varchar', length: 10 })
+  @Column({ name: 'seat_type_id', type: 'int' })
+  seat_type_id: number;
+
+  @Column({ name: 'seat_row', type: 'varchar', length: 5 })
   seat_row: string;
 
   @Column({ name: 'seat_number', type: 'int' })
   seat_number: number;
 
-  @Column({ name: 'seat_label', type: 'varchar', length: 20 })
+  @Column({ name: 'seat_label', type: 'varchar', length: 15 })
   seat_label: string;
-
-  @Column({ name: 'seat_type_id', type: 'int' })
-  seat_type_id: number;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;

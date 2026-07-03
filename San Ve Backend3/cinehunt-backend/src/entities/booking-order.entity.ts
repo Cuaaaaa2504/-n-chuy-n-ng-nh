@@ -31,16 +31,39 @@ export class BookingOrder {
   @Column({ name: 'promotion_id', type: 'int', nullable: true })
   promotion_id: number | null;
 
-  @Column({ name: 'subtotal_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({
+    name: 'subtotal_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
   subtotal_amount: number;
 
-  @Column({ name: 'discount_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({
+    name: 'discount_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
   discount_amount: number;
 
-  @Column({ name: 'product_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({
+    name: 'product_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
   product_amount: number;
 
-  @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2 })
+  @Column({
+    name: 'total_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+  })
   total_amount: number;
 
   @Column({ type: 'varchar', length: 30, default: 'PENDING_PAYMENT' })

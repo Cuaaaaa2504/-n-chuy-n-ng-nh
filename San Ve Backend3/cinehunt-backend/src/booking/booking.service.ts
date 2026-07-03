@@ -216,4 +216,42 @@ export class BookingService {
 
     return { expiredCount: targets.length };
   }
+
+  async validateBookingForPayment(bookingId: number | string, userId?: number) {
+    const booking = await this.bookingRepo.findOne({
+      where: {
+        booking_id: String(bookingId),
+        ...(userId ? { user_id: userId } : {}),
+      } as any,
+      relations: { booking_details: true },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Không tìm thấy booking');
+    }
+
+    if (booking.status !== 'PENDING_PAYMENT') {
+      throw new BadRequestException('Booking không ở trạng thái chờ thanh toán');
+    }
+
+    if (booking.expires_at && new Date(booking.expires_at) <= new Date()) {
+      throw new BadRequestException('Booking đã hết hạn');
+    }
+
+    return {
+      ...booking,
+      final_amount: Number(booking.total_amount),
+    } as any;
+  }
+
+  async updateBookingToPaid(bookingId: string) {
+    await this.bookingRepo.update(
+      { booking_id: bookingId },
+      {
+        status: 'PAID',
+        paid_at: new Date(),
+        issued_at: new Date(),
+      } as any,
+    );
+  }
 }

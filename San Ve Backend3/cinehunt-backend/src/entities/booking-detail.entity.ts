@@ -31,7 +31,9 @@ export class BookingDetail {
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   created_at: Date;
 
-  @ManyToOne(() => BookingOrder, (booking) => booking.booking_details, { onDelete: 'CASCADE' })
+  @ManyToOne(() => BookingOrder, (booking) => booking.booking_details, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'booking_id' })
   booking: BookingOrder;
 

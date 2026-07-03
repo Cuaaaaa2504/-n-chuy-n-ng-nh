@@ -12,7 +12,7 @@ export class SeatHoldSchedulerService {
   async expireSeatHolds() {
     try {
       await this.dataSource.query(`
-        EXEC sp_expire_seat_holds
+        EXEC sp_release_expired_holds
       `);
 
       this.logger.log('Expired seat holds released');

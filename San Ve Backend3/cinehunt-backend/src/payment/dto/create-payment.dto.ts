@@ -1,13 +1,16 @@
-import { IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreatePaymentDto {
   @IsInt()
-  @Min(1)
   @Type(() => Number)
+  @Min(1)
   bookingId: number;
 
   @IsString()
-  @IsNotEmpty()
   paymentMethod: string;
+
+  @IsOptional()
+  @IsString()
+  provider?: string;
 }
