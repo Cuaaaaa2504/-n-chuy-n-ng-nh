@@ -11,12 +11,14 @@ export class BookingExpireScheduler {
   @Cron(CronExpression.EVERY_MINUTE)
   async handleExpiredBookings() {
     try {
-      const expiredCount = await this.bookingService.expirePendingBookings();
-      if (expiredCount > 0) {
-        this.logger.log(`Đã hủy ${expiredCount} đơn đặt vé hết hạn`);
+      const result = await this.bookingService.expirePendingBookings();
+
+      if (result.expiredCount > 0) {
+        this.logger.log(`Đã hủy ${result.expiredCount} đơn đặt vé hết hạn`);
       }
-    } catch (error) {
-      this.logger.error(`Lỗi khi xử lý đơn hết hạn: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Lỗi khi xử lý đơn hết hạn: ${message}`);
     }
   }
 }

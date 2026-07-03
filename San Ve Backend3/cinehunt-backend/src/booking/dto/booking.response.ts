@@ -1,12 +1,12 @@
 export class BookingResponse {
-  bookingId: number;
+  bookingId: string;
   bookingCode: string;
   showtimeId: number;
   seatCount: number;
-  totalAmount: number;
+  subtotalAmount: number;
+  productAmount: number;
   discountAmount: number;
-  finalAmount: number;
+  totalAmount: number;
   status: string;
-  expiredAt: Date;
-  paymentUrl?: string;
+  expiresAt: Date | null;
 }

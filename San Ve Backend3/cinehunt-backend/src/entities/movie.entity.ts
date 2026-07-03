@@ -1,33 +1,26 @@
 import {
-  Column,
-  CreateDateColumn,
   Entity,
-  JoinTable,
-  ManyToMany,
+  Column,
   PrimaryGeneratedColumn,
+  CreateDateColumn,
   UpdateDateColumn,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { Genre } from './genre.entity';
-
-export enum MovieStatus {
-  COMING_SOON = 'COMING_SOON',
-  NOW_SHOWING = 'NOW_SHOWING',
-  ENDED = 'ENDED',
-  HIDDEN = 'HIDDEN',
-}
 
 @Entity('movies')
 export class Movie {
   @PrimaryGeneratedColumn({ name: 'movie_id', type: 'int' })
   movie_id: number;
 
-  @Column({ name: 'title', type: 'nvarchar', length: 250 })
+  @Column({ type: 'nvarchar', length: 250 })
   title: string;
 
   @Column({ name: 'original_title', type: 'nvarchar', length: 250, nullable: true })
   original_title: string | null;
 
-  @Column({ name: 'description', type: 'nvarchar', nullable: true })
+  @Column({ type: 'nvarchar', nullable: true })
   description: string | null;
 
   @Column({ name: 'duration_minutes', type: 'int' })
@@ -42,16 +35,16 @@ export class Movie {
   @Column({ name: 'age_rating', type: 'varchar', length: 10, nullable: true })
   age_rating: string | null;
 
-  @Column({ name: 'director', type: 'nvarchar', length: 150, nullable: true })
+  @Column({ type: 'nvarchar', length: 150, nullable: true })
   director: string | null;
 
-  @Column({ name: 'actors', type: 'nvarchar', length: 1000, nullable: true })
+  @Column({ type: 'nvarchar', length: 1000, nullable: true })
   actors: string | null;
 
-  @Column({ name: 'country', type: 'nvarchar', length: 100, nullable: true })
+  @Column({ type: 'nvarchar', length: 100, nullable: true })
   country: string | null;
 
-  @Column({ name: 'language', type: 'nvarchar', length: 100, nullable: true })
+  @Column({ type: 'nvarchar', length: 100, nullable: true })
   language: string | null;
 
   @Column({ name: 'poster_url', type: 'nvarchar', length: 500, nullable: true })
@@ -66,21 +59,16 @@ export class Movie {
   @Column({ name: 'average_rating', type: 'decimal', precision: 3, scale: 2, default: 0 })
   average_rating: number;
 
-  @Column({
-    name: 'status',
-    type: 'varchar',
-    length: 20,
-    default: MovieStatus.COMING_SOON,
-  })
-  status: MovieStatus;
+  @Column({ type: 'varchar', length: 20, default: 'COMING_SOON' })
+  status: string;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
   updated_at: Date;
 
-  @ManyToMany(() => Genre, (genre) => genre.movies, { eager: true })
+  @ManyToMany(() => Genre)
   @JoinTable({
     name: 'movie_genres',
     joinColumn: { name: 'movie_id', referencedColumnName: 'movie_id' },

@@ -1,37 +1,33 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { User } from './user.entity';
 
 @Entity('notifications')
 export class Notification {
-  @PrimaryGeneratedColumn()
-  notification_id: number;
+  @PrimaryGeneratedColumn({ name: 'notification_id', type: 'bigint' })
+  notification_id: string;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'int' })
   user_id: number;
+
+  @Column({ type: 'varchar', length: 30 })
+  type: string;
 
   @Column({ type: 'nvarchar', length: 200 })
   title: string;
 
   @Column({ type: 'nvarchar', length: 1000 })
-  body: string;
-
-  @Column({ type: 'varchar', length: 30, nullable: true })
-  type: string; // BOOKING | PAYMENT | SYSTEM | PROMOTION
-
-  @Column({ name: 'ref_id', nullable: true })
-  ref_id: number; // booking_id, payment_id...
+  message: string;
 
   @Column({ name: 'is_read', type: 'bit', default: false })
   is_read: boolean;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @Column({ name: 'related_entity_type', type: 'varchar', length: 50, nullable: true })
+  related_entity_type: string | null;
+
+  @Column({ name: 'related_entity_id', type: 'varchar', length: 50, nullable: true })
+  related_entity_id: string | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   created_at: Date;
 
   @ManyToOne(() => User)

@@ -10,7 +10,6 @@ import { MovieModule } from './movie/movie.module';
 import { ShowtimeModule } from './showtime/showtime.module';
 import { ShowtimeSeatsModule } from './showtime-seats/showtime-seats.module';
 import { UsersModule } from './users/users.module';
-import { VoucherModule } from './voucher/voucher.module';
 import { OtpCodeModule } from './otp-code/otp-code.module';
 import { NotificationModule } from './notification/notification.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
@@ -47,7 +46,6 @@ import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-re
     ShowtimeModule,
     ShowtimeSeatsModule,
     UsersModule,
-    VoucherModule,
     OtpCodeModule,
     NotificationModule,
     AuditLogModule,

@@ -19,7 +19,7 @@ export class BookingCombo {
   @Column({ name: 'unit_price', type: 'decimal', precision: 12, scale: 2 })
   unit_price: number;
 
-  @ManyToOne(() => BookingOrder)
+  @ManyToOne(() => BookingOrder, (booking) => booking.booking_products, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'booking_id' })
   booking: BookingOrder;
 

@@ -20,12 +20,12 @@ export class BookingController {
   @Get(':id')
   async getBookingDetail(@Request() req, @Param('id') id: string) {
     const userId = req.user.user_id;
-    return this.bookingService.getBookingDetail(+id, userId);
+    return this.bookingService.getBookingDetail(id, userId);
   }
 
   @Delete(':id')
   async cancelBooking(@Request() req, @Param('id') id: string) {
     const userId = req.user.user_id;
-    return this.bookingService.cancelBooking(+id, userId);
+    return this.bookingService.cancelBooking(id, userId);
   }
 }

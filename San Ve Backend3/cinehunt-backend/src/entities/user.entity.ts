@@ -6,9 +6,6 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { BookingOrder } from './booking-order.entity';
-import { SeatHold } from './seat-hold.entity';
-import { TicketWatchRequest } from './ticket-watch-request.entity';
 import { UserRole } from './user-role.entity';
 
 @Entity('users')
@@ -16,7 +13,7 @@ export class User {
   @PrimaryGeneratedColumn({ name: 'user_id', type: 'int' })
   user_id: number;
 
-  @Column({ type: 'nvarchar', length: 120 })
+  @Column({ name: 'full_name', type: 'nvarchar', length: 120 })
   full_name: string;
 
   @Column({ type: 'varchar', length: 150, unique: true })
@@ -25,25 +22,25 @@ export class User {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string | null;
 
-  @Column({ type: 'varchar', length: 255, name: 'password_hash' })
+  @Column({ name: 'password_hash', type: 'varchar', length: 255 })
   password_hash: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'refresh_token_hash' })
+  @Column({ name: 'refresh_token_hash', type: 'varchar', length: 255, nullable: true })
   refresh_token_hash: string | null;
 
-  @Column({ type: 'nvarchar', length: 500, nullable: true, name: 'avatar_url' })
+  @Column({ name: 'avatar_url', type: 'nvarchar', length: 500, nullable: true })
   avatar_url: string | null;
 
-  @Column({ type: 'date', nullable: true, name: 'date_of_birth' })
-  date_of_birth: string | null;
+  @Column({ name: 'date_of_birth', type: 'date', nullable: true })
+  date_of_birth: Date | null;
 
-  @Column({ type: 'bit', default: false, name: 'email_verified' })
+  @Column({ name: 'email_verified', type: 'bit', default: false })
   email_verified: boolean;
 
-  @Column({ type: 'int', default: 0, name: 'failed_login_attempts' })
+  @Column({ name: 'failed_login_attempts', type: 'int', default: 0 })
   failed_login_attempts: number;
 
-  @Column({ type: 'datetime2', precision: 0, nullable: true, name: 'locked_until' })
+  @Column({ name: 'locked_until', type: 'datetime2', precision: 0, nullable: true })
   locked_until: Date | null;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
@@ -54,15 +51,6 @@ export class User {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
   updated_at: Date;
-
-  @OneToMany(() => BookingOrder, (booking) => booking.user)
-  bookings: BookingOrder[];
-
-  @OneToMany(() => SeatHold, (hold) => hold.user)
-  seat_holds: SeatHold[];
-
-  @OneToMany(() => TicketWatchRequest, (request) => request.user)
-  watch_requests: TicketWatchRequest[];
 
   @OneToMany(() => UserRole, (userRole) => userRole.user)
   user_roles: UserRole[];

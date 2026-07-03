@@ -1,356 +1,219 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { SeatHold } from '../entities/seat-hold.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
+import { ConcessionCombo } from '../entities/concession-combo.entity';
+import { BookingCombo } from '../entities/booking-combo.entity';
 import { CreateBookingRequest, BookingResponse } from './dto';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class BookingService {
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(BookingOrder)
-    private bookingOrderRepository: Repository<BookingOrder>,
+    private readonly bookingRepo: Repository<BookingOrder>,
     @InjectRepository(BookingDetail)
-    private bookingDetailRepository: Repository<BookingDetail>,
+    private readonly bookingDetailRepo: Repository<BookingDetail>,
     @InjectRepository(SeatHold)
-    private seatHoldRepository: Repository<SeatHold>,
+    private readonly holdRepo: Repository<SeatHold>,
     @InjectRepository(ShowtimeSeat)
-    private showtimeSeatRepository: Repository<ShowtimeSeat>,
-    private dataSource: DataSource,
+    private readonly showtimeSeatRepo: Repository<ShowtimeSeat>,
+    @InjectRepository(ConcessionCombo)
+    private readonly productRepo: Repository<ConcessionCombo>,
+    @InjectRepository(BookingCombo)
+    private readonly bookingProductRepo: Repository<BookingCombo>,
   ) {}
 
-  async createBooking(
-    userId: number,
-    request: CreateBookingRequest,
-  ): Promise<BookingResponse> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  async createBooking(userId: number, request: CreateBookingRequest): Promise<BookingResponse> {
+    const now = new Date();
 
-    try {
-      const { holdIds } = request;
+    const holds = await this.holdRepo.find({
+      where: {
+        hold_id: In(request.holdIds.map((x) => String(x))),
+        user_id: userId,
+        status: 'ACTIVE',
+      },
+      relations: { showtime_seat: true },
+    });
 
-      const holds = await queryRunner.manager.find(SeatHold, {
-        where: holdIds.map((id) => ({ hold_id: id })),
-        relations: ['showtime_seat', 'showtime_seat.showtime', 'user'],
+    if (holds.length !== request.holdIds.length) {
+      throw new BadRequestException('Một hoặc nhiều hold không hợp lệ');
+    }
+
+    if (holds.some((h) => new Date(h.expires_at) <= now)) {
+      throw new BadRequestException('Có hold đã hết hạn');
+    }
+
+    const distinctShowtimeIds = [...new Set(holds.map((h) => h.showtime_seat.showtime_id))];
+    if (distinctShowtimeIds.length !== 1) {
+      throw new BadRequestException('Các ghế phải thuộc cùng một suất chiếu');
+    }
+
+    const showtimeId = distinctShowtimeIds[0];
+    const subtotalAmount = holds.reduce((sum, h) => sum + Number(h.showtime_seat.price), 0);
+
+    const requestedProducts = request.products ?? [];
+    const productIds = requestedProducts.map((p) => p.productId);
+    const products = productIds.length
+      ? await this.productRepo.find({ where: { product_id: In(productIds), status: 'ACTIVE' } })
+      : [];
+
+    if (products.length !== productIds.length) {
+      throw new BadRequestException('Có sản phẩm không tồn tại hoặc không hoạt động');
+    }
+
+    const productAmount = requestedProducts.reduce((sum, item) => {
+      const product = products.find((p) => p.product_id === item.productId)!;
+      return sum + Number(product.price) * item.quantity;
+    }, 0);
+
+    const discountAmount = 0;
+    const totalAmount = subtotalAmount + productAmount - discountAmount;
+    const expiresAt = new Date(now.getTime() + 10 * 60 * 1000);
+    const bookingCode = `BK${Date.now()}`;
+
+    return this.dataSource.transaction(async (manager) => {
+      const booking = manager.create(BookingOrder, {
+        booking_code: bookingCode,
+        user_id: userId,
+        showtime_id: showtimeId,
+        promotion_id: request.promotionId ?? null,
+        subtotal_amount: subtotalAmount,
+        product_amount: productAmount,
+        discount_amount: discountAmount,
+        total_amount: totalAmount,
+        status: 'PENDING_PAYMENT',
+        idempotency_key: request.idempotencyKey ?? null,
+        expires_at: expiresAt,
       });
 
-      if (holds.length !== holdIds.length) {
-        throw new NotFoundException('Không tìm thấy một hoặc nhiều ghế giữ');
-      }
+      const savedBooking = await manager.save(BookingOrder, booking);
 
-      const now = new Date();
-
-      for (const hold of holds) {
-        if (hold.user_id !== userId) {
-          throw new ForbiddenException(`Ghế giữ ${hold.hold_id} không thuộc về bạn`);
-        }
-
-        if (hold.status !== 'ACTIVE') {
-          throw new BadRequestException(`Ghế giữ ${hold.hold_id} không còn hiệu lực`);
-        }
-
-        if (new Date(hold.expired_at) < now) {
-          throw new BadRequestException(`Ghế giữ ${hold.hold_id} đã hết hạn`);
-        }
-
-        const showtimeSeat = await queryRunner.manager.findOne(ShowtimeSeat, {
-          where: { showtime_seat_id: hold.showtime_seat_id },
-        });
-
-        if (
-          !showtimeSeat ||
-          showtimeSeat.status !== 'HELD' ||
-          showtimeSeat.held_by_user_id !== userId
-        ) {
-          throw new BadRequestException(
-            `Ghế ${hold.hold_id} không còn được giữ hợp lệ`,
-          );
-        }
-
-        if (
-          showtimeSeat.hold_expires_at &&
-          new Date(showtimeSeat.hold_expires_at) < now
-        ) {
-          throw new BadRequestException(`Thời gian giữ ghế ${hold.hold_id} đã hết`);
-        }
-      }
-
-      const showtimeId = holds[0].showtime_seat.showtime_id;
-      const sameShowtime = holds.every(
-        (h) => h.showtime_seat.showtime_id === showtimeId,
+      const details = holds.map((hold) =>
+        manager.create(BookingDetail, {
+          booking_id: savedBooking.booking_id,
+          showtime_seat_id: hold.showtime_seat_id,
+          seat_price: Number(hold.showtime_seat.price),
+          status: 'ACTIVE',
+        }),
       );
+      await manager.save(BookingDetail, details);
 
-      if (!sameShowtime) {
-        throw new BadRequestException('Tất cả ghế phải thuộc cùng một suất chiếu');
+      if (requestedProducts.length > 0) {
+        const bookingProducts = requestedProducts.map((item) => {
+          const product = products.find((p) => p.product_id === item.productId)!;
+          return manager.create(BookingCombo, {
+            booking_id: savedBooking.booking_id,
+            product_id: product.product_id,
+            quantity: item.quantity,
+            unit_price: Number(product.price),
+          });
+        });
+        await manager.save(BookingCombo, bookingProducts);
       }
-
-      const totalAmount = holds.reduce((sum, hold) => {
-        return sum + Number(hold.showtime_seat.price);
-      }, 0);
-
-      const bookingCode = this.generateBookingCode();
-
-      const booking = new BookingOrder();
-      booking.user_id = userId;
-      booking.showtime_id = showtimeId;
-      booking.booking_code = bookingCode;
-      booking.total_amount = totalAmount;
-      booking.discount_amount = 0;
-      booking.final_amount = totalAmount;
-      booking.status = 'PENDING_PAYMENT';
-      booking.expired_at = new Date(now.getTime() + 10 * 60000);
-
-      const savedBooking = await queryRunner.manager.save(BookingOrder, booking);
 
       for (const hold of holds) {
-        const bookingDetail = new BookingDetail();
-        bookingDetail.booking_id = savedBooking.booking_id;
-        bookingDetail.showtime_seat_id = hold.showtime_seat_id;
-        bookingDetail.seat_price = hold.showtime_seat.price;
-
-        await queryRunner.manager.save(BookingDetail, bookingDetail);
-
-        await queryRunner.manager.update(SeatHold, hold.hold_id, {
-          expired_at: booking.expired_at,
-        });
-
-        await queryRunner.manager.update(ShowtimeSeat, hold.showtime_seat_id, {
-          hold_expires_at: booking.expired_at,
-        });
+        await manager.update(SeatHold, { hold_id: hold.hold_id }, { status: 'CONFIRMED' });
+        await manager.update(
+          ShowtimeSeat,
+          { showtime_seat_id: hold.showtime_seat_id },
+          {
+            status: 'HELD',
+            held_by_user_id: userId,
+            hold_expires_at: expiresAt,
+          },
+        );
       }
-
-      await queryRunner.commitTransaction();
 
       return {
         bookingId: savedBooking.booking_id,
         bookingCode: savedBooking.booking_code,
-        showtimeId: showtimeId,
+        showtimeId,
         seatCount: holds.length,
-        totalAmount: totalAmount,
-        discountAmount: 0,
-        finalAmount: totalAmount,
+        subtotalAmount,
+        productAmount,
+        discountAmount,
+        totalAmount,
         status: savedBooking.status,
-        expiredAt: savedBooking.expired_at,
+        expiresAt,
       };
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+    });
   }
 
-  async getBookingDetail(bookingId: number, userId: number): Promise<any> {
-    const booking = await this.bookingOrderRepository.findOne({
+  async getBookingDetail(bookingId: string, userId: number) {
+    const booking = await this.bookingRepo.findOne({
       where: { booking_id: bookingId, user_id: userId },
-      relations: [
-        'showtime',
-        'showtime.movie',
-        'booking_details',
-        'booking_details.showtime_seat',
-        'booking_details.showtime_seat.seat',
-      ],
+      relations: {
+        booking_details: { showtime_seat: { seat: true } as any },
+        payments: true,
+        booking_products: { product: true } as any,
+      } as any,
     });
 
     if (!booking) {
-      throw new NotFoundException('Không tìm thấy đơn đặt vé');
+      throw new NotFoundException('Không tìm thấy booking');
     }
 
     return booking;
   }
 
-  async validateBookingForPayment(
-    bookingId: number,
-    userId?: number,
-  ): Promise<BookingOrder> {
-    const where = userId
-      ? { booking_id: bookingId, user_id: userId }
-      : { booking_id: bookingId };
-
-    const booking = await this.bookingOrderRepository.findOne({
-      where,
-      relations: [
-        'showtime',
-        'showtime.movie',
-        'booking_details',
-        'booking_details.showtime_seat',
-        'booking_details.showtime_seat.seat',
-      ],
+  async cancelBooking(bookingId: string, userId: number) {
+    const booking = await this.bookingRepo.findOne({
+      where: { booking_id: bookingId, user_id: userId },
+      relations: { booking_details: true },
     });
 
     if (!booking) {
-      throw new NotFoundException('Không tìm thấy đơn đặt vé');
+      throw new NotFoundException('Không tìm thấy booking');
     }
 
-    if (booking.status !== 'PENDING_PAYMENT') {
-      throw new BadRequestException(
-        `Booking status is ${booking.status}, only PENDING_PAYMENT can be paid`,
-      );
+    if (!['PENDING_PAYMENT', 'FAILED'].includes(booking.status)) {
+      throw new BadRequestException('Booking không thể hủy ở trạng thái hiện tại');
     }
 
-    if (booking.expired_at && new Date() > new Date(booking.expired_at)) {
-      throw new BadRequestException('Booking has expired');
-    }
-
-    return booking;
-  }
-
-  async updateBookingStatus(bookingId: number, status: string): Promise<void> {
-    const result = await this.bookingOrderRepository.update(bookingId, { status });
-
-    if (!result.affected) {
-      throw new NotFoundException('Không tìm thấy đơn đặt vé');
-    }
-  }
-
-  async updateBookingToPaid(bookingId: number): Promise<void> {
-    await this.updateBookingStatus(bookingId, 'PAID');
-  }
-
-  async updateBookingToIssued(bookingId: number): Promise<void> {
-    await this.updateBookingStatus(bookingId, 'ISSUED');
-  }
-
-  async updateBookingToFailed(bookingId: number): Promise<void> {
-    await this.updateBookingStatus(bookingId, 'FAILED');
-  }
-
-  async cancelBooking(bookingId: number, userId: number): Promise<void> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      const booking = await queryRunner.manager.findOne(BookingOrder, {
-        where: { booking_id: bookingId, user_id: userId },
-        relations: ['booking_details'],
-      });
-
-      if (!booking) {
-        throw new NotFoundException('Không tìm thấy đơn đặt vé');
-      }
-
-      if (booking.status !== 'PENDING_PAYMENT') {
-        throw new BadRequestException('Chỉ có thể hủy đơn ở trạng thái chờ thanh toán');
-      }
-
-      await queryRunner.manager.update(BookingOrder, bookingId, {
-        status: 'CANCELLED',
-      });
-
-      const showtimeSeatIds = booking.booking_details.map(
-        (detail) => detail.showtime_seat_id,
+    return this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        BookingOrder,
+        { booking_id: bookingId },
+        { status: 'CANCELLED', cancelled_at: new Date() },
       );
 
       for (const detail of booking.booking_details) {
-        await queryRunner.manager.update(ShowtimeSeat, detail.showtime_seat_id, {
-          status: 'AVAILABLE',
-          held_by_user_id: null,
-          hold_expires_at: null,
-        });
-      }
-
-      if (showtimeSeatIds.length > 0) {
-        await queryRunner.manager.update(
-          SeatHold,
-          {
-            user_id: userId,
-            showtime_seat_id: In(showtimeSeatIds),
-            status: 'ACTIVE',
-          },
-          {
-            status: 'CANCELLED',
-          },
+        await manager.update(
+          BookingDetail,
+          { booking_detail_id: detail.booking_detail_id },
+          { status: 'CANCELLED' },
+        );
+        await manager.update(
+          ShowtimeSeat,
+          { showtime_seat_id: detail.showtime_seat_id },
+          { status: 'AVAILABLE', held_by_user_id: null, hold_expires_at: null },
         );
       }
 
-      await queryRunner.commitTransaction();
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+      return { success: true, bookingId };
+    });
   }
 
-  async expirePendingBookings(): Promise<number> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  async expirePendingBookings() {
+    const now = new Date();
+    const bookings = await this.bookingRepo.find({
+      where: { status: 'PENDING_PAYMENT' as any },
+      relations: { booking_details: true },
+    });
+    const targets = bookings.filter((b) => b.expires_at && new Date(b.expires_at) <= now);
 
-    try {
-      const now = new Date();
-
-      const expiredBookings = await queryRunner.manager.find(BookingOrder, {
-        where: {
-          status: 'PENDING_PAYMENT',
-        },
-        relations: ['booking_details'],
-      });
-
-      const toExpire = expiredBookings.filter(
-        (b) => b.expired_at && new Date(b.expired_at) < now,
+    for (const booking of targets) {
+      await this.cancelBooking(booking.booking_id, booking.user_id);
+      await this.bookingRepo.update(
+        { booking_id: booking.booking_id },
+        { status: 'EXPIRED', cancelled_at: now },
       );
-
-      let expiredCount = 0;
-
-      for (const booking of toExpire) {
-        await queryRunner.manager.update(BookingOrder, booking.booking_id, {
-          status: 'EXPIRED',
-        });
-
-        const showtimeSeatIds = booking.booking_details.map(
-          (detail) => detail.showtime_seat_id,
-        );
-
-        for (const detail of booking.booking_details) {
-          await queryRunner.manager.update(ShowtimeSeat, detail.showtime_seat_id, {
-            status: 'AVAILABLE',
-            held_by_user_id: null,
-            hold_expires_at: null,
-          });
-        }
-
-        if (showtimeSeatIds.length > 0) {
-          await queryRunner.manager.update(
-            SeatHold,
-            {
-              user_id: booking.user_id,
-              showtime_seat_id: In(showtimeSeatIds),
-              status: 'ACTIVE',
-            },
-            {
-              status: 'EXPIRED',
-            },
-          );
-        }
-
-        expiredCount++;
-      }
-
-      await queryRunner.commitTransaction();
-      return expiredCount;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
     }
-  }
 
-  private generateBookingCode(): string {
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const randomStr = uuidv4().slice(0, 6).toUpperCase();
-    return `BOOK-${dateStr}-${randomStr}`;
+    return { expiredCount: targets.length };
   }
 }
