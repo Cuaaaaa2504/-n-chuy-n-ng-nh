@@ -7,9 +7,11 @@ export interface LogDto {
   userId?: number;
   action: string;
   entityType?: string;
-  entityId?: number;
-  description?: string;
+  entityId?: string;
+  oldValues?: string;
+  newValues?: string;
   ipAddress?: string;
+  userAgent?: string;
 }
 
 @Injectable()
@@ -25,8 +27,10 @@ export class AuditLogService {
       action: dto.action,
       entity_type: dto.entityType ?? null,
       entity_id: dto.entityId ?? null,
-      description: dto.description ?? null,
+      old_values: dto.oldValues ?? null,
+      new_values: dto.newValues ?? null,
       ip_address: dto.ipAddress ?? null,
+      user_agent: dto.userAgent ?? null,
     });
     return this.logRepo.save(entry);
   }

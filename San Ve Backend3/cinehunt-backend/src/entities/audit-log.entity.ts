@@ -10,31 +10,37 @@ import { User } from './user.entity';
 
 @Entity('audit_logs')
 export class AuditLog {
-  @PrimaryGeneratedColumn()
-  log_id: number;
+  @PrimaryGeneratedColumn({ name: 'audit_id', type: 'bigint' })
+  audit_id: string;
 
-  @Column({ name: 'user_id', nullable: true })
-  user_id: number;
+  @Column({ name: 'user_id', nullable: true, type: 'int' })
+  user_id: number | null;
 
-  @Column({ type: 'varchar', length: 50 })
-  action: string; // LOGIN | LOGOUT | CREATE_BOOKING | CANCEL_BOOKING...
+  @Column({ type: 'varchar', length: 80 })
+  action: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  entity_type: string; // booking | payment | user...
+  @Column({ type: 'varchar', length: 80 })
+  entity_type: string;
 
-  @Column({ name: 'entity_id', nullable: true })
-  entity_id: number;
+  @Column({ name: 'entity_id', type: 'varchar', length: 80, nullable: true })
+  entity_id: string | null;
 
-  @Column({ type: 'nvarchar', length: 1000, nullable: true })
-  description: string;
+  @Column({ name: 'old_values', type: 'nvarchar', nullable: true })
+  old_values: string | null;
 
-  @Column({ name: 'ip_address', type: 'varchar', length: 50, nullable: true })
-  ip_address: string;
+  @Column({ name: 'new_values', type: 'nvarchar', nullable: true })
+  new_values: string | null;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
+  ip_address: string | null;
+
+  @Column({ name: 'user_agent', type: 'nvarchar', length: 500, nullable: true })
+  user_agent: string | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   created_at: Date;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: User | null;
 }

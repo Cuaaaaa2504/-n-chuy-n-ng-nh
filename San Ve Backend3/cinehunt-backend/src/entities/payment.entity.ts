@@ -38,9 +38,6 @@ export class Payment {
   @Column({ name: 'provider_response', type: 'nvarchar', nullable: true })
   provider_response: string | null;
 
-  @Column({ name: 'failed_reason', type: 'nvarchar', nullable: true })
-  failed_reason: string | null;
-
   @Column({ name: 'paid_at', type: 'datetime2', precision: 0, nullable: true })
   paid_at: Date | null;
 
