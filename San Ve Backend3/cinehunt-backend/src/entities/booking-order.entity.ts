@@ -7,13 +7,13 @@ import { Payment } from './payment.entity';
 
 @Entity('booking_orders')
 export class BookingOrder {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'booking_id', type: 'int' })
   booking_id: number;
 
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'int' })
   user_id: number;
 
-  @Column({ name: 'showtime_id' })
+  @Column({ name: 'showtime_id', type: 'int' })
   showtime_id: number;
 
   @Column({ name: 'booking_code', type: 'varchar', length: 50, unique: true })
@@ -28,17 +28,17 @@ export class BookingOrder {
   @Column({ name: 'final_amount', type: 'decimal', precision: 10, scale: 2, default: 0 })
   final_amount: number;
 
-  @Column({ name: 'voucher_id', nullable: true })
-  voucher_id: number;
+  @Column({ name: 'voucher_id', type: 'int', nullable: true })
+  voucher_id: number | null;
 
   @Column({ type: 'varchar', length: 30, default: 'PENDING_PAYMENT' })
   status: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
   created_at: Date;
 
   @Column({ name: 'expired_at', type: 'datetime', nullable: true })
-  expired_at: Date;
+  expired_at: Date | null;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })

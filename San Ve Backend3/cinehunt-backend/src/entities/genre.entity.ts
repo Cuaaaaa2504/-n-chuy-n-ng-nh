@@ -9,6 +9,9 @@ export class Genre {
   @Column({ name: 'genre_name', type: 'nvarchar', length: 100, unique: true })
   genre_name: string;
 
+  @Column({ name: 'slug', type: 'varchar', length: 120, nullable: true, unique: true })
+  slug: string | null;
+
   @ManyToMany(() => Movie, (movie) => movie.genres)
   movies: Movie[];
 }

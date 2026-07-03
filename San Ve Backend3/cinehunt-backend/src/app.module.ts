@@ -27,7 +27,7 @@ import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-re
         port: parseInt(configService.get<string>('DB_PORT', '1433'), 10),
         username: configService.get<string>('DB_USER', 'sa'),
         password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_NAME', 'MovieTicketHuntingDB'),
+        database: configService.get<string>('DB_NAME', 'CineHuntDB'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: false,
         options: {

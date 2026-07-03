@@ -2,21 +2,21 @@ import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 't
 import { BookingOrder } from './booking-order.entity';
 import { ConcessionCombo } from './concession-combo.entity';
 
-@Entity('booking_combos')
+@Entity('booking_products')
 export class BookingCombo {
-  @PrimaryGeneratedColumn()
-  booking_combo_id: number;
+  @PrimaryGeneratedColumn({ name: 'booking_product_id', type: 'bigint' })
+  booking_product_id: string;
 
-  @Column({ name: 'booking_id' })
-  booking_id: number;
+  @Column({ name: 'booking_id', type: 'bigint' })
+  booking_id: string;
 
-  @Column({ name: 'combo_id' })
-  combo_id: number;
+  @Column({ name: 'product_id', type: 'int' })
+  product_id: number;
 
-  @Column({ default: 1 })
+  @Column({ type: 'int' })
   quantity: number;
 
-  @Column({ name: 'unit_price', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'unit_price', type: 'decimal', precision: 12, scale: 2 })
   unit_price: number;
 
   @ManyToOne(() => BookingOrder)
@@ -24,6 +24,6 @@ export class BookingCombo {
   booking: BookingOrder;
 
   @ManyToOne(() => ConcessionCombo)
-  @JoinColumn({ name: 'combo_id' })
-  combo: ConcessionCombo;
+  @JoinColumn({ name: 'product_id' })
+  product: ConcessionCombo;
 }
