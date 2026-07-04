@@ -1,0 +1,106 @@
+.showtime-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 24px;
+  border: 2px solid #e50914;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 90px;
+  position: relative;
+  font-family: inherit;
+}
+
+.showtime-btn:not(.disabled):hover {
+  background: #e50914;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(229, 9, 20, 0.3);
+}
+
+.showtime-btn:not(.disabled):active {
+  transform: translateY(0) scale(0.96);
+}
+
+.showtime-btn.disabled {
+  border-color: #ddd;
+  background: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.time-display {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: 0.5px;
+}
+
+.showtime-btn:not(.disabled):hover .time-display {
+  color: white;
+}
+
+.showtime-btn.disabled .time-display {
+  color: #aaa;
+}
+
+.badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.badge.available {
+  color: #4caf50;
+  background: #e8f5e9;
+}
+
+.showtime-btn:not(.disabled):hover .badge.available {
+  color: white;
+  background: rgba(255,255,255,0.2);
+}
+
+.badge.expired {
+  color: #999;
+  background: #f5f5f5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .showtime-btn {
+    padding: 8px 18px;
+    min-width: 80px;
+  }
+  
+  .time-display {
+    font-size: 15px;
+  }
+  
+  .badge {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .showtime-btn {
+    padding: 6px 14px;
+    min-width: 70px;
+    border-radius: 6px;
+  }
+  
+  .time-display {
+    font-size: 14px;
+  }
+  
+  .badge {
+    font-size: 8px;
+    padding: 1px 6px;
+  }
+}

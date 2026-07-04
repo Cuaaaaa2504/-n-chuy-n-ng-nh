@@ -1,0 +1,115 @@
+.date-tabs-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  padding: 6px;
+  overflow-x: auto;
+  margin-bottom: 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.date-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  min-width: fit-content;
+}
+
+.date-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 24px;
+  border: 2px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 90px;
+  position: relative;
+}
+
+.date-tab:hover {
+  background: #f5f5f5;
+  border-color: #e0e0e0;
+}
+
+.date-tab.active {
+  background: #e50914;
+  border-color: #e50914;
+  color: white;
+  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.25);
+}
+
+.date-tab.active .day-name {
+  color: rgba(255,255,255,0.9);
+}
+
+.date-tab.active .date-number {
+  color: white;
+}
+
+.date-tab:not(.active) .day-name {
+  color: #666;
+  font-weight: 500;
+}
+
+.date-tab:not(.active) .date-number {
+  color: #999;
+  font-weight: 400;
+}
+
+.day-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+  letter-spacing: 0.3px;
+}
+
+.date-number {
+  font-size: 13px;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .date-tab {
+    padding: 10px 20px;
+    min-width: 80px;
+  }
+}
+
+@media (max-width: 768px) {
+  .date-tab {
+    padding: 10px 16px;
+    min-width: 70px;
+  }
+  
+  .day-name {
+    font-size: 13px;
+  }
+  
+  .date-number {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .date-tabs-container {
+    padding: 4px;
+    margin-bottom: 16px;
+  }
+  
+  .date-tab {
+    padding: 8px 12px;
+    min-width: 60px;
+    border-radius: 6px;
+  }
+  
+  .day-name {
+    font-size: 12px;
+  }
+  
+  .date-number {
+    font-size: 11px;
+  }
+}

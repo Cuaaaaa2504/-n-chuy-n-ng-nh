@@ -1,0 +1,835 @@
+/* src/components/PaymentPage/styles.css */
+/* ===== Reset & Base ===== */
+.payment-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 2rem 1rem;
+}
+
+.payment-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ===== Header ===== */
+.payment-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.payment-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.payment-title .icon {
+  font-size: 2.5rem;
+}
+
+.payment-subtitle {
+  color: #4a4a6a;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+}
+
+/* ===== Grid Layout ===== */
+.payment-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* ===== Cards ===== */
+.payment-card {
+  background: white;
+  border-radius: 1.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.payment-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.12);
+}
+
+.payment-card--sticky {
+  position: sticky;
+  top: 1.5rem;
+}
+
+.payment-card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e8ecf1;
+}
+
+.payment-card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.payment-card-body {
+  padding: 1.5rem;
+}
+
+.payment-card-footer {
+  padding: 1.5rem;
+  border-top: 1px solid #e8ecf1;
+}
+
+/* ===== Order Summary Sections ===== */
+.summary-section {
+  background: white;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.section-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: #4f46e5;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+/* ===== Movie Info ===== */
+.movie-info {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.movie-poster {
+  flex-shrink: 0;
+}
+
+.movie-poster img {
+  width: 120px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.movie-details {
+  flex: 1;
+}
+
+.movie-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 0.5rem;
+}
+
+.movie-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.75rem;
+  background: #f1f3f6;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  color: #4a4a6a;
+}
+
+.meta-tag--age {
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.meta-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.movie-description {
+  color: #6b6b8a;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-top: 0.5rem;
+}
+
+/* ===== Cinema Info ===== */
+.cinema-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+}
+
+.cinema-details {
+  flex: 1;
+}
+
+.cinema-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.cinema-address {
+  color: #6b6b8a;
+  font-size: 0.95rem;
+  margin-top: 0.25rem;
+}
+
+.cinema-room {
+  color: #4a4a6a;
+  font-size: 0.95rem;
+  margin-top: 0.25rem;
+}
+
+.showtime-info {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.showtime-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #eef2ff;
+  border-radius: 0.75rem;
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+.showtime-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* ===== Seats ===== */
+.seats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.seat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e8ecf1;
+}
+
+.seat-label {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.seat-price {
+  color: #4f46e5;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.seats-total {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e8ecf1;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+/* ===== Summary Sidebar ===== */
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f3f6;
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.summary-label {
+  color: #6b6b8a;
+}
+
+.summary-value {
+  font-weight: 500;
+  color: #1a1a2e;
+  text-align: right;
+}
+
+.summary-seats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  justify-content: flex-end;
+}
+
+.seat-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  background: #eef2ff;
+  color: #4f46e5;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.summary-divider {
+  height: 1px;
+  background: #e8ecf1;
+  margin: 1rem 0;
+}
+
+.summary-price {
+  margin-top: 0.5rem;
+}
+
+.price-detail {
+  display: flex;
+  justify-content: space-between;
+  color: #6b6b8a;
+  font-size: 0.95rem;
+}
+
+.price-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 2px solid #e8ecf1;
+}
+
+.total-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.total-amount {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+/* ===== Payment Status ===== */
+.payment-status {
+  padding: 1.25rem;
+  border-radius: 1rem;
+  margin-bottom: 1.5rem;
+  animation: slideDown 0.3s ease;
+}
+
+.status-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.status-icon-wrapper {
+  flex-shrink: 0;
+}
+
+.status-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.status-icon--spin {
+  animation: spin 1s linear infinite;
+}
+
+.status-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.status-description {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+/* Status Colors */
+.status-pending {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.status-pending .status-title {
+  color: #d97706;
+}
+
+.status-pending .status-icon {
+  color: #f59e0b;
+}
+
+.status-processing {
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+}
+
+.status-processing .status-title {
+  color: #2563eb;
+}
+
+.status-processing .status-icon {
+  color: #3b82f6;
+}
+
+.status-success {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+}
+
+.status-success .status-title {
+  color: #16a34a;
+}
+
+.status-success .status-icon {
+  color: #22c55e;
+}
+
+.status-failed {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+}
+
+.status-failed .status-title {
+  color: #dc2626;
+}
+
+.status-failed .status-icon {
+  color: #ef4444;
+}
+
+/* ===== Payment Button ===== */
+.payment-btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.payment-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+}
+
+.payment-btn:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.payment-btn--disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.payment-btn--disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-loading-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ===== Loading Overlay ===== */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.loading-overlay-content {
+  background: white;
+  padding: 3rem;
+  border-radius: 1.5rem;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
+}
+
+.loading-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-top: 1rem;
+}
+
+.loading-description {
+  color: #6b6b8a;
+  margin-top: 0.5rem;
+}
+
+/* ===== Spinner ===== */
+.spinner {
+  border: 3px solid transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner.w-4 {
+  width: 1rem;
+  height: 1rem;
+}
+.spinner.w-8 {
+  width: 2rem;
+  height: 2rem;
+}
+.spinner.w-12 {
+  width: 3rem;
+  height: 3rem;
+}
+.spinner.w-16 {
+  width: 4rem;
+  height: 4rem;
+}
+
+.spinner.border-blue-600 {
+  border-top-color: #2563eb;
+}
+.spinner.border-white {
+  border-top-color: white;
+}
+.spinner.border-gray-600 {
+  border-top-color: #4b5563;
+}
+
+/* ===== Error State ===== */
+.payment-page--error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.error-container {
+  background: white;
+  padding: 3rem;
+  border-radius: 1.5rem;
+  text-align: center;
+  max-width: 500px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+}
+
+.error-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.error-container h2 {
+  font-size: 1.5rem;
+  color: #1a1a2e;
+  margin-bottom: 0.5rem;
+}
+
+.error-container p {
+  color: #6b6b8a;
+  margin-bottom: 1.5rem;
+}
+
+/* ===== Success State ===== */
+.payment-success {
+  background: white;
+  padding: 3rem;
+  border-radius: 1.5rem;
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+}
+
+.success-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.payment-success h2 {
+  font-size: 1.75rem;
+  color: #16a34a;
+  margin-bottom: 0.5rem;
+}
+
+.payment-success .success-details {
+  text-align: left;
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background: #f8fafc;
+  border-radius: 0.75rem;
+}
+
+.payment-success .success-details p {
+  padding: 0.3rem 0;
+  color: #1a1a2e;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #4f46e5;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #4338ca;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.btn-outline {
+  background: transparent;
+  color: #4f46e5;
+  border: 2px solid #4f46e5;
+}
+
+.btn-outline:hover {
+  background: #eef2ff;
+}
+
+.btn-sm {
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* ===== Error Message ===== */
+.error-message {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 0.75rem;
+  text-align: center;
+}
+
+.error-message p {
+  color: #dc2626;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ===== Skeleton Loading ===== */
+.payment-skeleton {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeletonLoading 1.5s infinite;
+  border-radius: 0.75rem;
+}
+
+.skeleton-title {
+  height: 3rem;
+  width: 60%;
+  margin: 0 auto 2rem;
+}
+
+.skeleton-card {
+  height: 12rem;
+  margin-bottom: 1rem;
+}
+
+@keyframes skeletonLoading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Responsive Design ===== */
+/* Tablet */
+@media (max-width: 1024px) {
+  .payment-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-card--sticky {
+    position: static;
+  }
+
+  .movie-info {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .movie-meta {
+    justify-content: center;
+  }
+
+  .cinema-info {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .showtime-info {
+    justify-content: center;
+  }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .payment-page {
+    padding: 1rem 0.5rem;
+  }
+
+  .payment-title {
+    font-size: 1.5rem;
+  }
+
+  .payment-title .icon {
+    font-size: 1.5rem;
+  }
+
+  .payment-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .payment-card-header,
+  .payment-card-body,
+  .payment-card-footer {
+    padding: 1rem;
+  }
+
+  .summary-section {
+    padding: 1rem;
+  }
+
+  .movie-poster img {
+    width: 100px;
+    height: 150px;
+  }
+
+  .movie-title {
+    font-size: 1.2rem;
+  }
+
+  .seats-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+
+  .payment-status {
+    padding: 1rem;
+  }
+
+  .status-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .loading-overlay-content {
+    margin: 0 1rem;
+    padding: 2rem;
+  }
+
+  .payment-success {
+    padding: 2rem 1rem;
+    margin: 0 0.5rem;
+  }
+
+  .payment-success h2 {
+    font-size: 1.4rem;
+  }
+}
+
+/* Extra Small */
+@media (max-width: 380px) {
+  .payment-title {
+    font-size: 1.2rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-tag {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .seats-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  }
+
+  .seat-item {
+    font-size: 0.85rem;
+    padding: 0.3rem 0.5rem;
+  }
+}
