@@ -1,0 +1,75 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+interface User {
+  id: number;
+  fullName: string;
+  email: string;
+  phone?: string;
+  role?: string;
+}
+
+interface AuthContextType {
+  user: User | null;
+  token: string | null;
+  isLoggedIn: boolean;
+  login: (token: string, user: User) => void;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [token, setToken] = useState<string | null>(() =>
+    localStorage.getItem('accessToken')
+  );
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('user');
+    return saved ? (JSON.parse(saved) as User) : null;
+  });
+
+  // Lắng nghe event auth-changed từ axiosClient (khi 401)
+  useEffect(() => {
+    const handler = () => {
+      setToken(null);
+      setUser(null);
+    };
+    window.addEventListener('auth-changed', handler);
+    return () => window.removeEventListener('auth-changed', handler);
+  }, []);
+
+  const login = useCallback((newToken: string, newUser: User) => {
+    localStorage.setItem('accessToken', newToken);
+    localStorage.setItem('user', JSON.stringify(newUser));
+    setToken(newToken);
+    setUser(newUser);
+    window.dispatchEvent(new Event('auth-changed'));
+  }, []);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
+    window.dispatchEvent(new Event('auth-changed'));
+  }, []);
+
+  const value = useMemo(
+    () => ({ user, token, isLoggedIn: !!token, login, logout }),
+    [user, token, login, logout]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
+}
