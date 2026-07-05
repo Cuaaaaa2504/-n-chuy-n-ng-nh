@@ -34,19 +34,19 @@ export class ShowtimeSeatsController {
   @UseGuards(JwtAuthGuard)
   @Post('hold')
   holdSeat(@Request() req, @Body() dto: HoldSeatDto) {
-    return this.showtimeSeatsService.holdSeat(req.user.user_id, dto);
+    return this.showtimeSeatsService.holdSeat(req.user.userId, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('hold-many')
   holdManySeats(@Request() req, @Body() dto: HoldManySeatsDto) {
-    return this.showtimeSeatsService.holdManySeats(req.user.user_id, dto);
+    return this.showtimeSeatsService.holdManySeats(req.user.userId, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('my-holds/list')
   getMyHolds(@Request() req) {
-    return this.showtimeSeatsService.getMyHolds(req.user.user_id);
+    return this.showtimeSeatsService.getMyHolds(req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -55,7 +55,7 @@ export class ShowtimeSeatsController {
     @Request() req,
     @Param('holdId', ParseIntPipe) holdId: number,
   ) {
-    return this.showtimeSeatsService.getHoldDetails(req.user.user_id, holdId);
+    return this.showtimeSeatsService.getHoldDetails(req.user.userId, holdId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -64,7 +64,7 @@ export class ShowtimeSeatsController {
     @Request() req,
     @Param('holdId', ParseIntPipe) holdId: number,
   ) {
-    return this.showtimeSeatsService.releaseHold(req.user.user_id, holdId);
+    return this.showtimeSeatsService.releaseHold(req.user.userId, holdId);
   }
 
   @Post('expire-holds')
