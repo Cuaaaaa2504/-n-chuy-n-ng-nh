@@ -93,6 +93,11 @@ export default function Navbar() {
           {isLoggedIn && (
             <Link to="/my-tickets" className="hover:text-blue-500 transition">Vé của tôi</Link>
           )}
+          {isLoggedIn && user?.role === 'ADMIN' && (
+            <Link to="/admin" className="hover:text-red-400 transition text-red-400">
+              ⚙️ Admin
+            </Link>
+          )}
         </div>
       </div>
     </nav>

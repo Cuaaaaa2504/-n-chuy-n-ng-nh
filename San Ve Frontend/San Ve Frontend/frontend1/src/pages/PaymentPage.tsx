@@ -13,12 +13,14 @@ const METHOD_ICONS: Record<string, string> = {
 };
 
 function useCountdown(expiresAt?: string) {
-  const [seconds, setSeconds] = useState(0);
+  const [seconds, setSeconds] = useState(() => {
+    if (!expiresAt) return 0;
+    return Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+  });
 
   useEffect(() => {
     if (!expiresAt) return;
     const calc = () => Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-    setSeconds(calc());
     const timer = setInterval(() => {
       const s = calc();
       setSeconds(s);
@@ -49,18 +51,24 @@ export default function PaymentPage() {
 
   useEffect(() => {
     if (!orderId) return;
-    setLoading(true);
-    Promise.all([getOrder(orderId), getPaymentMethods()])
-      .then(([ord, mths]) => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ord, mths] = await Promise.all([getOrder(orderId), getPaymentMethods()]);
+        if (cancelled) return;
         setOrder(ord);
         setMethods(mths);
         if (mths.length > 0) setSelectedMethod(mths[0].code);
-      })
-      .catch((e) => setFetchError(e?.message || 'Không thể tải thông tin đơn hàng.'))
-      .finally(() => setLoading(false));
+      } catch (e: unknown) {
+        if (!cancelled)
+          setFetchError((e as { message?: string })?.message || 'Không thể tải thông tin đơn hàng.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [orderId]);
 
-  // Hết giờ → tự redirect
   useEffect(() => {
     if (order?.expiresAt && countdown === 0) {
       navigate('/my-tickets', { replace: true });
@@ -79,8 +87,7 @@ export default function PaymentPage() {
         navigate('/my-tickets', { replace: true });
       }
     } catch (e: unknown) {
-      const err = e as { message?: string };
-      setError(err?.message || 'Thanh toán thất bại. Vui lòng thử lại.');
+      setError((e as { message?: string })?.message || 'Thanh toán thất bại. Vui lòng thử lại.');
     } finally {
       setPaying(false);
     }
@@ -113,7 +120,6 @@ export default function PaymentPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 w-full">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-extrabold">Thanh toán</h1>
@@ -123,34 +129,65 @@ export default function PaymentPage() {
         </div>
         <button
           onClick={() => navigate(-1)}
-          className={`px-4 py-2 rounded-xl border font-semibold text-sm ${darkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100'}`}
+          className={`px-4 py-2 rounded-xl border font-semibold text-sm ${
+            darkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100'
+          }`}
         >
           ← Quay lại
         </button>
       </div>
 
-      {/* Countdown */}
       {order.expiresAt && (
-        <div className={`rounded-2xl p-4 mb-5 flex items-center justify-between ${isExpired ? 'bg-red-900/30 border border-red-700' : 'bg-yellow-500/10 border border-yellow-500/30'}`}>
+        <div
+          className={`rounded-2xl p-4 mb-5 flex items-center justify-between ${
+            isExpired ? 'bg-red-900/30 border border-red-700' : 'bg-yellow-500/10 border border-yellow-500/30'
+          }`}
+        >
           <span className={`font-semibold text-sm ${isExpired ? 'text-red-400' : 'text-yellow-400'}`}>
             {isExpired ? '⏰ Đơn hàng đã hết hạn' : '⏳ Thời gian giữ ghế còn lại'}
           </span>
-          <span className={`font-mono text-xl font-bold ${isExpired ? 'text-red-400' : countdown <= 60 ? 'text-red-400' : 'text-yellow-400'}`}>
+          <span
+            className={`font-mono text-xl font-bold ${
+              isExpired ? 'text-red-400' : countdown <= 60 ? 'text-red-400' : 'text-yellow-400'
+            }`}
+          >
             {countdownDisplay}
           </span>
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
-        {/* Thông tin đơn hàng */}
         <div className={`md:col-span-3 rounded-2xl p-5 ${card}`}>
           <h2 className="font-bold text-base mb-4">Thông tin đơn hàng</h2>
           <div className="space-y-2 text-sm">
-            <p><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Phim:</span><span className="font-semibold">{order.movieTitle}</span></p>
-            {order.cinemaName && <p><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Rạp:</span>{order.cinemaName}</p>}
-            {order.roomName && <p><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Phòng:</span>{order.roomName}</p>}
-            {order.showDate && <p><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Ngày chiếu:</span>{order.showDate}</p>}
-            {order.showTime && <p><span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Giờ chiếu:</span>{order.showTime}</p>}
+            <p>
+              <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Phim:</span>
+              <span className="font-semibold">{order.movieTitle}</span>
+            </p>
+            {order.cinemaName && (
+              <p>
+                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Rạp:</span>
+                {order.cinemaName}
+              </p>
+            )}
+            {order.roomName && (
+              <p>
+                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Phòng:</span>
+                {order.roomName}
+              </p>
+            )}
+            {order.showDate && (
+              <p>
+                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Ngày chiếu:</span>
+                {order.showDate}
+              </p>
+            )}
+            {order.showTime && (
+              <p>
+                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Giờ chiếu:</span>
+                {order.showTime}
+              </p>
+            )}
             {order.seatCodes && order.seatCodes.length > 0 && (
               <p>
                 <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Ghế:</span>
@@ -158,7 +195,11 @@ export default function PaymentPage() {
               </p>
             )}
           </div>
-          <div className={`mt-5 pt-4 border-t flex justify-between items-center ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <div
+            className={`mt-5 pt-4 border-t flex justify-between items-center ${
+              darkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}
+          >
             <span className="font-bold">Tổng thanh toán</span>
             <span className="text-red-500 text-xl font-extrabold">
               {order.totalAmount.toLocaleString('vi-VN')}₫
@@ -166,7 +207,6 @@ export default function PaymentPage() {
           </div>
         </div>
 
-        {/* Phương thức thanh toán */}
         <div className={`md:col-span-2 rounded-2xl p-5 ${card}`}>
           <h2 className="font-bold text-base mb-4">Phương thức</h2>
           <div className="space-y-2">
@@ -191,18 +231,18 @@ export default function PaymentPage() {
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm font-medium">
           {error}
         </div>
       )}
 
-      {/* Action */}
       <div className="mt-6 flex gap-3">
         <button
           onClick={() => navigate(-1)}
-          className={`px-5 py-3 rounded-xl border font-semibold ${darkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100'}`}
+          className={`px-5 py-3 rounded-xl border font-semibold ${
+            darkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100'
+          }`}
         >
           Huỷ
         </button>

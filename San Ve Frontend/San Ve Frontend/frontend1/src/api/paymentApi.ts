@@ -24,12 +24,16 @@ export interface OrderDetail {
 
 function normalizeOrder(raw: Record<string, unknown>): OrderDetail {
   return {
-    ...(raw as OrderDetail),
+    ...(raw as unknown as OrderDetail),
     id: String(raw.id ?? raw.orderId ?? raw.orderCode ?? ''),
     orderCode: raw.orderCode as string | undefined,
     movieTitle: (raw.movieTitle ?? (raw.movie as Record<string, unknown>)?.title ?? 'Đặt vé xem phim') as string,
     totalAmount: Number(raw.totalAmount ?? raw.amount ?? 0),
-    seatCodes: (Array.isArray(raw.seatCodes) ? raw.seatCodes : raw.seats ? (raw.seats as Record<string, unknown>[]).map(s => s.seatCode ?? s.code) : []) as string[],
+    seatCodes: (Array.isArray(raw.seatCodes)
+      ? raw.seatCodes
+      : raw.seats
+        ? (raw.seats as Record<string, unknown>[]).map(s => s.seatCode ?? s.code)
+        : []) as string[],
   };
 }
 
@@ -46,7 +50,6 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
     const list = Array.isArray(payload) ? payload : (payload.data as unknown[] ?? []);
     return list as PaymentMethod[];
   } catch {
-    // Fallback nếu API chưa có endpoint này
     return [
       { code: 'MOMO', name: 'Ví MoMo' },
       { code: 'VNPAY', name: 'VNPay' },
@@ -57,7 +60,10 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
   }
 }
 
-export async function payOrder(orderId: string, method: PaymentMethodCode): Promise<{ redirectUrl?: string; success: boolean }> {
+export async function payOrder(
+  orderId: string,
+  method: PaymentMethodCode
+): Promise<{ redirectUrl?: string; success: boolean }> {
   if (!orderId) throw new Error('Thiếu mã đơn hàng');
   const payload = await axiosClient.post(`/orders/${orderId}/pay`, { method }) as Record<string, unknown>;
   return {

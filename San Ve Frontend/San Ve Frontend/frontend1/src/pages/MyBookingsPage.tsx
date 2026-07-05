@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cancelBooking, getBookingTickets, getMyBookings } from '../api/bookingApi';
 import BookingTicketsModal from '../components/BookingTicketsModal';
@@ -35,24 +35,36 @@ export default function MyBookingsPage() {
   const limit = 5;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  async function loadBookings() {
-    setLoading(true); setError('');
+  const loadBookings = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
       const result = await getMyBookings({ page, limit });
       setBookings(result.items);
       setTotal(result.total);
     } catch (err: unknown) {
       setError((err as { message?: string }).message || 'Không tải được danh sách booking');
-    } finally { setLoading(false); }
-  }
+    } finally {
+      setLoading(false);
+    }
+  }, [page]);
 
-  useEffect(() => { loadBookings(); }, [page]);
+  useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
 
   async function openTickets(booking: Booking) {
-    setSelectedBooking(booking); setTickets([]); setTicketLoading(true); setTicketError('');
-    try { setTickets(await getBookingTickets(booking.id)); }
-    catch (err: unknown) { setTicketError((err as { message?: string }).message || 'Không tải được QR vé'); }
-    finally { setTicketLoading(false); }
+    setSelectedBooking(booking);
+    setTickets([]);
+    setTicketLoading(true);
+    setTicketError('');
+    try {
+      setTickets(await getBookingTickets(booking.id));
+    } catch (err: unknown) {
+      setTicketError((err as { message?: string }).message || 'Không tải được QR vé');
+    } finally {
+      setTicketLoading(false);
+    }
   }
 
   async function handleCancel(bookingId: string) {

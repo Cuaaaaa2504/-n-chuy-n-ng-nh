@@ -24,7 +24,7 @@ export default function MoviesPage() {
     let ignore = false;
     const fetchMovies = async () => {
       try {
-        const data = await axiosClient.get<Movie[]>('/movies') as Movie[];
+        const data = await axiosClient.get('/movies') as unknown as Movie[];
         if (!ignore) setMovies(Array.isArray(data) ? data : []);
       } catch (err: unknown) {
         if (!ignore)
@@ -52,9 +52,7 @@ export default function MoviesPage() {
           </div>
         )}
 
-        {error && (
-          <p className="text-red-500 text-center py-10">{error}</p>
-        )}
+        {error && <p className="text-red-500 text-center py-10">{error}</p>}
 
         {!loading && !error && movies.length === 0 && (
           <p className={`text-center py-10 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -82,9 +80,7 @@ export default function MoviesPage() {
                 />
               </div>
               <div className="p-3">
-                <p className="font-semibold text-sm truncate">
-                  {movie.title || movie.name}
-                </p>
+                <p className="font-semibold text-sm truncate">{movie.title || movie.name}</p>
                 {movie.genres && (
                   <p className={`text-xs mt-1 truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     {movie.genres.join(', ')}
