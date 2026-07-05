@@ -1,6 +1,6 @@
 // src/pages/SeatBookingPage.tsx
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
@@ -12,8 +12,9 @@ import type { SeatDto } from "../types/seat.types";
 const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
 const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900";
 
-const SEAT_PRICE = 90_000;
-const MAX_SEATS  = 8;
+const SEAT_PRICE  = 90_000;
+const MAX_SEATS   = 8;
+const HOLD_SECONDS = 300; // 5 phút
 
 function generateMockSeats(showtimeId?: string): SeatDto[] {
   void showtimeId;
@@ -56,6 +57,13 @@ export default function SeatBookingPage() {
   const [seats, setSeats]     = useState<SeatDto[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ── Hold state ─────────────────────────────────────────────────────────────
+  const [holding, setHolding]         = useState(false);
+  const [holdMessage, setHoldMessage] = useState("");
+  const [holdError, setHoldError]     = useState("");
+  const [heldCodes, setHeldCodes]     = useState<string[]>([]);
+  const [countdown, setCountdown]     = useState(0);
+
   const {
     selectedSeats: selectedSeatIds,
     toggleSeat,
@@ -63,19 +71,22 @@ export default function SeatBookingPage() {
     getSelectedSeats,
   } = useSeatSelection({ maxSelectable: MAX_SEATS });
 
-  // ✅ Chỉ dùng ref cho clearSelection (không đọc trong render)
   const clearSelectionRef = useRef(clearSelection);
   useLayoutEffect(() => {
     clearSelectionRef.current = clearSelection;
   });
 
+  // ── Load seats ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const stId = searchParams.get("showtimeId") ?? id ?? undefined;
     let cancelled = false;
     const load = async () => {
-      // ✅ setLoading bên trong async – không phải sync body của effect
       setLoading(true);
       clearSelectionRef.current();
+      setHeldCodes([]);
+      setHoldMessage("");
+      setHoldError("");
+      setCountdown(0);
       await new Promise<void>((resolve) => setTimeout(resolve, 700));
       if (cancelled) return;
       setSeats(generateMockSeats(stId));
@@ -85,8 +96,45 @@ export default function SeatBookingPage() {
     return () => { cancelled = true; };
   }, [id, searchParams]);
 
-  // ✅ FIX: dùng getSelectedSeats trực tiếp, không qua ref – ESLint không báo lỗi
-  const selectedSeats   = useMemo(() => getSelectedSeats(seats), [getSelectedSeats, seats]);
+  // ── Countdown timer ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setHeldCodes([]);
+          setHoldMessage("");
+          clearSelectionRef.current();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  // ── Mock handleHold (thay bằng API call thật khi có backend) ───────────────
+  const handleHold = async () => {
+    if (selectedSeats.length === 0) return;
+    setHolding(true);
+    setHoldMessage("");
+    setHoldError("");
+    try {
+      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+      const codes = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`);
+      setHeldCodes(codes);
+      setHoldMessage(`Đã giữ ${codes.length} ghế! Vui lòng thanh toán trong 5 phút.`);
+      setCountdown(HOLD_SECONDS);
+    } catch {
+      setHoldError("Không thể giữ ghế. Vui lòng thử lại.");
+    } finally {
+      setHolding(false);
+    }
+  };
+
+  // ✅ Bỏ useMemo – để React Compiler tự tối ưu, tránh lỗi preserve-manual-memoization
+  const selectedSeats   = getSelectedSeats(seats);
   const totalPrice      = selectedSeats.length * SEAT_PRICE;
   const trailerEmbedUrl = movie ? getYoutubeEmbedUrl(movie.trailer_url) : null;
 
@@ -252,12 +300,12 @@ export default function SeatBookingPage() {
                 status:   s.status as 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED',
               }))}
               totalPrice={totalPrice}
-              countdown={0}
-              loading={loading}
-              message={""}
-              error={""}
-              heldSeatCodes={[]}
-              onHold={() => {}}
+              countdown={countdown}
+              loading={holding}
+              message={holdMessage}
+              error={holdError}
+              heldSeatCodes={heldCodes}
+              onHold={handleHold}
             />
 
             <div className={`rounded-2xl p-5 ${card}`}>
