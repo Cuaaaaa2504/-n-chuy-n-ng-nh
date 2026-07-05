@@ -58,7 +58,7 @@ export class BookingService {
     const requestedProducts = request.products ?? [];
     const productIds = requestedProducts.map((p) => p.productId);
     const products = productIds.length
-      ? await this.productRepo.find({ where: { product_id: In(productIds), status: 'ACTIVE' } })
+      ? await this.productRepo.find({ where: { combo_id: In(productIds), status: 'ACTIVE' } })
       : [];
 
     if (products.length !== productIds.length) {
@@ -66,7 +66,7 @@ export class BookingService {
     }
 
     const productAmount = requestedProducts.reduce((sum, item) => {
-      const product = products.find((p) => p.product_id === item.productId)!;
+      const product = products.find((p) => p.combo_id === item.productId)!;
       return sum + Number(product.price) * item.quantity;
     }, 0);
 
@@ -104,10 +104,10 @@ export class BookingService {
 
       if (requestedProducts.length > 0) {
         const bookingProducts = requestedProducts.map((item) => {
-          const product = products.find((p) => p.product_id === item.productId)!;
+          const product = products.find((p) => p.combo_id === item.productId)!;
           return manager.create(BookingCombo, {
             booking_id: savedBooking.booking_id,
-            product_id: product.product_id,
+            combo_id: product.combo_id,
             quantity: item.quantity,
             unit_price: Number(product.price),
           });

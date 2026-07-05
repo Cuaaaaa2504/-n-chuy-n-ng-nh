@@ -1,12 +1,20 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
+import { BookingCombo } from './booking-combo.entity';
 
-@Entity('products')
+@Entity('concession_combos')
 export class ConcessionCombo {
-  @PrimaryGeneratedColumn({ name: 'product_id', type: 'int' })
-  product_id: number;
+  @PrimaryGeneratedColumn({ name: 'combo_id', type: 'int' })
+  combo_id: number;
 
-  @Column({ name: 'product_name', type: 'nvarchar', length: 150 })
-  product_name: string;
+  @Column({ name: 'combo_name', type: 'nvarchar', length: 150 })
+  combo_name: string;
 
   @Column({ type: 'nvarchar', length: 500, nullable: true })
   description: string | null;
@@ -17,12 +25,15 @@ export class ConcessionCombo {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   price: number;
 
-  @Column({ name: 'stock_quantity', type: 'int', nullable: true })
-  stock_quantity: number | null;
-
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   created_at: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
+  updated_at: Date;
+
+  @OneToMany(() => BookingCombo, (bc) => bc.combo)
+  booking_combos: BookingCombo[];
 }

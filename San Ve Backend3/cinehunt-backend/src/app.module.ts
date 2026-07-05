@@ -14,10 +14,11 @@ import { OtpCodeModule } from './otp-code/otp-code.module';
 import { NotificationModule } from './notification/notification.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-request.module';
-import { VoucherModule } from './voucher/voucher.module';     // giữ nguyên (alias promotions)
-import { CinemaModule } from './cinema/cinema.module';        // ← THÊM
-import { ProductModule } from './product/product.module';     // ← THÊM
-
+import { VoucherModule } from './voucher/voucher.module';
+import { CinemaModule } from './cinema/cinema.module';
+import { ProductModule } from './product/product.module';
+import { ConcessionComboModule } from './concession-combo/concession-combo.module';
+import { RefundModule } from './refund/refund.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -53,9 +54,11 @@ import { ProductModule } from './product/product.module';     // ← THÊM
     NotificationModule,
     AuditLogModule,
     TicketWatchRequestModule,
-    VoucherModule,      // ← THÊM
-    CinemaModule,       // ← THÊM
-    ProductModule,      // ← THÊM
+    VoucherModule,
+    CinemaModule,
+    ProductModule,
+    ConcessionComboModule, // ✅ THÊM
+    RefundModule,          // ✅ THÊM
   ],
 })
 export class AppModule {}
