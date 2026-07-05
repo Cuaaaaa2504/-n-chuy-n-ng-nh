@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cancelBooking, getBookingTickets, getMyBookings } from '../api/bookingApi';
 import BookingTicketsModal from '../components/BookingTicketsModal';
@@ -21,13 +21,42 @@ const STATUS_COLOR: Record<string, string> = {
   CANCELLED: 'text-gray-400',
 };
 
+interface BookingState {
+  bookings: Booking[];
+  total: number;
+  loading: boolean;
+  error: string;
+}
+
+type BookingAction =
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_SUCCESS'; bookings: Booking[]; total: number }
+  | { type: 'FETCH_ERROR'; error: string };
+
+function bookingReducer(state: BookingState, action: BookingAction): BookingState {
+  switch (action.type) {
+    case 'FETCH_START':
+      return { ...state, loading: true, error: '' };
+    case 'FETCH_SUCCESS':
+      return { loading: false, error: '', bookings: action.bookings, total: action.total };
+    case 'FETCH_ERROR':
+      return { ...state, loading: false, error: action.error };
+    default:
+      return state;
+  }
+}
+
 export default function MyBookingsPage() {
   const { darkMode } = useTheme();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [total, setTotal] = useState(0);
+  const [state, dispatch] = useReducer(bookingReducer, {
+    bookings: [],
+    total: 0,
+    loading: false,
+    error: '',
+  });
+  const { bookings, total, loading, error } = state;
+
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [tickets, setTickets] = useState<BookingTicket[]>([]);
   const [ticketLoading, setTicketLoading] = useState(false);
@@ -37,27 +66,21 @@ export default function MyBookingsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError('');
+    dispatch({ type: 'FETCH_START' });
     getMyBookings({ page, limit })
       .then((result) => {
-        if (cancelled) return;
-        setBookings(result.items);
-        setTotal(result.total);
+        if (!cancelled)
+          dispatch({ type: 'FETCH_SUCCESS', bookings: result.items, total: result.total });
       })
       .catch((err: unknown) => {
         if (!cancelled)
-          setError((err as { message?: string }).message || 'Không tải được danh sách booking');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+          dispatch({
+            type: 'FETCH_ERROR',
+            error: (err as { message?: string }).message || 'Không tải được danh sách booking',
+          });
       });
     return () => { cancelled = true; };
   }, [page]);
-
-  function refreshBookings() {
-    setPage((p) => p);
-  }
 
   async function openTickets(booking: Booking) {
     setSelectedBooking(booking);
@@ -77,7 +100,18 @@ export default function MyBookingsPage() {
     if (!confirm('Bạn chắc chắn muốn hủy đơn này?')) return;
     try {
       await cancelBooking(bookingId);
-      refreshBookings();
+      setPage((p) => p === 1 ? 1 : p);
+      dispatch({ type: 'FETCH_START' });
+      getMyBookings({ page, limit })
+        .then((result) =>
+          dispatch({ type: 'FETCH_SUCCESS', bookings: result.items, total: result.total })
+        )
+        .catch((err: unknown) =>
+          dispatch({
+            type: 'FETCH_ERROR',
+            error: (err as { message?: string }).message || 'Không tải được danh sách booking',
+          })
+        );
     } catch (err: unknown) {
       alert((err as { message?: string }).message || 'Không hủy được đơn');
     }
