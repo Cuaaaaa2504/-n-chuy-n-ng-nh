@@ -10,11 +10,16 @@ export class ProductService {
   ) {}
 
   findAll() {
-    return this.productRepo.find({ where: { status: 'ACTIVE' }, order: { product_name: 'ASC' } });
+    return this.productRepo.find({
+      where: { status: 'ACTIVE' },
+      order: { product_name: 'ASC' },
+    });
   }
 
   async findById(id: number) {
-    const product = await this.productRepo.findOne({ where: { product_id: id } });
+    const product = await this.productRepo.findOne({
+      where: { product_id: id },
+    });
     if (!product) throw new NotFoundException(`Product #${id} không tồn tại`);
     return product;
   }
@@ -28,5 +33,11 @@ export class ProductService {
     await this.findById(id);
     await this.productRepo.update(id, data);
     return this.findById(id);
+  }
+
+  async remove(id: number) {
+    await this.findById(id);
+    await this.productRepo.update(id, { status: 'INACTIVE' });
+    return { message: `Product #${id} đã bị vô hiệu hóa` };
   }
 }

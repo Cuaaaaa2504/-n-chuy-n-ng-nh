@@ -1,7 +1,20 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ConcessionComboService } from './concession-combo.service';
 import { ConcessionCombo } from '../entities/concession-combo.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('concession-combos')
 @Controller('api/concession-combos')
@@ -21,6 +34,8 @@ export class ConcessionComboController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Tạo combo mới (Admin)' })
   create(@Body() body: Partial<ConcessionCombo>): Promise<ConcessionCombo> {
@@ -28,6 +43,8 @@ export class ConcessionComboController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cập nhật combo (Admin)' })
   update(
@@ -38,6 +55,8 @@ export class ConcessionComboController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Ẩn combo (Admin)' })
   remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
