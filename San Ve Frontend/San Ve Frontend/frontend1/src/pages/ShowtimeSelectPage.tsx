@@ -1,12 +1,11 @@
 // src/pages/ShowtimeSelectPage.tsx
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { mockMovies } from "../data/mockMovies";
 import { useTheme } from "../context/ThemeContext";
 import EmptyShowtime from "../components/showtime/EmptyShowtime";
 
-// ── Types ──────────────────────────────────────────────────────────────────
 type Cinema = { id: number; name: string; address: string };
 
 type Showtime = {
@@ -18,7 +17,6 @@ type Showtime = {
   endTime: string;
 };
 
-// ── Mock data ──────────────────────────────────────────────────────────────
 const cinemas: Cinema[] = [
   { id: 1, name: "CMC Cinema Hà Nội",  address: "123 Nguyễn Trãi, Hà Nội" },
   { id: 2, name: "CMC Cinema Đà Nẵng", address: "45 Trần Phú, Đà Nẵng" },
@@ -52,7 +50,6 @@ function buildMockShowtimes(movieId: string | undefined): Showtime[] {
   return result;
 }
 
-// ── Utils ──────────────────────────────────────────────────────────────────
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 
@@ -71,7 +68,6 @@ const getDayLabel = (dateStr: string) => {
 
 const isPast = (iso: string) => new Date(iso) < new Date();
 
-// ── Component ──────────────────────────────────────────────────────────────
 export default function ShowtimeSelectPage() {
   const { movieId } = useParams();
   const navigate    = useNavigate();
@@ -84,20 +80,23 @@ export default function ShowtimeSelectPage() {
   const [selectedDate, setSelectedDate]         = useState<string | null>(null);
   const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null);
 
-  // ✅ Fix set-state-in-effect #1: đưa setLoading vào async function
+  // ✅ FIX: dùng useLayoutEffect thay vì update ref trực tiếp trong render
   const movieIdRef = useRef(movieId);
-  movieIdRef.current = movieId;
+  useLayoutEffect(() => {
+    movieIdRef.current = movieId;
+  });
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      // ✅ FIX: setLoading trong async function, không phải sync body của effect
+      setLoadingShowtimes(true);
+      setSelectedDate(null);
       await new Promise<void>((resolve) => setTimeout(resolve, 600));
       if (cancelled) return;
       setAllShowtimes(buildMockShowtimes(movieIdRef.current));
       setLoadingShowtimes(false);
     };
-    setLoadingShowtimes(true); // sync trước khi async — tránh cascade
-    setSelectedDate(null);    // reset ngày khi movieId thay đổi
     void load();
     return () => { cancelled = true; };
   }, [movieId]);
@@ -107,20 +106,16 @@ export default function ShowtimeSelectPage() {
     return Array.from(set).sort();
   }, [allShowtimes]);
 
-  // ✅ Fix set-state-in-effect #2: tính defaultDate trong useMemo, set trong initializer
-  // Dùng ref để chỉ set một lần sau khi load xong
   const didSetDefault = useRef(false);
 
   useEffect(() => {
     if (availableDates.length > 0 && !selectedDate && !didSetDefault.current) {
       didSetDefault.current = true;
-      // ✅ Đặt trong setTimeout → không còn sync trong effect body
       const t = setTimeout(() => setSelectedDate(availableDates[0]), 0);
       return () => clearTimeout(t);
     }
   }, [availableDates, selectedDate]);
 
-  // Reset guard khi movieId thay đổi
   useEffect(() => {
     didSetDefault.current = false;
   }, [movieId]);
@@ -168,7 +163,6 @@ export default function ShowtimeSelectPage() {
 
   return (
     <div className="flex-1 max-w-6xl mx-auto w-full px-4 md:px-10 py-8">
-      {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold">Chọn suất chiếu</h1>
@@ -191,8 +185,6 @@ export default function ShowtimeSelectPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-
-            {/* Chọn ngày */}
             <div className={`rounded-2xl p-5 ${card}`}>
               <h2 className="text-lg font-bold mb-4">Chọn ngày</h2>
               <div className="flex flex-wrap gap-3">
@@ -218,7 +210,6 @@ export default function ShowtimeSelectPage() {
               </div>
             </div>
 
-            {/* Lọc theo rạp */}
             <div className={`rounded-2xl p-5 ${card}`}>
               <h2 className="text-lg font-bold mb-4">Lọc theo rạp</h2>
               <div className="flex flex-wrap gap-3">
@@ -252,7 +243,6 @@ export default function ShowtimeSelectPage() {
               </div>
             </div>
 
-            {/* Suất chiếu nhóm theo rạp */}
             {filtered.length === 0 ? (
               <div className={`rounded-2xl p-5 text-center ${card}`}>
                 <p className={darkMode ? "text-gray-400" : "text-gray-500"}>
@@ -296,7 +286,6 @@ export default function ShowtimeSelectPage() {
             )}
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-4">
             <div className={`rounded-2xl p-5 ${card}`}>
               <h3 className="font-bold mb-3">Phim đang chọn</h3>

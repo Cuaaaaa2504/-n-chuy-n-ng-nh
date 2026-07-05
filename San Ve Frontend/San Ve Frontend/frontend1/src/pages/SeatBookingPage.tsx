@@ -1,6 +1,6 @@
 // src/pages/SeatBookingPage.tsx
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
@@ -15,8 +15,8 @@ const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900"
 const SEAT_PRICE = 90_000;
 const MAX_SEATS  = 8;
 
-// ── Mock seat generator ────────────────────────────────────────────────────
-function generateMockSeats(_showtimeId?: string): SeatDto[] { // ✅ prefix _ để tránh unused-vars
+function generateMockSeats(showtimeId?: string): SeatDto[] {
+  void showtimeId; // suppress unused-vars nếu cần
   const rows = ["A","B","C","D","E","F","G","H"];
   const seats: SeatDto[] = [];
   let id = 1;
@@ -52,8 +52,7 @@ export default function SeatBookingPage() {
   const navigate  = useNavigate();
   const { darkMode } = useTheme();
 
-  const movie      = mockMovies.find((m) => String(m.movie_id) === id);
-  // ✅ XÓA showtimeId riêng → lấy trực tiếp từ searchParams khi cần
+  const movie = mockMovies.find((m) => String(m.movie_id) === id);
   const [seats, setSeats]     = useState<SeatDto[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,36 +63,37 @@ export default function SeatBookingPage() {
     getSelectedSeats,
   } = useSeatSelection({ maxSelectable: MAX_SEATS });
 
-  // ✅ Dùng ref để tránh set-state-in-effect + exhaustive-deps
-  const clearSelectionRef    = useRef(clearSelection);
-  const getSelectedSeatsRef  = useRef(getSelectedSeats);
-  clearSelectionRef.current   = clearSelection;
-  getSelectedSeatsRef.current = getSelectedSeats;
+  // ✅ FIX: dùng useLayoutEffect để update ref – không phải render body
+  const clearSelectionRef   = useRef(clearSelection);
+  const getSelectedSeatsRef = useRef(getSelectedSeats);
+  useLayoutEffect(() => {
+    clearSelectionRef.current   = clearSelection;
+    getSelectedSeatsRef.current = getSelectedSeats;
+  });
 
   useEffect(() => {
     const stId = searchParams.get("showtimeId") ?? id ?? undefined;
-    // ✅ setLoading chạy bên trong async function, không phải sync body
     let cancelled = false;
     const load = async () => {
+      // ✅ FIX: setLoading(true) nằm trong async function, không phải sync body của effect
+      setLoading(true);
       clearSelectionRef.current();
       await new Promise<void>((resolve) => setTimeout(resolve, 700));
       if (cancelled) return;
       setSeats(generateMockSeats(stId));
       setLoading(false);
     };
-    setLoading(true); // set trước khi async bắt đầu → vẫn sync nhưng không trong effect body khi render
     void load();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, searchParams]);
 
-  // ✅ Đưa getSelectedSeats vào deps thông qua callback ổn định
   const getSelectedSeatsStable = useCallback(
     (s: SeatDto[]) => getSelectedSeatsRef.current(s),
     []
   );
 
-  const selectedSeats   = useMemo(() => getSelectedSeatsStable(seats), [selectedSeatIds, seats, getSelectedSeatsStable]);
+  // ✅ FIX: bỏ selectedSeatIds khỏi deps vì getSelectedSeatsStable không dùng nó trực tiếp
+  const selectedSeats   = useMemo(() => getSelectedSeatsStable(seats), [seats, getSelectedSeatsStable]);
   const totalPrice      = selectedSeats.length * SEAT_PRICE;
   const trailerEmbedUrl = movie ? getYoutubeEmbedUrl(movie.trailer_url) : null;
 
@@ -211,7 +211,6 @@ export default function SeatBookingPage() {
 
           {/* Sidebar */}
           <div className="space-y-4">
-            {/* Selected seats summary */}
             <div className={`rounded-2xl p-5 ${card}`}>
               <h3 className="font-bold mb-3">Ghế đã chọn</h3>
               {selectedSeats.length === 0 ? (
@@ -252,24 +251,22 @@ export default function SeatBookingPage() {
               )}
             </div>
 
-            {/* ✅ Truyền đúng type Seat (seatId bắt buộc); countdown/message/error không còn null */}
             <SelectedSeatsBar
               selectedSeats={selectedSeats.map((s) => ({
-                seatId:   s.id,               // ✅ thêm seatId
+                seatId:   s.id,
                 seatCode: `${s.rowName}${s.seatNumber}`,
                 price:    SEAT_PRICE,
                 status:   s.status as 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED',
               }))}
               totalPrice={totalPrice}
-              countdown={0}          // ✅ thay null → 0 (number)
+              countdown={0}
               loading={loading}
-              message={""}           // ✅ thay null → ""
-              error={""}             // ✅ thay null → ""
+              message={""}
+              error={""}
               heldSeatCodes={[]}
               onHold={() => {}}
             />
 
-            {/* Movie info */}
             <div className={`rounded-2xl p-5 ${card}`}>
               <h3 className="font-bold mb-2">Thông tin phim</h3>
               <p className="text-sm mb-1"><span className="font-semibold">Tên phim:</span> {movie.title}</p>
@@ -280,7 +277,6 @@ export default function SeatBookingPage() {
           </div>
         </div>
 
-        {/* Bottom actions */}
         <div className="mt-6 flex gap-3">
           <button
             onClick={() => navigate(-1)}
