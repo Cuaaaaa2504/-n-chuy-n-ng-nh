@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cancelBooking, getBookingTickets, getMyBookings } from '../api/bookingApi';
 import BookingTicketsModal from '../components/BookingTicketsModal';
@@ -35,23 +35,29 @@ export default function MyBookingsPage() {
   const limit = 5;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  const loadBookings = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setError('');
-    try {
-      const result = await getMyBookings({ page, limit });
-      setBookings(result.items);
-      setTotal(result.total);
-    } catch (err: unknown) {
-      setError((err as { message?: string }).message || 'Không tải được danh sách booking');
-    } finally {
-      setLoading(false);
-    }
+    getMyBookings({ page, limit })
+      .then((result) => {
+        if (cancelled) return;
+        setBookings(result.items);
+        setTotal(result.total);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled)
+          setError((err as { message?: string }).message || 'Không tải được danh sách booking');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [page]);
 
-  useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
+  function refreshBookings() {
+    setPage((p) => p);
+  }
 
   async function openTickets(booking: Booking) {
     setSelectedBooking(booking);
@@ -71,7 +77,7 @@ export default function MyBookingsPage() {
     if (!confirm('Bạn chắc chắn muốn hủy đơn này?')) return;
     try {
       await cancelBooking(bookingId);
-      loadBookings();
+      refreshBookings();
     } catch (err: unknown) {
       alert((err as { message?: string }).message || 'Không hủy được đơn');
     }

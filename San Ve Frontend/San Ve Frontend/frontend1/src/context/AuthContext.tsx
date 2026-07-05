@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   useCallback,
@@ -34,7 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return saved ? (JSON.parse(saved) as User) : null;
   });
 
-  // Lắng nghe event auth-changed từ axiosClient (khi 401)
   useEffect(() => {
     const handler = () => {
       setToken(null);
