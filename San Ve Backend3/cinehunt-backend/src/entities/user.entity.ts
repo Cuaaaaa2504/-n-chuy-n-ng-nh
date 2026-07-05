@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { UserRole } from './user-role.entity';
+import { RefreshToken } from './refresh-token.entity';  // ← THÊM
 
 @Entity('users')
 export class User {
@@ -25,8 +26,8 @@ export class User {
   @Column({ name: 'password_hash', type: 'varchar', length: 255 })
   password_hash: string;
 
-  @Column({ name: 'refresh_token_hash', type: 'varchar', length: 255, nullable: true })
-  refresh_token_hash: string | null;
+  // ← XOÁ refresh_token_hash — không có cột này trong DB V6.2
+  // Token được quản lý qua bảng refresh_tokens riêng
 
   @Column({ name: 'avatar_url', type: 'nvarchar', length: 500, nullable: true })
   avatar_url: string | null;
@@ -43,15 +44,14 @@ export class User {
   @Column({ name: 'locked_until', type: 'datetime2', precision: 0, nullable: true })
   locked_until: Date | null;
 
-  /** role: CUSTOMER | ADMIN | STAFF  — lấy từ bảng user_roles qua helper getter */
-  @Column({ type: 'varchar', length: 20, default: 'CUSTOMER' })
-  role: string;
-
-  @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
-  status: string;
-
   @Column({ name: 'last_login_at', type: 'datetime2', precision: 0, nullable: true })
   last_login_at: Date | null;
+
+  @Column({ type: 'varchar', length: 20, default: 'CUSTOMER' })
+  role: string; // 'CUSTOMER' | 'STAFF' | 'ADMIN'
+
+  @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
+  status: string; // 'ACTIVE' | 'LOCKED' | 'BANNED' | 'DELETED'
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   created_at: Date;
@@ -61,4 +61,7 @@ export class User {
 
   @OneToMany(() => UserRole, (userRole) => userRole.user)
   user_roles: UserRole[];
+
+  @OneToMany(() => RefreshToken, (rt) => rt.user)  // ← THÊM
+  refresh_tokens: RefreshToken[];
 }

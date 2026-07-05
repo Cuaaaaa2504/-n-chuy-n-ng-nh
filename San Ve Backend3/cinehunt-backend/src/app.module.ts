@@ -14,6 +14,9 @@ import { OtpCodeModule } from './otp-code/otp-code.module';
 import { NotificationModule } from './notification/notification.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-request.module';
+import { VoucherModule } from './voucher/voucher.module';     // giữ nguyên (alias promotions)
+import { CinemaModule } from './cinema/cinema.module';        // ← THÊM
+import { ProductModule } from './product/product.module';     // ← THÊM
 
 @Module({
   imports: [
@@ -50,6 +53,9 @@ import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-re
     NotificationModule,
     AuditLogModule,
     TicketWatchRequestModule,
+    VoucherModule,      // ← THÊM
+    CinemaModule,       // ← THÊM
+    ProductModule,      // ← THÊM
   ],
 })
 export class AppModule {}

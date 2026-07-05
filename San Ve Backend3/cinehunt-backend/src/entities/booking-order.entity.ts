@@ -13,6 +13,8 @@ import { Showtime } from './showtime.entity';
 import { BookingDetail } from './booking-detail.entity';
 import { Payment } from './payment.entity';
 import { BookingCombo } from './booking-combo.entity';
+import { BookingProduct } from './booking-product.entity';  // ← THÊM
+import { Refund } from './refund.entity';                   // ← THÊM
 
 @Entity('booking_orders')
 export class BookingOrder {
@@ -31,39 +33,16 @@ export class BookingOrder {
   @Column({ name: 'promotion_id', type: 'int', nullable: true })
   promotion_id: number | null;
 
-  @Column({
-    name: 'subtotal_amount',
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-  })
+  @Column({ name: 'subtotal_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
   subtotal_amount: number;
 
-  @Column({
-    name: 'discount_amount',
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-  })
+  @Column({ name: 'discount_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
   discount_amount: number;
 
-  @Column({
-    name: 'product_amount',
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-  })
+  @Column({ name: 'product_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
   product_amount: number;
 
-  @Column({
-    name: 'total_amount',
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-  })
+  @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2 })
   total_amount: number;
 
   @Column({ type: 'varchar', length: 30, default: 'PENDING_PAYMENT' })
@@ -105,5 +84,11 @@ export class BookingOrder {
   payments: Payment[];
 
   @OneToMany(() => BookingCombo, (item) => item.booking)
-  booking_products: BookingCombo[];
+  booking_combos: BookingCombo[];  // ← SỬA: booking_products → booking_combos
+
+  @OneToMany(() => BookingProduct, (item) => item.booking)  // ← THÊM
+  booking_products: BookingProduct[];
+
+  @OneToMany(() => Refund, (refund) => refund.booking)  // ← THÊM
+  refunds: Refund[];
 }

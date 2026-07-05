@@ -6,8 +6,10 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
 import { BookingOrder } from './booking-order.entity';
+import { Refund } from './refund.entity';  // ← THÊM
 
 @Entity('payments')
 export class Payment {
@@ -38,6 +40,9 @@ export class Payment {
   @Column({ name: 'provider_response', type: 'nvarchar', nullable: true })
   provider_response: string | null;
 
+  @Column({ name: 'failed_reason', type: 'nvarchar', length: 500, nullable: true })
+  failed_reason: string | null;  // ← THÊM (có trong DB nhưng thiếu trong entity cũ)
+
   @Column({ name: 'paid_at', type: 'datetime2', precision: 0, nullable: true })
   paid_at: Date | null;
 
@@ -50,4 +55,7 @@ export class Payment {
   @ManyToOne(() => BookingOrder, (booking) => booking.payments)
   @JoinColumn({ name: 'booking_id' })
   booking: BookingOrder;
+
+  @OneToMany(() => Refund, (refund) => refund.payment)  // ← THÊM
+  refunds: Refund[];
 }
