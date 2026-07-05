@@ -22,6 +22,8 @@ import ShowtimeSelectPage from '../pages/ShowtimeSelectPage';
 import SeatBookingPage from '../pages/SeatBookingPage';
 import PaymentPage from '../pages/PaymentPage';
 import MyBookingsPage from '../pages/MyBookingsPage';
+import TicketPage from '../pages/TicketPage';           // 👉 THÊM MỚI
+import TicketDetailPage from '../pages/TicketDetailPage'; // 👉 THÊM MỚI
 
 // Admin pages
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
@@ -51,6 +53,8 @@ export default function AppRouter() {
             <Route path="/booking/:id" element={<SeatBookingPage />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />
             <Route path="/my-tickets" element={<MyBookingsPage />} />
+            <Route path="/tickets" element={<TicketPage />} />           {/* 👉 THÊM MỚI */}
+            <Route path="/tickets/:ticketId" element={<TicketDetailPage />} /> {/* 👉 THÊM MỚI */}
           </Route>
 
           {/* 404 */}

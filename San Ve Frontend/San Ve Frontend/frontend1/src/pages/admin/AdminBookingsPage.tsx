@@ -1,3 +1,4 @@
+// AdminBookingsPage.tsx — frontend1 (chỉ có UI tĩnh, không có API)
 export default function AdminBookingsPage() {
   return (
     <div>
