@@ -1,21 +1,21 @@
 // src/components/tickets/TicketCard.tsx
 
 import React from 'react';
+import type { Ticket } from '../../types/ticket';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 
-interface Ticket {
-  bookingCode: string;
-  movieTitle: string;
-  cinemaName: string;
-  showDate: string;
-  showTime: string;
-  seats: string[];
-  totalAmount: number;
-  status: 'PAID' | 'PENDING' | 'CANCELLED' | 'EXPIRED';
-}
-
-const STATUS_TEXT: Record<string, string> = { PAID: 'Đã thanh toán', PENDING: 'Chờ thanh toán', CANCELLED: 'Đã hủy', EXPIRED: 'Hết hạn' };
-const STATUS_CLASS: Record<string, string> = { PAID: 'status-paid', PENDING: 'status-pending', CANCELLED: 'status-cancelled', EXPIRED: 'status-expired' };
+const STATUS_TEXT: Record<string, string> = {
+  PAID: 'Đã thanh toán',
+  PENDING: 'Chờ thanh toán',
+  CANCELLED: 'Đã hủy',
+  EXPIRED: 'Hết hạn',
+};
+const STATUS_CLASS: Record<string, string> = {
+  PAID: 'status-paid',
+  PENDING: 'status-pending',
+  CANCELLED: 'status-cancelled',
+  EXPIRED: 'status-expired',
+};
 
 const TicketCard: React.FC<{ ticket: Ticket }> = ({ ticket }) => {
   const { bookingCode, movieTitle, cinemaName, showDate, showTime, seats, totalAmount, status } = ticket;

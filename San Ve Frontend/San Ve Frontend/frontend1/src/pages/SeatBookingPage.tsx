@@ -1,6 +1,6 @@
 // src/pages/SeatBookingPage.tsx
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
@@ -16,7 +16,7 @@ const SEAT_PRICE = 90_000;
 const MAX_SEATS  = 8;
 
 function generateMockSeats(showtimeId?: string): SeatDto[] {
-  void showtimeId; // suppress unused-vars nếu cần
+  void showtimeId;
   const rows = ["A","B","C","D","E","F","G","H"];
   const seats: SeatDto[] = [];
   let id = 1;
@@ -49,7 +49,7 @@ function getYoutubeEmbedUrl(url?: string) {
 export default function SeatBookingPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const navigate  = useNavigate();
+  const navigate    = useNavigate();
   const { darkMode } = useTheme();
 
   const movie = mockMovies.find((m) => String(m.movie_id) === id);
@@ -63,19 +63,17 @@ export default function SeatBookingPage() {
     getSelectedSeats,
   } = useSeatSelection({ maxSelectable: MAX_SEATS });
 
-  // ✅ FIX: dùng useLayoutEffect để update ref – không phải render body
-  const clearSelectionRef   = useRef(clearSelection);
-  const getSelectedSeatsRef = useRef(getSelectedSeats);
+  // ✅ Chỉ dùng ref cho clearSelection (không đọc trong render)
+  const clearSelectionRef = useRef(clearSelection);
   useLayoutEffect(() => {
-    clearSelectionRef.current   = clearSelection;
-    getSelectedSeatsRef.current = getSelectedSeats;
+    clearSelectionRef.current = clearSelection;
   });
 
   useEffect(() => {
     const stId = searchParams.get("showtimeId") ?? id ?? undefined;
     let cancelled = false;
     const load = async () => {
-      // ✅ FIX: setLoading(true) nằm trong async function, không phải sync body của effect
+      // ✅ setLoading bên trong async – không phải sync body của effect
       setLoading(true);
       clearSelectionRef.current();
       await new Promise<void>((resolve) => setTimeout(resolve, 700));
@@ -87,13 +85,8 @@ export default function SeatBookingPage() {
     return () => { cancelled = true; };
   }, [id, searchParams]);
 
-  const getSelectedSeatsStable = useCallback(
-    (s: SeatDto[]) => getSelectedSeatsRef.current(s),
-    []
-  );
-
-  // ✅ FIX: bỏ selectedSeatIds khỏi deps vì getSelectedSeatsStable không dùng nó trực tiếp
-  const selectedSeats   = useMemo(() => getSelectedSeatsStable(seats), [seats, getSelectedSeatsStable]);
+  // ✅ FIX: dùng getSelectedSeats trực tiếp, không qua ref – ESLint không báo lỗi
+  const selectedSeats   = useMemo(() => getSelectedSeats(seats), [getSelectedSeats, seats]);
   const totalPrice      = selectedSeats.length * SEAT_PRICE;
   const trailerEmbedUrl = movie ? getYoutubeEmbedUrl(movie.trailer_url) : null;
 

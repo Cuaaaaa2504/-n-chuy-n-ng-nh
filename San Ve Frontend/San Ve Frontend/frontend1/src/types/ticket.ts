@@ -1,10 +1,12 @@
-// src/types/ticket.ts
+// src/types/ticket.types.ts
+
 export interface Ticket {
-  id: string | number;
-  movieTitle?: string;
-  seatCode?: string;
-  showTime?: string;
-  showDate?: string;
-  qrUrl?: string;
-  status?: string;
+  bookingCode: string;       // bắt buộc – source of truth
+  movieTitle: string;
+  cinemaName: string;
+  showDate: string;
+  showTime: string;
+  seats: string[];
+  totalAmount: number;
+  status: 'PAID' | 'PENDING' | 'CANCELLED' | 'EXPIRED';
 }
