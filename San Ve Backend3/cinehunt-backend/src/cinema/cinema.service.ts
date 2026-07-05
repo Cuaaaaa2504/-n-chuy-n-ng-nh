@@ -35,4 +35,10 @@ export class CinemaService {
     await this.cinemaRepo.update(id, data);
     return this.findCinemaById(id);
   }
+
+  async deleteCinema(id: number) {
+    await this.findCinemaById(id);
+    await this.cinemaRepo.update(id, { status: 'INACTIVE' });
+    return { message: `Cinema #${id} đã bị vô hiệu hóa` };
+  }
 }

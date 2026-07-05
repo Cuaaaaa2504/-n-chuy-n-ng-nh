@@ -19,6 +19,8 @@ import { CinemaModule } from './cinema/cinema.module';
 import { ProductModule } from './product/product.module';
 import { ConcessionComboModule } from './concession-combo/concession-combo.module';
 import { RefundModule } from './refund/refund.module';
+import { TicketModule } from './ticket/ticket.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -57,8 +59,9 @@ import { RefundModule } from './refund/refund.module';
     VoucherModule,
     CinemaModule,
     ProductModule,
-    ConcessionComboModule, // ✅ THÊM
-    RefundModule,          // ✅ THÊM
+    ConcessionComboModule,
+    RefundModule,
+    TicketModule,
   ],
 })
 export class AppModule {}
