@@ -1,7 +1,7 @@
 // src/hooks/useSeatSelection.ts
 
 import { useState, useCallback } from 'react';
-import { SeatDto } from '../types/seat.types';
+import type { SeatDto } from '../types/seat.types'; // ✅ thêm type
 
 interface UseSeatSelectionProps {
   maxSelectable?: number;
@@ -21,7 +21,7 @@ interface UseSeatSelectionReturn {
 
 export const useSeatSelection = ({
   maxSelectable = 10,
-  initialSelected = []
+  initialSelected = [],
 }: UseSeatSelectionProps = {}): UseSeatSelectionReturn => {
   const [selectedSeats, setSelectedSeats] = useState<number[]>(initialSelected);
 
@@ -36,17 +36,19 @@ export const useSeatSelection = ({
     const seat = seats.find(s => s.id === seatId);
     if (!seat || seat.status === 'SOLD' || seat.status === 'HELD' || seat.status === 'BLOCKED') return;
     setSelectedSeats(prev =>
-      prev.includes(seatId) ? prev.filter(id => id !== seatId)
-        : prev.length >= maxSelectable ? prev
+      prev.includes(seatId)
+        ? prev.filter(id => id !== seatId)
+        : prev.length >= maxSelectable
+        ? prev
         : [...prev, seatId]
     );
   }, [maxSelectable]);
 
-  const clearSelection = useCallback(() => setSelectedSeats([]), []);
-  const isSelected = useCallback((seatId: number) => selectedSeats.includes(seatId), [selectedSeats]);
+  const clearSelection   = useCallback(() => setSelectedSeats([]), []);
+  const isSelected       = useCallback((seatId: number) => selectedSeats.includes(seatId), [selectedSeats]);
   const getSelectedCount = useCallback(() => selectedSeats.length, [selectedSeats]);
   const getSelectedSeats = useCallback((seats: SeatDto[]) => seats.filter(s => selectedSeats.includes(s.id)), [selectedSeats]);
-  const canSelectMore = useCallback((seats: SeatDto[]) => {
+  const canSelectMore    = useCallback((seats: SeatDto[]) => {
     const available = seats.filter(s => s.status === 'AVAILABLE' && !selectedSeats.includes(s.id));
     return available.length > 0 && selectedSeats.length < maxSelectable;
   }, [selectedSeats, maxSelectable]);

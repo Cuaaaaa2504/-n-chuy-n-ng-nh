@@ -1,3 +1,5 @@
+// src/pages/MyBookingsPage.tsx
+
 import { useEffect, useReducer, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cancelBooking, getBookingTickets, getMyBookings } from '../api/bookingApi';
@@ -53,11 +55,7 @@ function BookingCard({
               🕐 {booking.showDate} {booking.showTime}
             </p>
           )}
-          {booking.seatCodes && booking.seatCodes.length > 0 && (
-            <p className={`text-sm mt-0.5 font-mono ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              💺 {booking.seatCodes.join(', ')}
-            </p>
-          )}
+          {/* ✅ XÓA 4 dòng booking.seatCodes — không có trong type Booking */}
           <p className={`text-sm font-semibold mt-1 ${STATUS_COLOR[booking.status] || 'text-gray-400'}`}>
             {STATUS_LABEL[booking.status] || booking.status}
           </p>
@@ -128,21 +126,26 @@ export default function MyBookingsPage() {
   });
   const { bookings, total, loading, error } = state;
 
-  const [page, setPage]                     = useState(1);
+  const [page, setPage]                       = useState(1);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [tickets, setTickets]               = useState<BookingTicket[]>([]);
-  const [ticketLoading, setTicketLoading]   = useState(false);
-  const [ticketError, setTicketError]       = useState('');
+  const [tickets, setTickets]                 = useState<BookingTicket[]>([]);
+  const [ticketLoading, setTicketLoading]     = useState(false);
+  const [ticketError, setTicketError]         = useState('');
 
-  const LIMIT = 5;
+  const LIMIT      = 5;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   const fetchBookings = () => {
     dispatch({ type: 'FETCH_START' });
     getMyBookings({ page, limit: LIMIT })
-      .then((result) => dispatch({ type: 'FETCH_SUCCESS', bookings: result.items, total: result.total }))
+      .then((result) =>
+        dispatch({ type: 'FETCH_SUCCESS', bookings: result.items, total: result.total })
+      )
       .catch((err: unknown) =>
-        dispatch({ type: 'FETCH_ERROR', error: (err as { message?: string }).message || 'Không tải được danh sách booking' })
+        dispatch({
+          type: 'FETCH_ERROR',
+          error: (err as { message?: string }).message || 'Không tải được danh sách booking',
+        })
       );
   };
 
@@ -150,8 +153,17 @@ export default function MyBookingsPage() {
     let cancelled = false;
     dispatch({ type: 'FETCH_START' });
     getMyBookings({ page, limit: LIMIT })
-      .then((result) => { if (!cancelled) dispatch({ type: 'FETCH_SUCCESS', bookings: result.items, total: result.total }); })
-      .catch((err: unknown) => { if (!cancelled) dispatch({ type: 'FETCH_ERROR', error: (err as { message?: string }).message || 'Không tải được danh sách booking' }); });
+      .then((result) => {
+        if (!cancelled)
+          dispatch({ type: 'FETCH_SUCCESS', bookings: result.items, total: result.total });
+      })
+      .catch((err: unknown) => {
+        if (!cancelled)
+          dispatch({
+            type: 'FETCH_ERROR',
+            error: (err as { message?: string }).message || 'Không tải được danh sách booking',
+          });
+      });
     return () => { cancelled = true; };
   }, [page]);
 
@@ -183,22 +195,18 @@ export default function MyBookingsPage() {
     <div className="max-w-3xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-extrabold mb-6">🎫 Vé của tôi</h1>
 
-      {/* Loading */}
       {loading && (
         <div className="flex justify-center py-16">
           <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
-      {/* Error */}
       {error && <p className="text-red-500 text-center py-8">{error}</p>}
 
-      {/* Empty state — dùng component từ p57 */}
       {!loading && !error && bookings.length === 0 && (
-        <EmptyTickets onNavigateToMovies={() => window.location.href = '/movies'} />
+        <EmptyTickets onNavigateToMovies={() => { window.location.href = '/movies'; }} />
       )}
 
-      {/* Booking list */}
       <div className="space-y-4">
         {bookings.map((booking) => (
           <BookingCard
@@ -211,7 +219,6 @@ export default function MyBookingsPage() {
         ))}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center items-center gap-4 mt-8">
           <button
@@ -234,7 +241,6 @@ export default function MyBookingsPage() {
         </div>
       )}
 
-      {/* QR Modal */}
       <BookingTicketsModal
         open={Boolean(selectedBooking)}
         loading={ticketLoading}

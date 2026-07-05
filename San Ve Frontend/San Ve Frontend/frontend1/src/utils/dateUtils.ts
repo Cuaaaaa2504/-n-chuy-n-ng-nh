@@ -15,7 +15,11 @@ export const getAvailableDates = (showtimes: { startTime: string }[]): string[] 
   return Array.from(new Set(showtimes.map(s => s.startTime.split('T')[0]))).sort();
 };
 
-export const filterShowtimesByDate = (showtimes: { startTime: string }[], selectedDate: string | null): any[] => {
+// ✅ thay any[] → { startTime: string }[]
+export const filterShowtimesByDate = (
+  showtimes: { startTime: string }[],
+  selectedDate: string | null
+): { startTime: string }[] => {
   if (!showtimes || !selectedDate) return [];
   return showtimes.filter(s => s.startTime.startsWith(selectedDate));
 };

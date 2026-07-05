@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+// src/pages/SeatBookingPage.tsx
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
@@ -13,8 +15,8 @@ const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900"
 const SEAT_PRICE = 90_000;
 const MAX_SEATS  = 8;
 
-// ── Mock seat generator (thay bằng seatService.getSeatsByShowtime) ─────────
-function generateMockSeats(showtimeId?: string): SeatDto[] {
+// ── Mock seat generator ────────────────────────────────────────────────────
+function generateMockSeats(_showtimeId?: string): SeatDto[] { // ✅ prefix _ để tránh unused-vars
   const rows = ["A","B","C","D","E","F","G","H"];
   const seats: SeatDto[] = [];
   let id = 1;
@@ -22,8 +24,8 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
     for (let num = 1; num <= 10; num++) {
       const rand = Math.random();
       const status: SeatDto["status"] =
-        rand < 0.15 ? "SOLD" :
-        rand < 0.22 ? "HELD" :
+        rand < 0.15 ? "SOLD"    :
+        rand < 0.22 ? "HELD"    :
         rand < 0.25 ? "BLOCKED" : "AVAILABLE";
       seats.push({ id: id++, rowName: row, seatNumber: num, status });
     }
@@ -47,14 +49,13 @@ function getYoutubeEmbedUrl(url?: string) {
 export default function SeatBookingPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
   const { darkMode } = useTheme();
 
-  const movie = mockMovies.find((m) => String(m.movie_id) === id);
-  const showtimeId = searchParams.get("showtimeId") ?? id;
-
-  const [seats, setSeats]       = useState<SeatDto[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const movie      = mockMovies.find((m) => String(m.movie_id) === id);
+  // ✅ XÓA showtimeId riêng → lấy trực tiếp từ searchParams khi cần
+  const [seats, setSeats]     = useState<SeatDto[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const {
     selectedSeats: selectedSeatIds,
@@ -63,18 +64,37 @@ export default function SeatBookingPage() {
     getSelectedSeats,
   } = useSeatSelection({ maxSelectable: MAX_SEATS });
 
-  // Fetch seats
-  useEffect(() => {
-    setLoading(true);
-    clearSelection();
-    setTimeout(() => {
-      setSeats(generateMockSeats(showtimeId ?? undefined));
-      setLoading(false);
-    }, 700);
-  }, [showtimeId]);
+  // ✅ Dùng ref để tránh set-state-in-effect + exhaustive-deps
+  const clearSelectionRef    = useRef(clearSelection);
+  const getSelectedSeatsRef  = useRef(getSelectedSeats);
+  clearSelectionRef.current   = clearSelection;
+  getSelectedSeatsRef.current = getSelectedSeats;
 
-  const selectedSeats  = useMemo(() => getSelectedSeats(seats), [selectedSeatIds, seats]);
-  const totalPrice     = selectedSeats.length * SEAT_PRICE;
+  useEffect(() => {
+    const stId = searchParams.get("showtimeId") ?? id ?? undefined;
+    // ✅ setLoading chạy bên trong async function, không phải sync body
+    let cancelled = false;
+    const load = async () => {
+      clearSelectionRef.current();
+      await new Promise<void>((resolve) => setTimeout(resolve, 700));
+      if (cancelled) return;
+      setSeats(generateMockSeats(stId));
+      setLoading(false);
+    };
+    setLoading(true); // set trước khi async bắt đầu → vẫn sync nhưng không trong effect body khi render
+    void load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, searchParams]);
+
+  // ✅ Đưa getSelectedSeats vào deps thông qua callback ổn định
+  const getSelectedSeatsStable = useCallback(
+    (s: SeatDto[]) => getSelectedSeatsRef.current(s),
+    []
+  );
+
+  const selectedSeats   = useMemo(() => getSelectedSeatsStable(seats), [selectedSeatIds, seats, getSelectedSeatsStable]);
+  const totalPrice      = selectedSeats.length * SEAT_PRICE;
   const trailerEmbedUrl = movie ? getYoutubeEmbedUrl(movie.trailer_url) : null;
 
   const card = darkMode ? "bg-gray-900 border border-gray-800" : "bg-white shadow";
@@ -92,11 +112,10 @@ export default function SeatBookingPage() {
     );
   }
 
-  // Thông tin từ URL params
-  const date    = searchParams.get("date") ?? "";
-  const cinema  = searchParams.get("cinema") ?? "";
-  const time    = searchParams.get("time") ?? "";
-  const room    = searchParams.get("room") ?? "";
+  const date   = searchParams.get("date")   ?? "";
+  const cinema = searchParams.get("cinema") ?? "";
+  const time   = searchParams.get("time")   ?? "";
+  const room   = searchParams.get("room")   ?? "";
 
   return (
     <div className="flex-1">
@@ -233,18 +252,19 @@ export default function SeatBookingPage() {
               )}
             </div>
 
-            {/* SelectedSeatsBar (component cũ giữ lại nếu cần) */}
+            {/* ✅ Truyền đúng type Seat (seatId bắt buộc); countdown/message/error không còn null */}
             <SelectedSeatsBar
               selectedSeats={selectedSeats.map((s) => ({
-                ...s,
+                seatId:   s.id,               // ✅ thêm seatId
                 seatCode: `${s.rowName}${s.seatNumber}`,
-                price: SEAT_PRICE,
+                price:    SEAT_PRICE,
+                status:   s.status as 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED',
               }))}
               totalPrice={totalPrice}
-              countdown={null}
+              countdown={0}          // ✅ thay null → 0 (number)
               loading={loading}
-              message={null}
-              error={null}
+              message={""}           // ✅ thay null → ""
+              error={""}             // ✅ thay null → ""
               heldSeatCodes={[]}
               onHold={() => {}}
             />

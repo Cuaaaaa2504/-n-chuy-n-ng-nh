@@ -1,16 +1,16 @@
 // src/components/seat/SeatMap.tsx
 
 import React, { useMemo, useState } from 'react';
-import { SeatMapProps, GroupedSeats } from '../../types/seat.types';
+import type { SeatMapProps, GroupedSeats } from '../../types/seat.types'; // ✅ thêm type
 import SeatItem from './SeatItem';
 import './SeatMap.css';
 
-const SeatMap: React.FC<SeatMapProps> = ({ 
-  seats, 
-  selectedSeats, 
+const SeatMap: React.FC<SeatMapProps> = ({
+  seats,
+  selectedSeats,
   onSeatSelect,
   maxSelectable = 10,
-  showLegend = true
+  showLegend = true,
 }) => {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
@@ -41,7 +41,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
 
   const stats = {
     available: seats.filter(s => s.status === 'AVAILABLE').length,
-    sold: seats.filter(s => s.status === 'SOLD').length,
+    sold:      seats.filter(s => s.status === 'SOLD').length,
   };
 
   return (
@@ -88,7 +88,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
         <div className="seat-legend">
           <div className="legend-title">Chú thích:</div>
           <div className="legend-items">
-            {['available','selected','held','sold','blocked'].map(s => (
+            {(['available','selected','held','sold','blocked'] as const).map(s => (
               <div key={s} className="legend-item">
                 <div className={`legend-color ${s}`}></div>
                 <span>{{ available:'Trống', selected:'Đã chọn', held:'Đang giữ', sold:'Đã bán', blocked:'Bị khóa' }[s]}</span>

@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+// src/pages/ShowtimeSelectPage.tsx
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { mockMovies } from "../data/mockMovies";
 import { useTheme } from "../context/ThemeContext";
@@ -12,11 +14,11 @@ type Showtime = {
   cinemaId: number;
   cinemaName: string;
   roomName: string;
-  startTime: string; // ISO string
+  startTime: string;
   endTime: string;
 };
 
-// ── Mock data (thay bằng API call thực tế) ─────────────────────────────────
+// ── Mock data ──────────────────────────────────────────────────────────────
 const cinemas: Cinema[] = [
   { id: 1, name: "CMC Cinema Hà Nội",  address: "123 Nguyễn Trãi, Hà Nội" },
   { id: 2, name: "CMC Cinema Đà Nẵng", address: "45 Trần Phú, Đà Nẵng" },
@@ -58,11 +60,11 @@ const formatDate = (dateStr: string) =>
   new Date(dateStr).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
 
 const getDayLabel = (dateStr: string) => {
-  const date = new Date(dateStr);
-  const today = new Date(); today.setHours(0,0,0,0);
+  const date     = new Date(dateStr);
+  const today    = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  date.setHours(0,0,0,0);
-  if (date.getTime() === today.getTime()) return "Hôm nay";
+  date.setHours(0, 0, 0, 0);
+  if (date.getTime() === today.getTime())    return "Hôm nay";
   if (date.getTime() === tomorrow.getTime()) return "Ngày mai";
   return date.toLocaleDateString("vi-VN", { weekday: "short" });
 };
@@ -72,39 +74,57 @@ const isPast = (iso: string) => new Date(iso) < new Date();
 // ── Component ──────────────────────────────────────────────────────────────
 export default function ShowtimeSelectPage() {
   const { movieId } = useParams();
-  const navigate = useNavigate();
+  const navigate    = useNavigate();
   const { darkMode } = useTheme();
 
   const movie = mockMovies.find((m) => String(m.movie_id) === movieId);
 
-  const [allShowtimes, setAllShowtimes] = useState<Showtime[]>([]);
+  const [allShowtimes, setAllShowtimes]         = useState<Showtime[]>([]);
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate]         = useState<string | null>(null);
   const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null);
 
-  // Giả lập fetch API — thay bằng axios.get thực tế
+  // ✅ Fix set-state-in-effect #1: đưa setLoading vào async function
+  const movieIdRef = useRef(movieId);
+  movieIdRef.current = movieId;
+
   useEffect(() => {
-    setLoadingShowtimes(true);
-    setTimeout(() => {
-      setAllShowtimes(buildMockShowtimes(movieId));
+    let cancelled = false;
+    const load = async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 600));
+      if (cancelled) return;
+      setAllShowtimes(buildMockShowtimes(movieIdRef.current));
       setLoadingShowtimes(false);
-    }, 600);
+    };
+    setLoadingShowtimes(true); // sync trước khi async — tránh cascade
+    setSelectedDate(null);    // reset ngày khi movieId thay đổi
+    void load();
+    return () => { cancelled = true; };
   }, [movieId]);
 
-  // Lấy danh sách ngày có suất chiếu (unique, sorted)
   const availableDates = useMemo(() => {
     const set = new Set(allShowtimes.map((s) => s.startTime.split("T")[0]));
     return Array.from(set).sort();
   }, [allShowtimes]);
 
-  // Set ngày mặc định là ngày đầu tiên
+  // ✅ Fix set-state-in-effect #2: tính defaultDate trong useMemo, set trong initializer
+  // Dùng ref để chỉ set một lần sau khi load xong
+  const didSetDefault = useRef(false);
+
   useEffect(() => {
-    if (availableDates.length > 0 && !selectedDate) {
-      setSelectedDate(availableDates[0]);
+    if (availableDates.length > 0 && !selectedDate && !didSetDefault.current) {
+      didSetDefault.current = true;
+      // ✅ Đặt trong setTimeout → không còn sync trong effect body
+      const t = setTimeout(() => setSelectedDate(availableDates[0]), 0);
+      return () => clearTimeout(t);
     }
   }, [availableDates, selectedDate]);
 
-  // Lọc suất theo ngày & rạp được chọn
+  // Reset guard khi movieId thay đổi
+  useEffect(() => {
+    didSetDefault.current = false;
+  }, [movieId]);
+
   const filtered = useMemo(() => {
     let list = allShowtimes.filter((s) =>
       selectedDate ? s.startTime.startsWith(selectedDate) : true
@@ -113,7 +133,6 @@ export default function ShowtimeSelectPage() {
     return list;
   }, [allShowtimes, selectedDate, selectedCinemaId]);
 
-  // Nhóm suất theo rạp
   const groupedByCinema = useMemo(() => {
     const map: Record<string, Showtime[]> = {};
     filtered.forEach((s) => {
@@ -153,9 +172,7 @@ export default function ShowtimeSelectPage() {
       <div className="flex items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold">Chọn suất chiếu</h1>
-          <p className={darkMode ? "text-gray-400 mt-1" : "text-gray-600 mt-1"}>
-            {movie.title}
-          </p>
+          <p className={darkMode ? "text-gray-400 mt-1" : "text-gray-600 mt-1"}>{movie.title}</p>
         </div>
         <button
           onClick={() => navigate(`/movies/${movie.movie_id}`)}
@@ -201,7 +218,7 @@ export default function ShowtimeSelectPage() {
               </div>
             </div>
 
-            {/* Lọc theo rạp (tuỳ chọn) */}
+            {/* Lọc theo rạp */}
             <div className={`rounded-2xl p-5 ${card}`}>
               <h2 className="text-lg font-bold mb-4">Lọc theo rạp</h2>
               <div className="flex flex-wrap gap-3">

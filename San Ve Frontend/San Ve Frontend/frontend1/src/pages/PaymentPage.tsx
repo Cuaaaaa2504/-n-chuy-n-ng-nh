@@ -1,5 +1,7 @@
+// src/pages/PaymentPage.tsx
+
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom'; // ✅ xóa useSearchParams
 import { useTheme } from '../context/ThemeContext';
 import { getOrder, getPaymentMethods, payOrder } from '../api/paymentApi';
 import { usePayment } from '../hooks/usePayment';
@@ -12,7 +14,9 @@ const METHOD_ICONS: Record<string, string> = {
 // ── Countdown hook ─────────────────────────────────────────────────────────
 function useCountdown(expiresAt?: string) {
   const [seconds, setSeconds] = useState(() =>
-    expiresAt ? Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)) : 0
+    expiresAt
+      ? Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000))
+      : 0
   );
   useEffect(() => {
     if (!expiresAt) return;
@@ -42,22 +46,19 @@ function LoadingOverlay({ isVisible }: { isVisible: boolean }) {
 // ── Main Page ──────────────────────────────────────────────────────────────
 export default function PaymentPage() {
   const { orderId } = useParams<{ orderId: string }>();
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  // ✅ XÓA: const [searchParams] = useSearchParams();
+  const navigate    = useNavigate();
   const { darkMode } = useTheme();
 
-  const [order, setOrder]               = useState<OrderDetail | null>(null);
-  const [methods, setMethods]           = useState<PaymentMethod[]>([]);
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodCode | null>(null);
-  const [loading, setLoading]           = useState(true);
-  const [fetchError, setFetchError]     = useState('');
+  const [order, setOrder]                       = useState<OrderDetail | null>(null);
+  const [methods, setMethods]                   = useState<PaymentMethod[]>([]);
+  const [selectedMethod, setSelectedMethod]     = useState<PaymentMethodCode | null>(null);
+  const [loading, setLoading]                   = useState(true);
+  const [fetchError, setFetchError]             = useState('');
 
-  // Hook từ p54 — quản lý trạng thái isProcessing / paymentStatus
   const { isProcessing, paymentStatus, error: paymentError, handlePayment, resetPayment } = usePayment();
-
   const { seconds: countdown, display: countdownDisplay } = useCountdown(order?.expiresAt);
 
-  // Lấy thông tin order + phương thức thanh toán
   useEffect(() => {
     if (!orderId) return;
     let cancelled = false;
@@ -78,18 +79,15 @@ export default function PaymentPage() {
     return () => { cancelled = true; };
   }, [orderId]);
 
-  // Tự chuyển sang /my-tickets khi hết giờ
   useEffect(() => {
     if (order?.expiresAt && countdown === 0) {
       navigate('/my-tickets', { replace: true });
     }
   }, [countdown, order?.expiresAt, navigate]);
 
-  // Xử lý thanh toán qua usePayment hook
   const handlePay = async () => {
     if (!orderId || !selectedMethod || !order) return;
     try {
-      // Thử qua payOrder API gốc trước, fallback sang handlePayment từ p54
       const result = await payOrder(orderId, selectedMethod);
       if (result.redirectUrl) {
         window.location.href = result.redirectUrl;
@@ -97,19 +95,17 @@ export default function PaymentPage() {
         navigate('/my-tickets', { replace: true });
       }
     } catch {
-      // Fallback sang hook usePayment
       try {
         await handlePayment({ bookingId: parseInt(orderId!), totalAmount: order.totalAmount });
         navigate('/my-tickets', { replace: true });
       } catch {
-        // error được quản lý bởi usePayment hook
+        // error quản lý bởi usePayment
       }
     }
   };
 
   const card = darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow';
 
-  // ── Loading state ──────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center py-20">
@@ -131,7 +127,6 @@ export default function PaymentPage() {
     );
   }
 
-  // ── Success state ──────────────────────────────────────────────────────
   if (paymentStatus === 'SUCCESS') {
     return (
       <div className="flex-1 flex items-center justify-center py-20 px-4">
@@ -157,11 +152,9 @@ export default function PaymentPage() {
 
   return (
     <>
-      {/* Loading Overlay từ p54 */}
       <LoadingOverlay isVisible={isProcessing} />
 
       <div className="max-w-3xl mx-auto px-4 py-8 w-full">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-extrabold">Thanh toán</h1>
@@ -179,7 +172,6 @@ export default function PaymentPage() {
           </button>
         </div>
 
-        {/* Countdown */}
         {order.expiresAt && (
           <div className={`rounded-2xl p-4 mb-5 flex items-center justify-between ${
             isExpired ? 'bg-red-900/30 border border-red-700' : 'bg-yellow-500/10 border border-yellow-500/30'
@@ -196,7 +188,6 @@ export default function PaymentPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
-          {/* Order info */}
           <div className={`md:col-span-3 rounded-2xl p-5 ${card}`}>
             <h2 className="font-bold text-base mb-4">Thông tin đơn hàng</h2>
             <div className="space-y-2 text-sm">
@@ -245,7 +236,6 @@ export default function PaymentPage() {
             </div>
           </div>
 
-          {/* Payment methods */}
           <div className={`md:col-span-2 rounded-2xl p-5 ${card}`}>
             <h2 className="font-bold text-base mb-4">Phương thức</h2>
             <div className="space-y-2">
@@ -270,7 +260,6 @@ export default function PaymentPage() {
           </div>
         </div>
 
-        {/* Error */}
         {(paymentError || paymentStatus === 'FAILED') && (
           <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm font-medium flex items-center justify-between">
             <span>{paymentError || 'Thanh toán thất bại. Vui lòng thử lại.'}</span>
@@ -278,7 +267,6 @@ export default function PaymentPage() {
           </div>
         )}
 
-        {/* Actions */}
         <div className="mt-6 flex gap-3">
           <button
             onClick={() => navigate(-1)}
