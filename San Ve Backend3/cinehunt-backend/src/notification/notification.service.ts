@@ -2,80 +2,68 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification } from '../entities/notification.entity';
-import { CreateNotificationDto } from './dto/create-notification.dto';
 
 @Injectable()
 export class NotificationService {
   constructor(
     @InjectRepository(Notification)
-    private readonly notifRepo: Repository<Notification>,
+    private readonly repo: Repository<Notification>,
   ) {}
 
-  async getMyNotifications(userId: number) {
-    return this.notifRepo.find({
-      where: { user_id: userId },
-      order: { created_at: 'DESC' },
+  findByUser(userId: number): Promise<Notification[]> {
+    return this.repo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
     });
   }
 
-  async markAsRead(notifId: string, userId: number) {
-    const notif = await this.notifRepo.findOne({
-      where: { notification_id: notifId, user_id: userId },
+  async markRead(notifId: number, userId: number): Promise<Notification> {
+    const notif = await this.repo.findOne({
+      where: { notificationId: notifId, userId },
     });
     if (!notif) throw new NotFoundException('Không tìm thấy thông báo');
-    notif.is_read = true;
-    notif.read_at = new Date();
-    await this.notifRepo.save(notif);
-    return { message: 'Đã đánh dấu đã đọc' };
+    notif.isRead = true;
+    notif.readAt = new Date();
+    return this.repo.save(notif);
   }
 
-  async markAllAsRead(userId: number) {
-    await this.notifRepo.update(
-      { user_id: userId, is_read: false },
-      { is_read: true, read_at: new Date() },
+  async markAllRead(userId: number): Promise<void> {
+    await this.repo.update(
+      { userId, isRead: false },
+      { isRead: true, readAt: new Date() },
     );
-    return { message: 'Đã đánh dấu tất cả là đã đọc' };
   }
 
-  async countUnread(userId: number) {
-    const count = await this.notifRepo.count({
-      where: { user_id: userId, is_read: false },
+  countUnread(userId: number): Promise<number> {
+    return this.repo.count({
+      where: { userId, isRead: false },
     });
-    return { unreadCount: count };
   }
 
-  /** Gửi thông báo nội bộ (service khác gọi) */
-  async push(dto: CreateNotificationDto) {
-    const notif = this.notifRepo.create({
-      user_id: dto.userId,
+  async create(dto: {
+    userId: number;
+    title: string;
+    body: string;
+    type?: string;
+  }): Promise<Notification> {
+    const notif = this.repo.create({
+      userId: dto.userId,
       title: dto.title,
-      message: dto.message,
-      notification_type: dto.notificationType ?? 'SYSTEM',
-      reference_type: dto.referenceType ?? null,
-      reference_id: dto.referenceId ?? null,
-      is_read: false,
-      read_at: null,
+      body: dto.body,
+      type: dto.type ?? 'INFO',
     });
-    return this.notifRepo.save(notif);
+    return this.repo.save(notif);
   }
 
-  /** ADMIN broadcast cho nhiều user */
-  async broadcast(
-    dto: Omit<CreateNotificationDto, 'userId'>,
-    userIds: number[],
-  ) {
+  async broadcast(userIds: number[], title: string, body: string, type = 'INFO') {
     const notifs = userIds.map((uid) =>
-      this.notifRepo.create({
-        user_id: uid,
-        title: dto.title,
-        message: dto.message,
-        notification_type: dto.notificationType ?? 'SYSTEM',
-        reference_type: dto.referenceType ?? null,
-        reference_id: dto.referenceId ?? null,
-        is_read: false,
-        read_at: null,
+      this.repo.create({
+        userId: uid,
+        title,
+        body,
+        type,
       }),
     );
-    return this.notifRepo.save(notifs);
+    return this.repo.save(notifs);
   }
 }

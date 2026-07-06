@@ -6,38 +6,35 @@ import { Product } from '../entities/product.entity';
 @Injectable()
 export class ProductService {
   constructor(
-    @InjectRepository(Product) private productRepo: Repository<Product>,
+    @InjectRepository(Product)
+    private readonly repo: Repository<Product>,
   ) {}
 
-  findAll() {
-    return this.productRepo.find({
+  findAll(): Promise<Product[]> {
+    return this.repo.find({
       where: { status: 'ACTIVE' },
-      order: { product_name: 'ASC' },
+      order: { productName: 'ASC' },
     });
   }
 
-  async findById(id: number) {
-    const product = await this.productRepo.findOne({
-      where: { product_id: id },
-    });
+  async findOne(id: number): Promise<Product> {
+    const product = await this.repo.findOne({ where: { productId: id } });
     if (!product) throw new NotFoundException(`Product #${id} không tồn tại`);
     return product;
   }
 
-  async create(data: Partial<Product>) {
-    const product = this.productRepo.create(data);
-    return this.productRepo.save(product);
+  create(data: Partial<Product>): Promise<Product> {
+    return this.repo.save(this.repo.create(data));
   }
 
-  async update(id: number, data: Partial<Product>) {
-    await this.findById(id);
-    await this.productRepo.update(id, data);
-    return this.findById(id);
+  async update(id: number, data: Partial<Product>): Promise<Product> {
+    await this.findOne(id);
+    await this.repo.update({ productId: id }, data);
+    return this.findOne(id);
   }
 
-  async remove(id: number) {
-    await this.findById(id);
-    await this.productRepo.update(id, { status: 'INACTIVE' });
-    return { message: `Product #${id} đã bị vô hiệu hóa` };
+  async remove(id: number): Promise<void> {
+    await this.findOne(id);
+    await this.repo.update({ productId: id }, { status: 'INACTIVE' });
   }
 }

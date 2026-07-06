@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 import { OtpCode } from '../entities/otp-code.entity';
@@ -11,58 +7,47 @@ import { OtpCode } from '../entities/otp-code.entity';
 export class OtpCodeService {
   constructor(
     @InjectRepository(OtpCode)
-    private readonly otpRepo: Repository<OtpCode>,
+    private readonly repo: Repository<OtpCode>,
   ) {}
 
-  async generateOtp(
-    userId: number,
-    purpose: 'VERIFY_EMAIL' | 'RESET_PASSWORD' | 'CHANGE_PHONE',
-  ) {
-    // Hủy các OTP cũ cùng purpose chưa dùng
-    await this.otpRepo.update(
-      { user_id: userId, purpose, is_used: false },
-      { is_used: true },
+  async invalidateOldOtps(userId: number, purpose: string): Promise<void> {
+    await this.repo.update(
+      { userId, purpose, isUsed: false },
+      { isUsed: true },
     );
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
-
-    const otp = this.otpRepo.create({
-      user_id: userId,
-      code,
-      purpose,
-      expires_at: expiresAt,
-      is_used: false,
-    });
-
-    await this.otpRepo.save(otp);
-    return { code, expiresAt, message: 'OTP đã được tạo (10 phút)' };
   }
 
-  async verifyOtp(
-    userId: number,
-    code: string,
-    purpose: 'VERIFY_EMAIL' | 'RESET_PASSWORD' | 'CHANGE_PHONE',
-  ) {
-    const otp = await this.otpRepo.findOne({
-      where: { user_id: userId, code, purpose, is_used: false },
+  async create(userId: number, purpose: string, expiresInMinutes = 10): Promise<OtpCode> {
+    await this.invalidateOldOtps(userId, purpose);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+    const otp = this.repo.create({
+      userId,
+      purpose,
+      code,
+      expiresAt,
+      isUsed: false,
     });
+    return this.repo.save(otp);
+  }
 
-    if (!otp) throw new NotFoundException('OTP không hợp lệ hoặc đã được sử dụng');
-    if (new Date() > otp.expires_at)
+  async verify(userId: number, code: string, purpose: string): Promise<OtpCode> {
+    const otp = await this.repo.findOne({
+      where: { userId, code, purpose, isUsed: false },
+    });
+    if (!otp) throw new BadRequestException('OTP không hợp lệ hoặc đã hết hạn');
+
+    if (new Date() > otp.expiresAt)
       throw new BadRequestException('OTP đã hết hạn');
 
-    otp.is_used = true;
-    await this.otpRepo.save(otp);
-
-    return { message: 'Xác thực OTP thành công' };
+    otp.isUsed = true;
+    await this.repo.save(otp);
+    return otp;
   }
 
-  // Dọn OTP hết hạn (gọi từ scheduler nếu cần)
-  async cleanExpiredOtps() {
-    const result = await this.otpRepo.delete({
-      expires_at: LessThan(new Date()),
+  async cleanExpired(): Promise<void> {
+    await this.repo.delete({
+      expiresAt: LessThan(new Date()),
     });
-    return result.affected ?? 0;
   }
 }
