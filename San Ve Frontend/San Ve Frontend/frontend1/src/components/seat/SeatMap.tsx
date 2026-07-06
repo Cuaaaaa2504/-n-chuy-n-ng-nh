@@ -1,6 +1,6 @@
 // src/components/seat/SeatMap.tsx
 import React, { useMemo, useState } from 'react';
-import { SeatMapProps, GroupedSeats } from '../../types/seat.types';
+import type { SeatMapProps, GroupedSeats } from '../../types/seat.types';
 import SeatItem from './SeatItem';
 import './SeatMap.css';
 

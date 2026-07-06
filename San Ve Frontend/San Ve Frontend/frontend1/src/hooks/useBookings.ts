@@ -1,5 +1,5 @@
 // src/hooks/useBookings.ts
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 interface Booking {
   bookingId: number;
@@ -24,7 +24,7 @@ export const useBookings = () => {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
 
-  const fetchBookings = async (filters: Filters = {}) => {
+  const fetchBookings = useCallback(async (filters: Filters = {}) => {
     setLoading(true);
     setError(null);
     try {
@@ -69,7 +69,7 @@ export const useBookings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return { bookings, loading, error, fetchBookings };
 };

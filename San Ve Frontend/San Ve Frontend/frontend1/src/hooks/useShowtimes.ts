@@ -1,5 +1,5 @@
 // src/hooks/useShowtimes.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface Showtime {
   id: number;
@@ -17,7 +17,7 @@ export const useShowtimes = () => {
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
-  const fetchShowtimes = async () => {
+  const fetchShowtimes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -32,7 +32,7 @@ export const useShowtimes = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const addShowtime = async (data: Omit<Showtime, 'id' | 'cinemaName' | 'status'>): Promise<boolean> => {
     try {
@@ -70,7 +70,9 @@ export const useShowtimes = () => {
     }
   };
 
-  useEffect(() => { fetchShowtimes(); }, []);
+  useEffect(() => {
+    fetchShowtimes();
+  }, [fetchShowtimes]);
 
   return { showtimes, loading, error, fetchShowtimes, addShowtime, updateShowtime, cancelShowtime };
 };

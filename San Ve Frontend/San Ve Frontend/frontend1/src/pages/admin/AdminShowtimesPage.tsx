@@ -5,19 +5,34 @@ import ShowtimeForm from '../../components/admin/ShowtimeForm';
 import ConfirmCancelModal from '../../components/admin/ConfirmCancelModal';
 import { useShowtimes } from '../../hooks/useShowtimes';
 
+type ShowtimeStatus = 'ACTIVE' | 'CANCELLED' | 'FINISHED';
+
+interface Showtime {
+  id: number;
+  movieTitle: string;
+  cinemaName: string;
+  roomName: string;
+  showDate: string;
+  startTime: string;
+  endTime: string;
+  status: ShowtimeStatus;
+}
+
+type ShowtimeFormData = Omit<Showtime, 'id' | 'cinemaName' | 'status'>;
+
 const AdminShowtimesPage: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingShowtime, setEditingShowtime] = useState<any>(null);
-  const [cancelingShowtime, setCancelingShowtime] = useState<any>(null);
+  const [editingShowtime, setEditingShowtime] = useState<Showtime | null>(null);
+  const [cancelingShowtime, setCancelingShowtime] = useState<Showtime | null>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
   const { showtimes, loading, error, addShowtime, updateShowtime, cancelShowtime } = useShowtimes();
 
   const handleAddShowtime = () => { setEditingShowtime(null); setIsFormOpen(true); };
-  const handleEditShowtime = (s: any) => { setEditingShowtime(s); setIsFormOpen(true); };
-  const handleCancelShowtime = (s: any) => { setCancelingShowtime(s); setIsCancelModalOpen(true); };
+  const handleEditShowtime = (s: Showtime) => { setEditingShowtime(s); setIsFormOpen(true); };
+  const handleCancelShowtime = (s: Showtime) => { setCancelingShowtime(s); setIsCancelModalOpen(true); };
 
-  const handleFormSubmit = async (data: any) => {
+  const handleFormSubmit = async (data: ShowtimeFormData) => {
     const success = editingShowtime
       ? await updateShowtime(editingShowtime.id, data)
       : await addShowtime(data);
@@ -70,4 +85,3 @@ const AdminShowtimesPage: React.FC = () => {
 };
 
 export default AdminShowtimesPage;
-

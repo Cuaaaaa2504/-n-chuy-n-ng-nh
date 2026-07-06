@@ -12,7 +12,7 @@ const AdminBookingsPage: React.FC = () => {
   });
   const { bookings, loading, error, fetchBookings } = useBookings();
 
-  useEffect(() => { fetchBookings(filters); }, [filters]);
+  useEffect(() => { fetchBookings(filters); }, [filters, fetchBookings]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

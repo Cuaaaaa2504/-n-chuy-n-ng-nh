@@ -1,6 +1,6 @@
 // src/components/seat/SeatItem.tsx
 import React from 'react';
-import { SeatItemProps } from '../../types/seat.types';
+import type { SeatItemProps } from '../../types/seat.types';
 import './SeatMap.css';
 
 const SeatItem: React.FC<SeatItemProps> = ({ seat, selected, onClick, disabled = false }) => {
