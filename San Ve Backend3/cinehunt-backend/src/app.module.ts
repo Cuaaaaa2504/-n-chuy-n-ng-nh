@@ -30,7 +30,9 @@ import { ProductModule } from './product/product.module';
       useFactory: (configService: ConfigService) => ({
         type: 'mssql',
         host: configService.get<string>('DB_HOST'),
-        port: configService.get<number>('DB_PORT') ?? 1433,
+        // FIX: parseInt bắt buộc vì process.env luôn là string,
+        // configService.get<number>() không tự ép kiểu
+        port: parseInt(configService.get<string>('DB_PORT') ?? '1433', 10),
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
