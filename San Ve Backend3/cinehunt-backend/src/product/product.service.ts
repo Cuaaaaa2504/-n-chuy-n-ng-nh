@@ -12,15 +12,20 @@ export class ProductService {
 
   findAll(): Promise<Product[]> {
     return this.repo.find({
-      where: { status: 'ACTIVE' },
-      order: { productName: 'ASC' },
+      where: { status: 'ACTIVE' } as any,
+      order: { productName: 'ASC' } as any,
     });
   }
 
-  async findOne(id: number): Promise<Product> {
-    const product = await this.repo.findOne({ where: { productId: id } });
+  async findById(id: number): Promise<Product> {
+    const product = await this.repo.findOne({ where: { productId: id } as any });
     if (!product) throw new NotFoundException(`Product #${id} không tồn tại`);
     return product;
+  }
+
+  // alias
+  findOne(id: number): Promise<Product> {
+    return this.findById(id);
   }
 
   create(data: Partial<Product>): Promise<Product> {
@@ -28,13 +33,13 @@ export class ProductService {
   }
 
   async update(id: number, data: Partial<Product>): Promise<Product> {
-    await this.findOne(id);
-    await this.repo.update({ productId: id }, data);
-    return this.findOne(id);
+    await this.findById(id);
+    await this.repo.update({ productId: id } as any, data);
+    return this.findById(id);
   }
 
   async remove(id: number): Promise<void> {
-    await this.findOne(id);
-    await this.repo.update({ productId: id }, { status: 'INACTIVE' });
+    await this.findById(id);
+    await this.repo.update({ productId: id } as any, { status: 'INACTIVE' } as any);
   }
 }

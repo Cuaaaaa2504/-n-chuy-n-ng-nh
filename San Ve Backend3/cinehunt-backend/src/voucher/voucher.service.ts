@@ -22,18 +22,16 @@ export class VoucherService {
     return voucher;
   }
 
+  validateVoucher(code: string, orderAmount: number) {
+    return this.findByCode(code).then((voucher) => this.validate(voucher, orderAmount));
+  }
+
   validate(voucher: Voucher, orderAmount: number) {
     const now = new Date();
-
-    if (now < voucher.startAt)
-      throw new BadRequestException('Voucher chưa đến thời gian sử dụng');
-
-    if (now > voucher.endAt)
-      throw new BadRequestException('Voucher đã hết hạn');
-
+    if (now < voucher.startAt) throw new BadRequestException('Voucher chưa đến thời gian sử dụng');
+    if (now > voucher.endAt) throw new BadRequestException('Voucher đã hết hạn');
     if (voucher.usageLimit && voucher.usedCount >= voucher.usageLimit)
       throw new BadRequestException('Voucher đã hết lượt sử dụng');
-
     if (voucher.minOrderAmount && orderAmount < Number(voucher.minOrderAmount))
       throw new BadRequestException(
         `Đơn hàng tối thiểu ${voucher.minOrderAmount.toLocaleString()}đ để dùng voucher này`,
@@ -42,9 +40,7 @@ export class VoucherService {
     let discount = 0;
     if (voucher.discountType === 'PERCENT') {
       discount = (orderAmount * Number(voucher.discountValue)) / 100;
-      if (voucher.maxDiscount) {
-        discount = Math.min(discount, Number(voucher.maxDiscount));
-      }
+      if (voucher.maxDiscount) discount = Math.min(discount, Number(voucher.maxDiscount));
     } else {
       discount = Number(voucher.discountValue);
     }
@@ -63,11 +59,7 @@ export class VoucherService {
       where: { promotionCode: dto.code.toUpperCase() },
     });
     if (existing) throw new BadRequestException('Mã voucher đã tồn tại');
-
-    const voucher = this.voucherRepo.create({
-      promotionCode: dto.code.toUpperCase(),
-      ...dto,
-    });
+    const voucher = this.voucherRepo.create({ promotionCode: dto.code.toUpperCase(), ...dto });
     return this.voucherRepo.save(voucher);
   }
 
@@ -81,6 +73,10 @@ export class VoucherService {
     await this.findOne(id);
     await this.voucherRepo.update({ promotionId: id }, dto);
     return this.findOne(id);
+  }
+
+  async deactivate(id: number): Promise<Voucher> {
+    return this.update(id, { status: 'INACTIVE' } as any);
   }
 
   async remove(id: number): Promise<void> {

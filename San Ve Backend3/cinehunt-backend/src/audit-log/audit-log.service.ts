@@ -13,30 +13,38 @@ export class AuditLogService {
   async log(dto: {
     userId?: number | null;
     action: string;
-    targetType?: string;
-    targetId?: string | null;
-    details?: any;
+    entityType?: string | null;
+    entityId?: string | null;
+    oldValues?: any;
+    newValues?: any;
     ipAddress?: string | null;
   }): Promise<AuditLog> {
     const entry = this.repo.create({
       userId: dto.userId ?? null,
       action: dto.action,
-      targetType: dto.targetType ?? null,
-      targetId: dto.targetId ?? null,
-      details: dto.details ? JSON.stringify(dto.details) : null,
+      entityType: dto.entityType ?? null,
+      entityId: dto.entityId ?? null,
+      oldValues: dto.oldValues ? JSON.stringify(dto.oldValues) : null,
+      newValues: dto.newValues ? JSON.stringify(dto.newValues) : null,
       ipAddress: dto.ipAddress ?? null,
-    });
+    } as any);
     return this.repo.save(entry);
   }
 
-  findAll(): Promise<AuditLog[]> {
-    return this.repo.find({ order: { createdAt: 'DESC' } });
+  findAll(page?: number, limit?: number): Promise<AuditLog[]> {
+    const take = limit ?? 50;
+    const skip = page && limit ? (page - 1) * limit : 0;
+    return this.repo.find({
+      order: { createdAt: 'DESC' } as any,
+      take,
+      skip,
+    });
   }
 
   findByUser(userId: number): Promise<AuditLog[]> {
     return this.repo.find({
-      where: { userId },
-      order: { createdAt: 'DESC' },
+      where: { userId } as any,
+      order: { createdAt: 'DESC' } as any,
     });
   }
 }

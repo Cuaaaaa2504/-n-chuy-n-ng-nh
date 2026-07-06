@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
@@ -37,24 +37,38 @@ export class UsersService {
   ) {
     const user = await this.userRepo.findOne({ where: { userId } });
     if (!user) throw new NotFoundException('Không tìm thấy user');
-
     const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
     if (!valid) throw new BadRequestException('Mật khẩu hiện tại không đúng');
-
     user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
     await this.userRepo.save(user);
     return { message: 'Đổi mật khẩu thành công' };
   }
 
-  async listUsers() {
-    return this.userRepo.find({
-      order: { createdAt: 'DESC' },
-    });
+  async getAllUsers() {
+    return this.userRepo.find({ order: { createdAt: 'DESC' } });
   }
 
-  async adminGetUser(targetId: number) {
+  // alias
+  listUsers() {
+    return this.getAllUsers();
+  }
+
+  async getUserById(targetId: number) {
     const user = await this.userRepo.findOne({ where: { userId: targetId } });
     if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
+    return this.toProfile(user);
+  }
+
+  // alias
+  adminGetUser(targetId: number) {
+    return this.getUserById(targetId);
+  }
+
+  async setUserStatus(targetId: number, status: string) {
+    const user = await this.userRepo.findOne({ where: { userId: targetId } });
+    if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
+    (user as any).status = status;
+    await this.userRepo.save(user);
     return this.toProfile(user);
   }
 

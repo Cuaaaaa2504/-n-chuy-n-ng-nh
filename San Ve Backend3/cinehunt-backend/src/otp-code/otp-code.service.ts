@@ -12,12 +12,12 @@ export class OtpCodeService {
 
   async invalidateOldOtps(userId: number, purpose: string): Promise<void> {
     await this.repo.update(
-      { userId, purpose, isUsed: false },
-      { isUsed: true },
+      { userId, purpose, isUsed: false } as any,
+      { isUsed: true } as any,
     );
   }
 
-  async create(userId: number, purpose: string, expiresInMinutes = 10): Promise<OtpCode> {
+  async generateOtp(userId: number, purpose: string, expiresInMinutes = 10): Promise<OtpCode> {
     await this.invalidateOldOtps(userId, purpose);
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
@@ -27,27 +27,37 @@ export class OtpCodeService {
       code,
       expiresAt,
       isUsed: false,
-    });
+    } as any);
     return this.repo.save(otp);
   }
 
-  async verify(userId: number, code: string, purpose: string): Promise<OtpCode> {
+  // alias
+  create(userId: number, purpose: string, expiresInMinutes = 10): Promise<OtpCode> {
+    return this.generateOtp(userId, purpose, expiresInMinutes);
+  }
+
+  async verifyOtp(userId: number, code: string, purpose: string): Promise<OtpCode> {
     const otp = await this.repo.findOne({
-      where: { userId, code, purpose, isUsed: false },
+      where: { userId, code, purpose, isUsed: false } as any,
     });
     if (!otp) throw new BadRequestException('OTP không hợp lệ hoặc đã hết hạn');
 
-    if (new Date() > otp.expiresAt)
+    if (new Date() > (otp as any).expiresAt)
       throw new BadRequestException('OTP đã hết hạn');
 
-    otp.isUsed = true;
+    (otp as any).isUsed = true;
     await this.repo.save(otp);
     return otp;
+  }
+
+  // alias
+  verify(userId: number, code: string, purpose: string): Promise<OtpCode> {
+    return this.verifyOtp(userId, code, purpose);
   }
 
   async cleanExpired(): Promise<void> {
     await this.repo.delete({
       expiresAt: LessThan(new Date()),
-    });
+    } as any);
   }
 }
