@@ -103,14 +103,15 @@ export function useSeatHold(showtimeId?: string) {
 
       setHoldExpiresAt(expires);
       setMessage("Giữ ghế thành công.");
-    } catch (e: any) {
-      if (e.status === 409) {
+    } catch (e: unknown) {
+      const err = e as { status?: number; message?: string };
+      if (err.status === 409) {
         setError("Ghế đã bị người khác giữ. Vui lòng chọn lại.");
         setSelectedSeatIds([]);
         setSeats((prev) => prev.map((seat) => ({ ...seat })));
         return;
       }
-      setError(e.message || "Không thể giữ ghế.");
+      setError(err.message ?? "Không thể giữ ghế.");
     } finally {
       setLoading(false);
     }
