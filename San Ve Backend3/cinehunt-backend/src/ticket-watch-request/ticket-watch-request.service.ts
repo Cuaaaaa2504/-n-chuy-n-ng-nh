@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TicketWatchRequest } from '../entities/ticket-watch-request.entity';
@@ -10,14 +14,18 @@ export class TicketWatchRequestService {
     private readonly repo: Repository<TicketWatchRequest>,
   ) {}
 
-  async create(userId: number, dto: { movieId: number; preferredDate?: string; notes?: string }) {
-    const request = this.repo.create({
+  async create(
+    userId: number,
+    dto: { movieId: number; preferredDate?: string; notes?: string },
+  ) {
+    const data: any = {
       userId,
       movieId: dto.movieId,
       preferredDate: dto.preferredDate ? new Date(dto.preferredDate) : null,
       notes: dto.notes ?? null,
       status: 'ACTIVE',
-    } as any);
+    };
+    const request = this.repo.create(data as unknown as TicketWatchRequest);
     return this.repo.save(request);
   }
 
@@ -28,14 +36,16 @@ export class TicketWatchRequestService {
     });
   }
 
-  // alias
   findByUser(userId: number) {
     return this.getMyRequests(userId);
   }
 
   async findOne(watchId: number, userId: number) {
-    const request = await this.repo.findOne({ where: { watchId } as any });
-    if (!request) throw new NotFoundException(`WatchRequest #${watchId} không tồn tại`);
+    const request = await this.repo.findOne({
+      where: { watchId } as any,
+    });
+    if (!request)
+      throw new NotFoundException(`WatchRequest #${watchId} không tồn tại`);
     if ((request as any).userId !== userId)
       throw new BadRequestException('Không có quyền truy cập');
     return request;
@@ -52,7 +62,6 @@ export class TicketWatchRequestService {
     return this.repo.find({ order: { createdAt: 'DESC' } as any });
   }
 
-  // alias
   listAll() {
     return this.findAll();
   }
@@ -67,9 +76,12 @@ export class TicketWatchRequestService {
     const request = await this.repo.findOne({
       where: { watchId, status: 'ACTIVE' } as any,
     });
-    if (!request) throw new NotFoundException('Watch request không tồn tại hoặc không ở trạng thái ACTIVE');
-    (request as any).matchedShowtimeId = showtimeId;
-    (request as any).matchedAt = new Date();
+    if (!request)
+      throw new NotFoundException(
+        'Watch request không tồn tại hoặc không ở trạng thái ACTIVE',
+      );
+    request.matchedShowtimeId = showtimeId;
+    request.matchedAt = new Date();
     (request as any).status = 'MATCHED';
     return this.repo.save(request);
   }

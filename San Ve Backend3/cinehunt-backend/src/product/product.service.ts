@@ -18,12 +18,13 @@ export class ProductService {
   }
 
   async findById(id: number): Promise<Product> {
-    const product = await this.repo.findOne({ where: { productId: id } as any });
+    const product = await this.repo.findOne({
+      where: { productId: id } as any,
+    });
     if (!product) throw new NotFoundException(`Product #${id} không tồn tại`);
     return product;
   }
 
-  // alias
   findOne(id: number): Promise<Product> {
     return this.findById(id);
   }
@@ -40,6 +41,9 @@ export class ProductService {
 
   async remove(id: number): Promise<void> {
     await this.findById(id);
-    await this.repo.update({ productId: id } as any, { status: 'INACTIVE' } as any);
+    await this.repo.update(
+      { productId: id } as any,
+      { status: 'INACTIVE' } as any,
+    );
   }
 }

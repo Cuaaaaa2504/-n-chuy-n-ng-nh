@@ -21,7 +21,10 @@ export class NotificationService {
     return this.getMyNotifications(userId);
   }
 
-  async markAsRead(notifId: number | string, userId: number): Promise<Notification> {
+  async markAsRead(
+    notifId: number | string,
+    userId: number,
+  ): Promise<Notification> {
     const id = Number(notifId);
     const notif = await this.repo.findOne({
       where: { notificationId: id, userId } as any,
@@ -32,7 +35,10 @@ export class NotificationService {
     return this.repo.save(notif);
   }
 
-  markRead(notifId: number | string, userId: number): Promise<Notification> {
+  markRead(
+    notifId: number | string,
+    userId: number,
+  ): Promise<Notification> {
     return this.markAsRead(notifId, userId);
   }
 
@@ -68,14 +74,25 @@ export class NotificationService {
     return this.repo.save(notif);
   }
 
-  create(dto: { userId: number; title: string; body?: string; message?: string; type?: string }): Promise<Notification> {
+  create(dto: {
+    userId: number;
+    title: string;
+    body?: string;
+    message?: string;
+    type?: string;
+  }): Promise<Notification> {
     return this.push(dto);
   }
 
-  async broadcast(userIds: number[], title: string, body: string, type = 'INFO'): Promise<Notification[]> {
+  async broadcast(
+    userIds: number[],
+    title: string,
+    body: string,
+    type = 'INFO',
+  ): Promise<Notification[]> {
     const notifs: Notification[] = userIds.map((uid) => {
-      const data: any = { userId: uid, title, message: body, type };
-      return this.repo.create(data as unknown as Notification);
+      const d: any = { userId: uid, title, message: body, type };
+      return this.repo.create(d as unknown as Notification);
     });
     return this.repo.save(notifs);
   }
