@@ -9,6 +9,7 @@ import { SeatHold } from '../entities/seat-hold.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
 import { ConcessionCombo } from '../entities/concession-combo.entity';
 import { BookingCombo } from '../entities/booking-combo.entity';
+import { Voucher } from '../entities/voucher.entity';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { BookingCombo } from '../entities/booking-combo.entity';
       ShowtimeSeat,
       ConcessionCombo,
       BookingCombo,
+      Voucher,
     ]),
   ],
   controllers: [BookingController],
