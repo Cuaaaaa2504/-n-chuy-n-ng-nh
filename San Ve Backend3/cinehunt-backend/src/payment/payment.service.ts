@@ -18,17 +18,15 @@ export class PaymentService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async createPayment(
-    userId: number,
-    dto: CreatePaymentDto,
-  ): Promise<PaymentResponse> {
+  async createPayment(userId: number, dto: CreatePaymentDto): Promise<PaymentResponse> {
     const booking = await this.bookingService.validateBookingForPayment(
       dto.bookingId,
       userId,
     );
 
-    const existingPending =
-      await this.paymentRepository.findPendingByBookingId(String(dto.bookingId));
+    const existingPending = await this.paymentRepository.findPendingByBookingId(
+      String(dto.bookingId),
+    );
     if (existingPending) {
       throw new BadRequestException('Booking đã có payment đang chờ xử lý');
     }
@@ -36,24 +34,24 @@ export class PaymentService {
     const transactionCode = this.paymentRepository.generatePaymentCode();
 
     const payment = await this.paymentRepository.createPayment({
-      booking_id: String(booking.booking_id) as any,
-      payment_method: dto.paymentMethod,
+      bookingId: String(booking.bookingId),
+      paymentMethod: dto.paymentMethod,
       provider: dto.provider ?? null,
-      amount: booking.final_amount,
-      transaction_code: transactionCode,
-      payment_status: 'PENDING',
-      provider_response: null,
-      paid_at: null,
-    } as any);
+      amount: booking.finalAmount,
+      transactionCode,
+      paymentStatus: 'PENDING',
+      providerResponse: null,
+      paidAt: null,
+    });
 
     return {
-      paymentId: payment.payment_id,
-      bookingId: payment.booking_id,
+      paymentId: payment.paymentId,
+      bookingId: payment.bookingId,
       amount: Number(payment.amount),
-      paymentMethod: payment.payment_method,
-      paymentStatus: payment.payment_status,
-      transactionCode: payment.transaction_code,
-      createdAt: payment.created_at,
+      paymentMethod: payment.paymentMethod,
+      paymentStatus: payment.paymentStatus,
+      transactionCode: payment.transactionCode,
+      createdAt: payment.createdAt,
     };
   }
 
@@ -64,90 +62,85 @@ export class PaymentService {
 
     try {
       const payment = await queryRunner.manager.findOne(Payment, {
-        where: { payment_id: paymentId },
+        where: { paymentId },
       });
 
       if (!payment) throw new NotFoundException('Không tìm thấy payment');
 
-      if (payment.payment_status !== 'PENDING') {
+      if (payment.paymentStatus !== 'PENDING') {
         throw new BadRequestException(
-          `Payment status là ${payment.payment_status}, chỉ PENDING mới được xử lý`,
+          `Payment status là ${payment.paymentStatus}, chỉ PENDING mới được xử lý`,
         );
       }
 
       const booking = await this.bookingService.validateBookingForPayment(
-        payment.booking_id as any,
+        payment.bookingId,
       );
 
-      const bookingDetails =
-        await this.paymentRepository.getBookingDetailsByBookingId(
-          payment.booking_id,
-        );
+      const bookingDetails = await this.paymentRepository.getBookingDetailsByBookingId(
+        payment.bookingId,
+      );
 
       if (!bookingDetails.length) {
         throw new BadRequestException('Không tìm thấy ghế trong booking');
       }
 
-      await queryRunner.manager.update(Payment, paymentId, {
-        payment_status: 'SUCCESS',
-        paid_at: new Date(),
+      await queryRunner.manager.update(Payment, { paymentId }, {
+        paymentStatus: 'SUCCESS',
+        paidAt: new Date(),
       });
 
-      const seatIds = bookingDetails.map((d) => d.showtime_seat_id);
+      const seatIds = bookingDetails.map((d) => d.showtimeSeatId);
 
       await queryRunner.manager
         .createQueryBuilder()
         .update(ShowtimeSeat)
-        .set({
-          status: 'SOLD',
-          hold_expires_at: null,
-          held_by_user_id: null,
-        })
-        .where('showtime_seat_id IN (:...ids)', { ids: seatIds })
+        .set({ status: 'SOLD', holdExpiresAt: null, heldByUserId: null })
+        .where('showtimeSeatId IN (:...ids)', { ids: seatIds })
         .execute();
 
-      await this.bookingService.updateBookingToPaid(booking.booking_id);
+      await this.bookingService.updateBookingToPaid(booking.bookingId);
 
       const tickets: any[] = [];
 
       for (const detail of bookingDetails) {
         const existing = await this.paymentRepository.findTicketByDetailId(
-          String(detail.booking_detail_id),
+          String(detail.bookingDetailId),
         );
 
         if (existing) {
           tickets.push({
-            ticketId: existing.ticket_id,
-            ticketCode: existing.ticket_code,
-            qrCode: existing.qr_code,
-            seatLabel: detail.showtime_seat?.seat
-              ? `${detail.showtime_seat.seat.seat_row}${detail.showtime_seat.seat.seat_number}`
+            ticketId: existing.ticketId,
+            ticketCode: existing.ticketCode,
+            qrCode: existing.qrCode,
+            seatLabel: detail.showtimeSeat?.seat
+              ? `${detail.showtimeSeat.seat.seatRow}${detail.showtimeSeat.seat.seatNumber}`
               : null,
-            seatType: detail.showtime_seat?.seat?.seat_type ?? null,
-            price: Number(detail.seat_price),
+            seatType: detail.showtimeSeat?.seat?.seatType ?? null,
+            price: Number(detail.seatPrice),
           });
           continue;
         }
 
         const newTicket = await this.paymentRepository.createTicket({
-          booking_detail_id: String(detail.booking_detail_id) as any,
-          ticket_code: this.paymentRepository.generateTicketCode(),
-          qr_code: this.paymentRepository.generateQrCode(),
-          ticket_status: 'VALID',
-          issued_at: new Date(),
-          checked_in_at: null,
-          checked_in_by: null,
-        } as any);
+          bookingDetailId: String(detail.bookingDetailId),
+          ticketCode: this.paymentRepository.generateTicketCode(),
+          qrCode: this.paymentRepository.generateQrCode(),
+          ticketStatus: 'VALID',
+          issuedAt: new Date(),
+          checkedInAt: null,
+          checkedInBy: null,
+        });
 
         tickets.push({
-          ticketId: newTicket.ticket_id,
-          ticketCode: newTicket.ticket_code,
-          qrCode: newTicket.qr_code,
-          seatLabel: detail.showtime_seat?.seat
-            ? `${detail.showtime_seat.seat.seat_row}${detail.showtime_seat.seat.seat_number}`
+          ticketId: newTicket.ticketId,
+          ticketCode: newTicket.ticketCode,
+          qrCode: newTicket.qrCode,
+          seatLabel: detail.showtimeSeat?.seat
+            ? `${detail.showtimeSeat.seat.seatRow}${detail.showtimeSeat.seat.seatNumber}`
             : null,
-          seatType: detail.showtime_seat?.seat?.seat_type ?? null,
-          price: Number(detail.seat_price),
+          seatType: detail.showtimeSeat?.seat?.seatType ?? null,
+          price: Number(detail.seatPrice),
         });
       }
 
@@ -156,7 +149,7 @@ export class PaymentService {
       return {
         success: true,
         paymentId,
-        bookingId: booking.booking_id,
+        bookingId: booking.bookingId,
         tickets,
       };
     } catch (error) {
@@ -172,19 +165,14 @@ export class PaymentService {
 
     if (!payment) throw new NotFoundException('Không tìm thấy payment');
 
-    if (payment.payment_status !== 'PENDING') {
+    if (payment.paymentStatus !== 'PENDING') {
       throw new BadRequestException(
-        `Payment status là ${payment.payment_status}, chỉ PENDING mới được hủy`,
+        `Payment status là ${payment.paymentStatus}, chỉ PENDING mới được hủy`,
       );
     }
 
-    await this.paymentRepository.updatePaymentFailed(
-      paymentId,
-      'Payment failed by system',
-    );
-
-    // cancelBooking nhận bookingId dạng string (BIGINT)
-    await this.bookingService.cancelBooking(payment.booking_id, undefined as any);
+    await this.paymentRepository.updatePaymentFailed(paymentId, 'Payment failed by system');
+    await this.bookingService.cancelBooking(payment.bookingId, undefined as any);
 
     return { success: true, paymentId, status: 'FAILED' };
   }
@@ -195,14 +183,14 @@ export class PaymentService {
     if (!payment) throw new NotFoundException('Không tìm thấy payment của booking');
 
     return {
-      paymentId: payment.payment_id,
-      bookingId: payment.booking_id,
+      paymentId: payment.paymentId,
+      bookingId: payment.bookingId,
       amount: Number(payment.amount),
-      paymentMethod: payment.payment_method,
-      paymentStatus: payment.payment_status,
-      transactionCode: payment.transaction_code,
-      paidAt: payment.paid_at,
-      createdAt: payment.created_at,
+      paymentMethod: payment.paymentMethod,
+      paymentStatus: payment.paymentStatus,
+      transactionCode: payment.transactionCode,
+      paidAt: payment.paidAt,
+      createdAt: payment.createdAt,
     };
   }
 }

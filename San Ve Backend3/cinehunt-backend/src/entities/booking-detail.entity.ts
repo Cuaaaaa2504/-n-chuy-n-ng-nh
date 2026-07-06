@@ -34,11 +34,11 @@ export class BookingDetail {
   @ManyToOne(() => BookingOrder, (booking) => booking.bookingDetails, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn()
+  @JoinColumn({ name: 'booking_id' })
   booking: BookingOrder;
 
   @ManyToOne(() => ShowtimeSeat)
-  @JoinColumn()
+  @JoinColumn({ name: 'showtime_seat_id' })
   showtimeSeat: ShowtimeSeat;
 
   @OneToOne(() => Ticket, (ticket) => ticket.bookingDetail)

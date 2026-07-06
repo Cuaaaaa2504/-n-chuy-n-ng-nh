@@ -36,10 +36,10 @@ export class SeatHold {
   releasedAt: Date | null;
 
   @ManyToOne(() => User)
-  @JoinColumn()
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @ManyToOne(() => ShowtimeSeat)
-  @JoinColumn()
+  @JoinColumn({ name: 'showtime_seat_id' })
   showtimeSeat: ShowtimeSeat;
 }

@@ -70,11 +70,11 @@ export class BookingOrder {
   updatedAt: Date;
 
   @ManyToOne(() => User)
-  @JoinColumn()
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   @ManyToOne(() => Showtime)
-  @JoinColumn()
+  @JoinColumn({ name: 'showtime_id' })
   showtime: Showtime;
 
   @OneToMany(() => BookingDetail, (detail) => detail.booking)

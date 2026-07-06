@@ -18,50 +18,30 @@ export class ShowtimeService {
 
   async findAll(): Promise<Showtime[]> {
     return this.showtimeRepository.find({
-      where: {
-        status: Not('CANCELLED'),
-      },
-      order: {
-        start_time: 'ASC',
-      },
+      where: { status: Not('CANCELLED') },
+      order: { startTime: 'ASC' },
     });
   }
 
   async findOne(id: number): Promise<Showtime> {
     const showtime = await this.showtimeRepository.findOne({
-      where: {
-        showtime_id: id,
-      },
+      where: { showtimeId: id },
     });
-
-    if (!showtime) {
-      throw new NotFoundException('Showtime not found');
-    }
-
+    if (!showtime) throw new NotFoundException('Showtime not found');
     return showtime;
   }
 
   async findByMovie(movieId: number): Promise<Showtime[]> {
     return this.showtimeRepository.find({
-      where: {
-        movie_id: movieId,
-        status: 'OPEN',
-      },
-      order: {
-        start_time: 'ASC',
-      },
+      where: { movieId, status: 'OPEN' },
+      order: { startTime: 'ASC' },
     });
   }
 
   async findByRoom(roomId: number): Promise<Showtime[]> {
     return this.showtimeRepository.find({
-      where: {
-        room_id: roomId,
-        status: Not('CANCELLED'),
-      },
-      order: {
-        start_time: 'ASC',
-      },
+      where: { roomId, status: Not('CANCELLED') },
+      order: { startTime: 'ASC' },
     });
   }
 
@@ -81,21 +61,16 @@ export class ShowtimeService {
   ): Promise<void> {
     const qb = this.showtimeRepository
       .createQueryBuilder('showtime')
-      .where('showtime.room_id = :roomId', { roomId })
-      .andWhere('showtime.status != :cancelledStatus', {
-        cancelledStatus: 'CANCELLED',
-      })
-      .andWhere('showtime.start_time < :endTime', { endTime })
-      .andWhere('showtime.end_time > :startTime', { startTime });
+      .where('showtime.roomId = :roomId', { roomId })
+      .andWhere('showtime.status != :cancelledStatus', { cancelledStatus: 'CANCELLED' })
+      .andWhere('showtime.startTime < :endTime', { endTime })
+      .andWhere('showtime.endTime > :startTime', { startTime });
 
     if (excludeShowtimeId) {
-      qb.andWhere('showtime.showtime_id != :excludeShowtimeId', {
-        excludeShowtimeId,
-      });
+      qb.andWhere('showtime.showtimeId != :excludeShowtimeId', { excludeShowtimeId });
     }
 
     const overlappingShowtime = await qb.getOne();
-
     if (overlappingShowtime) {
       throw new ConflictException(
         'Lịch chiếu bị trùng thời gian với một suất chiếu khác trong cùng phòng',
@@ -111,11 +86,11 @@ export class ShowtimeService {
     await this.ensureNoScheduleOverlap(dto.roomId, startTime, endTime);
 
     const newShowtime = this.showtimeRepository.create({
-      movie_id: dto.movieId,
-      room_id: dto.roomId,
-      start_time: startTime,
-      end_time: endTime,
-      base_price: dto.basePrice,
+      movieId: dto.movieId,
+      roomId: dto.roomId,
+      startTime,
+      endTime,
+      basePrice: dto.basePrice,
       status: dto.status ?? 'OPEN',
     });
 
@@ -125,34 +100,25 @@ export class ShowtimeService {
   async update(id: number, dto: UpdateShowtimeDto): Promise<Showtime> {
     const existing = await this.findOne(id);
 
-    const nextMovieId = dto.movieId ?? existing.movie_id;
-    const nextRoomId = dto.roomId ?? existing.room_id;
-    const nextStartTime = dto.startTime
-      ? new Date(dto.startTime)
-      : existing.start_time;
-    const nextEndTime = dto.endTime
-      ? new Date(dto.endTime)
-      : existing.end_time;
-    const nextBasePrice = dto.basePrice ?? existing.base_price;
+    const nextMovieId = dto.movieId ?? existing.movieId;
+    const nextRoomId = dto.roomId ?? existing.roomId;
+    const nextStartTime = dto.startTime ? new Date(dto.startTime) : existing.startTime;
+    const nextEndTime = dto.endTime ? new Date(dto.endTime) : existing.endTime;
+    const nextBasePrice = dto.basePrice ?? existing.basePrice;
     const nextStatus = dto.status ?? existing.status;
 
     this.validateTimeRange(nextStartTime, nextEndTime);
 
     if (nextStatus !== 'CANCELLED') {
-      await this.ensureNoScheduleOverlap(
-        nextRoomId,
-        nextStartTime,
-        nextEndTime,
-        id,
-      );
+      await this.ensureNoScheduleOverlap(nextRoomId, nextStartTime, nextEndTime, id);
     }
 
     const updated = this.showtimeRepository.merge(existing, {
-      movie_id: nextMovieId,
-      room_id: nextRoomId,
-      start_time: nextStartTime,
-      end_time: nextEndTime,
-      base_price: nextBasePrice,
+      movieId: nextMovieId,
+      roomId: nextRoomId,
+      startTime: nextStartTime,
+      endTime: nextEndTime,
+      basePrice: nextBasePrice,
       status: nextStatus,
     });
 
@@ -161,10 +127,8 @@ export class ShowtimeService {
 
   async remove(id: number): Promise<{ message: string }> {
     const existing = await this.findOne(id);
-
     existing.status = 'CANCELLED';
     await this.showtimeRepository.save(existing);
-
     return { message: 'Showtime cancelled successfully' };
   }
 }

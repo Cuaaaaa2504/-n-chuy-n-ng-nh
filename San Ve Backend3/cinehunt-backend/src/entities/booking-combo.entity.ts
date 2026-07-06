@@ -39,10 +39,10 @@ export class BookingCombo {
   @ManyToOne(() => BookingOrder, (booking) => booking.bookingCombos, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn()
+  @JoinColumn({ name: 'booking_id' })
   booking: BookingOrder;
 
   @ManyToOne(() => ConcessionCombo)
-  @JoinColumn()
+  @JoinColumn({ name: 'combo_id' })
   combo: ConcessionCombo;
 }

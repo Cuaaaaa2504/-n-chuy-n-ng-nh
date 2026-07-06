@@ -22,23 +22,20 @@ export class PaymentRepository {
     return this.paymentRepo.save(payment);
   }
 
-  // payment_id & booking_id là BIGINT -> TypeORM trả về string
   async findPaymentById(paymentId: string): Promise<Payment | null> {
-    return this.paymentRepo.findOne({
-      where: { payment_id: paymentId },
-    });
+    return this.paymentRepo.findOne({ where: { paymentId } });
   }
 
   async findPendingByBookingId(bookingId: string): Promise<Payment | null> {
     return this.paymentRepo.findOne({
-      where: { booking_id: bookingId, payment_status: 'PENDING' },
+      where: { bookingId, paymentStatus: 'PENDING' },
     });
   }
 
   async findLatestByBookingId(bookingId: string): Promise<Payment | null> {
     return this.paymentRepo.findOne({
-      where: { booking_id: bookingId },
-      order: { payment_id: 'DESC' },
+      where: { bookingId },
+      order: { paymentId: 'DESC' },
     });
   }
 
@@ -47,40 +44,34 @@ export class PaymentRepository {
     status: string,
     paidAt?: Date,
   ): Promise<void> {
-    const data: Partial<Payment> = { payment_status: status };
-    if (paidAt) (data as any).paid_at = paidAt;
-    await this.paymentRepo.update(paymentId, data);
+    const data: Partial<Payment> = { paymentStatus: status };
+    if (paidAt) data.paidAt = paidAt;
+    await this.paymentRepo.update({ paymentId }, data);
   }
 
   async updatePaymentFailed(paymentId: string, reason: string): Promise<void> {
-    await this.paymentRepo.update(paymentId, {
-      payment_status: 'FAILED',
-      provider_response: reason,   // lưu lý do vào provider_response (không có failed_reason trong V5)
-    });
+    await this.paymentRepo.update(
+      { paymentId },
+      { paymentStatus: 'FAILED', providerResponse: reason },
+    );
   }
 
-  async getBookingDetailsByBookingId(
-    bookingId: string,
-  ): Promise<BookingDetail[]> {
+  async getBookingDetailsByBookingId(bookingId: string): Promise<BookingDetail[]> {
     return this.bookingDetailRepo.find({
-      where: { booking_id: bookingId },
+      where: { bookingId },
       relations: [
-        'showtime_seat',
-        'showtime_seat.seat',
-        'showtime_seat.showtime',
-        'showtime_seat.showtime.movie',
-        'showtime_seat.showtime.room',
-        'showtime_seat.showtime.room.cinema',
+        'showtimeSeat',
+        'showtimeSeat.seat',
+        'showtimeSeat.showtime',
+        'showtimeSeat.showtime.movie',
+        'showtimeSeat.showtime.room',
+        'showtimeSeat.showtime.room.cinema',
       ],
     });
   }
 
-  async findTicketByDetailId(
-    bookingDetailId: string,
-  ): Promise<Ticket | null> {
-    return this.ticketRepo.findOne({
-      where: { booking_detail_id: bookingDetailId },
-    });
+  async findTicketByDetailId(bookingDetailId: string): Promise<Ticket | null> {
+    return this.ticketRepo.findOne({ where: { bookingDetailId } });
   }
 
   async createTicket(data: Partial<Ticket>): Promise<Ticket> {

@@ -36,10 +36,10 @@ export class Ticket {
   checkedInBy: number | null;
 
   @OneToOne(() => BookingDetail, (bookingDetail) => bookingDetail.ticket)
-  @JoinColumn()
+  @JoinColumn({ name: 'booking_detail_id' })
   bookingDetail: BookingDetail;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn()
+  @JoinColumn({ name: 'checked_in_by' })
   checkedInUser: User | null;
 }

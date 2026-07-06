@@ -44,14 +44,14 @@ export class Showtime {
   updatedAt: Date;
 
   @ManyToOne(() => Movie)
-  @JoinColumn()
+  @JoinColumn({ name: 'movie_id' })
   movie: Movie;
 
   @ManyToOne(() => Room)
-  @JoinColumn()
+  @JoinColumn({ name: 'room_id' })
   room: Room;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn()
+  @JoinColumn({ name: 'created_by' })
   creator: User | null;
 }

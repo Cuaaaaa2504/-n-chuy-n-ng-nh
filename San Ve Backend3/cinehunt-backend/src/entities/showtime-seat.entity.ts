@@ -36,14 +36,14 @@ export class ShowtimeSeat {
   rowVersion?: Buffer;
 
   @ManyToOne(() => Showtime)
-  @JoinColumn()
+  @JoinColumn({ name: 'showtime_id' })
   showtime: Showtime;
 
   @ManyToOne(() => Seat)
-  @JoinColumn()
+  @JoinColumn({ name: 'seat_id' })
   seat: Seat;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn()
+  @JoinColumn({ name: 'held_by_user_id' })
   heldByUser: User | null;
 }

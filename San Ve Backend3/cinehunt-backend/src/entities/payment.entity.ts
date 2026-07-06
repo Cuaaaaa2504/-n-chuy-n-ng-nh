@@ -53,7 +53,7 @@ export class Payment {
   updatedAt: Date;
 
   @ManyToOne(() => BookingOrder, (booking) => booking.payments)
-  @JoinColumn()
+  @JoinColumn({ name: 'booking_id' })
   booking: BookingOrder;
 
   @OneToMany(() => Refund, (refund) => refund.payment)
