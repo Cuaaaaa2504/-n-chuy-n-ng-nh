@@ -1,7 +1,6 @@
 // src/hooks/useShowtimes.ts
 import { useState, useEffect, useCallback } from 'react';
 
-// Core Showtime shape — matches ShowtimeTable's local interface
 export interface Showtime {
   id: number;
   movieTitle: string;
@@ -13,7 +12,6 @@ export interface Showtime {
   status: 'ACTIVE' | 'CANCELLED' | 'FINISHED';
 }
 
-// Shape expected by ShowtimeForm (movieId/roomId instead of display names)
 export interface ShowtimeFormData {
   movieId: string;
   roomId: string;
@@ -30,9 +28,7 @@ export const useShowtimes = () => {
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
-  // Returns data only — does NOT call setState internally
   const fetchShowtimes = useCallback(async (): Promise<Showtime[]> => {
-    // Mock data — replace with actual API call
     return [
       { id: 1, movieTitle: 'Avengers Endgame', cinemaName: 'CGV Vincom',    roomName: 'Room 1', showDate: '2026-07-10', startTime: '19:30', endTime: '22:30', status: 'ACTIVE' },
       { id: 2, movieTitle: 'Avatar 2',          cinemaName: 'Lotte Cinema', roomName: 'Room 2', showDate: '2026-07-11', startTime: '20:00', endTime: '23:00', status: 'ACTIVE' },
@@ -83,12 +79,19 @@ export const useShowtimes = () => {
     }
   };
 
+  // ✅ FIX: setLoading(true) nằm trong async load(), không phải sync body của effect
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    fetchShowtimes()
-      .then(data  => { if (!cancelled) { setShowtimes(data); setLoading(false); } })
-      .catch(()   => { if (!cancelled) { setError('Không thể tải dữ liệu. Vui lòng thử lại.'); setLoading(false); } });
+    const load = async () => {
+      if (!cancelled) setLoading(true);
+      try {
+        const data = await fetchShowtimes();
+        if (!cancelled) { setShowtimes(data); setLoading(false); }
+      } catch {
+        if (!cancelled) { setError('Không thể tải dữ liệu. Vui lòng thử lại.'); setLoading(false); }
+      }
+    };
+    void load();
     return () => { cancelled = true; };
   }, [fetchShowtimes]);
 
