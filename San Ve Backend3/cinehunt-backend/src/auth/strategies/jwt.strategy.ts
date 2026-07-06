@@ -26,7 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
   async validate(payload: JwtPayload) {
     const user = await this.userRepository.findOne({
-      where: { user_id: payload.sub },
+      where: { userId: payload.sub },
     });
 
     if (!user) {
@@ -37,9 +37,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('Tài khoản đã bị khóa hoặc xóa');
     }
 
-    // Trả về object này sẽ được gán vào request.user
     return {
-      userId: user.user_id,
+      userId: user.userId,
       email: user.email,
       role: user.role,
     };

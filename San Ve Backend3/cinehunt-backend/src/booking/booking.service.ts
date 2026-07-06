@@ -32,33 +32,33 @@ export class BookingService {
 
     const holds = await this.holdRepo.find({
       where: {
-        hold_id: In(request.holdIds.map((x) => String(x))),
-        user_id: userId,
+        holdId: In(request.holdIds.map((x) => String(x))),
+        userId,
         status: 'ACTIVE',
       },
-      relations: { showtime_seat: true },
+      relations: { showtimeSeat: true },
     });
 
     if (holds.length !== request.holdIds.length) {
       throw new BadRequestException('Một hoặc nhiều hold không hợp lệ');
     }
 
-    if (holds.some((h) => new Date(h.expires_at) <= now)) {
+    if (holds.some((h) => new Date(h.expiresAt) <= now)) {
       throw new BadRequestException('Có hold đã hết hạn');
     }
 
-    const distinctShowtimeIds = [...new Set(holds.map((h) => h.showtime_seat.showtime_id))];
+    const distinctShowtimeIds = [...new Set(holds.map((h) => h.showtimeSeat.showtimeId))];
     if (distinctShowtimeIds.length !== 1) {
       throw new BadRequestException('Các ghế phải thuộc cùng một suất chiếu');
     }
 
     const showtimeId = distinctShowtimeIds[0];
-    const subtotalAmount = holds.reduce((sum, h) => sum + Number(h.showtime_seat.price), 0);
+    const subtotalAmount = holds.reduce((sum, h) => sum + Number(h.showtimeSeat.price), 0);
 
     const requestedProducts = request.products ?? [];
     const productIds = requestedProducts.map((p) => p.productId);
     const products = productIds.length
-      ? await this.productRepo.find({ where: { combo_id: In(productIds), status: 'ACTIVE' } })
+      ? await this.productRepo.find({ where: { comboId: In(productIds), status: 'ACTIVE' } })
       : [];
 
     if (products.length !== productIds.length) {
@@ -66,7 +66,7 @@ export class BookingService {
     }
 
     const productAmount = requestedProducts.reduce((sum, item) => {
-      const product = products.find((p) => p.combo_id === item.productId)!;
+      const product = products.find((p) => p.comboId === item.productId)!;
       return sum + Number(product.price) * item.quantity;
     }, 0);
 
@@ -77,26 +77,26 @@ export class BookingService {
 
     return this.dataSource.transaction(async (manager) => {
       const booking = manager.create(BookingOrder, {
-        booking_code: bookingCode,
-        user_id: userId,
-        showtime_id: showtimeId,
-        promotion_id: request.promotionId ?? null,
-        subtotal_amount: subtotalAmount,
-        product_amount: productAmount,
-        discount_amount: discountAmount,
-        total_amount: totalAmount,
+        bookingCode,
+        userId,
+        showtimeId,
+        promotionId: request.promotionId ?? null,
+        subtotalAmount,
+        productAmount,
+        discountAmount,
+        totalAmount,
         status: 'PENDING_PAYMENT',
-        idempotency_key: request.idempotencyKey ?? null,
-        expires_at: expiresAt,
+        idempotencyKey: request.idempotencyKey ?? null,
+        expiresAt,
       });
 
       const savedBooking = await manager.save(BookingOrder, booking);
 
       const details = holds.map((hold) =>
         manager.create(BookingDetail, {
-          booking_id: savedBooking.booking_id,
-          showtime_seat_id: hold.showtime_seat_id,
-          seat_price: Number(hold.showtime_seat.price),
+          bookingId: savedBooking.bookingId,
+          showtimeSeatId: hold.showtimeSeatId,
+          seatPrice: Number(hold.showtimeSeat.price),
           status: 'ACTIVE',
         }),
       );
@@ -104,33 +104,33 @@ export class BookingService {
 
       if (requestedProducts.length > 0) {
         const bookingProducts = requestedProducts.map((item) => {
-          const product = products.find((p) => p.combo_id === item.productId)!;
+          const product = products.find((p) => p.comboId === item.productId)!;
           return manager.create(BookingCombo, {
-            booking_id: savedBooking.booking_id,
-            combo_id: product.combo_id,
+            bookingId: savedBooking.bookingId,
+            comboId: product.comboId,
             quantity: item.quantity,
-            unit_price: Number(product.price),
+            unitPrice: Number(product.price),
           });
         });
         await manager.save(BookingCombo, bookingProducts);
       }
 
       for (const hold of holds) {
-        await manager.update(SeatHold, { hold_id: hold.hold_id }, { status: 'CONFIRMED' });
+        await manager.update(SeatHold, { holdId: hold.holdId }, { status: 'CONFIRMED' });
         await manager.update(
           ShowtimeSeat,
-          { showtime_seat_id: hold.showtime_seat_id },
+          { showtimeSeatId: hold.showtimeSeatId },
           {
             status: 'HELD',
-            held_by_user_id: userId,
-            hold_expires_at: expiresAt,
+            heldByUserId: userId,
+            holdExpiresAt: expiresAt,
           },
         );
       }
 
       return {
-        bookingId: savedBooking.booking_id,
-        bookingCode: savedBooking.booking_code,
+        bookingId: savedBooking.bookingId,
+        bookingCode: savedBooking.bookingCode,
         showtimeId,
         seatCount: holds.length,
         subtotalAmount,
@@ -145,11 +145,11 @@ export class BookingService {
 
   async getBookingDetail(bookingId: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
-      where: { booking_id: bookingId, user_id: userId },
+      where: { bookingId, userId },
       relations: {
-        booking_details: { showtime_seat: { seat: true } as any },
+        bookingDetails: { showtimeSeat: { seat: true } as any },
         payments: true,
-        booking_products: { product: true } as any,
+        bookingCombos: { combo: true } as any,
       } as any,
     });
 
@@ -162,8 +162,8 @@ export class BookingService {
 
   async cancelBooking(bookingId: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
-      where: { booking_id: bookingId, user_id: userId },
-      relations: { booking_details: true },
+      where: { bookingId, userId },
+      relations: { bookingDetails: true },
     });
 
     if (!booking) {
@@ -177,20 +177,20 @@ export class BookingService {
     return this.dataSource.transaction(async (manager) => {
       await manager.update(
         BookingOrder,
-        { booking_id: bookingId },
-        { status: 'CANCELLED', cancelled_at: new Date() },
+        { bookingId },
+        { status: 'CANCELLED', cancelledAt: new Date() },
       );
 
-      for (const detail of booking.booking_details) {
+      for (const detail of booking.bookingDetails) {
         await manager.update(
           BookingDetail,
-          { booking_detail_id: detail.booking_detail_id },
+          { bookingDetailId: detail.bookingDetailId },
           { status: 'CANCELLED' },
         );
         await manager.update(
           ShowtimeSeat,
-          { showtime_seat_id: detail.showtime_seat_id },
-          { status: 'AVAILABLE', held_by_user_id: null, hold_expires_at: null },
+          { showtimeSeatId: detail.showtimeSeatId },
+          { status: 'AVAILABLE', heldByUserId: null, holdExpiresAt: null },
         );
       }
 
@@ -201,16 +201,16 @@ export class BookingService {
   async expirePendingBookings() {
     const now = new Date();
     const bookings = await this.bookingRepo.find({
-      where: { status: 'PENDING_PAYMENT' as any },
-      relations: { booking_details: true },
+      where: { status: 'PENDING_PAYMENT' },
+      relations: { bookingDetails: true },
     });
-    const targets = bookings.filter((b) => b.expires_at && new Date(b.expires_at) <= now);
+    const targets = bookings.filter((b) => b.expiresAt && new Date(b.expiresAt) <= now);
 
     for (const booking of targets) {
-      await this.cancelBooking(booking.booking_id, booking.user_id);
+      await this.cancelBooking(booking.bookingId, booking.userId);
       await this.bookingRepo.update(
-        { booking_id: booking.booking_id },
-        { status: 'EXPIRED', cancelled_at: now },
+        { bookingId: booking.bookingId },
+        { status: 'EXPIRED', cancelledAt: now },
       );
     }
 
@@ -220,10 +220,10 @@ export class BookingService {
   async validateBookingForPayment(bookingId: number | string, userId?: number) {
     const booking = await this.bookingRepo.findOne({
       where: {
-        booking_id: String(bookingId),
-        ...(userId ? { user_id: userId } : {}),
-      } as any,
-      relations: { booking_details: true },
+        bookingId: String(bookingId),
+        ...(userId ? { userId } : {}),
+      },
+      relations: { bookingDetails: true },
     });
 
     if (!booking) {
@@ -234,24 +234,24 @@ export class BookingService {
       throw new BadRequestException('Booking không ở trạng thái chờ thanh toán');
     }
 
-    if (booking.expires_at && new Date(booking.expires_at) <= new Date()) {
+    if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
       throw new BadRequestException('Booking đã hết hạn');
     }
 
     return {
       ...booking,
-      final_amount: Number(booking.total_amount),
-    } as any;
+      finalAmount: Number(booking.totalAmount),
+    };
   }
 
   async updateBookingToPaid(bookingId: string) {
     await this.bookingRepo.update(
-      { booking_id: bookingId },
+      { bookingId },
       {
         status: 'PAID',
-        paid_at: new Date(),
-        issued_at: new Date(),
-      } as any,
+        paidAt: new Date(),
+        issuedAt: new Date(),
+      },
     );
   }
 }

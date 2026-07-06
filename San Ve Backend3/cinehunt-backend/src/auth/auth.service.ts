@@ -34,13 +34,13 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = this.userRepository.create({
-      full_name: dto.fullName.trim(),
+      fullName: dto.fullName.trim(),
       email: normalizedEmail,
       phone: dto.phone?.trim() ?? null,
-      password_hash: hashedPassword,
+      passwordHash: hashedPassword,
       role: 'CUSTOMER',
       status: 'ACTIVE',
-      email_verified: false,
+      emailVerified: false,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -62,17 +62,15 @@ export class AuthService {
     if (user.status !== 'ACTIVE')
       throw new UnauthorizedException('Tài khoản đã bị khóa hoặc xóa');
 
-    const isPasswordValid = await bcrypt.compare(dto.password, user.password_hash);
+    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isPasswordValid)
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
 
-    user.last_login_at = new Date();
+    user.lastLoginAt = new Date();
     await this.userRepository.save(user);
 
     const { accessToken, refreshToken } = await this.generateTokens(user);
-
-    // Lưu refresh token vào bảng refresh_tokens (không ghi lên cột users)
-    await this.storeRefreshToken(user.user_id, refreshToken, meta);
+    await this.storeRefreshToken(user.userId, refreshToken, meta);
 
     return {
       message: 'Đăng nhập thành công',
@@ -90,20 +88,19 @@ export class AuthService {
     incomingToken: string,
     meta?: { deviceInfo?: string; ipAddress?: string },
   ) {
-    const user = await this.userRepository.findOne({ where: { user_id: userId } });
+    const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) throw new UnauthorizedException('Phiên đăng nhập không hợp lệ');
     if (user.status !== 'ACTIVE')
       throw new UnauthorizedException('Tài khoản đã bị khóa hoặc xóa');
 
-    // Tìm tất cả token active của user để compare (tránh brute-force từng hash)
     const activeTokens = await this.refreshTokenRepository.find({
-      where: { user_id: userId, revoked_at: IsNull() },
+      where: { userId, revokedAt: IsNull() },
     });
 
     let matched: RefreshToken | null = null;
     for (const rt of activeTokens) {
-      if (rt.expires_at <= new Date()) continue; // bỏ qua expired
-      const ok = await bcrypt.compare(incomingToken, rt.token_hash);
+      if (rt.expiresAt <= new Date()) continue;
+      const ok = await bcrypt.compare(incomingToken, rt.tokenHash);
       if (ok) {
         matched = rt;
         break;
@@ -112,16 +109,13 @@ export class AuthService {
 
     if (!matched) throw new UnauthorizedException('Refresh token không hợp lệ hoặc đã hết hạn');
 
-    // Rotate: revoke token cũ
-    matched.revoked_at = new Date();
+    matched.revokedAt = new Date();
     await this.refreshTokenRepository.save(matched);
 
-    // Tạo cặp token mới
     const tokens = await this.generateTokens(user);
-    const newRt = await this.storeRefreshToken(user.user_id, tokens.refreshToken, meta);
+    const newRt = await this.storeRefreshToken(user.userId, tokens.refreshToken, meta);
 
-    // Ghi replaced_by để trace token chain
-    matched.replaced_by_id = newRt.refresh_token_id;
+    matched.replacedById = newRt.refreshTokenId;
     await this.refreshTokenRepository.save(matched);
 
     return {
@@ -135,24 +129,22 @@ export class AuthService {
   // ─── LOGOUT ───────────────────────────────────────────────────────────────
 
   async logout(userId: number, incomingToken?: string) {
-    const user = await this.userRepository.findOne({ where: { user_id: userId } });
+    const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
 
     if (incomingToken) {
-      // Logout thiết bị hiện tại: revoke đúng token đang dùng
       const activeTokens = await this.refreshTokenRepository.find({
-        where: { user_id: userId, revoked_at: IsNull() },
+        where: { userId, revokedAt: IsNull() },
       });
       for (const rt of activeTokens) {
-        const ok = await bcrypt.compare(incomingToken, rt.token_hash);
+        const ok = await bcrypt.compare(incomingToken, rt.tokenHash);
         if (ok) {
-          rt.revoked_at = new Date();
+          rt.revokedAt = new Date();
           await this.refreshTokenRepository.save(rt);
           break;
         }
       }
     } else {
-      // Logout tất cả thiết bị: revoke hết
       await this.revokeAllTokens(userId);
     }
 
@@ -162,7 +154,7 @@ export class AuthService {
   // ─── PROFILE ──────────────────────────────────────────────────────────────
 
   async getProfile(userId: number) {
-    const user = await this.userRepository.findOne({ where: { user_id: userId } });
+    const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) throw new UnauthorizedException('Không tìm thấy người dùng');
     return this.toSafeUser(user);
   }
@@ -171,12 +163,12 @@ export class AuthService {
     userId: number,
     dto: { fullName?: string; phone?: string; avatarUrl?: string },
   ) {
-    const user = await this.userRepository.findOne({ where: { user_id: userId } });
+    const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
 
-    if (dto.fullName !== undefined) user.full_name = dto.fullName.trim();
+    if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
     if (dto.phone !== undefined) user.phone = dto.phone?.trim() ?? null;
-    if (dto.avatarUrl !== undefined) user.avatar_url = dto.avatarUrl ?? null;
+    if (dto.avatarUrl !== undefined) user.avatarUrl = dto.avatarUrl ?? null;
 
     const updated = await this.userRepository.save(user);
     return { message: 'Cập nhật thông tin thành công', user: this.toSafeUser(updated) };
@@ -186,18 +178,16 @@ export class AuthService {
     userId: number,
     dto: { currentPassword: string; newPassword: string },
   ) {
-    const user = await this.userRepository.findOne({ where: { user_id: userId } });
+    const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
 
-    const isMatch = await bcrypt.compare(dto.currentPassword, user.password_hash);
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
     if (!isMatch) throw new BadRequestException('Mật khẩu hiện tại không đúng');
     if (dto.currentPassword === dto.newPassword)
       throw new BadRequestException('Mật khẩu mới không được trùng mật khẩu cũ');
 
-    user.password_hash = await bcrypt.hash(dto.newPassword, 10);
+    user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
     await this.userRepository.save(user);
-
-    // Invalidate tất cả refresh token khi đổi mật khẩu (kick khỏi mọi thiết bị)
     await this.revokeAllTokens(userId);
 
     return { message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.' };
@@ -206,18 +196,17 @@ export class AuthService {
   // ─── ADMIN ────────────────────────────────────────────────────────────────
 
   async getAllUsers() {
-    const users = await this.userRepository.find({ order: { created_at: 'DESC' } });
+    const users = await this.userRepository.find({ order: { createdAt: 'DESC' } });
     return users.map((u) => this.toSafeUser(u));
   }
 
   async setUserStatus(targetId: number, status: 'ACTIVE' | 'BANNED' | 'DELETED') {
-    const user = await this.userRepository.findOne({ where: { user_id: targetId } });
+    const user = await this.userRepository.findOne({ where: { userId: targetId } });
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
 
     user.status = status;
     await this.userRepository.save(user);
 
-    // Kick ngay khi ban/delete — revoke hết token
     if (status !== 'ACTIVE') {
       await this.revokeAllTokens(targetId);
     }
@@ -227,10 +216,6 @@ export class AuthService {
 
   // ─── HELPERS ──────────────────────────────────────────────────────────────
 
-  /**
-   * Lưu refresh token mới vào DB dưới dạng hash.
-   * Trả về entity đã lưu để caller có thể ghi replaced_by_id.
-   */
   private async storeRefreshToken(
     userId: number,
     rawToken: string,
@@ -246,36 +231,34 @@ export class AuthService {
     const tokenHash = await bcrypt.hash(rawToken, 10);
 
     const rt = this.refreshTokenRepository.create({
-      user_id: userId,
-      token_hash: tokenHash,
-      device_info: meta?.deviceInfo ?? null,
-      ip_address: meta?.ipAddress ?? null,
-      expires_at: expiresAt,
-      revoked_at: null,
+      userId,
+      tokenHash,
+      deviceInfo: meta?.deviceInfo ?? null,
+      ipAddress: meta?.ipAddress ?? null,
+      expiresAt,
+      revokedAt: null,
     });
 
     return this.refreshTokenRepository.save(rt);
   }
 
-  /** Revoke tất cả token active của một user (logout all devices). */
   private async revokeAllTokens(userId: number): Promise<void> {
     await this.refreshTokenRepository
       .createQueryBuilder()
       .update(RefreshToken)
-      .set({ revoked_at: new Date() })
+      .set({ revokedAt: new Date() })
       .where('user_id = :userId AND revoked_at IS NULL', { userId })
       .execute();
   }
 
-  /** Xoá các token đã hết hạn > 30 ngày (có thể gọi từ cron job). */
   async cleanExpiredTokens(): Promise<void> {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 30);
-    await this.refreshTokenRepository.delete({ expires_at: LessThan(cutoff) });
+    await this.refreshTokenRepository.delete({ expiresAt: LessThan(cutoff) });
   }
 
   private async generateTokens(user: User) {
-    const payload = { sub: user.user_id, email: user.email, role: user.role };
+    const payload = { sub: user.userId, email: user.email, role: user.role };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -293,17 +276,17 @@ export class AuthService {
 
   private toSafeUser(user: User) {
     return {
-      userId: user.user_id,
-      fullName: user.full_name,
+      userId: user.userId,
+      fullName: user.fullName,
       email: user.email,
       phone: user.phone,
-      avatarUrl: user.avatar_url,
-      emailVerified: user.email_verified,
+      avatarUrl: user.avatarUrl,
+      emailVerified: user.emailVerified,
       role: user.role,
       status: user.status,
-      lastLoginAt: user.last_login_at,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
+      lastLoginAt: user.lastLoginAt,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
   }
 }

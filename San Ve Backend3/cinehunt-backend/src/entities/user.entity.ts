@@ -45,10 +45,10 @@ export class User {
   lastLoginAt: Date | null;
 
   @Column({ type: 'varchar', length: 20, default: 'CUSTOMER' })
-  role: string; // 'CUSTOMER' | 'STAFF' | 'ADMIN'
+  role: string;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
-  status: string; // 'ACTIVE' | 'LOCKED' | 'BANNED' | 'DELETED'
+  status: string;
 
   @CreateDateColumn({ type: 'datetime2', precision: 0 })
   createdAt: Date;

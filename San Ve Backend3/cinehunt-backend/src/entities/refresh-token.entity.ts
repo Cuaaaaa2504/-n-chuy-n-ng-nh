@@ -38,7 +38,7 @@ export class RefreshToken {
   createdAt: Date;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn()
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
   get isActive(): boolean {
