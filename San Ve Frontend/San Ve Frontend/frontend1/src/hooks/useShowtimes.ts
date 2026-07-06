@@ -83,15 +83,12 @@ export const useShowtimes = () => {
     }
   };
 
-  // All setState calls happen inside async .then()/.catch()/.finally() callbacks—
-  // NOT synchronously in the effect body, so no set-state-in-effect warning.
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     fetchShowtimes()
-      .then(data  => { if (!cancelled) { setLoading(false); setShowtimes(data); } })
-      .catch(()   => { if (!cancelled) { setLoading(false); setError('Không thể tải dữ liệu. Vui lòng thử lại.'); } });
-    // setLoading(true) moved into the promise chain start via a resolved promise
-    Promise.resolve().then(() => { if (!cancelled) setLoading(true); });
+      .then(data  => { if (!cancelled) { setShowtimes(data); setLoading(false); } })
+      .catch(()   => { if (!cancelled) { setError('Không thể tải dữ liệu. Vui lòng thử lại.'); setLoading(false); } });
     return () => { cancelled = true; };
   }, [fetchShowtimes]);
 
