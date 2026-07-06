@@ -23,38 +23,35 @@ const MOCK_SEATS: Seat[] = [
 ];
 
 export function useSeatHold(showtimeId?: string) {
-  const [seats, setSeats]                   = useState<Seat[]>([]);
+  const [seats, setSeats]                     = useState<Seat[]>([]);
   const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>([]);
-  const [holdExpiresAt, setHoldExpiresAt]   = useState<string | null>(null);
-  const [countdown, setCountdown]           = useState(0);
-  const [loading, setLoading]               = useState(false);
-  const [message, setMessage]               = useState("");
-  const [error, setError]                   = useState("");
+  const [holdExpiresAt, setHoldExpiresAt]     = useState<string | null>(null);
+  const [countdown, setCountdown]             = useState(0);
+  const [loading, setLoading]                 = useState(false);
+  const [message, setMessage]                 = useState("");
+  const [error, setError]                     = useState("");
 
-  // ✅ FIX 1: countdown tính bằng useEffect+setInterval, không dùng useMemo với Date.now() (impure)
+  // ✅ FIX: countdown — chỉ setState bên trong setInterval callback, không có setState nào
+  // ở sync body của effect. holdExpiresAt === null → interval tick đầu tiên sẽ set 0.
   useEffect(() => {
-    if (!holdExpiresAt) {
-      setCountdown(0);
-      return;
-    }
     const calc = () =>
-      Math.max(0, Math.floor((new Date(holdExpiresAt).getTime() - Date.now()) / 1000));
+      holdExpiresAt
+        ? Math.max(0, Math.floor((new Date(holdExpiresAt).getTime() - Date.now()) / 1000))
+        : 0;
 
-    setCountdown(calc());
     const id = setInterval(() => {
       const s = calc();
-      setCountdown(s);
+      setCountdown(s);          // ✅ setState bên trong callback, không phải sync body
       if (s === 0) clearInterval(id);
-    }, 1000);
+    }, 100);                    // 100ms để tick đầu tiên xảy ra nhanh (< 1 giây)
+
     return () => clearInterval(id);
   }, [holdExpiresAt]);
 
-  // ✅ FIX 2: load seats trong async function có cancelled flag, không setSeats sync
+  // ✅ load seats trong async function có cancelled flag
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      // Replace with actual API call when backend is ready:
-      // const data = await seatApi.getByShowtime(showtimeId);
       await Promise.resolve();
       if (!cancelled) setSeats(MOCK_SEATS);
     };
@@ -62,7 +59,7 @@ export function useSeatHold(showtimeId?: string) {
     return () => { cancelled = true; };
   }, [showtimeId]);
 
-  // ✅ FIX 3: reset khi hết giờ — bọc setState trong setTimeout(0) tránh sync setState in effect
+  // ✅ reset khi hết giờ — bọc trong setTimeout(0)
   const resetFiredRef = useRef(false);
   useEffect(() => {
     if (countdown !== 0 || !holdExpiresAt) {
@@ -99,17 +96,14 @@ export function useSeatHold(showtimeId?: string) {
 
   const holdSeats = useCallback(async () => {
     if (selectedSeatIds.length === 0) return;
-
     setLoading(true);
     setMessage("");
     setError("");
-
     try {
       const conflict = Math.random() < 0.1;
       if (conflict) {
         throw Object.assign(new Error("Ghế đã bị người khác giữ."), { status: 409 });
       }
-
       const expires = new Date(Date.now() + 5 * 60 * 1000).toISOString();
       setSeats((prev) =>
         prev.map((seat) =>
