@@ -1,32 +1,25 @@
 // src/components/admin/ShowtimeForm.tsx
 import React, { useState } from 'react';
-
-interface ShowtimeData {
-  movieId: string;
-  roomId: string;
-  showDate: string;
-  startTime: string;
-  endTime: string;
-}
+import type { ShowtimeFormData } from '../../hooks/useShowtimes';
 
 interface Props {
-  showtime?: ShowtimeData | null;
-  onSubmit: (data: ShowtimeData) => void;
+  showtime?: ShowtimeFormData | null;
+  onSubmit: (data: ShowtimeFormData) => void;
   onCancel: () => void;
 }
 
 const ShowtimeForm: React.FC<Props> = ({ showtime, onSubmit, onCancel }) => {
-  const [formData, setFormData] = useState<ShowtimeData>({
+  const [formData, setFormData] = useState<ShowtimeFormData>({
     movieId:   showtime?.movieId   || '',
     roomId:    showtime?.roomId    || '',
     showDate:  showtime?.showDate  || '',
     startTime: showtime?.startTime || '',
     endTime:   showtime?.endTime   || '',
   });
-  const [errors, setErrors] = useState<Partial<ShowtimeData>>({});
+  const [errors, setErrors] = useState<Partial<ShowtimeFormData>>({});
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<ShowtimeData> = {};
+    const newErrors: Partial<ShowtimeFormData> = {};
     if (!formData.movieId)   newErrors.movieId   = 'Vui lòng chọn phim';
     if (!formData.roomId)    newErrors.roomId    = 'Vui lòng chọn phòng';
     if (!formData.showDate)  newErrors.showDate  = 'Vui lòng chọn ngày chiếu';
@@ -47,7 +40,7 @@ const ShowtimeForm: React.FC<Props> = ({ showtime, onSubmit, onCancel }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name as keyof ShowtimeData]) {
+    if (errors[name as keyof ShowtimeFormData]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };

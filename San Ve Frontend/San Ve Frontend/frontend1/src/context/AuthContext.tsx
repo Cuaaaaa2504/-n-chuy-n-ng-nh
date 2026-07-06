@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import {
+import React, {
   createContext,
   useCallback,
   useContext,
@@ -31,8 +31,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.getItem('accessToken')
   );
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('user');
-    return saved ? (JSON.parse(saved) as User) : null;
+    try {
+      const saved = localStorage.getItem('user');
+      return saved ? (JSON.parse(saved) as User) : null;
+    } catch {
+      // Xóa dữ liệu corrupt để tránh crash lần sau
+      localStorage.removeItem('user');
+      return null;
+    }
   });
 
   useEffect(() => {
