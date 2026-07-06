@@ -39,10 +39,10 @@ export class Refund {
   completedAt: Date | null;
 
   @ManyToOne(() => Payment)
-  @JoinColumn()
+  @JoinColumn({ name: 'payment_id' })
   payment: Payment;
 
   @ManyToOne(() => BookingOrder)
-  @JoinColumn()
+  @JoinColumn({ name: 'booking_id' })
   booking: BookingOrder;
 }

@@ -11,11 +11,14 @@ export class ConcessionComboService {
   ) {}
 
   findAll(): Promise<ConcessionCombo[]> {
-    return this.repo.find({ where: { status: 'ACTIVE' }, order: { combo_id: 'ASC' } });
+    return this.repo.find({
+      where: { status: 'ACTIVE' },
+      order: { comboId: 'ASC' },
+    });
   }
 
   async findOne(id: number): Promise<ConcessionCombo> {
-    const combo = await this.repo.findOne({ where: { combo_id: id } });
+    const combo = await this.repo.findOne({ where: { comboId: id } });
     if (!combo) throw new NotFoundException(`Combo #${id} không tồn tại`);
     return combo;
   }
@@ -26,12 +29,12 @@ export class ConcessionComboService {
 
   async update(id: number, data: Partial<ConcessionCombo>): Promise<ConcessionCombo> {
     await this.findOne(id);
-    await this.repo.update(id, data);
+    await this.repo.update({ comboId: id }, data);
     return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {
     await this.findOne(id);
-    await this.repo.update(id, { status: 'INACTIVE' });
+    await this.repo.update({ comboId: id }, { status: 'INACTIVE' });
   }
 }

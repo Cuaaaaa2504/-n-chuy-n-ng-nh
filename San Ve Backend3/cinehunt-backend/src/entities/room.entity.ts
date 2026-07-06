@@ -32,6 +32,6 @@ export class Room {
   createdAt: Date;
 
   @ManyToOne(() => Cinema, (cinema) => cinema.rooms)
-  @JoinColumn()
+  @JoinColumn({ name: 'cinema_id' })
   cinema: Cinema;
 }

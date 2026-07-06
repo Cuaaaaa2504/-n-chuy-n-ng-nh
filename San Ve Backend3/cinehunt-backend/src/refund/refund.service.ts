@@ -12,13 +12,13 @@ export class RefundService {
 
   findByBooking(bookingId: string): Promise<Refund[]> {
     return this.repo.find({
-      where: { booking_id: bookingId },
-      order: { requested_at: 'DESC' },
+      where: { bookingId },
+      order: { requestedAt: 'DESC' },
     });
   }
 
   async findOne(id: string): Promise<Refund> {
-    const refund = await this.repo.findOne({ where: { refund_id: id } });
+    const refund = await this.repo.findOne({ where: { refundId: id } });
     if (!refund) throw new NotFoundException(`Refund #${id} không tồn tại`);
     return refund;
   }
@@ -30,15 +30,15 @@ export class RefundService {
   async complete(id: string): Promise<Refund> {
     await this.findOne(id);
     await this.repo.update(
-      { refund_id: id },
-      { refund_status: 'SUCCESS', completed_at: new Date() },
+      { refundId: id },
+      { refundStatus: 'SUCCESS', completedAt: new Date() },
     );
     return this.findOne(id);
   }
 
   async fail(id: string): Promise<Refund> {
     await this.findOne(id);
-    await this.repo.update({ refund_id: id }, { refund_status: 'FAILED' });
+    await this.repo.update({ refundId: id }, { refundStatus: 'FAILED' });
     return this.findOne(id);
   }
 }

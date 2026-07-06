@@ -28,28 +28,26 @@ export class ShowtimeSeatsService {
 
   async getSeatMap(showtimeId: number) {
     const seats = await this.showtimeSeatRepository.find({
-      where: { showtime_id: showtimeId },
+      where: { showtimeId },
       relations: [
         'seat',
-        'seat.seat_type',
+        'seat.seatType',
         'showtime',
         'showtime.movie',
         'showtime.room',
         'showtime.room.cinema',
-        'held_by_user',
+        'heldByUser',
       ],
       order: {
         seat: {
-          seat_row: 'ASC',
-          seat_number: 'ASC',
+          seatRow: 'ASC',
+          seatNumber: 'ASC',
         },
       },
     });
 
     if (!seats.length) {
-      throw new NotFoundException(
-        'Không tìm thấy sơ đồ ghế cho suất chiếu này',
-      );
+      throw new NotFoundException('Không tìm thấy sơ đồ ghế cho suất chiếu này');
     }
 
     const first = seats[0];
@@ -57,24 +55,24 @@ export class ShowtimeSeatsService {
     return {
       showtimeId,
       movieTitle: first.showtime?.movie?.title ?? null,
-      cinemaName: first.showtime?.room?.cinema?.cinema_name ?? null,
-      roomName: first.showtime?.room?.room_name ?? null,
-      startTime: first.showtime?.start_time ?? null,
-      endTime: first.showtime?.end_time ?? null,
+      cinemaName: first.showtime?.room?.cinema?.cinemaName ?? null,
+      roomName: first.showtime?.room?.roomName ?? null,
+      startTime: first.showtime?.startTime ?? null,
+      endTime: first.showtime?.endTime ?? null,
       seats: seats.map((item) => ({
-        showtimeSeatId: item.showtime_seat_id,
-        showtimeId: item.showtime_id,
-        seatId: item.seat_id,
-        seatRow: item.seat?.seat_row ?? null,
-        seatNumber: item.seat?.seat_number ?? null,
-        seatLabel: item.seat?.seat_label ?? null,
-        seatTypeId: item.seat?.seat_type_id ?? null,
-        seatTypeCode: item.seat?.seat_type?.type_code ?? null,
-        seatTypeName: item.seat?.seat_type?.type_name ?? null,
+        showtimeSeatId: item.showtimeSeatId,
+        showtimeId: item.showtimeId,
+        seatId: item.seatId,
+        seatRow: item.seat?.seatRow ?? null,
+        seatNumber: item.seat?.seatNumber ?? null,
+        seatLabel: item.seat?.seatLabel ?? null,
+        seatTypeId: item.seat?.seatTypeId ?? null,
+        seatTypeCode: item.seat?.seatType?.typeCode ?? null,
+        seatTypeName: item.seat?.seatType?.typeName ?? null,
         seatStatus: item.status,
         price: Number(item.price),
-        heldByUserId: item.held_by_user_id,
-        holdExpiresAt: item.hold_expires_at,
+        heldByUserId: item.heldByUserId,
+        holdExpiresAt: item.holdExpiresAt,
       })),
     };
   }
@@ -100,23 +98,15 @@ export class ShowtimeSeatsService {
 
   async releaseHold(userId: number, holdId: number) {
     await this.seatHoldService.releaseHold(holdId, userId);
-    return {
-      message: 'Release hold thành công',
-      holdId,
-    };
+    return { message: 'Release hold thành công', holdId };
   }
 
   async expireSeatHolds() {
     try {
-      await this.dataSource.query(`
-        EXEC sp_release_expired_holds
-      `);
-
+      await this.dataSource.query(`EXEC sp_release_expired_holds`);
       return { message: 'Expired seat holds released' };
     } catch (error) {
-      throw new InternalServerErrorException(
-        'Không thể giải phóng ghế giữ hết hạn',
-      );
+      throw new InternalServerErrorException('Không thể giải phóng ghế giữ hết hạn');
     }
   }
 }

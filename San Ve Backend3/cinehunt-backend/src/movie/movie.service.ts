@@ -28,20 +28,16 @@ export class MovieService {
     const qb = this.movieRepo
       .createQueryBuilder('movie')
       .leftJoinAndSelect('movie.genres', 'genre')
-      .orderBy('movie.created_at', 'DESC')
+      .orderBy('movie.createdAt', 'DESC')
       .skip(skip)
       .take(limit);
 
     if (query.search) {
-      qb.andWhere('movie.title LIKE :search', {
-        search: `%${query.search}%`,
-      });
+      qb.andWhere('movie.title LIKE :search', { search: `%${query.search}%` });
     }
 
     if (query.genre) {
-      qb.andWhere('genre.genre_name LIKE :genre', {
-        genre: `%${query.genre}%`,
-      });
+      qb.andWhere('genre.genreName LIKE :genre', { genre: `%${query.genre}%` });
     }
 
     if (query.status) {
@@ -61,13 +57,11 @@ export class MovieService {
 
   async findOne(id: number) {
     const movie = await this.movieRepo.findOne({
-      where: { movie_id: id },
+      where: { movieId: id },
       relations: ['genres'],
     });
 
-    if (!movie) {
-      throw new NotFoundException('Không tìm thấy phim');
-    }
+    if (!movie) throw new NotFoundException('Không tìm thấy phim');
 
     return movie;
   }
@@ -78,11 +72,11 @@ export class MovieService {
     const movie = this.movieRepo.create({
       title: dto.title,
       description: dto.description ?? null,
-      duration_minutes: dto.durationMinutes,
-      age_rating: dto.ageRating ?? null,
-      release_date: dto.releaseDate ? new Date(dto.releaseDate) : null,
-      poster_url: dto.posterUrl ?? null,
-      trailer_url: dto.trailerUrl ?? null,
+      durationMinutes: dto.durationMinutes,
+      ageRating: dto.ageRating ?? null,
+      releaseDate: dto.releaseDate ? new Date(dto.releaseDate) : null,
+      posterUrl: dto.posterUrl ?? null,
+      trailerUrl: dto.trailerUrl ?? null,
       status: dto.status ?? MovieStatus.NOW_SHOWING,
       genres,
     });
@@ -95,13 +89,13 @@ export class MovieService {
 
     if (dto.title !== undefined) movie.title = dto.title;
     if (dto.description !== undefined) movie.description = dto.description;
-    if (dto.durationMinutes !== undefined) movie.duration_minutes = dto.durationMinutes;
-    if (dto.ageRating !== undefined) movie.age_rating = dto.ageRating;
+    if (dto.durationMinutes !== undefined) movie.durationMinutes = dto.durationMinutes;
+    if (dto.ageRating !== undefined) movie.ageRating = dto.ageRating;
     if (dto.releaseDate !== undefined) {
-      movie.release_date = dto.releaseDate ? new Date(dto.releaseDate) : null;
+      movie.releaseDate = dto.releaseDate ? new Date(dto.releaseDate) : null;
     }
-    if (dto.posterUrl !== undefined) movie.poster_url = dto.posterUrl;
-    if (dto.trailerUrl !== undefined) movie.trailer_url = dto.trailerUrl;
+    if (dto.posterUrl !== undefined) movie.posterUrl = dto.posterUrl;
+    if (dto.trailerUrl !== undefined) movie.trailerUrl = dto.trailerUrl;
     if (dto.status !== undefined) movie.status = dto.status;
     if (dto.genreIds !== undefined) {
       movie.genres = await this.resolveGenres(dto.genreIds);
@@ -127,7 +121,7 @@ export class MovieService {
 
     const uniqueIds = [...new Set(genreIds)];
     const genres = await this.genreRepo.find({
-      where: { genre_id: In(uniqueIds) },
+      where: { genreId: In(uniqueIds) },
     });
 
     if (genres.length !== uniqueIds.length) {

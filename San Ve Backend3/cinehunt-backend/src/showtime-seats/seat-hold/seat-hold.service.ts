@@ -19,10 +19,7 @@ export class SeatHoldService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async holdSingleSeat(
-    userId: number,
-    dto: HoldSeatDto,
-  ): Promise<HoldResponseDto> {
+  async holdSingleSeat(userId: number, dto: HoldSeatDto): Promise<HoldResponseDto> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -31,19 +28,11 @@ export class SeatHoldService {
       const { showtimeSeatId, holdMinutes = 5 } = dto;
 
       const showtimeSeat = await queryRunner.manager.findOne(ShowtimeSeat, {
-        where: { showtime_seat_id: showtimeSeatId },
-        relations: [
-          'showtime',
-          'showtime.movie',
-          'showtime.room',
-          'showtime.room.cinema',
-          'seat',
-        ],
+        where: { showtimeSeatId },
+        relations: ['showtime', 'showtime.movie', 'showtime.room', 'showtime.room.cinema', 'seat'],
       });
 
-      if (!showtimeSeat) {
-        throw new NotFoundException('Ghế không tồn tại');
-      }
+      if (!showtimeSeat) throw new NotFoundException('Ghế không tồn tại');
 
       if (showtimeSeat.status !== 'AVAILABLE') {
         throw new BadRequestException('Ghế không còn trống');
@@ -52,17 +41,17 @@ export class SeatHoldService {
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + holdMinutes);
 
-      await queryRunner.manager.update(ShowtimeSeat, showtimeSeatId, {
+      await queryRunner.manager.update(ShowtimeSeat, { showtimeSeatId }, {
         status: 'HELD',
-        held_by_user_id: userId,
-        hold_expires_at: expiresAt,
+        heldByUserId: userId,
+        holdExpiresAt: expiresAt,
       });
 
       const hold = this.seatHoldRepository.create({
-        user_id: userId,
-        showtime_seat_id: showtimeSeatId,
-        hold_token: crypto.randomUUID(),
-        expires_at: expiresAt,
+        userId,
+        showtimeSeatId,
+        holdToken: crypto.randomUUID(),
+        expiresAt,
         status: 'ACTIVE',
       });
 
@@ -71,18 +60,18 @@ export class SeatHoldService {
       await queryRunner.commitTransaction();
 
       return {
-        holdId: savedHold.hold_id,
-        holdToken: savedHold.hold_token,
-        expiresAt: savedHold.expires_at,
+        holdId: savedHold.holdId,
+        holdToken: savedHold.holdToken,
+        expiresAt: savedHold.expiresAt,
         status: savedHold.status,
         showtimeSeatId,
-        seatLabel: showtimeSeat.seat?.seat_label ??
-          `${showtimeSeat.seat?.seat_row ?? ''}${showtimeSeat.seat?.seat_number ?? ''}`,
+        seatLabel: showtimeSeat.seat?.seatLabel ??
+          `${showtimeSeat.seat?.seatRow ?? ''}${showtimeSeat.seat?.seatNumber ?? ''}`,
         price: Number(showtimeSeat.price),
         showtimeInfo: {
           movieTitle: showtimeSeat.showtime?.movie?.title ?? '',
-          startTime: showtimeSeat.showtime?.start_time,
-          cinemaName: showtimeSeat.showtime?.room?.cinema?.cinema_name,
+          startTime: showtimeSeat.showtime?.startTime,
+          cinemaName: showtimeSeat.showtime?.room?.cinema?.cinemaName,
         },
       };
     } catch (error) {
@@ -93,10 +82,7 @@ export class SeatHoldService {
     }
   }
 
-  async holdMultipleSeats(
-    userId: number,
-    dto: HoldSeatsDto,
-  ): Promise<HoldResponseDto[]> {
+  async holdMultipleSeats(userId: number, dto: HoldSeatsDto): Promise<HoldResponseDto[]> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -109,45 +95,27 @@ export class SeatHoldService {
       }
 
       const showtimeSeats = await queryRunner.manager.find(ShowtimeSeat, {
-        where: {
-          showtime_seat_id: In(showtimeSeatIds),
-        },
-        relations: [
-          'showtime',
-          'showtime.movie',
-          'showtime.room',
-          'showtime.room.cinema',
-          'seat',
-        ],
+        where: { showtimeSeatId: In(showtimeSeatIds) },
+        relations: ['showtime', 'showtime.movie', 'showtime.room', 'showtime.room.cinema', 'seat'],
       });
 
       if (showtimeSeats.length !== showtimeSeatIds.length) {
         throw new NotFoundException('Một hoặc nhiều ghế không tồn tại');
       }
 
-      const showtimeId = showtimeSeats[0].showtime_id;
-      const sameShowtime = showtimeSeats.every(
-        (seat) => seat.showtime_id === showtimeId,
-      );
+      const showtimeId = showtimeSeats[0].showtimeId;
+      const sameShowtime = showtimeSeats.every((seat) => seat.showtimeId === showtimeId);
 
       if (!sameShowtime) {
-        throw new BadRequestException(
-          'Tất cả ghế phải thuộc cùng một suất chiếu',
-        );
+        throw new BadRequestException('Tất cả ghế phải thuộc cùng một suất chiếu');
       }
 
-      const notAvailable = showtimeSeats.filter(
-        (seat) => seat.status !== 'AVAILABLE',
-      );
+      const notAvailable = showtimeSeats.filter((seat) => seat.status !== 'AVAILABLE');
 
       if (notAvailable.length > 0) {
         throw new BadRequestException(
           `Các ghế không còn trống: ${notAvailable
-            .map(
-              (seat) =>
-                seat.seat?.seat_label ??
-                `${seat.seat?.seat_row ?? ''}${seat.seat?.seat_number ?? ''}`,
-            )
+            .map((seat) => seat.seat?.seatLabel ?? `${seat.seat?.seatRow ?? ''}${seat.seat?.seatNumber ?? ''}`)
             .join(', ')}`,
         );
       }
@@ -158,40 +126,35 @@ export class SeatHoldService {
       const responses: HoldResponseDto[] = [];
 
       for (const showtimeSeat of showtimeSeats) {
-        await queryRunner.manager.update(
-          ShowtimeSeat,
-          showtimeSeat.showtime_seat_id,
-          {
-            status: 'HELD',
-            held_by_user_id: userId,
-            hold_expires_at: expiresAt,
-          },
-        );
+        await queryRunner.manager.update(ShowtimeSeat, { showtimeSeatId: showtimeSeat.showtimeSeatId }, {
+          status: 'HELD',
+          heldByUserId: userId,
+          holdExpiresAt: expiresAt,
+        });
 
         const hold = this.seatHoldRepository.create({
-          user_id: userId,
-          showtime_seat_id: showtimeSeat.showtime_seat_id,
-          hold_token: crypto.randomUUID(),
-          expires_at: expiresAt,
+          userId,
+          showtimeSeatId: showtimeSeat.showtimeSeatId,
+          holdToken: crypto.randomUUID(),
+          expiresAt,
           status: 'ACTIVE',
         });
 
         const savedHold = await queryRunner.manager.save(SeatHold, hold);
 
         responses.push({
-          holdId: savedHold.hold_id,
-          holdToken: savedHold.hold_token,
-          expiresAt: savedHold.expires_at,
+          holdId: savedHold.holdId,
+          holdToken: savedHold.holdToken,
+          expiresAt: savedHold.expiresAt,
           status: savedHold.status,
-          showtimeSeatId: showtimeSeat.showtime_seat_id,
-          seatLabel:
-            showtimeSeat.seat?.seat_label ??
-            `${showtimeSeat.seat?.seat_row ?? ''}${showtimeSeat.seat?.seat_number ?? ''}`,
+          showtimeSeatId: showtimeSeat.showtimeSeatId,
+          seatLabel: showtimeSeat.seat?.seatLabel ??
+            `${showtimeSeat.seat?.seatRow ?? ''}${showtimeSeat.seat?.seatNumber ?? ''}`,
           price: Number(showtimeSeat.price),
           showtimeInfo: {
             movieTitle: showtimeSeat.showtime?.movie?.title ?? '',
-            startTime: showtimeSeat.showtime?.start_time,
-            cinemaName: showtimeSeat.showtime?.room?.cinema?.cinema_name,
+            startTime: showtimeSeat.showtime?.startTime,
+            cinemaName: showtimeSeat.showtime?.room?.cinema?.cinemaName,
           },
         });
       }
@@ -208,39 +171,33 @@ export class SeatHoldService {
 
   async getUserHolds(userId: number) {
     const holds = await this.seatHoldRepository.find({
-      where: {
-        user_id: userId,
-        status: 'ACTIVE',
-      },
+      where: { userId, status: 'ACTIVE' },
       relations: [
-        'showtime_seat',
-        'showtime_seat.seat',
-        'showtime_seat.showtime',
-        'showtime_seat.showtime.movie',
-        'showtime_seat.showtime.room',
-        'showtime_seat.showtime.room.cinema',
+        'showtimeSeat',
+        'showtimeSeat.seat',
+        'showtimeSeat.showtime',
+        'showtimeSeat.showtime.movie',
+        'showtimeSeat.showtime.room',
+        'showtimeSeat.showtime.room.cinema',
       ],
-      order: {
-        created_at: 'DESC',
-      },
+      order: { createdAt: 'DESC' },
     });
 
     return holds.map((hold) => ({
-      holdId: hold.hold_id,
-      holdToken: hold.hold_token,
-      expiresAt: hold.expires_at,
+      holdId: hold.holdId,
+      holdToken: hold.holdToken,
+      expiresAt: hold.expiresAt,
       status: hold.status,
-      showtimeSeatId: hold.showtime_seat?.showtime_seat_id,
+      showtimeSeatId: hold.showtimeSeat?.showtimeSeatId,
       seatLabel:
-        hold.showtime_seat?.seat?.seat_label ??
-        `${hold.showtime_seat?.seat?.seat_row ?? ''}${hold.showtime_seat?.seat?.seat_number ?? ''}`,
-      price: hold.showtime_seat ? Number(hold.showtime_seat.price) : 0,
-      showtimeInfo: hold.showtime_seat?.showtime
+        hold.showtimeSeat?.seat?.seatLabel ??
+        `${hold.showtimeSeat?.seat?.seatRow ?? ''}${hold.showtimeSeat?.seat?.seatNumber ?? ''}`,
+      price: hold.showtimeSeat ? Number(hold.showtimeSeat.price) : 0,
+      showtimeInfo: hold.showtimeSeat?.showtime
         ? {
-            movieTitle: hold.showtime_seat.showtime.movie?.title ?? '',
-            startTime: hold.showtime_seat.showtime.start_time,
-            cinemaName:
-              hold.showtime_seat.showtime.room?.cinema?.cinema_name,
+            movieTitle: hold.showtimeSeat.showtime.movie?.title ?? '',
+            startTime: hold.showtimeSeat.showtime.startTime,
+            cinemaName: hold.showtimeSeat.showtime.room?.cinema?.cinemaName,
           }
         : undefined,
     }));
@@ -248,41 +205,35 @@ export class SeatHoldService {
 
   async getHoldDetails(holdId: number, userId: number) {
     const hold = await this.seatHoldRepository.findOne({
-      where: {
-        hold_id: String(holdId),
-        user_id: userId,
-      },
+      where: { holdId: String(holdId), userId },
       relations: [
-        'showtime_seat',
-        'showtime_seat.seat',
-        'showtime_seat.showtime',
-        'showtime_seat.showtime.movie',
-        'showtime_seat.showtime.room',
-        'showtime_seat.showtime.room.cinema',
+        'showtimeSeat',
+        'showtimeSeat.seat',
+        'showtimeSeat.showtime',
+        'showtimeSeat.showtime.movie',
+        'showtimeSeat.showtime.room',
+        'showtimeSeat.showtime.room.cinema',
       ],
     });
 
-    if (!hold) {
-      throw new NotFoundException('Không tìm thấy thông tin hold');
-    }
+    if (!hold) throw new NotFoundException('Không tìm thấy thông tin hold');
 
     return {
-      holdId: hold.hold_id,
-      holdToken: hold.hold_token,
-      expiresAt: hold.expires_at,
-      releasedAt: hold.released_at,
+      holdId: hold.holdId,
+      holdToken: hold.holdToken,
+      expiresAt: hold.expiresAt,
+      releasedAt: hold.releasedAt,
       status: hold.status,
-      showtimeSeatId: hold.showtime_seat?.showtime_seat_id,
+      showtimeSeatId: hold.showtimeSeat?.showtimeSeatId,
       seatLabel:
-        hold.showtime_seat?.seat?.seat_label ??
-        `${hold.showtime_seat?.seat?.seat_row ?? ''}${hold.showtime_seat?.seat?.seat_number ?? ''}`,
-      price: hold.showtime_seat ? Number(hold.showtime_seat.price) : 0,
-      showtimeInfo: hold.showtime_seat?.showtime
+        hold.showtimeSeat?.seat?.seatLabel ??
+        `${hold.showtimeSeat?.seat?.seatRow ?? ''}${hold.showtimeSeat?.seat?.seatNumber ?? ''}`,
+      price: hold.showtimeSeat ? Number(hold.showtimeSeat.price) : 0,
+      showtimeInfo: hold.showtimeSeat?.showtime
         ? {
-            movieTitle: hold.showtime_seat.showtime.movie?.title ?? '',
-            startTime: hold.showtime_seat.showtime.start_time,
-            cinemaName:
-              hold.showtime_seat.showtime.room?.cinema?.cinema_name,
+            movieTitle: hold.showtimeSeat.showtime.movie?.title ?? '',
+            startTime: hold.showtimeSeat.showtime.startTime,
+            cinemaName: hold.showtimeSeat.showtime.room?.cinema?.cinemaName,
           }
         : undefined,
     };
@@ -295,42 +246,25 @@ export class SeatHoldService {
 
     try {
       const hold = await queryRunner.manager.findOne(SeatHold, {
-        where: {
-          hold_id: String(holdId),
-          user_id: userId,
-          status: 'ACTIVE',
-        },
+        where: { holdId: String(holdId), userId, status: 'ACTIVE' },
       });
 
-      if (!hold) {
-        throw new NotFoundException('Không tìm thấy hold hợp lệ');
-      }
+      if (!hold) throw new NotFoundException('Không tìm thấy hold hợp lệ');
 
       await queryRunner.manager.update(
         SeatHold,
-        { hold_id: String(holdId) },
-        {
-          status: 'CANCELLED',
-          released_at: new Date(),
-        },
+        { holdId: String(holdId) },
+        { status: 'CANCELLED', releasedAt: new Date() },
       );
 
       await queryRunner.manager.update(
         ShowtimeSeat,
-        { showtime_seat_id: hold.showtime_seat_id },
-        {
-          status: 'AVAILABLE',
-          held_by_user_id: null,
-          hold_expires_at: null,
-        },
+        { showtimeSeatId: hold.showtimeSeatId },
+        { status: 'AVAILABLE', heldByUserId: null, holdExpiresAt: null },
       );
 
       await queryRunner.commitTransaction();
-
-      return {
-        success: true,
-        holdId,
-      };
+      return { success: true, holdId };
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;

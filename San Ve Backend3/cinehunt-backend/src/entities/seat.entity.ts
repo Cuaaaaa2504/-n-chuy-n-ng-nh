@@ -32,10 +32,10 @@ export class Seat {
   status: string;
 
   @ManyToOne(() => Room)
-  @JoinColumn()
+  @JoinColumn({ name: 'room_id' })
   room: Room;
 
   @ManyToOne(() => SeatType)
-  @JoinColumn()
+  @JoinColumn({ name: 'seat_type_id' })
   seatType: SeatType;
 }
