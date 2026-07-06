@@ -4,81 +4,55 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToMany,
-  JoinTable,
 } from 'typeorm';
-import { Genre } from './genre.entity';
-
-export enum MovieStatus {
-  COMING_SOON = 'COMING_SOON',
-  NOW_SHOWING = 'NOW_SHOWING',
-  ENDED = 'ENDED',
-}
 
 @Entity('movies')
 export class Movie {
-  @PrimaryGeneratedColumn({ type: 'int' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'movie_id' })
   movieId: number;
 
-  @Column({ type: 'nvarchar', length: 250 })
+  @Column({ name: 'title', type: 'nvarchar', length: 200 })
   title: string;
 
-  @Column({ type: 'nvarchar', length: 250, nullable: true })
-  originalTitle: string | null;
-
-  @Column({ type: 'nvarchar', nullable: true })
+  @Column({ name: 'description', type: 'nvarchar', nullable: true })
   description: string | null;
 
-  @Column({ type: 'int' })
-  durationMinutes: number;
+  @Column({ name: 'duration', type: 'int', nullable: true })
+  duration: number | null;
 
-  @Column({ type: 'date', nullable: true })
-  releaseDate: Date | null;
+  @Column({ name: 'genre', type: 'nvarchar', length: 100, nullable: true })
+  genre: string | null;
 
-  @Column({ type: 'date', nullable: true })
-  endDate: Date | null;
-
-  @Column({ type: 'varchar', length: 10, nullable: true })
-  ageRating: string | null;
-
-  @Column({ type: 'nvarchar', length: 150, nullable: true })
+  @Column({ name: 'director', type: 'nvarchar', length: 100, nullable: true })
   director: string | null;
 
-  @Column({ type: 'nvarchar', length: 1000, nullable: true })
-  actors: string | null;
+  @Column({ name: 'cast', type: 'nvarchar', nullable: true })
+  cast: string | null;
 
-  @Column({ type: 'nvarchar', length: 100, nullable: true })
-  country: string | null;
+  @Column({ name: 'release_date', type: 'date', nullable: true })
+  releaseDate: Date | null;
 
-  @Column({ type: 'nvarchar', length: 100, nullable: true })
-  language: string | null;
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  endDate: Date | null;
 
-  @Column({ type: 'nvarchar', length: 500, nullable: true })
+  @Column({ name: 'poster_url', type: 'varchar', length: 500, nullable: true })
   posterUrl: string | null;
 
-  @Column({ type: 'nvarchar', length: 500, nullable: true })
-  bannerUrl: string | null;
-
-  @Column({ type: 'nvarchar', length: 500, nullable: true })
+  @Column({ name: 'trailer_url', type: 'varchar', length: 500, nullable: true })
   trailerUrl: string | null;
 
-  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
-  averageRating: number;
-
-  @Column({ type: 'varchar', length: 20, default: MovieStatus.COMING_SOON })
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'COMING_SOON' })
   status: string;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @Column({ name: 'rating', type: 'varchar', length: 10, nullable: true })
+  rating: string | null;
+
+  @Column({ name: 'language', type: 'varchar', length: 20, nullable: true })
+  language: string | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'datetime2', precision: 0 })
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
   updatedAt: Date;
-
-  @ManyToMany(() => Genre)
-  @JoinTable({
-    name: 'movie_genres',
-    joinColumn: { name: 'movie_id', referencedColumnName: 'movieId' },
-    inverseJoinColumn: { name: 'genre_id', referencedColumnName: 'genreId' },
-  })
-  genres: Genre[];
 }

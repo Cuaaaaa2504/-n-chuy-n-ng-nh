@@ -11,30 +11,28 @@ import { ShowtimeSeat } from './showtime-seat.entity';
 
 @Entity('seat_holds')
 export class SeatHold {
-  // FIX: DB dùng BIGINT IDENTITY → dùng number, không phải string
-  @PrimaryGeneratedColumn({ type: 'bigint' })
+  @PrimaryGeneratedColumn({ type: 'bigint', name: 'hold_id' })
   holdId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'user_id', type: 'int' })
   userId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'showtime_seat_id', type: 'int' })
   showtimeSeatId: number;
 
-  // FIX: uniqueidentifier trên SQL Server — TypeORM mssql driver nhận string UUID
-  @Column({ type: 'uniqueidentifier', default: () => 'NEWID()' })
+  @Column({ name: 'hold_token', type: 'uniqueidentifier', default: () => 'NEWID()' })
   holdToken: string;
 
-  @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @Column({ type: 'datetime2', precision: 0 })
+  @Column({ name: 'expires_at', type: 'datetime2', precision: 0 })
   expiresAt: Date;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  @Column({ name: 'released_at', type: 'datetime2', precision: 0, nullable: true })
   releasedAt: Date | null;
 
   @ManyToOne(() => User)

@@ -4,41 +4,32 @@ import {
   PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
+  CreateDateColumn,
 } from 'typeorm';
 import { BookingOrder } from './booking-order.entity';
 import { ConcessionCombo } from './concession-combo.entity';
 
 @Entity('booking_combos')
 export class BookingCombo {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
-  bookingComboId: string;
+  @PrimaryGeneratedColumn({ type: 'int', name: 'booking_combo_id' })
+  bookingComboId: number;
 
-  @Column({ type: 'bigint' })
+  @Column({ name: 'booking_id', type: 'bigint' })
   bookingId: string;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'combo_id', type: 'int' })
   comboId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'quantity', type: 'int' })
   quantity: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'unit_price', type: 'decimal', precision: 10, scale: 2 })
   unitPrice: number;
 
-  @Column({
-    name: 'total_price',
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    insert: false,
-    update: false,
-    nullable: true,
-  })
-  totalPrice: number | null;
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
-  @ManyToOne(() => BookingOrder, (booking) => booking.bookingCombos, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(() => BookingOrder, (booking) => booking.bookingCombos)
   @JoinColumn({ name: 'booking_id' })
   booking: BookingOrder;
 

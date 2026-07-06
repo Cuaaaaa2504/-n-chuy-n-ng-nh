@@ -10,28 +10,25 @@ import { Cinema } from './cinema.entity';
 
 @Entity('rooms')
 export class Room {
-  @PrimaryGeneratedColumn({ type: 'int' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'room_id' })
   roomId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'cinema_id', type: 'int' })
   cinemaId: number;
 
-  @Column({ type: 'nvarchar', length: 100 })
+  @Column({ name: 'room_name', type: 'nvarchar', length: 50 })
   roomName: string;
 
-  @Column({ type: 'varchar', length: 30, default: 'STANDARD' })
-  roomType: string;
-
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'total_seats', type: 'int', default: 0 })
   totalSeats: number;
 
-  @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @ManyToOne(() => Cinema, (cinema) => cinema.rooms)
+  @ManyToOne(() => Cinema)
   @JoinColumn({ name: 'cinema_id' })
   cinema: Cinema;
 }

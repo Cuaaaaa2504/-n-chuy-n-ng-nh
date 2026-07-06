@@ -6,36 +6,31 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Room } from './room.entity';
-import { SeatType } from './seat-type.entity';
 
 @Entity('seats')
 export class Seat {
-  @PrimaryGeneratedColumn({ type: 'int' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'seat_id' })
   seatId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'room_id', type: 'int' })
   roomId: number;
 
-  @Column({ type: 'int' })
-  seatTypeId: number;
-
-  @Column({ type: 'varchar', length: 5 })
+  @Column({ name: 'seat_row', type: 'char', length: 2 })
   seatRow: string;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'seat_number', type: 'int' })
   seatNumber: number;
 
-  @Column({ type: 'varchar', length: 15 })
-  seatLabel: string;
+  @Column({ name: 'seat_label', type: 'varchar', length: 10, nullable: true })
+  seatLabel: string | null;
 
-  @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
+  @Column({ name: 'seat_type', type: 'varchar', length: 20, default: 'STANDARD' })
+  seatType: string;
+
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
   @ManyToOne(() => Room)
   @JoinColumn({ name: 'room_id' })
   room: Room;
-
-  @ManyToOne(() => SeatType)
-  @JoinColumn({ name: 'seat_type_id' })
-  seatType: SeatType;
 }

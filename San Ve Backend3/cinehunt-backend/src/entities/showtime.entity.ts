@@ -2,56 +2,56 @@ import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
-import { Movie } from './movie.entity';
 import { Room } from './room.entity';
-import { User } from './user.entity';
+import { Movie } from './movie.entity';
+import { ShowtimeSeat } from './showtime-seat.entity';
 
 @Entity('showtimes')
 export class Showtime {
-  @PrimaryGeneratedColumn({ type: 'int' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'showtime_id' })
   showtimeId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'movie_id', type: 'int' })
   movieId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'room_id', type: 'int' })
   roomId: number;
 
-  @Column({ type: 'datetime2', precision: 0 })
+  @Column({ name: 'start_time', type: 'datetime2', precision: 0 })
   startTime: Date;
 
-  @Column({ type: 'datetime2', precision: 0 })
+  @Column({ name: 'end_time', type: 'datetime2', precision: 0 })
   endTime: Date;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
-  basePrice: number;
+  @Column({ name: 'format', type: 'varchar', length: 10, nullable: true })
+  format: string | null;
 
-  @Column({ type: 'varchar', length: 20, default: 'OPEN' })
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'SCHEDULED' })
   status: string;
 
-  @Column({ type: 'int', nullable: true })
-  createdBy: number | null;
+  @Column({ name: 'base_price', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  basePrice: number | null;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'datetime2', precision: 0 })
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
   updatedAt: Date;
-
-  @ManyToOne(() => Movie)
-  @JoinColumn({ name: 'movie_id' })
-  movie: Movie;
 
   @ManyToOne(() => Room)
   @JoinColumn({ name: 'room_id' })
   room: Room;
 
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'created_by' })
-  creator: User | null;
+  @ManyToOne(() => Movie)
+  @JoinColumn({ name: 'movie_id' })
+  movie: Movie;
+
+  @OneToMany(() => ShowtimeSeat, (ss) => ss.showtime)
+  showtimeSeats: ShowtimeSeat[];
 }

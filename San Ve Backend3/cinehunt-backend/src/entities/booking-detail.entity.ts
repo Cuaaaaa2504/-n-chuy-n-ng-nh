@@ -13,22 +13,22 @@ import { Ticket } from './ticket.entity';
 
 @Entity('booking_details')
 export class BookingDetail {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
+  @PrimaryGeneratedColumn({ type: 'bigint', name: 'booking_detail_id' })
   bookingDetailId: string;
 
-  @Column({ type: 'bigint' })
+  @Column({ name: 'booking_id', type: 'bigint' })
   bookingId: string;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'showtime_seat_id', type: 'int' })
   showtimeSeatId: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'seat_price', type: 'decimal', precision: 12, scale: 2 })
   seatPrice: number;
 
-  @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
   @ManyToOne(() => BookingOrder, (booking) => booking.bookingDetails, {

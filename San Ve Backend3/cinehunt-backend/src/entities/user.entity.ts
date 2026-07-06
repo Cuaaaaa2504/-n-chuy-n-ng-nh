@@ -4,61 +4,43 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
 } from 'typeorm';
-import { UserRole } from './user-role.entity';
-import { RefreshToken } from './refresh-token.entity';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn({ type: 'int' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'user_id' })
   userId: number;
 
-  @Column({ type: 'nvarchar', length: 120 })
+  @Column({ name: 'full_name', type: 'nvarchar', length: 100 })
   fullName: string;
 
-  @Column({ type: 'varchar', length: 150, unique: true })
+  @Column({ name: 'email', type: 'varchar', length: 150, unique: true })
   email: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ name: 'phone', type: 'varchar', length: 20, nullable: true })
   phone: string | null;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ name: 'password_hash', type: 'varchar', length: 255 })
   passwordHash: string;
 
-  @Column({ type: 'nvarchar', length: 500, nullable: true })
-  avatarUrl: string | null;
-
-  @Column({ type: 'date', nullable: true })
-  dateOfBirth: Date | null;
-
-  @Column({ type: 'bit', default: false })
-  emailVerified: boolean;
-
-  @Column({ type: 'int', default: 0 })
-  failedLoginAttempts: number;
-
-  @Column({ type: 'datetime2', precision: 0, nullable: true })
-  lockedUntil: Date | null;
-
-  @Column({ type: 'datetime2', precision: 0, nullable: true })
-  lastLoginAt: Date | null;
-
-  @Column({ type: 'varchar', length: 20, default: 'CUSTOMER' })
+  @Column({ name: 'role', type: 'varchar', length: 20, default: 'CUSTOMER' })
   role: string;
 
-  @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @Column({ name: 'email_verified', type: 'bit', default: false })
+  emailVerified: boolean;
+
+  @Column({ name: 'avatar_url', type: 'varchar', length: 500, nullable: true })
+  avatarUrl: string | null;
+
+  @Column({ name: 'last_login_at', type: 'datetime2', precision: 0, nullable: true })
+  lastLoginAt: Date | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'datetime2', precision: 0 })
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
   updatedAt: Date;
-
-  @OneToMany(() => UserRole, (userRole) => userRole.user)
-  userRoles: UserRole[];
-
-  @OneToMany(() => RefreshToken, (rt) => rt.user)
-  refreshTokens: RefreshToken[];
 }

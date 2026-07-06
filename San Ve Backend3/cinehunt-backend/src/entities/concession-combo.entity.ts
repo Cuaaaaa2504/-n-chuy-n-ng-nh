@@ -4,36 +4,31 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
 } from 'typeorm';
-import { BookingCombo } from './booking-combo.entity';
 
 @Entity('concession_combos')
 export class ConcessionCombo {
-  @PrimaryGeneratedColumn({ type: 'int' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'combo_id' })
   comboId: number;
 
-  @Column({ type: 'nvarchar', length: 150 })
-  comboName: string;
+  @Column({ name: 'name', type: 'nvarchar', length: 100 })
+  name: string;
 
-  @Column({ type: 'nvarchar', length: 500, nullable: true })
+  @Column({ name: 'description', type: 'nvarchar', nullable: true })
   description: string | null;
 
-  @Column({ type: 'nvarchar', length: 500, nullable: true })
-  imageUrl: string | null;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'price', type: 'decimal', precision: 10, scale: 2 })
   price: number;
 
-  @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
+  @Column({ name: 'image_url', type: 'varchar', length: 500, nullable: true })
+  imageUrl: string | null;
+
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'datetime2', precision: 0 })
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
   updatedAt: Date;
-
-  @OneToMany(() => BookingCombo, (bc) => bc.combo)
-  bookingCombos: BookingCombo[];
 }

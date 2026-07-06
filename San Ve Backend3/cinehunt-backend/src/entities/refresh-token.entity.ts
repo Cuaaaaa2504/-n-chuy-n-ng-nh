@@ -3,45 +3,34 @@ import {
   Column,
   PrimaryGeneratedColumn,
   CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
-import { User } from './user.entity';
 
 @Entity('refresh_tokens')
 export class RefreshToken {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
-  refreshTokenId: string;
+  @PrimaryGeneratedColumn({ type: 'int', name: 'refresh_token_id' })
+  refreshTokenId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'user_id', type: 'int' })
   userId: number;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ name: 'token_hash', type: 'varchar', length: 255 })
   tokenHash: string;
 
-  @Column({ type: 'nvarchar', length: 300, nullable: true })
+  @Column({ name: 'device_info', type: 'nvarchar', length: 255, nullable: true })
   deviceInfo: string | null;
 
-  @Column({ type: 'varchar', length: 45, nullable: true })
+  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
   ipAddress: string | null;
 
-  @Column({ type: 'datetime2', precision: 0 })
+  @Column({ name: 'expires_at', type: 'datetime2', precision: 0 })
   expiresAt: Date;
 
-  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  @Column({ name: 'revoked_at', type: 'datetime2', precision: 0, nullable: true })
   revokedAt: Date | null;
 
-  @Column({ type: 'bigint', nullable: true })
-  replacedById: string | null;
+  @Column({ name: 'replaced_by_id', type: 'int', nullable: true })
+  replacedById: number | null;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
-
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
-  user: User;
-
-  get isActive(): boolean {
-    return this.revokedAt === null && this.expiresAt > new Date();
-  }
 }
