@@ -22,14 +22,15 @@ import ShowtimeSelectPage from '../pages/ShowtimeSelectPage';
 import SeatBookingPage from '../pages/SeatBookingPage';
 import PaymentPage from '../pages/PaymentPage';
 import MyBookingsPage from '../pages/MyBookingsPage';
-import TicketPage from '../pages/TicketPage';           // 👉 THÊM MỚI
-import TicketDetailPage from '../pages/TicketDetailPage'; // 👉 THÊM MỚI
+import TicketPage from '../pages/TicketPage';
+import TicketDetailPage from '../pages/TicketDetailPage';
 
 // Admin pages
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
 import AdminMoviesPage from '../pages/admin/AdminMoviesPage';
 import AdminShowtimesPage from '../pages/admin/AdminShowtimesPage';
 import AdminBookingsPage from '../pages/admin/AdminBookingsPage';
+import AdminUsersPage from '../pages/admin/AdminUsersPage';
 
 export default function AppRouter() {
   return (
@@ -53,8 +54,8 @@ export default function AppRouter() {
             <Route path="/booking/:id" element={<SeatBookingPage />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />
             <Route path="/my-tickets" element={<MyBookingsPage />} />
-            <Route path="/tickets" element={<TicketPage />} />           {/* 👉 THÊM MỚI */}
-            <Route path="/tickets/:ticketId" element={<TicketDetailPage />} /> {/* 👉 THÊM MỚI */}
+            <Route path="/tickets" element={<TicketPage />} />
+            <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
           </Route>
 
           {/* 404 */}
@@ -69,6 +70,7 @@ export default function AppRouter() {
             <Route path="movies" element={<AdminMoviesPage />} />
             <Route path="showtimes" element={<AdminShowtimesPage />} />
             <Route path="bookings" element={<AdminBookingsPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
           </Route>
         </Route>
 
