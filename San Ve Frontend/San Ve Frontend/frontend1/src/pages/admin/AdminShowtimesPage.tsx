@@ -4,21 +4,25 @@ import ShowtimeTable from '../../components/admin/ShowtimeTable';
 import ShowtimeForm from '../../components/admin/ShowtimeForm';
 import ConfirmCancelModal from '../../components/admin/ConfirmCancelModal';
 import { useShowtimes } from '../../hooks/useShowtimes';
+import type { Showtime } from '../../hooks/useShowtimes';
 
-type ShowtimeStatus = 'ACTIVE' | 'CANCELLED' | 'FINISHED';
-
-interface Showtime {
-  id: number;
-  movieTitle: string;
-  cinemaName: string;
-  roomName: string;
+// Matches ShowtimeForm's internal ShowtimeData interface exactly
+interface ShowtimeData {
+  movieId: string;
+  roomId: string;
   showDate: string;
   startTime: string;
   endTime: string;
-  status: ShowtimeStatus;
 }
 
-type ShowtimeFormData = Omit<Showtime, 'id' | 'cinemaName' | 'status'>;
+// Convert a full Showtime record to the subset ShowtimeForm expects
+const toShowtimeData = (s: Showtime): ShowtimeData => ({
+  movieId:   s.movieId,
+  roomId:    s.roomId,
+  showDate:  s.showDate,
+  startTime: s.startTime,
+  endTime:   s.endTime,
+});
 
 const AdminShowtimesPage: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -32,7 +36,8 @@ const AdminShowtimesPage: React.FC = () => {
   const handleEditShowtime = (s: Showtime) => { setEditingShowtime(s); setIsFormOpen(true); };
   const handleCancelShowtime = (s: Showtime) => { setCancelingShowtime(s); setIsCancelModalOpen(true); };
 
-  const handleFormSubmit = async (data: ShowtimeFormData) => {
+  // onSubmit receives ShowtimeData (movieId, roomId, ...) — matches ShowtimeForm's Props
+  const handleFormSubmit = async (data: ShowtimeData) => {
     const success = editingShowtime
       ? await updateShowtime(editingShowtime.id, data)
       : await addShowtime(data);
@@ -65,7 +70,7 @@ const AdminShowtimesPage: React.FC = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <ShowtimeForm
-              showtime={editingShowtime}
+              showtime={editingShowtime ? toShowtimeData(editingShowtime) : null}
               onSubmit={handleFormSubmit}
               onCancel={() => { setIsFormOpen(false); setEditingShowtime(null); }}
             />
