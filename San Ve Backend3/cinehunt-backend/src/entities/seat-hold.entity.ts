@@ -11,8 +11,9 @@ import { ShowtimeSeat } from './showtime-seat.entity';
 
 @Entity('seat_holds')
 export class SeatHold {
+  // FIX: DB dùng BIGINT IDENTITY → dùng number, không phải string
   @PrimaryGeneratedColumn({ type: 'bigint' })
-  holdId: string;
+  holdId: number;
 
   @Column({ type: 'int' })
   userId: number;
@@ -20,7 +21,8 @@ export class SeatHold {
   @Column({ type: 'int' })
   showtimeSeatId: number;
 
-  @Column({ type: 'uniqueidentifier' })
+  // FIX: uniqueidentifier trên SQL Server — TypeORM mssql driver nhận string UUID
+  @Column({ type: 'uniqueidentifier', default: () => 'NEWID()' })
   holdToken: string;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })

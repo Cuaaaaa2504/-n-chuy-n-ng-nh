@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
@@ -27,9 +28,11 @@ export class SeatHoldService {
     try {
       const { showtimeSeatId, holdMinutes = 5 } = dto;
 
+      // FIX: dùng pessimistic_write lock để tránh race condition double-booking
       const showtimeSeat = await queryRunner.manager.findOne(ShowtimeSeat, {
         where: { showtimeSeatId },
         relations: ['showtime', 'showtime.movie', 'showtime.room', 'showtime.room.cinema', 'seat'],
+        lock: { mode: 'pessimistic_write' },
       });
 
       if (!showtimeSeat) throw new NotFoundException('Ghế không tồn tại');
@@ -47,15 +50,24 @@ export class SeatHoldService {
         holdExpiresAt: expiresAt,
       });
 
-      const hold = this.seatHoldRepository.create({
+      // FIX: holdToken dùng NEWID() từ DB thay vì crypto.randomUUID() để tương thích uniqueidentifier
+      const hold = queryRunner.manager.create(SeatHold, {
         userId,
         showtimeSeatId,
-        holdToken: crypto.randomUUID(),
         expiresAt,
         status: 'ACTIVE',
       });
 
-      const savedHold = await queryRunner.manager.save(SeatHold, hold);
+      let savedHold: SeatHold;
+      try {
+        savedHold = await queryRunner.manager.save(SeatHold, hold);
+      } catch (err: any) {
+        // FIX: bắt SQL unique constraint violation (UX_seat_holds_active_seat) → trả lỗi rõ ràng
+        if (err?.number === 2601 || err?.number === 2627 || err?.code === 'ER_DUP_ENTRY') {
+          throw new ConflictException('Ghế đang được giữ bởi người dùng khác');
+        }
+        throw err;
+      }
 
       await queryRunner.commitTransaction();
 
@@ -94,9 +106,11 @@ export class SeatHoldService {
         throw new BadRequestException('Danh sách ghế không hợp lệ');
       }
 
+      // FIX: dùng pessimistic_write lock cho toàn bộ danh sách ghế
       const showtimeSeats = await queryRunner.manager.find(ShowtimeSeat, {
         where: { showtimeSeatId: In(showtimeSeatIds) },
         relations: ['showtime', 'showtime.movie', 'showtime.room', 'showtime.room.cinema', 'seat'],
+        lock: { mode: 'pessimistic_write' },
       });
 
       if (showtimeSeats.length !== showtimeSeatIds.length) {
@@ -132,15 +146,25 @@ export class SeatHoldService {
           holdExpiresAt: expiresAt,
         });
 
-        const hold = this.seatHoldRepository.create({
+        // FIX: bỏ crypto.randomUUID(), để NEWID() default của DB tạo holdToken
+        const hold = queryRunner.manager.create(SeatHold, {
           userId,
           showtimeSeatId: showtimeSeat.showtimeSeatId,
-          holdToken: crypto.randomUUID(),
           expiresAt,
           status: 'ACTIVE',
         });
 
-        const savedHold = await queryRunner.manager.save(SeatHold, hold);
+        let savedHold: SeatHold;
+        try {
+          savedHold = await queryRunner.manager.save(SeatHold, hold);
+        } catch (err: any) {
+          if (err?.number === 2601 || err?.number === 2627 || err?.code === 'ER_DUP_ENTRY') {
+            throw new ConflictException(
+              `Ghế ${showtimeSeat.seat?.seatLabel ?? showtimeSeat.showtimeSeatId} đang được giữ bởi người dùng khác`,
+            );
+          }
+          throw err;
+        }
 
         responses.push({
           holdId: savedHold.holdId,
@@ -204,8 +228,9 @@ export class SeatHoldService {
   }
 
   async getHoldDetails(holdId: number, userId: number) {
+    // FIX: holdId là number (BIGINT), không dùng String()
     const hold = await this.seatHoldRepository.findOne({
-      where: { holdId: String(holdId), userId },
+      where: { holdId, userId },
       relations: [
         'showtimeSeat',
         'showtimeSeat.seat',
@@ -245,15 +270,16 @@ export class SeatHoldService {
     await queryRunner.startTransaction();
 
     try {
+      // FIX: holdId là number, không dùng String()
       const hold = await queryRunner.manager.findOne(SeatHold, {
-        where: { holdId: String(holdId), userId, status: 'ACTIVE' },
+        where: { holdId, userId, status: 'ACTIVE' },
       });
 
       if (!hold) throw new NotFoundException('Không tìm thấy hold hợp lệ');
 
       await queryRunner.manager.update(
         SeatHold,
-        { holdId: String(holdId) },
+        { holdId },
         { status: 'CANCELLED', releasedAt: new Date() },
       );
 

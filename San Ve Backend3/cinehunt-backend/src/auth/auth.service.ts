@@ -23,8 +23,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  // ─── REGISTER ─────────────────────────────────────────────────────────────
-
   async register(dto: RegisterDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
     const existedUser = await this.userRepository.findOne({
@@ -49,8 +47,6 @@ export class AuthService {
       user: this.toSafeUser(savedUser),
     };
   }
-
-  // ─── LOGIN ────────────────────────────────────────────────────────────────
 
   async login(dto: LoginDto, meta?: { deviceInfo?: string; ipAddress?: string }) {
     const normalizedEmail = dto.email.trim().toLowerCase();
@@ -80,8 +76,6 @@ export class AuthService {
       user: this.toSafeUser(user),
     };
   }
-
-  // ─── REFRESH TOKEN ────────────────────────────────────────────────────────
 
   async refresh(
     userId: number,
@@ -126,8 +120,6 @@ export class AuthService {
     };
   }
 
-  // ─── LOGOUT ───────────────────────────────────────────────────────────────
-
   async logout(userId: number, incomingToken?: string) {
     const user = await this.userRepository.findOne({ where: { userId } });
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
@@ -150,8 +142,6 @@ export class AuthService {
 
     return { message: 'Đăng xuất thành công' };
   }
-
-  // ─── PROFILE ──────────────────────────────────────────────────────────────
 
   async getProfile(userId: number) {
     const user = await this.userRepository.findOne({ where: { userId } });
@@ -193,8 +183,6 @@ export class AuthService {
     return { message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.' };
   }
 
-  // ─── ADMIN ────────────────────────────────────────────────────────────────
-
   async getAllUsers() {
     const users = await this.userRepository.find({ order: { createdAt: 'DESC' } });
     return users.map((u) => this.toSafeUser(u));
@@ -214,20 +202,30 @@ export class AuthService {
     return { message: `Đã cập nhật trạng thái người dùng thành ${status}` };
   }
 
-  // ─── HELPERS ──────────────────────────────────────────────────────────────
-
   private async storeRefreshToken(
     userId: number,
     rawToken: string,
     meta?: { deviceInfo?: string; ipAddress?: string },
   ): Promise<RefreshToken> {
-    const expiresInDays = parseInt(
-      (process.env.JWT_REFRESH_EXPIRES_IN || '7d').replace('d', ''),
-      10,
-    );
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (isNaN(expiresInDays) ? 7 : expiresInDays));
+    // FIX: parse robust hơn cho JWT_REFRESH_EXPIRES_IN — hỗ trợ '7d', '2w', '1h', số thuần
+    const raw = (process.env.JWT_REFRESH_EXPIRES_IN || '7d').trim();
+    let expiresInMs: number;
+    const numMatch = raw.match(/^(\d+(\.\d+)?)(d|h|m|w)?$/i);
+    if (numMatch) {
+      const val = parseFloat(numMatch[1]);
+      const unit = (numMatch[3] || 'd').toLowerCase();
+      const unitMs: Record<string, number> = {
+        d: 86400000,
+        h: 3600000,
+        m: 60000,
+        w: 604800000,
+      };
+      expiresInMs = val * (unitMs[unit] ?? unitMs['d']);
+    } else {
+      expiresInMs = 7 * 86400000; // fallback 7 ngày
+    }
 
+    const expiresAt = new Date(Date.now() + expiresInMs);
     const tokenHash = await bcrypt.hash(rawToken, 10);
 
     const rt = this.refreshTokenRepository.create({
@@ -258,15 +256,23 @@ export class AuthService {
   }
 
   private async generateTokens(user: User) {
+    // FIX: đảm bảo JWT secrets không undefined — nếu thiếu env thì throw ngay khi khởi động
+    const jwtSecret = process.env.JWT_SECRET;
+    const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+
+    if (!jwtSecret || !jwtRefreshSecret) {
+      throw new Error('JWT_SECRET hoặc JWT_REFRESH_SECRET chưa được cấu hình trong .env');
+    }
+
     const payload = { sub: user.userId, email: user.email, role: user.role };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_SECRET,
+        secret: jwtSecret,
         expiresIn: process.env.JWT_EXPIRES_IN || '15m',
       }),
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
+        secret: jwtRefreshSecret,
         expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
       }),
     ]);

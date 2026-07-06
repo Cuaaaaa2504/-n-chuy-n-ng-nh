@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Payment } from '../entities/payment.entity';
+import { BookingOrder } from '../entities/booking-order.entity';
+import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
+import { SeatHold } from '../entities/seat-hold.entity';
 import { BookingService } from '../booking/booking.service';
 import { PaymentRepository } from './payment.repository';
 import { CreatePaymentDto, PaymentResponse } from './dto';
@@ -73,18 +76,30 @@ export class PaymentService {
         );
       }
 
-      const booking = await this.bookingService.validateBookingForPayment(
-        payment.bookingId,
-      );
+      // FIX: validate booking bên trong transaction thông qua queryRunner
+      const booking = await queryRunner.manager.findOne(BookingOrder, {
+        where: { bookingId: payment.bookingId },
+        relations: { bookingDetails: true },
+      });
 
-      const bookingDetails = await this.paymentRepository.getBookingDetailsByBookingId(
-        payment.bookingId,
-      );
+      if (!booking) throw new NotFoundException('Không tìm thấy booking');
+      if (booking.status !== 'PENDING_PAYMENT') {
+        throw new BadRequestException('Booking không ở trạng thái chờ thanh toán');
+      }
+      if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
+        throw new BadRequestException('Booking đã hết hạn');
+      }
+
+      const bookingDetails = await queryRunner.manager.find(BookingDetail, {
+        where: { bookingId: booking.bookingId },
+        relations: ['showtimeSeat', 'showtimeSeat.seat'],
+      });
 
       if (!bookingDetails.length) {
         throw new BadRequestException('Không tìm thấy ghế trong booking');
       }
 
+      // Update payment thành SUCCESS
       await queryRunner.manager.update(Payment, { paymentId }, {
         paymentStatus: 'SUCCESS',
         paidAt: new Date(),
@@ -92,14 +107,31 @@ export class PaymentService {
 
       const seatIds = bookingDetails.map((d) => d.showtimeSeatId);
 
+      // Đánh dấu ghế là SOLD
       await queryRunner.manager
         .createQueryBuilder()
         .update(ShowtimeSeat)
         .set({ status: 'SOLD', holdExpiresAt: null, heldByUserId: null })
-        .where('showtimeSeatId IN (:...ids)', { ids: seatIds })
+        .where('showtime_seat_id IN (:...ids)', { ids: seatIds })
         .execute();
 
-      await this.bookingService.updateBookingToPaid(booking.bookingId);
+      // FIX: updateBookingToPaid cũng trong cùng transaction (queryRunner)
+      await queryRunner.manager.update(
+        BookingOrder,
+        { bookingId: booking.bookingId },
+        { status: 'PAID', paidAt: new Date(), issuedAt: new Date() },
+      );
+
+      // Giải phóng seat_holds liên quan
+      await queryRunner.manager
+        .createQueryBuilder()
+        .update(SeatHold)
+        .set({ status: 'CONFIRMED', releasedAt: new Date() })
+        .where('showtime_seat_id IN (:...ids) AND status = :status', {
+          ids: seatIds,
+          status: 'ACTIVE',
+        })
+        .execute();
 
       const tickets: any[] = [];
 
@@ -116,7 +148,6 @@ export class PaymentService {
             seatLabel: detail.showtimeSeat?.seat
               ? `${detail.showtimeSeat.seat.seatRow}${detail.showtimeSeat.seat.seatNumber}`
               : null,
-            seatType: detail.showtimeSeat?.seat?.seatType ?? null,
             price: Number(detail.seatPrice),
           });
           continue;
@@ -139,7 +170,6 @@ export class PaymentService {
           seatLabel: detail.showtimeSeat?.seat
             ? `${detail.showtimeSeat.seat.seatRow}${detail.showtimeSeat.seat.seatNumber}`
             : null,
-          seatType: detail.showtimeSeat?.seat?.seatType ?? null,
           price: Number(detail.seatPrice),
         });
       }
@@ -171,8 +201,16 @@ export class PaymentService {
       );
     }
 
+    // FIX: lấy userId từ booking thay vì truyền undefined
+    const booking = await this.dataSource.getRepository(BookingOrder).findOne({
+      where: { bookingId: payment.bookingId },
+    });
+
     await this.paymentRepository.updatePaymentFailed(paymentId, 'Payment failed by system');
-    await this.bookingService.cancelBooking(payment.bookingId, undefined as any);
+
+    if (booking) {
+      await this.bookingService.cancelBooking(payment.bookingId, booking.userId);
+    }
 
     return { success: true, paymentId, status: 'FAILED' };
   }

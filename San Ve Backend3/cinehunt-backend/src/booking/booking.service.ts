@@ -7,6 +7,7 @@ import { SeatHold } from '../entities/seat-hold.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
 import { ConcessionCombo } from '../entities/concession-combo.entity';
 import { BookingCombo } from '../entities/booking-combo.entity';
+import { Voucher } from '../entities/voucher.entity';
 import { CreateBookingRequest, BookingResponse } from './dto';
 
 @Injectable()
@@ -25,14 +26,17 @@ export class BookingService {
     private readonly productRepo: Repository<ConcessionCombo>,
     @InjectRepository(BookingCombo)
     private readonly bookingProductRepo: Repository<BookingCombo>,
+    @InjectRepository(Voucher)
+    private readonly voucherRepo: Repository<Voucher>,
   ) {}
 
   async createBooking(userId: number, request: CreateBookingRequest): Promise<BookingResponse> {
     const now = new Date();
 
+    // FIX: holdId là number (BIGINT), không map sang String
     const holds = await this.holdRepo.find({
       where: {
-        holdId: In(request.holdIds.map((x) => String(x))),
+        holdId: In(request.holdIds),
         userId,
         status: 'ACTIVE',
       },
@@ -65,12 +69,48 @@ export class BookingService {
       throw new BadRequestException('Có sản phẩm không tồn tại hoặc không hoạt động');
     }
 
+    // FIX: tính productAmount đúng từ danh sách combo
     const productAmount = requestedProducts.reduce((sum, item) => {
       const product = products.find((p) => p.comboId === item.productId)!;
       return sum + Number(product.price) * item.quantity;
     }, 0);
 
-    const discountAmount = 0;
+    // FIX: tích hợp voucher — tính discountAmount thực sự
+    let discountAmount = 0;
+    let appliedPromotionId: number | null = request.promotionId ?? null;
+
+    if (request.voucherCode) {
+      const voucher = await this.voucherRepo.findOne({
+        where: { promotionCode: request.voucherCode.toUpperCase() },
+      });
+
+      if (!voucher) {
+        throw new BadRequestException(`Voucher '${request.voucherCode}' không tồn tại`);
+      }
+
+      const now2 = new Date();
+      if (now2 < voucher.startAt) throw new BadRequestException('Voucher chưa đến thời gian sử dụng');
+      if (now2 > voucher.endAt) throw new BadRequestException('Voucher đã hết hạn');
+      if (voucher.usageLimit && voucher.usedCount >= voucher.usageLimit)
+        throw new BadRequestException('Voucher đã hết lượt sử dụng');
+
+      const orderTotal = subtotalAmount + productAmount;
+      if (voucher.minOrderAmount && orderTotal < Number(voucher.minOrderAmount))
+        throw new BadRequestException(
+          `Đơn hàng tối thiểu ${voucher.minOrderAmount.toLocaleString()}đ để dùng voucher này`,
+        );
+
+      if (voucher.discountType === 'PERCENT') {
+        discountAmount = (orderTotal * Number(voucher.discountValue)) / 100;
+        if (voucher.maxDiscount)
+          discountAmount = Math.min(discountAmount, Number(voucher.maxDiscount));
+      } else {
+        discountAmount = Number(voucher.discountValue);
+      }
+      discountAmount = Math.round(discountAmount);
+      appliedPromotionId = voucher.promotionId;
+    }
+
     const totalAmount = subtotalAmount + productAmount - discountAmount;
     const expiresAt = new Date(now.getTime() + 10 * 60 * 1000);
     const bookingCode = `BK${Date.now()}`;
@@ -80,7 +120,7 @@ export class BookingService {
         bookingCode,
         userId,
         showtimeId,
-        promotionId: request.promotionId ?? null,
+        promotionId: appliedPromotionId,
         subtotalAmount,
         productAmount,
         discountAmount,
@@ -113,6 +153,11 @@ export class BookingService {
           });
         });
         await manager.save(BookingCombo, bookingProducts);
+      }
+
+      // FIX: tăng used_count của voucher nếu đã áp dụng
+      if (request.voucherCode && appliedPromotionId) {
+        await manager.increment(Voucher, { promotionId: appliedPromotionId }, 'usedCount', 1);
       }
 
       for (const hold of holds) {
@@ -161,6 +206,11 @@ export class BookingService {
   }
 
   async cancelBooking(bookingId: string, userId: number) {
+    // FIX: userId bắt buộc phải là number hợp lệ — không cho phép undefined
+    if (userId === undefined || userId === null) {
+      throw new BadRequestException('userId không hợp lệ khi hủy booking');
+    }
+
     const booking = await this.bookingRepo.findOne({
       where: { bookingId, userId },
       relations: { bookingDetails: true },
@@ -198,6 +248,7 @@ export class BookingService {
     });
   }
 
+  // FIX: expirePendingBookings — bỏ double-update, dùng 1 lần set EXPIRED
   async expirePendingBookings() {
     const now = new Date();
     const bookings = await this.bookingRepo.find({
@@ -206,22 +257,39 @@ export class BookingService {
     });
     const targets = bookings.filter((b) => b.expiresAt && new Date(b.expiresAt) <= now);
 
+    let expiredCount = 0;
     for (const booking of targets) {
-      await this.cancelBooking(booking.bookingId, booking.userId);
-      await this.bookingRepo.update(
-        { bookingId: booking.bookingId },
-        { status: 'EXPIRED', cancelledAt: now },
-      );
+      await this.dataSource.transaction(async (manager) => {
+        await manager.update(
+          BookingOrder,
+          { bookingId: booking.bookingId },
+          { status: 'EXPIRED', cancelledAt: now },
+        );
+
+        for (const detail of booking.bookingDetails) {
+          await manager.update(
+            BookingDetail,
+            { bookingDetailId: detail.bookingDetailId },
+            { status: 'EXPIRED' },
+          );
+          await manager.update(
+            ShowtimeSeat,
+            { showtimeSeatId: detail.showtimeSeatId },
+            { status: 'AVAILABLE', heldByUserId: null, holdExpiresAt: null },
+          );
+        }
+      });
+      expiredCount++;
     }
 
-    return { expiredCount: targets.length };
+    return { expiredCount };
   }
 
   async validateBookingForPayment(bookingId: number | string, userId?: number) {
     const booking = await this.bookingRepo.findOne({
       where: {
         bookingId: String(bookingId),
-        ...(userId ? { userId } : {}),
+        ...(userId !== undefined ? { userId } : {}),
       },
       relations: { bookingDetails: true },
     });

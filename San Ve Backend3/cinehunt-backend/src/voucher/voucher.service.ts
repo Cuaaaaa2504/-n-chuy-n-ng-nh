@@ -66,6 +66,14 @@ export class VoucherService {
     };
   }
 
+  // FIX: sau khi validate và áp dụng voucher, tăng usedCount
+  async applyVoucher(code: string, orderAmount: number) {
+    const voucher = await this.findByCode(code);
+    const result = this.validate(voucher, orderAmount);
+    await this.voucherRepo.increment({ promotionId: voucher.promotionId }, 'usedCount', 1);
+    return result;
+  }
+
   async create(dto: { code: string; [key: string]: any }): Promise<Voucher> {
     const existing = await this.voucherRepo.findOne({
       where: { promotionCode: dto.code.toUpperCase() },
