@@ -5,6 +5,7 @@ const LINKS = [
   { to: '/admin/movies', label: '🎬 Phim' },
   { to: '/admin/showtimes', label: '🕐 Suất chiếu' },
   { to: '/admin/bookings', label: '🎫 Đặt vé' },
+  { to: '/admin/users', label: '👥 Người dùng' },
 ];
 
 export default function AdminSidebar() {
