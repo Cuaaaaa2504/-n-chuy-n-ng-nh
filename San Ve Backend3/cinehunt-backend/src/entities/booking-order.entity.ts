@@ -18,55 +18,55 @@ import { Refund } from './refund.entity';
 
 @Entity('booking_orders')
 export class BookingOrder {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
+  @PrimaryGeneratedColumn({ type: 'bigint', name: 'booking_id' })
   bookingId: string;
 
-  @Column({ type: 'varchar', length: 40, unique: true })
+  @Column({ name: 'booking_code', type: 'varchar', length: 40, unique: true })
   bookingCode: string;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'user_id', type: 'int' })
   userId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'showtime_id', type: 'int' })
   showtimeId: number;
 
-  @Column({ type: 'int', nullable: true })
+  @Column({ name: 'promotion_id', type: 'int', nullable: true })
   promotionId: number | null;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ name: 'subtotal_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
   subtotalAmount: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ name: 'discount_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
   discountAmount: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ name: 'product_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
   productAmount: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2 })
   totalAmount: number;
 
-  @Column({ type: 'varchar', length: 30, default: 'PENDING_PAYMENT' })
+  @Column({ name: 'status', type: 'varchar', length: 30, default: 'PENDING_PAYMENT' })
   status: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ name: 'idempotency_key', type: 'varchar', length: 100, nullable: true })
   idempotencyKey: string | null;
 
-  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  @Column({ name: 'expires_at', type: 'datetime2', precision: 0, nullable: true })
   expiresAt: Date | null;
 
-  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  @Column({ name: 'paid_at', type: 'datetime2', precision: 0, nullable: true })
   paidAt: Date | null;
 
-  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  @Column({ name: 'issued_at', type: 'datetime2', precision: 0, nullable: true })
   issuedAt: Date | null;
 
-  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  @Column({ name: 'cancelled_at', type: 'datetime2', precision: 0, nullable: true })
   cancelledAt: Date | null;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'datetime2', precision: 0 })
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
   updatedAt: Date;
 
   @ManyToOne(() => User)
