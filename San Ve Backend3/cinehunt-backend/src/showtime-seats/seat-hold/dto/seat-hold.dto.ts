@@ -29,7 +29,8 @@ export class HoldSeatsDto {
 }
 
 export class HoldResponseDto {
-  holdId: string;
+  // FIX: holdId là BIGINT (number), không phải string
+  holdId: number;
   holdToken: string;
   expiresAt: Date;
   status: string;

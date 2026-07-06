@@ -8,6 +8,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class BookingProductItemDto {
   @IsInt()
@@ -26,6 +27,11 @@ export class CreateBookingRequest {
   @IsInt({ each: true })
   @Type(() => Number)
   holdIds: number[];
+
+  @ApiPropertyOptional({ description: 'Mã voucher / promotion code' })
+  @IsOptional()
+  @IsString()
+  voucherCode?: string;
 
   @IsOptional()
   @IsInt()
