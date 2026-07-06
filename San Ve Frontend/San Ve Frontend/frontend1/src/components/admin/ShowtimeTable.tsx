@@ -1,16 +1,6 @@
 // src/components/admin/ShowtimeTable.tsx
 import React from 'react';
-
-interface Showtime {
-  id: number;
-  movieTitle: string;
-  cinemaName: string;
-  roomName: string;
-  showDate: string;
-  startTime: string;
-  endTime: string;
-  status: 'ACTIVE' | 'CANCELLED' | 'FINISHED';
-}
+import type { Showtime } from '../../hooks/useShowtimes';
 
 interface Props {
   showtimes: Showtime[];
