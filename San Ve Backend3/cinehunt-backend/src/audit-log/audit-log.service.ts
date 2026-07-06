@@ -27,7 +27,7 @@ export class AuditLogService {
       oldValues: dto.oldValues ? JSON.stringify(dto.oldValues) : null,
       newValues: dto.newValues ? JSON.stringify(dto.newValues) : null,
       ipAddress: dto.ipAddress ?? null,
-    } as any);
+    } as any) as AuditLog;
     return this.repo.save(entry);
   }
 

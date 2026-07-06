@@ -17,14 +17,14 @@ export class NotificationService {
     });
   }
 
-  // alias for backward compat
   findByUser(userId: number): Promise<Notification[]> {
     return this.getMyNotifications(userId);
   }
 
-  async markAsRead(notifId: number, userId: number): Promise<Notification> {
+  async markAsRead(notifId: number | string, userId: number): Promise<Notification> {
+    const id = Number(notifId);
     const notif = await this.repo.findOne({
-      where: { notificationId: notifId, userId } as any,
+      where: { notificationId: id, userId } as any,
     });
     if (!notif) throw new NotFoundException('Không tìm thấy thông báo');
     (notif as any).isRead = true;
@@ -32,8 +32,7 @@ export class NotificationService {
     return this.repo.save(notif);
   }
 
-  // alias
-  markRead(notifId: number, userId: number): Promise<Notification> {
+  markRead(notifId: number | string, userId: number): Promise<Notification> {
     return this.markAsRead(notifId, userId);
   }
 
@@ -44,7 +43,6 @@ export class NotificationService {
     );
   }
 
-  // alias
   markAllRead(userId: number): Promise<void> {
     return this.markAllAsRead(userId);
   }
@@ -67,23 +65,22 @@ export class NotificationService {
       title: dto.title,
       message: dto.message ?? dto.body ?? '',
       type: dto.type ?? 'INFO',
-    } as any);
+    } as any) as Notification;
     return this.repo.save(notif);
   }
 
-  // alias
   create(dto: { userId: number; title: string; body?: string; message?: string; type?: string }): Promise<Notification> {
     return this.push(dto);
   }
 
-  async broadcast(userIds: number[], title: string, body: string, type = 'INFO') {
-    const notifs = userIds.map((uid) =>
+  async broadcast(userIds: number[], title: string, body: string, type = 'INFO'): Promise<Notification[]> {
+    const notifs: Notification[] = userIds.map((uid) =>
       this.repo.create({
         userId: uid,
         title,
         message: body,
         type,
-      } as any),
+      } as any) as Notification,
     );
     return this.repo.save(notifs);
   }

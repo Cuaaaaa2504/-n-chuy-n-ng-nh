@@ -27,11 +27,10 @@ export class OtpCodeService {
       code,
       expiresAt,
       isUsed: false,
-    } as any);
+    } as any) as OtpCode;
     return this.repo.save(otp);
   }
 
-  // alias
   create(userId: number, purpose: string, expiresInMinutes = 10): Promise<OtpCode> {
     return this.generateOtp(userId, purpose, expiresInMinutes);
   }
@@ -41,23 +40,18 @@ export class OtpCodeService {
       where: { userId, code, purpose, isUsed: false } as any,
     });
     if (!otp) throw new BadRequestException('OTP không hợp lệ hoặc đã hết hạn');
-
     if (new Date() > (otp as any).expiresAt)
       throw new BadRequestException('OTP đã hết hạn');
-
     (otp as any).isUsed = true;
     await this.repo.save(otp);
     return otp;
   }
 
-  // alias
   verify(userId: number, code: string, purpose: string): Promise<OtpCode> {
     return this.verifyOtp(userId, code, purpose);
   }
 
   async cleanExpired(): Promise<void> {
-    await this.repo.delete({
-      expiresAt: LessThan(new Date()),
-    } as any);
+    await this.repo.delete({ expiresAt: LessThan(new Date()) } as any);
   }
 }
