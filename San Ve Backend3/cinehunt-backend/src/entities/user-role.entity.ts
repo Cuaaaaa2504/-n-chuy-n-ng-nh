@@ -1,23 +1,33 @@
-import { Entity, ManyToOne, JoinColumn, Column, PrimaryColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 import { Role } from './role.entity';
 
 @Entity('user_roles')
 export class UserRole {
-  @PrimaryColumn({ type: 'int' })
+  @PrimaryGeneratedColumn({ type: 'int', name: 'user_role_id' })
+  userRoleId: number;
+
+  @Column({ name: 'user_id', type: 'int' })
   userId: number;
 
-  @PrimaryColumn({ type: 'int' })
+  @Column({ name: 'role_id', type: 'int' })
   roleId: number;
 
-  @Column({ type: 'datetime2', precision: 0 })
-  assignedAt: Date;
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
   @ManyToOne(() => User, (user) => user.userRoles, { onDelete: 'CASCADE' })
-  @JoinColumn()
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Role, (role) => role.userRoles, { onDelete: 'CASCADE' })
-  @JoinColumn()
+  @ManyToOne(() => Role)
+  @JoinColumn({ name: 'role_id' })
   role: Role;
 }

@@ -4,7 +4,16 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
+import { Genre } from './genre.entity';
+
+export enum MovieStatus {
+  COMING_SOON = 'COMING_SOON',
+  NOW_SHOWING = 'NOW_SHOWING',
+  ENDED = 'ENDED',
+}
 
 @Entity('movies')
 export class Movie {
@@ -17,11 +26,11 @@ export class Movie {
   @Column({ name: 'description', type: 'nvarchar', nullable: true })
   description: string | null;
 
-  @Column({ name: 'duration', type: 'int', nullable: true })
-  duration: number | null;
+  @Column({ name: 'duration_minutes', type: 'int', nullable: true })
+  durationMinutes: number | null;
 
-  @Column({ name: 'genre', type: 'nvarchar', length: 100, nullable: true })
-  genre: string | null;
+  @Column({ name: 'age_rating', type: 'varchar', length: 10, nullable: true })
+  ageRating: string | null;
 
   @Column({ name: 'director', type: 'nvarchar', length: 100, nullable: true })
   director: string | null;
@@ -41,14 +50,24 @@ export class Movie {
   @Column({ name: 'trailer_url', type: 'varchar', length: 500, nullable: true })
   trailerUrl: string | null;
 
-  @Column({ name: 'status', type: 'varchar', length: 20, default: 'COMING_SOON' })
-  status: string;
-
-  @Column({ name: 'rating', type: 'varchar', length: 10, nullable: true })
-  rating: string | null;
+  @Column({
+    name: 'status',
+    type: 'varchar',
+    length: 20,
+    default: MovieStatus.COMING_SOON,
+  })
+  status: MovieStatus;
 
   @Column({ name: 'language', type: 'varchar', length: 20, nullable: true })
   language: string | null;
+
+  @ManyToMany(() => Genre, (genre) => genre.movies, { cascade: true, eager: false })
+  @JoinTable({
+    name: 'movie_genres',
+    joinColumn: { name: 'movie_id', referencedColumnName: 'movieId' },
+    inverseJoinColumn: { name: 'genre_id', referencedColumnName: 'genreId' },
+  })
+  genres: Genre[];
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;

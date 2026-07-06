@@ -6,6 +6,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Room } from './room.entity';
+import { SeatType } from './seat-type.entity';
 
 @Entity('seats')
 export class Seat {
@@ -14,6 +15,9 @@ export class Seat {
 
   @Column({ name: 'room_id', type: 'int' })
   roomId: number;
+
+  @Column({ name: 'seat_type_id', type: 'int', nullable: true })
+  seatTypeId: number | null;
 
   @Column({ name: 'seat_row', type: 'char', length: 2 })
   seatRow: string;
@@ -24,13 +28,14 @@ export class Seat {
   @Column({ name: 'seat_label', type: 'varchar', length: 10, nullable: true })
   seatLabel: string | null;
 
-  @Column({ name: 'seat_type', type: 'varchar', length: 20, default: 'STANDARD' })
-  seatType: string;
-
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
   @ManyToOne(() => Room)
   @JoinColumn({ name: 'room_id' })
   room: Room;
+
+  @ManyToOne(() => SeatType, { nullable: true, eager: false })
+  @JoinColumn({ name: 'seat_type_id' })
+  seatType: SeatType | null;
 }
