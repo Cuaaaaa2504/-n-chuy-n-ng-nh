@@ -19,7 +19,7 @@ export class AuditLogService {
     newValues?: any;
     ipAddress?: string | null;
   }): Promise<AuditLog> {
-    const entry = this.repo.create({
+    const data: any = {
       userId: dto.userId ?? null,
       action: dto.action,
       entityType: dto.entityType ?? null,
@@ -27,7 +27,8 @@ export class AuditLogService {
       oldValues: dto.oldValues ? JSON.stringify(dto.oldValues) : null,
       newValues: dto.newValues ? JSON.stringify(dto.newValues) : null,
       ipAddress: dto.ipAddress ?? null,
-    } as any) as AuditLog;
+    };
+    const entry = this.repo.create(data as unknown as AuditLog);
     return this.repo.save(entry);
   }
 

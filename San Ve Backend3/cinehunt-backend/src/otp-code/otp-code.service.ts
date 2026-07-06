@@ -21,13 +21,8 @@ export class OtpCodeService {
     await this.invalidateOldOtps(userId, purpose);
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
-    const otp = this.repo.create({
-      userId,
-      purpose,
-      code,
-      expiresAt,
-      isUsed: false,
-    } as any) as OtpCode;
+    const data: any = { userId, purpose, code, expiresAt, isUsed: false };
+    const otp = this.repo.create(data as unknown as OtpCode);
     return this.repo.save(otp);
   }
 

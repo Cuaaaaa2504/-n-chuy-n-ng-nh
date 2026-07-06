@@ -48,9 +48,7 @@ export class NotificationService {
   }
 
   countUnread(userId: number): Promise<number> {
-    return this.repo.count({
-      where: { userId, isRead: false } as any,
-    });
+    return this.repo.count({ where: { userId, isRead: false } as any });
   }
 
   async push(dto: {
@@ -60,12 +58,13 @@ export class NotificationService {
     body?: string;
     type?: string;
   }): Promise<Notification> {
-    const notif = this.repo.create({
+    const data: any = {
       userId: dto.userId,
       title: dto.title,
       message: dto.message ?? dto.body ?? '',
       type: dto.type ?? 'INFO',
-    } as any) as Notification;
+    };
+    const notif = this.repo.create(data as unknown as Notification);
     return this.repo.save(notif);
   }
 
@@ -74,14 +73,10 @@ export class NotificationService {
   }
 
   async broadcast(userIds: number[], title: string, body: string, type = 'INFO'): Promise<Notification[]> {
-    const notifs: Notification[] = userIds.map((uid) =>
-      this.repo.create({
-        userId: uid,
-        title,
-        message: body,
-        type,
-      } as any) as Notification,
-    );
+    const notifs: Notification[] = userIds.map((uid) => {
+      const data: any = { userId: uid, title, message: body, type };
+      return this.repo.create(data as unknown as Notification);
+    });
     return this.repo.save(notifs);
   }
 }
