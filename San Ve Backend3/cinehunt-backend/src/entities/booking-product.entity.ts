@@ -10,23 +10,21 @@ import { Product } from './product.entity';
 
 @Entity('booking_products')
 export class BookingProduct {
-  @PrimaryGeneratedColumn({ name: 'booking_product_id', type: 'bigint' })
-  booking_product_id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  bookingProductId: string;
 
-  @Column({ name: 'booking_id', type: 'bigint' })
-  booking_id: string;
+  @Column({ type: 'bigint' })
+  bookingId: string;
 
-  @Column({ name: 'product_id', type: 'int' })
-  product_id: number;
+  @Column({ type: 'int' })
+  productId: number;
 
   @Column({ type: 'int' })
   quantity: number;
 
-  @Column({ name: 'unit_price', type: 'decimal', precision: 12, scale: 2 })
-  unit_price: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  unitPrice: number;
 
-  // total_price là computed column trong DB (quantity * unit_price PERSISTED)
-  // TypeORM đọc được nhưng không ghi
   @Column({
     name: 'total_price',
     type: 'decimal',
@@ -36,13 +34,13 @@ export class BookingProduct {
     update: false,
     nullable: true,
   })
-  total_price: number | null;
+  totalPrice: number | null;
 
   @ManyToOne(() => BookingOrder, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'booking_id' })
+  @JoinColumn()
   booking: BookingOrder;
 
-  @ManyToOne(() => Product, (product) => product.booking_products)
-  @JoinColumn({ name: 'product_id' })
+  @ManyToOne(() => Product, (product) => product.bookingProducts)
+  @JoinColumn()
   product: Product;
 }

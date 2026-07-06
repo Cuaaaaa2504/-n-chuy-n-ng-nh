@@ -2,23 +2,17 @@ import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('seat_types')
 export class SeatType {
-  @PrimaryGeneratedColumn({ name: 'seat_type_id', type: 'int' })
-  seat_type_id: number;
+  @PrimaryGeneratedColumn({ type: 'int' })
+  seatTypeId: number;
 
-  @Column({ name: 'type_code', type: 'varchar', length: 30 })
-  type_code: string;
+  @Column({ type: 'varchar', length: 30 })
+  typeCode: string;
 
-  @Column({ name: 'type_name', type: 'nvarchar', length: 80 })
-  type_name: string;
+  @Column({ type: 'nvarchar', length: 80 })
+  typeName: string;
 
-  @Column({
-    name: 'price_multiplier',
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 1,
-  })
-  price_multiplier: number;
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 1 })
+  priceMultiplier: number;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;

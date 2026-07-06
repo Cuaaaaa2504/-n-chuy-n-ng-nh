@@ -11,38 +11,38 @@ import { BookingOrder } from './booking-order.entity';
 
 @Entity('refunds')
 export class Refund {
-  @PrimaryGeneratedColumn({ name: 'refund_id', type: 'bigint' })
-  refund_id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  refundId: string;
 
-  @Column({ name: 'payment_id', type: 'bigint' })
-  payment_id: string;
+  @Column({ type: 'bigint' })
+  paymentId: string;
 
-  @Column({ name: 'booking_id', type: 'bigint' })
-  booking_id: string;
+  @Column({ type: 'bigint' })
+  bookingId: string;
 
-  @Column({ name: 'refund_amount', type: 'decimal', precision: 12, scale: 2 })
-  refund_amount: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  refundAmount: number;
 
   @Column({ type: 'nvarchar', length: 500, nullable: true })
   reason: string | null;
 
-  @Column({ name: 'provider_ref', type: 'varchar', length: 150, nullable: true })
-  provider_ref: string | null;
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  providerRef: string | null;
 
-  @Column({ name: 'refund_status', type: 'varchar', length: 20, default: 'PENDING' })
-  refund_status: string; // 'PENDING' | 'SUCCESS' | 'FAILED'
+  @Column({ type: 'varchar', length: 20, default: 'PENDING' })
+  refundStatus: string;
 
-  @CreateDateColumn({ name: 'requested_at', type: 'datetime2', precision: 0 })
-  requested_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  requestedAt: Date;
 
-  @Column({ name: 'completed_at', type: 'datetime2', precision: 0, nullable: true })
-  completed_at: Date | null;
+  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  completedAt: Date | null;
 
   @ManyToOne(() => Payment)
-  @JoinColumn({ name: 'payment_id' })
+  @JoinColumn()
   payment: Payment;
 
   @ManyToOne(() => BookingOrder)
-  @JoinColumn({ name: 'booking_id' })
+  @JoinColumn()
   booking: BookingOrder;
 }

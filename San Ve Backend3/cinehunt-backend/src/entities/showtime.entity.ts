@@ -13,45 +13,45 @@ import { User } from './user.entity';
 
 @Entity('showtimes')
 export class Showtime {
-  @PrimaryGeneratedColumn({ name: 'showtime_id', type: 'int' })
-  showtime_id: number;
+  @PrimaryGeneratedColumn({ type: 'int' })
+  showtimeId: number;
 
-  @Column({ name: 'movie_id', type: 'int' })
-  movie_id: number;
+  @Column({ type: 'int' })
+  movieId: number;
 
-  @Column({ name: 'room_id', type: 'int' })
-  room_id: number;
+  @Column({ type: 'int' })
+  roomId: number;
 
-  @Column({ name: 'start_time', type: 'datetime2', precision: 0 })
-  start_time: Date;
+  @Column({ type: 'datetime2', precision: 0 })
+  startTime: Date;
 
-  @Column({ name: 'end_time', type: 'datetime2', precision: 0 })
-  end_time: Date;
+  @Column({ type: 'datetime2', precision: 0 })
+  endTime: Date;
 
-  @Column({ name: 'base_price', type: 'decimal', precision: 12, scale: 2 })
-  base_price: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  basePrice: number;
 
   @Column({ type: 'varchar', length: 20, default: 'OPEN' })
   status: string;
 
-  @Column({ name: 'created_by', type: 'int', nullable: true })
-  created_by: number | null;
+  @Column({ type: 'int', nullable: true })
+  createdBy: number | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  created_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
-  updated_at: Date;
+  @UpdateDateColumn({ type: 'datetime2', precision: 0 })
+  updatedAt: Date;
 
   @ManyToOne(() => Movie)
-  @JoinColumn({ name: 'movie_id' })
+  @JoinColumn()
   movie: Movie;
 
   @ManyToOne(() => Room)
-  @JoinColumn({ name: 'room_id' })
+  @JoinColumn()
   room: Room;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'created_by' })
+  @JoinColumn()
   creator: User | null;
 }

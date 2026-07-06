@@ -10,32 +10,32 @@ import { SeatType } from './seat-type.entity';
 
 @Entity('seats')
 export class Seat {
-  @PrimaryGeneratedColumn({ name: 'seat_id', type: 'int' })
-  seat_id: number;
+  @PrimaryGeneratedColumn({ type: 'int' })
+  seatId: number;
 
-  @Column({ name: 'room_id', type: 'int' })
-  room_id: number;
+  @Column({ type: 'int' })
+  roomId: number;
 
-  @Column({ name: 'seat_type_id', type: 'int' })
-  seat_type_id: number;
+  @Column({ type: 'int' })
+  seatTypeId: number;
 
-  @Column({ name: 'seat_row', type: 'varchar', length: 5 })
-  seat_row: string;
+  @Column({ type: 'varchar', length: 5 })
+  seatRow: string;
 
-  @Column({ name: 'seat_number', type: 'int' })
-  seat_number: number;
+  @Column({ type: 'int' })
+  seatNumber: number;
 
-  @Column({ name: 'seat_label', type: 'varchar', length: 15 })
-  seat_label: string;
+  @Column({ type: 'varchar', length: 15 })
+  seatLabel: string;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
   @ManyToOne(() => Room)
-  @JoinColumn({ name: 'room_id' })
+  @JoinColumn()
   room: Room;
 
   @ManyToOne(() => SeatType)
-  @JoinColumn({ name: 'seat_type_id' })
-  seat_type: SeatType;
+  @JoinColumn()
+  seatType: SeatType;
 }

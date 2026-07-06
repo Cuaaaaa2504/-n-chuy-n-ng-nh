@@ -10,11 +10,11 @@ import { User } from './user.entity';
 
 @Entity('notifications')
 export class Notification {
-  @PrimaryGeneratedColumn({ name: 'notification_id', type: 'bigint' })
-  notification_id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  notificationId: string;
 
-  @Column({ name: 'user_id', type: 'int' })
-  user_id: number;
+  @Column({ type: 'int' })
+  userId: number;
 
   @Column({ type: 'nvarchar', length: 200 })
   title: string;
@@ -22,25 +22,25 @@ export class Notification {
   @Column({ type: 'nvarchar' })
   message: string;
 
-  @Column({ name: 'notification_type', type: 'varchar', length: 30 })
-  notification_type: string;
+  @Column({ type: 'varchar', length: 30 })
+  notificationType: string;
 
-  @Column({ name: 'reference_type', type: 'varchar', length: 30, nullable: true })
-  reference_type: string | null;
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  referenceType: string | null;
 
-  @Column({ name: 'reference_id', type: 'varchar', length: 80, nullable: true })
-  reference_id: string | null;
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  referenceId: string | null;
 
-  @Column({ name: 'is_read', type: 'bit', default: false })
-  is_read: boolean;
+  @Column({ type: 'bit', default: false })
+  isRead: boolean;
 
-  @Column({ name: 'read_at', type: 'datetime2', precision: 0, nullable: true })
-  read_at: Date | null;
+  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  readAt: Date | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  created_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn()
   user: User;
 }

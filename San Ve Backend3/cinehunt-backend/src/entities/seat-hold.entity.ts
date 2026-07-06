@@ -11,35 +11,35 @@ import { ShowtimeSeat } from './showtime-seat.entity';
 
 @Entity('seat_holds')
 export class SeatHold {
-  @PrimaryGeneratedColumn({ name: 'hold_id', type: 'bigint' })
-  hold_id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  holdId: string;
 
-  @Column({ name: 'user_id', type: 'int' })
-  user_id: number;
+  @Column({ type: 'int' })
+  userId: number;
 
-  @Column({ name: 'showtime_seat_id', type: 'int' })
-  showtime_seat_id: number;
+  @Column({ type: 'int' })
+  showtimeSeatId: number;
 
-  @Column({ name: 'hold_token', type: 'uniqueidentifier' })
-  hold_token: string;
+  @Column({ type: 'uniqueidentifier' })
+  holdToken: string;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @Column({ name: 'expires_at', type: 'datetime2', precision: 0 })
-  expires_at: Date;
+  @Column({ type: 'datetime2', precision: 0 })
+  expiresAt: Date;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  created_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
-  @Column({ name: 'released_at', type: 'datetime2', precision: 0, nullable: true })
-  released_at: Date | null;
+  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  releasedAt: Date | null;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn()
   user: User;
 
   @ManyToOne(() => ShowtimeSeat)
-  @JoinColumn({ name: 'showtime_seat_id' })
-  showtime_seat: ShowtimeSeat;
+  @JoinColumn()
+  showtimeSeat: ShowtimeSeat;
 }

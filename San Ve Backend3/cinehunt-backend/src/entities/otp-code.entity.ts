@@ -10,11 +10,11 @@ import { User } from './user.entity';
 
 @Entity('otp_codes')
 export class OtpCode {
-  @PrimaryGeneratedColumn({ name: 'otp_id', type: 'bigint' })
-  otp_id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  otpId: string;
 
-  @Column({ name: 'user_id', type: 'int' })
-  user_id: number;
+  @Column({ type: 'int' })
+  userId: number;
 
   @Column({ type: 'varchar', length: 10 })
   code: string;
@@ -22,22 +22,22 @@ export class OtpCode {
   @Column({ type: 'varchar', length: 30 })
   purpose: string;
 
-  @Column({ name: 'expires_at', type: 'datetime2', precision: 0 })
-  expires_at: Date;
+  @Column({ type: 'datetime2', precision: 0 })
+  expiresAt: Date;
 
-  @Column({ name: 'is_used', type: 'bit', default: false })
-  is_used: boolean;
+  @Column({ type: 'bit', default: false })
+  isUsed: boolean;
 
-  @Column({ name: 'attempts', type: 'int', default: 0 })
+  @Column({ type: 'int', default: 0 })
   attempts: number;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  created_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
-  @Column({ name: 'used_at', type: 'datetime2', precision: 0, nullable: true })
-  used_at: Date | null;
+  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  usedAt: Date | null;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn()
   user: User;
 }

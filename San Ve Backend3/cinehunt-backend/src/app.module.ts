@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
 import { AuthModule } from './auth/auth.module';
 import { BookingModule } from './booking/booking.module';
@@ -35,6 +36,7 @@ import { TicketModule } from './ticket/ticket.module';
         database: configService.get<string>('DB_NAME', 'CineHuntDB'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: false,
+        namingStrategy: new SnakeNamingStrategy(),
         options: {
           encrypt: false,
           trustServerCertificate: true,

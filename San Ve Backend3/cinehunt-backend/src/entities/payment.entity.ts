@@ -9,18 +9,18 @@ import {
   OneToMany,
 } from 'typeorm';
 import { BookingOrder } from './booking-order.entity';
-import { Refund } from './refund.entity';  // ← THÊM
+import { Refund } from './refund.entity';
 
 @Entity('payments')
 export class Payment {
-  @PrimaryGeneratedColumn({ name: 'payment_id', type: 'bigint' })
-  payment_id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  paymentId: string;
 
-  @Column({ name: 'booking_id', type: 'bigint' })
-  booking_id: string;
+  @Column({ type: 'bigint' })
+  bookingId: string;
 
-  @Column({ name: 'payment_method', type: 'varchar', length: 30 })
-  payment_method: string;
+  @Column({ type: 'varchar', length: 30 })
+  paymentMethod: string;
 
   @Column({ type: 'varchar', length: 30, nullable: true })
   provider: string | null;
@@ -28,34 +28,34 @@ export class Payment {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
-  @Column({ name: 'transaction_code', type: 'varchar', length: 150, nullable: true })
-  transaction_code: string | null;
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  transactionCode: string | null;
 
-  @Column({ name: 'request_id', type: 'varchar', length: 100, nullable: true })
-  request_id: string | null;
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  requestId: string | null;
 
-  @Column({ name: 'payment_status', type: 'varchar', length: 20, default: 'PENDING' })
-  payment_status: string;
+  @Column({ type: 'varchar', length: 20, default: 'PENDING' })
+  paymentStatus: string;
 
-  @Column({ name: 'provider_response', type: 'nvarchar', nullable: true })
-  provider_response: string | null;
+  @Column({ type: 'nvarchar', nullable: true })
+  providerResponse: string | null;
 
-  @Column({ name: 'failed_reason', type: 'nvarchar', length: 500, nullable: true })
-  failed_reason: string | null;  // ← THÊM (có trong DB nhưng thiếu trong entity cũ)
+  @Column({ type: 'nvarchar', length: 500, nullable: true })
+  failedReason: string | null;
 
-  @Column({ name: 'paid_at', type: 'datetime2', precision: 0, nullable: true })
-  paid_at: Date | null;
+  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  paidAt: Date | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  created_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
-  updated_at: Date;
+  @UpdateDateColumn({ type: 'datetime2', precision: 0 })
+  updatedAt: Date;
 
   @ManyToOne(() => BookingOrder, (booking) => booking.payments)
-  @JoinColumn({ name: 'booking_id' })
+  @JoinColumn()
   booking: BookingOrder;
 
-  @OneToMany(() => Refund, (refund) => refund.payment)  // ← THÊM
+  @OneToMany(() => Refund, (refund) => refund.payment)
   refunds: Refund[];
 }

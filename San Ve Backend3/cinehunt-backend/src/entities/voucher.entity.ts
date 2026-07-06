@@ -1,58 +1,57 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
 /**
- * Maps to table `promotions` in V5 schema.
+ * Maps to table `promotions` in DB schema.
  * Internally named Voucher to keep existing service/controller code intact.
- * Column aliases bridge the old field names (code, voucher_id) to the actual DB columns.
  */
 @Entity('promotions')
 export class Voucher {
-  @PrimaryGeneratedColumn({ name: 'promotion_id', type: 'int' })
-  promotion_id: number;
+  @PrimaryGeneratedColumn({ type: 'int' })
+  promotionId: number;
 
-  /** Alias: service code dùng `voucher.voucher_id` -> trỏ vào promotion_id */
-  get voucher_id(): number { return this.promotion_id; }
+  /** Alias: service code dùng `voucher.voucherId` -> trỏ vào promotionId */
+  get voucherId(): number { return this.promotionId; }
 
-  @Column({ name: 'promotion_code', type: 'varchar', length: 50, unique: true })
-  promotion_code: string;
+  @Column({ type: 'varchar', length: 50, unique: true })
+  promotionCode: string;
 
-  /** Alias: service code dùng `voucher.code` -> trỏ vào promotion_code */
-  get code(): string { return this.promotion_code; }
-  set code(v: string) { this.promotion_code = v; }
+  /** Alias: service code dùng `voucher.code` -> trỏ vào promotionCode */
+  get code(): string { return this.promotionCode; }
+  set code(v: string) { this.promotionCode = v; }
 
-  @Column({ name: 'promotion_name', type: 'nvarchar', length: 150 })
-  promotion_name: string;
+  @Column({ type: 'nvarchar', length: 150 })
+  promotionName: string;
 
   @Column({ type: 'nvarchar', length: 500, nullable: true })
   description: string | null;
 
-  @Column({ name: 'discount_type', type: 'varchar', length: 20 })
-  discount_type: string;
+  @Column({ type: 'varchar', length: 20 })
+  discountType: string;
 
-  @Column({ name: 'discount_value', type: 'decimal', precision: 12, scale: 2 })
-  discount_value: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  discountValue: number;
 
-  @Column({ name: 'max_discount', type: 'decimal', precision: 12, scale: 2, nullable: true })
-  max_discount: number | null;
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  maxDiscount: number | null;
 
-  @Column({ name: 'min_order_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
-  min_order_amount: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  minOrderAmount: number;
 
-  @Column({ name: 'usage_limit', type: 'int', nullable: true })
-  usage_limit: number | null;
+  @Column({ type: 'int', nullable: true })
+  usageLimit: number | null;
 
-  @Column({ name: 'used_count', type: 'int', default: 0 })
-  used_count: number;
+  @Column({ type: 'int', default: 0 })
+  usedCount: number;
 
-  @Column({ name: 'start_at', type: 'datetime2', precision: 0 })
-  start_at: Date;
+  @Column({ type: 'datetime2', precision: 0 })
+  startAt: Date;
 
-  @Column({ name: 'end_at', type: 'datetime2', precision: 0 })
-  end_at: Date;
+  @Column({ type: 'datetime2', precision: 0 })
+  endAt: Date;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  created_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  createdAt: Date;
 }

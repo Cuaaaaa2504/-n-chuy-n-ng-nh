@@ -4,20 +4,20 @@ import { Role } from './role.entity';
 
 @Entity('user_roles')
 export class UserRole {
-  @PrimaryColumn({ name: 'user_id', type: 'int' })
-  user_id: number;
+  @PrimaryColumn({ type: 'int' })
+  userId: number;
 
-  @PrimaryColumn({ name: 'role_id', type: 'int' })
-  role_id: number;
+  @PrimaryColumn({ type: 'int' })
+  roleId: number;
 
-  @Column({ name: 'assigned_at', type: 'datetime2', precision: 0 })
-  assigned_at: Date;
+  @Column({ type: 'datetime2', precision: 0 })
+  assignedAt: Date;
 
-  @ManyToOne(() => User, (user) => user.user_roles, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
+  @ManyToOne(() => User, (user) => user.userRoles, { onDelete: 'CASCADE' })
+  @JoinColumn()
   user: User;
 
-  @ManyToOne(() => Role, (role) => role.user_roles, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'role_id' })
+  @ManyToOne(() => Role, (role) => role.userRoles, { onDelete: 'CASCADE' })
+  @JoinColumn()
   role: Role;
 }

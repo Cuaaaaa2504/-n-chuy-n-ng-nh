@@ -10,39 +10,38 @@ import { User } from './user.entity';
 
 @Entity('refresh_tokens')
 export class RefreshToken {
-  @PrimaryGeneratedColumn({ name: 'refresh_token_id', type: 'bigint' })
-  refresh_token_id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  refreshTokenId: string;
 
-  @Column({ name: 'user_id', type: 'int' })
-  user_id: number;
+  @Column({ type: 'int' })
+  userId: number;
 
-  @Column({ name: 'token_hash', type: 'varchar', length: 255, unique: true })
-  token_hash: string;
+  @Column({ type: 'varchar', length: 255, unique: true })
+  tokenHash: string;
 
-  @Column({ name: 'device_info', type: 'nvarchar', length: 300, nullable: true })
-  device_info: string | null;
+  @Column({ type: 'nvarchar', length: 300, nullable: true })
+  deviceInfo: string | null;
 
-  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
-  ip_address: string | null;
+  @Column({ type: 'varchar', length: 45, nullable: true })
+  ipAddress: string | null;
 
-  @Column({ name: 'expires_at', type: 'datetime2', precision: 0 })
-  expires_at: Date;
+  @Column({ type: 'datetime2', precision: 0 })
+  expiresAt: Date;
 
-  @Column({ name: 'revoked_at', type: 'datetime2', precision: 0, nullable: true })
-  revoked_at: Date | null;
+  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  revokedAt: Date | null;
 
-  @Column({ name: 'replaced_by_id', type: 'bigint', nullable: true })
-  replaced_by_id: string | null;
+  @Column({ type: 'bigint', nullable: true })
+  replacedById: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  created_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn()
   user: User;
 
-  /** Token còn hiệu lực không (chưa bị revoke và chưa hết hạn) */
   get isActive(): boolean {
-    return this.revoked_at === null && this.expires_at > new Date();
+    return this.revokedAt === null && this.expiresAt > new Date();
   }
 }

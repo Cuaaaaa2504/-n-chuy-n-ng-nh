@@ -13,34 +13,34 @@ import { Ticket } from './ticket.entity';
 
 @Entity('booking_details')
 export class BookingDetail {
-  @PrimaryGeneratedColumn({ name: 'booking_detail_id', type: 'bigint' })
-  booking_detail_id: string;
+  @PrimaryGeneratedColumn({ type: 'bigint' })
+  bookingDetailId: string;
 
-  @Column({ name: 'booking_id', type: 'bigint' })
-  booking_id: string;
+  @Column({ type: 'bigint' })
+  bookingId: string;
 
-  @Column({ name: 'showtime_seat_id', type: 'int' })
-  showtime_seat_id: number;
+  @Column({ type: 'int' })
+  showtimeSeatId: number;
 
-  @Column({ name: 'seat_price', type: 'decimal', precision: 12, scale: 2 })
-  seat_price: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  seatPrice: number;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  created_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
-  @ManyToOne(() => BookingOrder, (booking) => booking.booking_details, {
+  @ManyToOne(() => BookingOrder, (booking) => booking.bookingDetails, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'booking_id' })
+  @JoinColumn()
   booking: BookingOrder;
 
   @ManyToOne(() => ShowtimeSeat)
-  @JoinColumn({ name: 'showtime_seat_id' })
-  showtime_seat: ShowtimeSeat;
+  @JoinColumn()
+  showtimeSeat: ShowtimeSeat;
 
-  @OneToOne(() => Ticket, (ticket) => ticket.booking_detail)
+  @OneToOne(() => Ticket, (ticket) => ticket.bookingDetail)
   ticket: Ticket;
 }

@@ -7,15 +7,15 @@ import {
   OneToMany,
 } from 'typeorm';
 import { UserRole } from './user-role.entity';
-import { RefreshToken } from './refresh-token.entity';  // ← THÊM
+import { RefreshToken } from './refresh-token.entity';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn({ name: 'user_id', type: 'int' })
-  user_id: number;
+  @PrimaryGeneratedColumn({ type: 'int' })
+  userId: number;
 
-  @Column({ name: 'full_name', type: 'nvarchar', length: 120 })
-  full_name: string;
+  @Column({ type: 'nvarchar', length: 120 })
+  fullName: string;
 
   @Column({ type: 'varchar', length: 150, unique: true })
   email: string;
@@ -23,29 +23,26 @@ export class User {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string | null;
 
-  @Column({ name: 'password_hash', type: 'varchar', length: 255 })
-  password_hash: string;
+  @Column({ type: 'varchar', length: 255 })
+  passwordHash: string;
 
-  // ← XOÁ refresh_token_hash — không có cột này trong DB V6.2
-  // Token được quản lý qua bảng refresh_tokens riêng
+  @Column({ type: 'nvarchar', length: 500, nullable: true })
+  avatarUrl: string | null;
 
-  @Column({ name: 'avatar_url', type: 'nvarchar', length: 500, nullable: true })
-  avatar_url: string | null;
+  @Column({ type: 'date', nullable: true })
+  dateOfBirth: Date | null;
 
-  @Column({ name: 'date_of_birth', type: 'date', nullable: true })
-  date_of_birth: Date | null;
+  @Column({ type: 'bit', default: false })
+  emailVerified: boolean;
 
-  @Column({ name: 'email_verified', type: 'bit', default: false })
-  email_verified: boolean;
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts: number;
 
-  @Column({ name: 'failed_login_attempts', type: 'int', default: 0 })
-  failed_login_attempts: number;
+  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  lockedUntil: Date | null;
 
-  @Column({ name: 'locked_until', type: 'datetime2', precision: 0, nullable: true })
-  locked_until: Date | null;
-
-  @Column({ name: 'last_login_at', type: 'datetime2', precision: 0, nullable: true })
-  last_login_at: Date | null;
+  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  lastLoginAt: Date | null;
 
   @Column({ type: 'varchar', length: 20, default: 'CUSTOMER' })
   role: string; // 'CUSTOMER' | 'STAFF' | 'ADMIN'
@@ -53,15 +50,15 @@ export class User {
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string; // 'ACTIVE' | 'LOCKED' | 'BANNED' | 'DELETED'
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  created_at: Date;
+  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
-  updated_at: Date;
+  @UpdateDateColumn({ type: 'datetime2', precision: 0 })
+  updatedAt: Date;
 
   @OneToMany(() => UserRole, (userRole) => userRole.user)
-  user_roles: UserRole[];
+  userRoles: UserRole[];
 
-  @OneToMany(() => RefreshToken, (rt) => rt.user)  // ← THÊM
-  refresh_tokens: RefreshToken[];
+  @OneToMany(() => RefreshToken, (rt) => rt.user)
+  refreshTokens: RefreshToken[];
 }

@@ -3,13 +3,13 @@ import { Movie } from './movie.entity';
 
 @Entity('genres')
 export class Genre {
-  @PrimaryGeneratedColumn({ name: 'genre_id', type: 'int' })
-  genre_id: number;
+  @PrimaryGeneratedColumn({ type: 'int' })
+  genreId: number;
 
-  @Column({ name: 'genre_name', type: 'nvarchar', length: 100, unique: true })
-  genre_name: string;
+  @Column({ type: 'nvarchar', length: 100, unique: true })
+  genreName: string;
 
-  @Column({ name: 'slug', type: 'varchar', length: 120, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 120, nullable: true, unique: true })
   slug: string | null;
 
   @ManyToMany(() => Movie, (movie) => movie.genres)
