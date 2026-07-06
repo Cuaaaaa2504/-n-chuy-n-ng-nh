@@ -1,5 +1,5 @@
 // src/pages/admin/AdminBookingsPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BookingTable from '../../components/admin/BookingTable';
 import { useBookings } from '../../hooks/useBookings';
 
@@ -11,8 +11,13 @@ const AdminBookingsPage: React.FC = () => {
     paymentStatus: '',
   });
   const { bookings, loading, error, fetchBookings } = useBookings();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => { fetchBookings(filters); }, [filters, fetchBookings]);
+  useEffect(() => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => { fetchBookings(filters); }, 300);
+    return () => clearTimeout(timerRef.current);
+  }, [filters, fetchBookings]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -48,7 +53,7 @@ const AdminBookingsPage: React.FC = () => {
           <div className="filter-item">
             <label htmlFor="paymentStatus">Trạng thái thanh toán</label>
             <select id="paymentStatus" name="paymentStatus" value={filters.paymentStatus} onChange={handleFilterChange}>
-              <option value="">Tất cả</option>
+              <option value="">Đầy đủ</option>
               <option value="PAID">Đã thanh toán</option>
               <option value="PENDING">Chờ thanh toán</option>
               <option value="FAILED">Thanh toán lỗi</option>
