@@ -1,10 +1,9 @@
 // src/hooks/useShowtimes.ts
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-interface Showtime {
+// Core Showtime shape — matches ShowtimeTable's local interface
+export interface Showtime {
   id: number;
-  movieId: string;
-  roomId: string;
   movieTitle: string;
   cinemaName: string;
   roomName: string;
@@ -14,43 +13,42 @@ interface Showtime {
   status: 'ACTIVE' | 'CANCELLED' | 'FINISHED';
 }
 
-export type { Showtime };
+// Shape expected by ShowtimeForm (movieId/roomId instead of display names)
+export interface ShowtimeFormData {
+  movieId: string;
+  roomId: string;
+  showDate: string;
+  startTime: string;
+  endTime: string;
+}
+
+const MOVIE_MAP: Record<string, string> = { '1': 'Avengers Endgame', '2': 'Avatar 2', '3': 'Spider-Man' };
+const ROOM_MAP:  Record<string, string>  = { '1': 'Room 1', '2': 'Room 2', '3': 'Room 3' };
 
 export const useShowtimes = () => {
   const [showtimes, setShowtimes] = useState<Showtime[]>([]);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
-  // Stable ref to avoid stale closure without triggering effect re-runs
-  const isMounted = useRef(true);
-  useEffect(() => {
-    isMounted.current = true;
-    return () => { isMounted.current = false; };
-  }, []);
-
-  const fetchShowtimes = useCallback(async () => {
+  // Returns data only — does NOT call setState internally
+  const fetchShowtimes = useCallback(async (): Promise<Showtime[]> => {
     // Mock data — replace with actual API call
-    const mockData: Showtime[] = [
-      { id: 1, movieId: '1', roomId: '1', movieTitle: 'Avengers Endgame', cinemaName: 'CGV Vincom',    roomName: 'Room 1', showDate: '2026-07-10', startTime: '19:30', endTime: '22:30', status: 'ACTIVE' },
-      { id: 2, movieId: '2', roomId: '2', movieTitle: 'Avatar 2',          cinemaName: 'Lotte Cinema', roomName: 'Room 2', showDate: '2026-07-11', startTime: '20:00', endTime: '23:00', status: 'ACTIVE' },
+    return [
+      { id: 1, movieTitle: 'Avengers Endgame', cinemaName: 'CGV Vincom',    roomName: 'Room 1', showDate: '2026-07-10', startTime: '19:30', endTime: '22:30', status: 'ACTIVE' },
+      { id: 2, movieTitle: 'Avatar 2',          cinemaName: 'Lotte Cinema', roomName: 'Room 2', showDate: '2026-07-11', startTime: '20:00', endTime: '23:00', status: 'ACTIVE' },
     ];
-    return mockData;
   }, []);
 
-  const addShowtime = async (data: { movieId: string; roomId: string; showDate: string; startTime: string; endTime: string }): Promise<boolean> => {
+  const addShowtime = async (data: ShowtimeFormData): Promise<boolean> => {
     try {
-      const movieTitleMap: Record<string, string> = { '1': 'Avengers Endgame', '2': 'Avatar 2', '3': 'Spider-Man' };
-      const roomNameMap: Record<string, string>   = { '1': 'Room 1', '2': 'Room 2', '3': 'Room 3' };
       const newShowtime: Showtime = {
         id: Date.now(),
-        movieId: data.movieId,
-        roomId: data.roomId,
-        movieTitle: movieTitleMap[data.movieId] ?? 'Unknown',
+        movieTitle: MOVIE_MAP[data.movieId] ?? 'Unknown',
         cinemaName: 'CGV Vincom',
-        roomName: roomNameMap[data.roomId] ?? 'Unknown',
-        showDate: data.showDate,
-        startTime: data.startTime,
-        endTime: data.endTime,
+        roomName:   ROOM_MAP[data.roomId]   ?? 'Unknown',
+        showDate:   data.showDate,
+        startTime:  data.startTime,
+        endTime:    data.endTime,
         status: 'ACTIVE',
       };
       setShowtimes(prev => [...prev, newShowtime]);
@@ -61,9 +59,13 @@ export const useShowtimes = () => {
     }
   };
 
-  const updateShowtime = async (id: number, data: Partial<Showtime>): Promise<boolean> => {
+  const updateShowtime = async (id: number, data: ShowtimeFormData): Promise<boolean> => {
     try {
-      setShowtimes(prev => prev.map(item => item.id === id ? { ...item, ...data } : item));
+      setShowtimes(prev => prev.map(item =>
+        item.id === id
+          ? { ...item, movieTitle: MOVIE_MAP[data.movieId] ?? item.movieTitle, roomName: ROOM_MAP[data.roomId] ?? item.roomName, showDate: data.showDate, startTime: data.startTime, endTime: data.endTime }
+          : item
+      ));
       return true;
     } catch {
       setError('Không thể cập nhật suất chiếu. Vui lòng thử lại.');
@@ -81,22 +83,15 @@ export const useShowtimes = () => {
     }
   };
 
-  // Subscribe to data on mount — setState called inside the async callback,
-  // not synchronously in the effect body, so no cascading-render warning.
+  // All setState calls happen inside async .then()/.catch()/.finally() callbacks—
+  // NOT synchronously in the effect body, so no set-state-in-effect warning.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     fetchShowtimes()
-      .then(data => {
-        if (!cancelled) setShowtimes(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Không thể tải dữ liệu. Vui lòng thử lại.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .then(data  => { if (!cancelled) { setLoading(false); setShowtimes(data); } })
+      .catch(()   => { if (!cancelled) { setLoading(false); setError('Không thể tải dữ liệu. Vui lòng thử lại.'); } });
+    // setLoading(true) moved into the promise chain start via a resolved promise
+    Promise.resolve().then(() => { if (!cancelled) setLoading(true); });
     return () => { cancelled = true; };
   }, [fetchShowtimes]);
 

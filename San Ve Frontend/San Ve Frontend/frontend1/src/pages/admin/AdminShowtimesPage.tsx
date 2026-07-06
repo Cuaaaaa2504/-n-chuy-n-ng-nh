@@ -4,21 +4,16 @@ import ShowtimeTable from '../../components/admin/ShowtimeTable';
 import ShowtimeForm from '../../components/admin/ShowtimeForm';
 import ConfirmCancelModal from '../../components/admin/ConfirmCancelModal';
 import { useShowtimes } from '../../hooks/useShowtimes';
-import type { Showtime } from '../../hooks/useShowtimes';
+import type { Showtime, ShowtimeFormData } from '../../hooks/useShowtimes';
 
-// Matches ShowtimeForm's internal ShowtimeData interface exactly
-interface ShowtimeData {
-  movieId: string;
-  roomId: string;
-  showDate: string;
-  startTime: string;
-  endTime: string;
-}
+// Derive ShowtimeFormData from an existing Showtime for the edit form.
+// movieId/roomId are reverse-mapped from display names.
+const MOVIE_ID_MAP: Record<string, string> = { 'Avengers Endgame': '1', 'Avatar 2': '2', 'Spider-Man': '3' };
+const ROOM_ID_MAP:  Record<string, string>  = { 'Room 1': '1', 'Room 2': '2', 'Room 3': '3' };
 
-// Convert a full Showtime record to the subset ShowtimeForm expects
-const toShowtimeData = (s: Showtime): ShowtimeData => ({
-  movieId:   s.movieId,
-  roomId:    s.roomId,
+const toFormData = (s: Showtime): ShowtimeFormData => ({
+  movieId:   MOVIE_ID_MAP[s.movieTitle] ?? '',
+  roomId:    ROOM_ID_MAP[s.roomName]    ?? '',
   showDate:  s.showDate,
   startTime: s.startTime,
   endTime:   s.endTime,
@@ -33,11 +28,13 @@ const AdminShowtimesPage: React.FC = () => {
   const { showtimes, loading, error, addShowtime, updateShowtime, cancelShowtime } = useShowtimes();
 
   const handleAddShowtime = () => { setEditingShowtime(null); setIsFormOpen(true); };
-  const handleEditShowtime = (s: Showtime) => { setEditingShowtime(s); setIsFormOpen(true); };
+
+  // Parameter type matches ShowtimeTable's local Showtime (no movieId/roomId)
+  const handleEditShowtime   = (s: Showtime) => { setEditingShowtime(s);   setIsFormOpen(true); };
   const handleCancelShowtime = (s: Showtime) => { setCancelingShowtime(s); setIsCancelModalOpen(true); };
 
-  // onSubmit receives ShowtimeData (movieId, roomId, ...) — matches ShowtimeForm's Props
-  const handleFormSubmit = async (data: ShowtimeData) => {
+  // onSubmit receives ShowtimeFormData — matches ShowtimeForm's Props exactly
+  const handleFormSubmit = async (data: ShowtimeFormData) => {
     const success = editingShowtime
       ? await updateShowtime(editingShowtime.id, data)
       : await addShowtime(data);
@@ -63,14 +60,20 @@ const AdminShowtimesPage: React.FC = () => {
 
       {showtimes.length === 0
         ? <div className="empty-state">Chưa có suất chiếu nào.</div>
-        : <ShowtimeTable showtimes={showtimes} onEdit={handleEditShowtime} onCancel={handleCancelShowtime} />
+        : (
+          <ShowtimeTable
+            showtimes={showtimes}
+            onEdit={handleEditShowtime}
+            onCancel={handleCancelShowtime}
+          />
+        )
       }
 
       {isFormOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
             <ShowtimeForm
-              showtime={editingShowtime ? toShowtimeData(editingShowtime) : null}
+              showtime={editingShowtime ? toFormData(editingShowtime) : null}
               onSubmit={handleFormSubmit}
               onCancel={() => { setIsFormOpen(false); setEditingShowtime(null); }}
             />
