@@ -1,16 +1,11 @@
 // src/components/seat/SeatMap.tsx
-
 import React, { useMemo, useState } from 'react';
-import type { SeatMapProps, GroupedSeats } from '../../types/seat.types'; // ✅ thêm type
+import { SeatMapProps, GroupedSeats } from '../../types/seat.types';
 import SeatItem from './SeatItem';
 import './SeatMap.css';
 
 const SeatMap: React.FC<SeatMapProps> = ({
-  seats,
-  selectedSeats,
-  onSeatSelect,
-  maxSelectable = 10,
-  showLegend = true,
+  seats, selectedSeats, onSeatSelect, maxSelectable = 10, showLegend = true
 }) => {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
@@ -20,9 +15,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
       if (!groups[seat.rowName]) groups[seat.rowName] = [];
       groups[seat.rowName].push(seat);
     });
-    Object.keys(groups).forEach(row => {
-      groups[row].sort((a, b) => a.seatNumber - b.seatNumber);
-    });
+    Object.keys(groups).forEach(row => groups[row].sort((a, b) => a.seatNumber - b.seatNumber));
     return groups;
   }, [seats]);
 
@@ -30,8 +23,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
 
   const handleSeatClick = (seatId: number) => {
     const seat = seats.find(s => s.id === seatId);
-    if (!seat) return;
-    if (seat.status === 'SOLD' || seat.status === 'HELD' || seat.status === 'BLOCKED') return;
+    if (!seat || ['SOLD','HELD','BLOCKED'].includes(seat.status)) return;
     if (!selectedSeats.includes(seatId) && selectedSeats.length >= maxSelectable) {
       alert(`Bạn chỉ có thể chọn tối đa ${maxSelectable} ghế`);
       return;
@@ -75,7 +67,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
                     seat={seat}
                     selected={selectedSeats.includes(seat.id)}
                     onClick={() => handleSeatClick(seat.id)}
-                    disabled={seat.status === 'SOLD' || seat.status === 'HELD' || seat.status === 'BLOCKED'}
+                    disabled={['SOLD','HELD','BLOCKED'].includes(seat.status)}
                   />
                 ))}
               </div>
@@ -88,10 +80,10 @@ const SeatMap: React.FC<SeatMapProps> = ({
         <div className="seat-legend">
           <div className="legend-title">Chú thích:</div>
           <div className="legend-items">
-            {(['available','selected','held','sold','blocked'] as const).map(s => (
-              <div key={s} className="legend-item">
-                <div className={`legend-color ${s}`}></div>
-                <span>{{ available:'Trống', selected:'Đã chọn', held:'Đang giữ', sold:'Đã bán', blocked:'Bị khóa' }[s]}</span>
+            {[['available','Trống'],['selected','Đã chọn'],['held','Đang giữ'],['sold','Đã bán'],['blocked','Bị khóa']].map(([cls, label]) => (
+              <div key={cls} className="legend-item">
+                <div className={`legend-color ${cls}`}></div>
+                <span>{label}</span>
               </div>
             ))}
           </div>

@@ -1,42 +1,23 @@
 // src/components/seat/SeatItem.tsx
-
 import React from 'react';
-import type { SeatItemProps } from '../../types/seat.types'; // ✅ thêm type
+import { SeatItemProps } from '../../types/seat.types';
 import './SeatMap.css';
 
-const SeatItem: React.FC<SeatItemProps> = ({
-  seat,
-  selected,
-  onClick,
-  disabled = false,
-}) => {
-  const isDisabled =
-    disabled ||
-    seat.status === 'SOLD' ||
-    seat.status === 'HELD' ||
-    seat.status === 'BLOCKED';
+const SeatItem: React.FC<SeatItemProps> = ({ seat, selected, onClick, disabled = false }) => {
+  const isDisabled = disabled || ['SOLD','HELD','BLOCKED'].includes(seat.status);
 
   const getTooltip = () => {
     if (selected) return 'Bỏ chọn ghế';
-    switch (seat.status) {
-      case 'HELD':     return 'Ghế đang được giữ';
-      case 'SOLD':     return 'Ghế đã bán';
-      case 'BLOCKED':  return 'Ghế bị khóa';
-      case 'AVAILABLE': return 'Chọn ghế';
-      default: return '';
-    }
+    const map: Record<string, string> = { HELD: 'Ghế đang được giữ', SOLD: 'Ghế đã bán', BLOCKED: 'Ghế bị khóa', AVAILABLE: 'Chọn ghế' };
+    return map[seat.status] ?? '';
   };
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isDisabled) return;
-    onClick();
+    if (!isDisabled) onClick();
   };
 
-  const getStatusClass = () => {
-    if (selected) return 'selected';
-    return seat.status.toLowerCase();
-  };
+  const getStatusClass = () => selected ? 'selected' : seat.status.toLowerCase();
 
   return (
     <div
@@ -51,8 +32,8 @@ const SeatItem: React.FC<SeatItemProps> = ({
       <span className="seat-number">{seat.seatNumber}</span>
       {isDisabled && seat.status !== 'SELECTED' && (
         <span className="seat-status-icon">
-          {seat.status === 'SOLD'    && '✕'}
-          {seat.status === 'HELD'    && '⏳'}
+          {seat.status === 'SOLD' && '✕'}
+          {seat.status === 'HELD' && '⏳'}
           {seat.status === 'BLOCKED' && '⊘'}
         </span>
       )}

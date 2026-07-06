@@ -2166,3 +2166,7 @@ GO
 
 PRINT N'CineHunt Database V6.2 Backend Compatible đã được cài đặt thành công.';
 GO
+
+SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'booking_orders'
+ORDER BY ORDINAL_POSITION
