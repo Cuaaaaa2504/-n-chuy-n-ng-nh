@@ -47,6 +47,17 @@ export class BookingController {
     return this.bookingService.getBookingDetail(id, userId);
   }
 
+  // FIX: Thêm route GET :id/tickets cho MyTicketsPage
+  // Phải đặt TRƯỚC @Get(':id') nhưng NestJS route literal '/tickets' không conflict với param
+  @Get(':id/tickets')
+  async getBookingTickets(
+    @Request() req,
+    @Param('id') id: string,
+  ) {
+    const userId = req.user.userId;
+    return this.bookingService.getBookingTickets(id, userId);
+  }
+
   @Delete(':id')
   async cancelBooking(
     @Request() req,
