@@ -1,6 +1,9 @@
 import axiosClient from './axiosClient';
 
-export type PaymentMethodCode = 'CASH' | 'MOMO' | 'VNPAY' | 'ZALOPAY' | 'CREDIT_CARD';
+// FIX: Chỉ dùng các method có trong SQL CHECK constraint:
+// ('MOMO', 'VNPAY', 'BANKING', 'CASH', 'MOCK')
+// Đã xóa ZALOPAY và CREDIT_CARD vì không có trong SQL → bị CHECK constraint reject
+export type PaymentMethodCode = 'CASH' | 'MOMO' | 'VNPAY' | 'BANKING' | 'MOCK';
 
 export interface PaymentMethod {
   code: PaymentMethodCode;
@@ -61,12 +64,13 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
     const list = Array.isArray(payload) ? payload : (payload.data as unknown[] ?? []);
     return list as PaymentMethod[];
   } catch {
+    // Fallback — chỉ dùng các method có trong SQL
     return [
-      { code: 'MOMO',        name: 'Ví MoMo' },
-      { code: 'VNPAY',       name: 'VNPay' },
-      { code: 'ZALOPAY',     name: 'ZaloPay' },
-      { code: 'CREDIT_CARD', name: 'Thẻ tín dụng' },
-      { code: 'CASH',        name: 'Tiền mặt tại quầy' },
+      { code: 'MOMO',    name: 'Ví MoMo' },
+      { code: 'VNPAY',   name: 'VNPay' },
+      { code: 'BANKING', name: 'Chuyển khoản ngân hàng' },
+      { code: 'MOCK',    name: 'Thanh toán giả lập (Dev)' },
+      { code: 'CASH',    name: 'Tiền mặt tại quầy' },
     ];
   }
 }
@@ -74,15 +78,25 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
 export async function payOrder(
   bookingId: string,
   method: PaymentMethodCode,
-): Promise<{ redirectUrl?: string; success: boolean }> {
+): Promise<{ redirectUrl?: string; success: boolean; paymentId?: string }> {
   if (!bookingId) throw new Error('Thiếu mã đặt vé');
-  // Sửa: /payment/process → /payments/process
-  const payload = await axiosClient.post(`/payments/process`, {
-    bookingId,
-    method,
+
+  // FIX Bước 1: Tạo payment record — POST /payments (trước đây gọi sai tới /payments/process không tồn tại)
+  const created = await axiosClient.post(`/payments`, {
+    bookingId: Number(bookingId),
+    paymentMethod: method,
   }) as Record<string, unknown>;
+
+  const paymentId = String(created.paymentId ?? created.payment_id ?? '');
+  if (!paymentId) throw new Error('Không lấy được paymentId');
+
+  // FIX Bước 2: Xác nhận thanh toán — POST /payments/:id/success
+  // (Thực tế sẽ là webhook từ cổng thanh toán; ở dev giả lập bằng cách gọi thẳng)
+  await axiosClient.post(`/payments/${paymentId}/success`);
+
   return {
     success: true,
-    redirectUrl: payload.redirectUrl as string | undefined,
+    paymentId,
+    redirectUrl: undefined,
   };
 }
