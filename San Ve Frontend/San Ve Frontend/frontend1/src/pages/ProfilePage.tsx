@@ -1,10 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import type { User as AuthUser } from '../context/AuthContext';
 import userApi from '../api/userApi';
 
 // FIX TS2339: mở rộng User local để có avatarUrl
-// (AuthContext.tsx trên server đã có avatarUrl, nhưng nếu local chưa được pull thì vẫn cần type này)
 type User = AuthUser & { avatarUrl?: string };
 
 type Tab = 'info' | 'privacy';
@@ -13,10 +12,33 @@ export default function ProfilePage() {
   const { user, login, token } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('info');
 
-  const [fullName, setFullName]       = useState((user as User | null)?.fullName ?? '');
-  const [phone, setPhone]             = useState((user as User | null)?.phone ?? '');
-  const [avatarUrl, setAvatarUrl]     = useState<string>((user as User | null)?.avatarUrl ?? '');
-  const [avatarPreview, setAvatarPreview] = useState<string>((user as User | null)?.avatarUrl ?? '');
+  const typedUser = user as User | null;
+
+  // FIX react-hooks/set-state-in-effect:
+  // Khởi tạo state từ user trực tiếp, dùng useMemo để lấy giá trị hiện tại
+  // thay vì dùng useEffect + setState đồng bộ gây cascading renders
+  const [fullName, setFullName]       = useState<string>(() => typedUser?.fullName ?? '');
+  const [phone, setPhone]             = useState<string>(() => typedUser?.phone ?? '');
+  const [avatarUrl, setAvatarUrl]     = useState<string>(() => typedUser?.avatarUrl ?? '');
+  const [avatarPreview, setAvatarPreview] = useState<string>(() => typedUser?.avatarUrl ?? '');
+
+  // Sync khi user thay đổi (ví dụ sau login) — dùng useMemo để tính key,
+  // không gọi setState trực tiếp trong effect body
+  const userKey = useMemo(() => JSON.stringify({
+    fullName: typedUser?.fullName,
+    phone: typedUser?.phone,
+    avatarUrl: typedUser?.avatarUrl,
+  }), [typedUser?.fullName, typedUser?.phone, typedUser?.avatarUrl]);
+
+  const prevUserKeyRef = useRef<string>(userKey);
+  if (prevUserKeyRef.current !== userKey) {
+    prevUserKeyRef.current = userKey;
+    setFullName(typedUser?.fullName ?? '');
+    setPhone(typedUser?.phone ?? '');
+    setAvatarUrl(typedUser?.avatarUrl ?? '');
+    setAvatarPreview(typedUser?.avatarUrl ?? '');
+  }
+
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoMsg, setInfoMsg]         = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,14 +54,6 @@ export default function ProfilePage() {
   const [emailPwd, setEmailPwd]       = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailMsg, setEmailMsg]       = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-
-  useEffect(() => {
-    const u = user as User | null;
-    setFullName(u?.fullName ?? '');
-    setPhone(u?.phone ?? '');
-    setAvatarUrl(u?.avatarUrl ?? '');
-    setAvatarPreview(u?.avatarUrl ?? '');
-  }, [user]);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -117,7 +131,7 @@ export default function ProfilePage() {
     }
   };
 
-  const initials = (user as User | null)?.fullName?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() ?? '?';
+  const initials = typedUser?.fullName?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() ?? '?';
 
   return (
     <div className="min-h-screen bg-gray-950 text-white py-10 px-4">
@@ -178,7 +192,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Email</label>
-                <input value={(user as User | null)?.email ?? ''} readOnly
+                <input value={typedUser?.email ?? ''} readOnly
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-400 cursor-not-allowed" />
                 <p className="text-xs text-gray-500 mt-1">Đổi email trong tab Quyền riêng tư</p>
               </div>
@@ -242,7 +256,7 @@ export default function ProfilePage() {
               <h2 className="text-lg font-semibold text-amber-400 border-b border-gray-800 pb-2">Đổi địa chỉ email</h2>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Email hiện tại</label>
-                <input value={(user as User | null)?.email ?? ''} readOnly
+                <input value={typedUser?.email ?? ''} readOnly
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-400 cursor-not-allowed" />
               </div>
               <div>
