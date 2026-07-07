@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface Seat {
-  seatId: number;
+  // FIX TS2322: seatId mở rộng thành number|string để SeatBookingPage có thể truyền
+  // seatId: String(s.id) mà không bị type error. MOCK_SEATS vẫn dùng number.
+  seatId: number | string;
   seatCode: string;
   price: number;
   status: "AVAILABLE" | "HELD" | "SOLD" | "BLOCKED";
@@ -24,7 +26,8 @@ const MOCK_SEATS: Seat[] = [
 
 export function useSeatHold(showtimeId?: string) {
   const [seats, setSeats]                     = useState<Seat[]>([]);
-  const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>([]);
+  // FIX: selectedSeatIds dùng number|string để khớp Seat.seatId
+  const [selectedSeatIds, setSelectedSeatIds] = useState<Array<number | string>>([]);
   const [holdExpiresAt, setHoldExpiresAt]     = useState<string | null>(null);
   const [countdown, setCountdown]             = useState(0);
   const [loading, setLoading]                 = useState(false);
@@ -82,14 +85,15 @@ export function useSeatHold(showtimeId?: string) {
     return () => clearTimeout(id);
   }, [countdown, holdExpiresAt]);
 
-  const selectedSeats = seats.filter((s) => selectedSeatIds.includes(s.seatId));
+  // FIX: dùng String() để so sánh an toàn khi seatId có thể là number hoặc string
+  const selectedSeats = seats.filter((s) => selectedSeatIds.map(String).includes(String(s.seatId)));
   const totalPrice    = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
 
   const toggleSeat = useCallback((seat: Seat) => {
     if (seat.status !== "AVAILABLE") return;
     setSelectedSeatIds((prev) =>
-      prev.includes(seat.seatId)
-        ? prev.filter((id) => id !== seat.seatId)
+      prev.map(String).includes(String(seat.seatId))
+        ? prev.filter((id) => String(id) !== String(seat.seatId))
         : [...prev, seat.seatId]
     );
   }, []);
@@ -107,7 +111,7 @@ export function useSeatHold(showtimeId?: string) {
       const expires = new Date(Date.now() + 5 * 60 * 1000).toISOString();
       setSeats((prev) =>
         prev.map((seat) =>
-          selectedSeatIds.includes(seat.seatId) ? { ...seat, status: "HELD" } : seat
+          selectedSeatIds.map(String).includes(String(seat.seatId)) ? { ...seat, status: "HELD" } : seat
         )
       );
       setHoldExpiresAt(expires);
