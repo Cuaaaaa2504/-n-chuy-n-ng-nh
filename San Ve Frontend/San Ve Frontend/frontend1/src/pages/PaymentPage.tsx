@@ -7,8 +7,10 @@ import { getOrder, getPaymentMethods, payOrder } from '../api/paymentApi';
 import { usePayment } from '../hooks/usePayment';
 import type { OrderDetail, PaymentMethod, PaymentMethodCode } from '../api/paymentApi';
 
+// FIX: Chỉ giữ method có trong SQL CHECK constraint (MOMO, VNPAY, BANKING, CASH, MOCK)
+// Đã xóa ZALOPAY và CREDIT_CARD vì không có trong DB → sẽ bị CHECK constraint reject
 const METHOD_ICONS: Record<string, string> = {
-  MOMO: '🟣', VNPAY: '🔵', ZALOPAY: '🔷', CREDIT_CARD: '💳', CASH: '💵',
+  MOMO: '🟣', VNPAY: '🔵', BANKING: '🏦', MOCK: '🧪', CASH: '💵',
 };
 
 // ── Countdown hook ─────────────────────────────────────────────────────────────────
@@ -78,260 +80,175 @@ export default function PaymentPage() {
   const { seconds: countdown, display: countdownDisplay } = useCountdown(order?.expiresAt);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
+    const load = async () => {
+      setLoading(true);
+      setFetchError('');
       try {
         if (isLocalMode) {
-          const localOrder = buildLocalOrder(searchParams);
-          const mths = await getPaymentMethods();
-          if (!cancelled) {
-            setOrder(localOrder);
-            setMethods(mths);
-            // FIX: set default method ngay tại đây, không cần useEffect riêng
-            if (mths.length > 0) setSelectedMethod(mths[0].code);
-          }
-          return;
+          setOrder(buildLocalOrder(searchParams));
+        } else if (orderId) {
+          const [fetchedOrder, fetchedMethods] = await Promise.all([
+            getOrder(orderId),
+            getPaymentMethods(),
+          ]);
+          setOrder(fetchedOrder);
+          setMethods(fetchedMethods);
         }
-
-        if (!orderId) return;
-        const [ord, mths] = await Promise.all([getOrder(orderId), getPaymentMethods()]);
-        if (cancelled) return;
-        setOrder(ord);
-        setMethods(mths);
-        if (mths.length > 0) setSelectedMethod(mths[0].code);
-      } catch (e: unknown) {
-        if (!cancelled)
-          setFetchError((e as { message?: string })?.message || 'Không thể tải thông tin đặt vé.');
+      } catch (err: unknown) {
+        const msg = (err as { message?: string })?.message ?? 'Không tải được thông tin đơn hàng';
+        setFetchError(msg);
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
+    };
+    void load();
   }, [orderId, isLocalMode, searchParams]);
 
-  // ĐÃ XÓA: useEffect thừa gọi setSelectedMethod đồng bộ — vi phạm react-hooks/set-state-in-effect
-  // Logic đó đã được xử lý bên trong effect fetch ở trên.
-
-  useEffect(() => {
-    if (order?.expiresAt && countdown === 0) {
-      navigate('/my-tickets', { replace: true });
-    }
-  }, [countdown, order?.expiresAt, navigate]);
+  const isExpired = countdown === 0 && !!order?.expiresAt;
 
   const handlePay = async () => {
     if (!selectedMethod || !order) return;
+    resetPayment?.();
 
     if (isLocalMode) {
-      try {
-        await handlePayment({ bookingId: 0, totalAmount: order.totalAmount });
-        navigate('/my-tickets', { replace: true });
-      } catch { /* error quản lý bởi usePayment */ }
+      await handlePayment({ bookingId: 0, totalAmount: order.totalAmount });
       return;
     }
 
-    if (!orderId) return;
     try {
-      const result = await payOrder(orderId, selectedMethod);
-      if (result.redirectUrl) {
-        window.location.href = result.redirectUrl;
-      } else {
-        navigate('/my-tickets', { replace: true });
-      }
-    } catch {
-      try {
+      const result = await payOrder(orderId!, selectedMethod);
+      if (result.success) {
         await handlePayment({ bookingId: parseInt(orderId!), totalAmount: order.totalAmount });
-        navigate('/my-tickets', { replace: true });
-      } catch { /* error quản lý bởi usePayment */ }
+        navigate(`/booking-success/${orderId}`);
+      }
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? 'Thanh toán thất bại';
+      setFetchError(msg);
     }
   };
 
-  const card = darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow';
+  const bg   = darkMode ? 'bg-gray-950 text-white'          : 'bg-gray-50 text-gray-900';
+  const card = darkMode ? 'bg-gray-900 border border-gray-700/40' : 'bg-white border border-gray-200 shadow-sm';
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center py-20">
+      <div className={`min-h-screen flex items-center justify-center ${bg}`}>
         <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (fetchError || !order) {
+  if (fetchError && !order) {
     return (
-      <div className="flex-1 flex items-center justify-center py-20 px-4">
-        <div className="text-center">
-          <p className="text-red-500 font-semibold mb-4">{fetchError || 'Không tìm thấy đơn hàng.'}</p>
-          <button onClick={() => navigate(-1)} className="bg-red-500 text-white px-5 py-2 rounded-lg">
-            Quay lại
-          </button>
-        </div>
+      <div className={`min-h-screen flex flex-col items-center justify-center gap-4 ${bg}`}>
+        <p className="text-red-500 font-semibold">{fetchError}</p>
+        <button onClick={() => navigate(-1)} className="text-sm underline opacity-70">Quay lại</button>
       </div>
     );
   }
-
-  if (paymentStatus === 'SUCCESS') {
-    return (
-      <div className="flex-1 flex items-center justify-center py-20 px-4">
-        <div className="text-center">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold mb-2">Thanh toán thành công!</h2>
-          <p className={`mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Vé xem phìm của bạn đã được đặt thành công.
-          </p>
-          <p className="font-mono text-sm mb-6">Mã đơn: {order.orderCode ?? order.id}</p>
-          <button
-            onClick={() => navigate('/my-tickets', { replace: true })}
-            className="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-xl font-semibold transition"
-          >
-            Xem vé của tôi
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const isExpired = order.expiresAt && countdown === 0;
 
   return (
-    <>
+    <div className={`min-h-screen ${bg}`}>
       <LoadingOverlay isVisible={isProcessing} />
 
-      <div className="max-w-3xl mx-auto px-4 py-8 w-full">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-extrabold">Thanh toán</h1>
-            <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Mã đơn: <span className="font-mono font-semibold">{order.orderCode ?? order.id}</span>
-            </p>
-          </div>
-          <button
-            onClick={() => navigate(-1)}
-            className={`px-4 py-2 rounded-xl border font-semibold text-sm ${
-              darkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100'
-            }`}
-          >
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="opacity-60 hover:opacity-100 transition">
             ← Quay lại
           </button>
+          <h1 className="text-xl font-bold">Thanh toán</h1>
         </div>
 
-        {order.expiresAt && (
-          <div className={`rounded-2xl p-4 mb-5 flex items-center justify-between ${
-            isExpired ? 'bg-red-900/30 border border-red-700' : 'bg-yellow-500/10 border border-yellow-500/30'
-          }`}>
-            <span className={`font-semibold text-sm ${isExpired ? 'text-red-400' : 'text-yellow-400'}`}>
-              {isExpired ? '⏰ Đơn hàng đã hết hạn' : '⏳ Thời gian giữ ghế còn lại'}
-            </span>
-            <span className={`font-mono text-xl font-bold ${
-              isExpired ? 'text-red-400' : countdown <= 60 ? 'text-red-400' : 'text-yellow-400'
-            }`}>
-              {countdownDisplay}
-            </span>
+        {fetchError && (
+          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+            {fetchError}
           </div>
         )}
 
-        {isLocalMode && (
-          <div className="rounded-2xl p-4 mb-5 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm">
-            ℹ️ Đang chạy ở chế độ xem trước (chưa kết nối backend). Thanh toán sẽ được mô phỏng.
+        {isExpired && (
+          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-semibold">
+            ⏰ Đơn hàng đã hết hạn. Vui lòng đặt lại.
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
-          <div className={`md:col-span-3 rounded-2xl p-5 ${card}`}>
-            <h2 className="font-bold text-base mb-4">Thông tin đặt vé</h2>
-            <div className="space-y-2 text-sm">
-              <p>
-                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Phìm:</span>
-                <span className="font-semibold">{order.movieTitle}</span>
-              </p>
-              {order.cinemaName && (
-                <p>
-                  <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Rạp:</span>
-                  {order.cinemaName}
-                </p>
-              )}
-              {order.roomName && (
-                <p>
-                  <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Phòng:</span>
-                  {order.roomName}
-                </p>
-              )}
-              {order.showDate && (
-                <p>
-                  <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Ngày chiếu:</span>
-                  {order.showDate}
-                </p>
-              )}
-              {order.showTime && (
-                <p>
-                  <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Giờ chiếu:</span>
-                  {order.showTime}
-                </p>
-              )}
-              {order.seatCodes && order.seatCodes.length > 0 && (
-                <p>
-                  <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Ghế:</span>
-                  <span className="font-mono font-semibold">{order.seatCodes.join(', ')}</span>
-                </p>
-              )}
+        {/* Order Summary */}
+        {order && (
+          <div className={`rounded-2xl p-5 space-y-3 ${card}`}>
+            <h2 className="font-bold text-lg">Thông tin đặt vé</h2>
+            <div className="space-y-1 text-sm">
+              <p><span className="opacity-60">Phim:</span> <span className="font-semibold">{order.movieTitle}</span></p>
+              {order.cinemaName && <p><span className="opacity-60">Rạp:</span> {order.cinemaName}</p>}
+              {order.roomName   && <p><span className="opacity-60">Phòng:</span> {order.roomName}</p>}
+              {order.showDate   && <p><span className="opacity-60">Ngày:</span> {order.showDate}</p>}
+              {order.showTime   && <p><span className="opacity-60">Giờ:</span> {order.showTime}</p>}
+              {order.seatCodes?.length ? (
+                <p><span className="opacity-60">Ghế:</span> {order.seatCodes.join(', ')}</p>
+              ) : null}
+              {order.orderCode  && <p><span className="opacity-60">Mã đơn:</span> <span className="font-mono">{order.orderCode}</span></p>}
             </div>
-            <div className={`mt-5 pt-4 border-t flex justify-between items-center ${
-              darkMode ? 'border-gray-700' : 'border-gray-200'
-            }`}>
-              <span className="font-bold">Tổng thanh toán</span>
-              <span className="text-red-500 text-xl font-extrabold">
+
+            {order.expiresAt && (
+              <div className={`text-sm font-mono font-bold ${countdown < 60 ? 'text-red-500' : 'text-yellow-500'}`}>
+                ⏳ Hết hạn sau: {countdownDisplay}
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-current/10 flex justify-between items-center">
+              <span className="font-semibold">Tổng tiền</span>
+              <span className="text-xl font-bold text-red-500">
                 {order.totalAmount.toLocaleString('vi-VN')}₫
               </span>
             </div>
           </div>
+        )}
 
-          <div className={`md:col-span-2 rounded-2xl p-5 ${card}`}>
-            <h2 className="font-bold text-base mb-4">Phương thức</h2>
+        {/* Payment Methods */}
+        {!isLocalMode && methods.length > 0 && (
+          <div className={`rounded-2xl p-5 space-y-3 ${card}`}>
+            <h2 className="font-bold text-lg">Phương thức thanh toán</h2>
             <div className="space-y-2">
               {methods.map((m) => (
                 <button
                   key={m.code}
                   onClick={() => setSelectedMethod(m.code)}
-                  disabled={!!isExpired}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border font-semibold text-sm transition ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition text-left ${
                     selectedMethod === m.code
-                      ? 'bg-red-500 text-white border-red-500'
+                      ? 'border-red-500 bg-red-500/10'
                       : darkMode
-                      ? 'bg-white/5 border-white/10 hover:bg-white/10'
-                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                  } ${isExpired ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        ? 'border-gray-700 hover:border-gray-500'
+                        : 'border-gray-200 hover:border-gray-400'
+                  }`}
                 >
                   <span className="text-lg">{METHOD_ICONS[m.code] ?? '💰'}</span>
-                  {m.name}
+                  <span className="font-medium">{m.name}</span>
                 </button>
               ))}
             </div>
           </div>
-        </div>
+        )}
 
-        {(paymentError || paymentStatus === 'FAILED') && (
-          <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm font-medium flex items-center justify-between">
-            <span>{paymentError || 'Thanh toán thất bại. Vui lòng thử lại.'}</span>
-            <button onClick={resetPayment} className="ml-4 underline text-xs">Thử lại</button>
+        {paymentError && (
+          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+            {paymentError}
           </div>
         )}
 
-        <div className="mt-6 flex gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className={`px-5 py-3 rounded-xl border font-semibold ${
-              darkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100'
-            }`}
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handlePay}
-            disabled={!selectedMethod || !!isExpired || isProcessing}
-            className="flex-1 px-5 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isProcessing ? 'Đang xử lý…' : `Thanh toán ${order.totalAmount.toLocaleString('vi-VN')}₫`}
-          </button>
-        </div>
+        {paymentStatus === 'success' && (
+          <div className="rounded-xl px-4 py-3 bg-green-500/10 border border-green-500/20 text-green-500 text-sm font-semibold">
+            ✅ Thanh toán thành công!
+          </div>
+        )}
+
+        {/* Pay Button */}
+        <button
+          onClick={() => { void handlePay(); }}
+          disabled={!selectedMethod || !!isExpired || isProcessing}
+          className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition text-lg"
+        >
+          {isProcessing ? 'Đang xử lý...' : `Thanh toán ${order ? order.totalAmount.toLocaleString('vi-VN') + '₫' : ''}`}
+        </button>
       </div>
-    </>
+    </div>
   );
 }
