@@ -17,7 +17,6 @@ import {
   BookingResponse,
   CreateBookingRequest,
 } from './dto';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class BookingService {
@@ -115,11 +114,11 @@ export class BookingService {
 
     const totalAmount = Math.max(0, subtotalAmount + productAmount - discountAmount);
     const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
-    const bookingId = uuidv4();
 
     return this.dataSource.transaction(async (manager) => {
+      // FIX: Không truyền bookingId — để SQL Server IDENTITY(1,1) tự generate
+      // bookingId là BIGINT, không phải UUID
       const booking = manager.create(BookingOrder, {
-        bookingId,
         bookingCode: `BK-${Date.now()}`,
         userId,
         showtimeId,
@@ -133,12 +132,17 @@ export class BookingService {
       });
       await manager.save(BookingOrder, booking);
 
+      // Dùng booking.bookingId (BIGINT từ DB) sau khi save
+      const savedBookingId = booking.bookingId;
+
+      // FIX: status 'ACTIVE' — SQL CHECK: ('ACTIVE','CANCELLED','EXPIRED')
+      // 'PENDING' không tồn tại trong CHECK constraint → sẽ bị SQL reject
       const details = holds.map((hold) =>
         manager.create(BookingDetail, {
-          bookingId,
+          bookingId: savedBookingId,
           showtimeSeatId: hold.showtimeSeat.showtimeSeatId,
           seatPrice: hold.showtimeSeat.price,
-          status: 'PENDING',
+          status: 'ACTIVE',
         }),
       );
       await manager.save(BookingDetail, details);
@@ -147,7 +151,7 @@ export class BookingService {
         const combos = requestedProducts.map((item) => {
           const product = products.find((p) => p.comboId === item.productId)!;
           return manager.create(BookingCombo, {
-            bookingId,
+            bookingId: savedBookingId,
             comboId: item.productId,
             quantity: item.quantity,
             unitPrice: product.price,
@@ -159,7 +163,7 @@ export class BookingService {
       await manager.update(SeatHold, { holdId: In(request.holdIds) }, { status: 'CONVERTED' });
 
       return {
-        bookingId,
+        bookingId: savedBookingId,
         bookingCode: booking.bookingCode,
         showtimeId,
         seatCount: holds.length,
