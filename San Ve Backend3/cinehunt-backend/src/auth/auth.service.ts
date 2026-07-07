@@ -30,11 +30,19 @@ export class AuthService {
     });
     if (existedUser) throw new BadRequestException('Email đã được sử dụng');
 
+    // Kiểm tra số điện thoại trùng lặp nếu có
+    if (dto.phone?.trim()) {
+      const existedPhone = await this.userRepository.findOne({
+        where: { phone: dto.phone.trim() },
+      });
+      if (existedPhone) throw new BadRequestException('Số điện thoại đã được sử dụng');
+    }
+
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = this.userRepository.create({
       fullName: dto.fullName.trim(),
       email: normalizedEmail,
-      phone: dto.phone?.trim() ?? null,
+      phone: dto.phone?.trim() || null,
       passwordHash: hashedPassword,
       role: 'CUSTOMER',
       status: 'ACTIVE',
@@ -62,8 +70,11 @@ export class AuthService {
     if (!isPasswordValid)
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
 
-    user.lastLoginAt = new Date();
-    await this.userRepository.save(user);
+    // Dùng update() thay vì save() để tránh TypeORM cố INSERT lại gây duplicate key
+    await this.userRepository.update(
+      { userId: user.userId },
+      { lastLoginAt: new Date() },
+    );
 
     const { accessToken, refreshToken } = await this.generateTokens(user);
     await this.storeRefreshToken(user.userId, refreshToken, meta);
@@ -207,7 +218,6 @@ export class AuthService {
     rawToken: string,
     meta?: { deviceInfo?: string; ipAddress?: string },
   ): Promise<RefreshToken> {
-    // FIX: parse robust hơn cho JWT_REFRESH_EXPIRES_IN — hỗ trợ '7d', '2w', '1h', số thuần
     const raw = (process.env.JWT_REFRESH_EXPIRES_IN || '7d').trim();
     let expiresInMs: number;
     const numMatch = raw.match(/^(\d+(\.\d+)?)(d|h|m|w)?$/i);
@@ -222,7 +232,7 @@ export class AuthService {
       };
       expiresInMs = val * (unitMs[unit] ?? unitMs['d']);
     } else {
-      expiresInMs = 7 * 86400000; // fallback 7 ngày
+      expiresInMs = 7 * 86400000;
     }
 
     const expiresAt = new Date(Date.now() + expiresInMs);
@@ -256,7 +266,6 @@ export class AuthService {
   }
 
   private async generateTokens(user: User) {
-    // FIX: đảm bảo JWT secrets không undefined — nếu thiếu env thì throw ngay khi khởi động
     const jwtSecret = process.env.JWT_SECRET;
     const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
 
