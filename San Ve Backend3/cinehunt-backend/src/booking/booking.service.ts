@@ -1,33 +1,46 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+// src/booking/booking.service.ts
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
-import { SeatHold } from '../entities/seat-hold.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
-import { ConcessionCombo } from '../entities/concession-combo.entity';
-import { BookingCombo } from '../entities/booking-combo.entity';
+import { SeatHold } from '../entities/seat-hold.entity';
+import { Payment } from '../entities/payment.entity';
 import { Voucher } from '../entities/voucher.entity';
-import { CreateBookingRequest, BookingResponse } from './dto';
+import { Combo } from '../entities/combo.entity';
+import { BookingCombo } from '../entities/booking-combo.entity';
+import {
+  BookingResponse,
+  CreateBookingRequest,
+} from './dto';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class BookingService {
   constructor(
-    private readonly dataSource: DataSource,
     @InjectRepository(BookingOrder)
     private readonly bookingRepo: Repository<BookingOrder>,
     @InjectRepository(BookingDetail)
-    private readonly bookingDetailRepo: Repository<BookingDetail>,
-    @InjectRepository(SeatHold)
-    private readonly holdRepo: Repository<SeatHold>,
+    private readonly detailRepo: Repository<BookingDetail>,
     @InjectRepository(ShowtimeSeat)
     private readonly showtimeSeatRepo: Repository<ShowtimeSeat>,
-    @InjectRepository(ConcessionCombo)
-    private readonly productRepo: Repository<ConcessionCombo>,
-    @InjectRepository(BookingCombo)
-    private readonly bookingProductRepo: Repository<BookingCombo>,
+    @InjectRepository(SeatHold)
+    private readonly holdRepo: Repository<SeatHold>,
+    @InjectRepository(Payment)
+    private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Voucher)
     private readonly voucherRepo: Repository<Voucher>,
+    @InjectRepository(Combo)
+    private readonly productRepo: Repository<Combo>,
+    @InjectRepository(BookingCombo)
+    private readonly bookingComboRepo: Repository<BookingCombo>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async createBooking(userId: number, request: CreateBookingRequest): Promise<BookingResponse> {
@@ -81,153 +94,88 @@ export class BookingService {
         where: { promotionCode: request.voucherCode.toUpperCase() },
       });
 
-      if (!voucher) {
-        throw new BadRequestException(`Voucher '${request.voucherCode}' không tồn tại`);
+      if (!voucher || voucher.status !== 'ACTIVE') {
+        throw new BadRequestException('Voucher không hợp lệ hoặc đã hết hạn');
       }
-
-      const now2 = new Date();
-      if (now2 < voucher.startAt) throw new BadRequestException('Voucher chưa đến thời gian sử dụng');
-      if (now2 > voucher.endAt) throw new BadRequestException('Voucher đã hết hạn');
-      if (voucher.usageLimit && voucher.usedCount >= voucher.usageLimit)
-        throw new BadRequestException('Voucher đã hết lượt sử dụng');
 
       const orderTotal = subtotalAmount + productAmount;
-      if (voucher.minOrderAmount && orderTotal < Number(voucher.minOrderAmount))
+      if (voucher.minOrderAmount && orderTotal < Number(voucher.minOrderAmount)) {
         throw new BadRequestException(
-          `Đơn hàng tối thiểu ${voucher.minOrderAmount.toLocaleString()}đ để dùng voucher này`,
+          `Đơn hàng tối thiểu ${Number(voucher.minOrderAmount).toLocaleString()}đ để dùng voucher này`,
         );
-
-      if (voucher.discountType === 'PERCENT') {
-        discountAmount = (orderTotal * Number(voucher.discountValue)) / 100;
-        if (voucher.maxDiscount)
-          discountAmount = Math.min(discountAmount, Number(voucher.maxDiscount));
-      } else {
-        discountAmount = Number(voucher.discountValue);
       }
-      discountAmount = Math.round(discountAmount);
+
+      if (voucher.discountType === 'PERCENTAGE') {
+        discountAmount = (orderTotal * Number(voucher.discountValue)) / 100;
+        if (voucher.maxDiscount) {
+          discountAmount = Math.min(discountAmount, Number(voucher.maxDiscount));
+        }
+      } else {
+        discountAmount = Math.min(Number(voucher.discountValue), orderTotal);
+      }
+
       appliedPromotionId = voucher.promotionId;
     }
 
-    const totalAmount = subtotalAmount + productAmount - discountAmount;
-    const expiresAt = new Date(now.getTime() + 10 * 60 * 1000);
-    const bookingCode = `BK${Date.now()}`;
+    const totalAmount = Math.max(0, subtotalAmount + productAmount - discountAmount);
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+    const bookingId = uuidv4();
 
     return this.dataSource.transaction(async (manager) => {
       const booking = manager.create(BookingOrder, {
-        bookingCode,
+        bookingId,
+        bookingCode: `BK-${Date.now()}`,
         userId,
         showtimeId,
         promotionId: appliedPromotionId,
         subtotalAmount,
-        productAmount,
         discountAmount,
+        productAmount,
         totalAmount,
         status: 'PENDING_PAYMENT',
-        idempotencyKey: request.idempotencyKey ?? null,
         expiresAt,
       });
-
-      const savedBooking = await manager.save(BookingOrder, booking);
+      await manager.save(BookingOrder, booking);
 
       const details = holds.map((hold) =>
         manager.create(BookingDetail, {
-          bookingId: savedBooking.bookingId,
-          showtimeSeatId: hold.showtimeSeatId,
-          seatPrice: Number(hold.showtimeSeat.price),
-          status: 'ACTIVE',
+          bookingId,
+          showtimeSeatId: hold.showtimeSeat.showtimeSeatId,
+          seatPrice: hold.showtimeSeat.price,
+          status: 'PENDING',
         }),
       );
       await manager.save(BookingDetail, details);
 
-      if (requestedProducts.length > 0) {
-        const bookingProducts = requestedProducts.map((item) => {
+      if (requestedProducts.length) {
+        const combos = requestedProducts.map((item) => {
           const product = products.find((p) => p.comboId === item.productId)!;
           return manager.create(BookingCombo, {
-            bookingId: savedBooking.bookingId,
-            comboId: product.comboId,
+            bookingId,
+            comboId: item.productId,
             quantity: item.quantity,
-            unitPrice: Number(product.price),
+            unitPrice: product.price,
           });
         });
-        await manager.save(BookingCombo, bookingProducts);
+        await manager.save(BookingCombo, combos);
       }
 
-      if (request.voucherCode && appliedPromotionId) {
-        await manager.increment(Voucher, { promotionId: appliedPromotionId }, 'usedCount', 1);
-      }
-
-      for (const hold of holds) {
-        await manager.update(SeatHold, { holdId: hold.holdId }, { status: 'CONFIRMED' });
-        await manager.update(
-          ShowtimeSeat,
-          { showtimeSeatId: hold.showtimeSeatId },
-          {
-            status: 'HELD',
-            heldByUserId: userId,
-            holdExpiresAt: expiresAt,
-          },
-        );
-      }
+      await manager.update(SeatHold, { holdId: In(request.holdIds) }, { status: 'CONVERTED' });
 
       return {
-        bookingId: savedBooking.bookingId,
-        bookingCode: savedBooking.bookingCode,
-        showtimeId,
-        seatCount: holds.length,
-        subtotalAmount,
-        productAmount,
-        discountAmount,
+        bookingId,
+        bookingCode: booking.bookingCode,
         totalAmount,
-        status: savedBooking.status,
-        expiresAt,
+        expiresAt: expiresAt.toISOString(),
+        status: 'PENDING_PAYMENT',
       };
     });
   }
 
   async getMyBookings(userId: number) {
-    const bookings = await this.bookingRepo.find({
+    return this.bookingRepo.find({
       where: { userId },
-      relations: {
-        bookingDetails: {
-          showtimeSeat: {
-            seat: true,
-            showtime: { movie: true, room: { cinema: true } as any } as any,
-          } as any,
-        } as any,
-        payments: true,
-      } as any,
       order: { createdAt: 'DESC' },
-    });
-
-    return bookings.map((b) => {
-      const firstDetail = b.bookingDetails?.[0];
-      const showtimeSeat = firstDetail?.showtimeSeat as any;
-      const showtime = showtimeSeat?.showtime as any;
-      const movie = showtime?.movie as any;
-      const room = showtime?.room as any;
-      const cinema = room?.cinema as any;
-
-      const seatCodes = (b.bookingDetails ?? []).map((d) => {
-        const ss = (d.showtimeSeat as any)?.seat;
-        return ss ? `${ss.rowName ?? ss.seatRow ?? ''}${ss.seatNumber ?? ''}` : '';
-      }).filter(Boolean);
-
-      return {
-        bookingId: b.bookingId,
-        bookingCode: b.bookingCode,
-        movieTitle: movie?.title ?? 'Vé xem phim',
-        cinemaName: cinema?.name ?? null,
-        roomName: room?.name ?? null,
-        showDate: showtime?.showDate
-          ? new Date(showtime.showDate).toLocaleDateString('vi-VN')
-          : null,
-        showTime: showtime?.startTime ?? null,
-        seatCodes,
-        totalAmount: Number(b.totalAmount ?? 0),
-        status: b.status,
-        expiresAt: b.expiresAt ?? null,
-        paidAt: b.paidAt ?? null,
-      };
     });
   }
 
@@ -245,7 +193,14 @@ export class BookingService {
       throw new NotFoundException('Không tìm thấy booking');
     }
 
-    return booking;
+    if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
+      throw new BadRequestException('Booking đã hết hạn');
+    }
+
+    return {
+      ...booking,
+      finalAmount: Number(booking.totalAmount),
+    };
   }
 
   async cancelBooking(bookingId: string, userId: number) {
@@ -262,95 +217,21 @@ export class BookingService {
       throw new NotFoundException('Không tìm thấy booking');
     }
 
-    if (!['PENDING_PAYMENT', 'FAILED'].includes(booking.status)) {
-      throw new BadRequestException('Booking không thể hủy ở trạng thái hiện tại');
+    if (booking.status === 'PAID') {
+      throw new BadRequestException('Không thể hủy booking đã thanh toán');
     }
 
-    return this.dataSource.transaction(async (manager) => {
-      await manager.update(
-        BookingOrder,
-        { bookingId },
-        { status: 'CANCELLED', cancelledAt: new Date() },
+    await this.bookingRepo.update({ bookingId }, { status: 'CANCELLED', cancelledAt: new Date() });
+
+    const showtimeSeatIds = booking.bookingDetails.map((d: any) => d.showtimeSeatId);
+    if (showtimeSeatIds.length) {
+      await this.showtimeSeatRepo.update(
+        { showtimeSeatId: In(showtimeSeatIds) },
+        { status: 'AVAILABLE' },
       );
-
-      for (const detail of booking.bookingDetails) {
-        await manager.update(
-          BookingDetail,
-          { bookingDetailId: detail.bookingDetailId },
-          { status: 'CANCELLED' },
-        );
-        await manager.update(
-          ShowtimeSeat,
-          { showtimeSeatId: detail.showtimeSeatId },
-          { status: 'AVAILABLE', heldByUserId: null, holdExpiresAt: null },
-        );
-      }
-
-      return { success: true, bookingId };
-    });
-  }
-
-  async expirePendingBookings() {
-    const now = new Date();
-    const bookings = await this.bookingRepo.find({
-      where: { status: 'PENDING_PAYMENT' },
-      relations: { bookingDetails: true },
-    });
-    const targets = bookings.filter((b) => b.expiresAt && new Date(b.expiresAt) <= now);
-
-    let expiredCount = 0;
-    for (const booking of targets) {
-      await this.dataSource.transaction(async (manager) => {
-        await manager.update(
-          BookingOrder,
-          { bookingId: booking.bookingId },
-          { status: 'EXPIRED', cancelledAt: now },
-        );
-
-        for (const detail of booking.bookingDetails) {
-          await manager.update(
-            BookingDetail,
-            { bookingDetailId: detail.bookingDetailId },
-            { status: 'EXPIRED' },
-          );
-          await manager.update(
-            ShowtimeSeat,
-            { showtimeSeatId: detail.showtimeSeatId },
-            { status: 'AVAILABLE', heldByUserId: null, holdExpiresAt: null },
-          );
-        }
-      });
-      expiredCount++;
     }
 
-    return { expiredCount };
-  }
-
-  async validateBookingForPayment(bookingId: number | string, userId?: number) {
-    const booking = await this.bookingRepo.findOne({
-      where: {
-        bookingId: String(bookingId),
-        ...(userId !== undefined ? { userId } : {}),
-      },
-      relations: { bookingDetails: true },
-    });
-
-    if (!booking) {
-      throw new NotFoundException('Không tìm thấy booking');
-    }
-
-    if (booking.status !== 'PENDING_PAYMENT') {
-      throw new BadRequestException('Booking không ở trạng thái chờ thanh toán');
-    }
-
-    if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
-      throw new BadRequestException('Booking đã hết hạn');
-    }
-
-    return {
-      ...booking,
-      finalAmount: Number(booking.totalAmount),
-    };
+    return { message: 'Hủy booking thành công', bookingId };
   }
 
   async updateBookingToPaid(bookingId: string) {
@@ -362,5 +243,33 @@ export class BookingService {
         issuedAt: new Date(),
       },
     );
+  }
+
+  // FIX: Thêm method cho route GET /bookings/:id/tickets (MyTicketsPage)
+  async getBookingTickets(bookingId: string, userId: number) {
+    const booking = await this.bookingRepo.findOne({
+      where: { bookingId, userId },
+      relations: {
+        bookingDetails: {
+          showtimeSeat: { seat: true },
+          ticket: true,
+        },
+      } as any,
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Không tìm thấy booking');
+    }
+
+    return booking.bookingDetails.map((detail: any) => ({
+      bookingDetailId: detail.bookingDetailId,
+      seatPrice: Number(detail.seatPrice),
+      status: detail.status,
+      seatRow: detail.showtimeSeat?.seat?.seatRow ?? null,
+      seatNumber: detail.showtimeSeat?.seat?.seatNumber ?? null,
+      seatLabel: detail.showtimeSeat?.seat?.seatLabel ?? null,
+      ticketId: detail.ticket?.ticketId ?? null,
+      qrCode: detail.ticket?.qrCode ?? null,
+    }));
   }
 }
