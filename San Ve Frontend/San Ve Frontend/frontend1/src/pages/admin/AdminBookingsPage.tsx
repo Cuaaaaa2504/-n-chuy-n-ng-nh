@@ -11,7 +11,8 @@ const AdminBookingsPage: React.FC = () => {
     paymentStatus: '',
   });
   const { bookings, loading, error, fetchBookings } = useBookings();
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  // FIX: thêm | undefined vì clearTimeout chấp nhận ReturnType<typeof setTimeout> | undefined
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     clearTimeout(timerRef.current);

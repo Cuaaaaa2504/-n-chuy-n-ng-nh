@@ -14,6 +14,8 @@ interface User {
   email: string;
   phone?: string;
   role?: string;
+  // FIX: thêm avatarUrl vì Navbar.tsx dùng user?.avatarUrl
+  avatarUrl?: string;
 }
 
 interface AuthContextType {

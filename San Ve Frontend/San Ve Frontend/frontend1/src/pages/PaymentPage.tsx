@@ -108,7 +108,8 @@ export default function PaymentPage() {
 
   const handlePay = async () => {
     if (!selectedMethod || !order) return;
-    resetPayment?.();
+    // FIX: resetPayment không phải optional — gọi trực tiếp không cần ?.
+    resetPayment();
 
     if (isLocalMode) {
       await handlePayment({ bookingId: 0, totalAmount: order.totalAmount });
@@ -234,7 +235,8 @@ export default function PaymentPage() {
           </div>
         )}
 
-        {paymentStatus === 'success' && (
+        {/* FIX: paymentStatus là uppercase 'SUCCESS', không phải 'success' */}
+        {paymentStatus === 'SUCCESS' && (
           <div className="rounded-xl px-4 py-3 bg-green-500/10 border border-green-500/20 text-green-500 text-sm font-semibold">
             ✅ Thanh toán thành công!
           </div>
