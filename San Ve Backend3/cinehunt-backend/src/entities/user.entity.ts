@@ -42,7 +42,7 @@ export class User {
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @Column({ name: 'updated_at', type: 'datetime2', precision: 0, nullable: true })
+  @Column({ name: 'updated_at', type: 'datetime2', precision: 0, nullable: true, insert: false, update: false })
   updatedAt: Date | null;
 
   @OneToMany(() => UserRole, (ur) => ur.user)
