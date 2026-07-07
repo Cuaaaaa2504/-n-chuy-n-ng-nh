@@ -35,7 +35,7 @@ export class Movie {
   @Column({ name: 'director', type: 'nvarchar', length: 100, nullable: true })
   director: string | null;
 
-  @Column({ name: 'cast', type: 'nvarchar', nullable: true })
+  @Column({ name: '[cast]', type: 'nvarchar', nullable: true })
   cast: string | null;
 
   @Column({ name: 'release_date', type: 'date', nullable: true })
