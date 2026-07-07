@@ -1,7 +1,7 @@
 // src/pages/PaymentPage.tsx
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom'; // ✅ xóa useSearchParams
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { getOrder, getPaymentMethods, payOrder } from '../api/paymentApi';
 import { usePayment } from '../hooks/usePayment';
@@ -11,7 +11,7 @@ const METHOD_ICONS: Record<string, string> = {
   MOMO: '🟣', VNPAY: '🔵', ZALOPAY: '🔷', CREDIT_CARD: '💳', CASH: '💵',
 };
 
-// ── Countdown hook ─────────────────────────────────────────────────────────
+// ── Countdown hook ─────────────────────────────────────────────────────────────────
 function useCountdown(expiresAt?: string) {
   const [seconds, setSeconds] = useState(() =>
     expiresAt
@@ -32,7 +32,7 @@ function useCountdown(expiresAt?: string) {
   return { seconds, display: `${mm}:${ss}` };
 }
 
-// ── LoadingOverlay ─────────────────────────────────────────────────────────
+// ── LoadingOverlay ─────────────────────────────────────────────────────────────────
 function LoadingOverlay({ isVisible }: { isVisible: boolean }) {
   if (!isVisible) return null;
   return (
@@ -43,12 +43,30 @@ function LoadingOverlay({ isVisible }: { isVisible: boolean }) {
   );
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────
+// ── Build local order từ query params (offline / mock mode) ───────────────────────────
+function buildLocalOrder(searchParams: URLSearchParams): OrderDetail {
+  return {
+    id: 'local',
+    orderCode: `LOCAL-${Date.now()}`,
+    movieTitle: searchParams.get('movie') ?? 'Vé xem phìm',
+    cinemaName: searchParams.get('cinema') ?? undefined,
+    roomName:   searchParams.get('room')   ?? undefined,
+    showDate:   searchParams.get('date')   ?? undefined,
+    showTime:   searchParams.get('time')   ?? undefined,
+    seatCodes:  (searchParams.get('seats') ?? '').split(',').filter(Boolean),
+    totalAmount: Number(searchParams.get('total') ?? 0),
+    status: 'PENDING_PAYMENT',
+  };
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────────────
 export default function PaymentPage() {
   const { orderId } = useParams<{ orderId: string }>();
-  // ✅ XÓA: const [searchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const navigate    = useNavigate();
   const { darkMode } = useTheme();
+
+  const isLocalMode = orderId === 'local';
 
   const [order, setOrder]                       = useState<OrderDetail | null>(null);
   const [methods, setMethods]                   = useState<PaymentMethod[]>([]);
@@ -60,10 +78,20 @@ export default function PaymentPage() {
   const { seconds: countdown, display: countdownDisplay } = useCountdown(order?.expiresAt);
 
   useEffect(() => {
-    if (!orderId) return;
     let cancelled = false;
     (async () => {
       try {
+        // Local/offline mode: build order từ query params, không cần API
+        if (isLocalMode) {
+          const localOrder = buildLocalOrder(searchParams);
+          if (!cancelled) {
+            setOrder(localOrder);
+            setMethods(await getPaymentMethods());
+          }
+          return;
+        }
+
+        if (!orderId) return;
         const [ord, mths] = await Promise.all([getOrder(orderId), getPaymentMethods()]);
         if (cancelled) return;
         setOrder(ord);
@@ -71,13 +99,20 @@ export default function PaymentPage() {
         if (mths.length > 0) setSelectedMethod(mths[0].code);
       } catch (e: unknown) {
         if (!cancelled)
-          setFetchError((e as { message?: string })?.message || 'Không thể tải thông tin đơn hàng.');
+          setFetchError((e as { message?: string })?.message || 'Không thể tải thông tin đặt vé.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [orderId]);
+  }, [orderId, isLocalMode, searchParams]);
+
+  // Lấy payment methods một lần nữa sau khi order được set (local mode)
+  useEffect(() => {
+    if (order && methods.length > 0 && !selectedMethod) {
+      setSelectedMethod(methods[0].code);
+    }
+  }, [order, methods, selectedMethod]);
 
   useEffect(() => {
     if (order?.expiresAt && countdown === 0) {
@@ -86,7 +121,18 @@ export default function PaymentPage() {
   }, [countdown, order?.expiresAt, navigate]);
 
   const handlePay = async () => {
-    if (!orderId || !selectedMethod || !order) return;
+    if (!selectedMethod || !order) return;
+
+    // Local mode → giả lập thanh toán thành công
+    if (isLocalMode) {
+      try {
+        await handlePayment({ bookingId: 0, totalAmount: order.totalAmount });
+        navigate('/my-tickets', { replace: true });
+      } catch { /* error quản lý bởi usePayment */ }
+      return;
+    }
+
+    if (!orderId) return;
     try {
       const result = await payOrder(orderId, selectedMethod);
       if (result.redirectUrl) {
@@ -98,9 +144,7 @@ export default function PaymentPage() {
       try {
         await handlePayment({ bookingId: parseInt(orderId!), totalAmount: order.totalAmount });
         navigate('/my-tickets', { replace: true });
-      } catch {
-        // error quản lý bởi usePayment
-      }
+      } catch { /* error quản lý bởi usePayment */ }
     }
   };
 
@@ -109,7 +153,7 @@ export default function PaymentPage() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center py-20">
-        <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Đang tải thông tin thanh toán…</p>
+        <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -134,7 +178,7 @@ export default function PaymentPage() {
           <div className="text-6xl mb-4">✅</div>
           <h2 className="text-2xl font-bold mb-2">Thanh toán thành công!</h2>
           <p className={`mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            Vé xem phim của bạn đã được đặt thành công.
+            Vé xem phìm của bạn đã được đặt thành công.
           </p>
           <p className="font-mono text-sm mb-6">Mã đơn: {order.orderCode ?? order.id}</p>
           <button
@@ -187,12 +231,18 @@ export default function PaymentPage() {
           </div>
         )}
 
+        {isLocalMode && (
+          <div className="rounded-2xl p-4 mb-5 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm">
+            ℹ️ Đang chạy ở chế độ xem trước (chưa kết nối backend). Thanh toán sẽ được mô phỏng.
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
           <div className={`md:col-span-3 rounded-2xl p-5 ${card}`}>
-            <h2 className="font-bold text-base mb-4">Thông tin đơn hàng</h2>
+            <h2 className="font-bold text-base mb-4">Thông tin đặt vé</h2>
             <div className="space-y-2 text-sm">
               <p>
-                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Phim:</span>
+                <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-2`}>Phìm:</span>
                 <span className="font-semibold">{order.movieTitle}</span>
               </p>
               {order.cinemaName && (
@@ -274,7 +324,7 @@ export default function PaymentPage() {
               darkMode ? 'border-gray-700 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100'
             }`}
           >
-            Huỷ
+            Hủy
           </button>
           <button
             onClick={handlePay}

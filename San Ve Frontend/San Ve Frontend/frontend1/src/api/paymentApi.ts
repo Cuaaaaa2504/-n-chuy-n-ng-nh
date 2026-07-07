@@ -22,26 +22,38 @@ export interface OrderDetail {
   expiresAt?: string;
 }
 
-function normalizeOrder(raw: Record<string, unknown>): OrderDetail {
+function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
+  // Backend trả về BookingOrder entity
+  const details = (raw.bookingDetails ?? []) as Record<string, unknown>[];
+  const seatCodes = details.map((d) => {
+    const seat = (d.showtimeSeat as Record<string, unknown>)?.seat as Record<string, unknown> | undefined;
+    return seat ? `${seat.rowName ?? ''}${seat.seatNumber ?? ''}` : '';
+  }).filter(Boolean);
+
+  const showtime = (raw.showtime ?? details[0]?.showtimeSeat) as Record<string, unknown> | undefined;
+  const movie = showtime?.movie as Record<string, unknown> | undefined;
+
   return {
-    ...(raw as unknown as OrderDetail),
-    id: String(raw.id ?? raw.orderId ?? raw.orderCode ?? ''),
-    orderCode: raw.orderCode as string | undefined,
-    movieTitle: (raw.movieTitle ?? (raw.movie as Record<string, unknown>)?.title ?? 'Đặt vé xem phim') as string,
+    id: String(raw.bookingId ?? raw.id ?? ''),
+    orderCode: (raw.bookingCode ?? raw.orderCode) as string | undefined,
+    movieTitle: (raw.movieTitle ?? movie?.title ?? 'Vé xem phìm') as string,
+    cinemaName: raw.cinemaName as string | undefined,
+    roomName: raw.roomName as string | undefined,
+    showDate: raw.showDate as string | undefined,
+    showTime: raw.showTime as string | undefined,
+    seatCodes,
     totalAmount: Number(raw.totalAmount ?? raw.amount ?? 0),
-    seatCodes: (Array.isArray(raw.seatCodes)
-      ? raw.seatCodes
-      : raw.seats
-        ? (raw.seats as Record<string, unknown>[]).map(s => s.seatCode ?? s.code)
-        : []) as string[],
+    status: (raw.status ?? 'PENDING_PAYMENT') as string,
+    expiresAt: raw.expiresAt as string | undefined,
   };
 }
 
-export async function getOrder(orderId: string): Promise<OrderDetail> {
-  if (!orderId) throw new Error('Thiếu mã đơn hàng');
-  const payload = await axiosClient.get(`/orders/${orderId}`) as Record<string, unknown>;
+/** Lấy thông tin booking theo id — gọi GET /bookings/:id */
+export async function getOrder(bookingId: string): Promise<OrderDetail> {
+  if (!bookingId) throw new Error('Thiếu mã đặt vé');
+  const payload = await axiosClient.get(`/bookings/${bookingId}`) as Record<string, unknown>;
   const raw = (payload.data ?? payload) as Record<string, unknown>;
-  return normalizeOrder(raw);
+  return normalizeBooking(raw);
 }
 
 export async function getPaymentMethods(): Promise<PaymentMethod[]> {
@@ -50,22 +62,26 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
     const list = Array.isArray(payload) ? payload : (payload.data as unknown[] ?? []);
     return list as PaymentMethod[];
   } catch {
+    // Fallback khi backend chưa có endpoint này
     return [
-      { code: 'MOMO', name: 'Ví MoMo' },
-      { code: 'VNPAY', name: 'VNPay' },
-      { code: 'ZALOPAY', name: 'ZaloPay' },
+      { code: 'MOMO',        name: 'Ví MoMo' },
+      { code: 'VNPAY',       name: 'VNPay' },
+      { code: 'ZALOPAY',     name: 'ZaloPay' },
       { code: 'CREDIT_CARD', name: 'Thẻ tín dụng' },
-      { code: 'CASH', name: 'Tiền mặt tại quầy' },
+      { code: 'CASH',        name: 'Tiền mặt tại quầy' },
     ];
   }
 }
 
 export async function payOrder(
-  orderId: string,
-  method: PaymentMethodCode
+  bookingId: string,
+  method: PaymentMethodCode,
 ): Promise<{ redirectUrl?: string; success: boolean }> {
-  if (!orderId) throw new Error('Thiếu mã đơn hàng');
-  const payload = await axiosClient.post(`/orders/${orderId}/pay`, { method }) as Record<string, unknown>;
+  if (!bookingId) throw new Error('Thiếu mã đặt vé');
+  const payload = await axiosClient.post(`/payment/process`, {
+    bookingId,
+    method,
+  }) as Record<string, unknown>;
   return {
     success: true,
     redirectUrl: payload.redirectUrl as string | undefined,

@@ -8,6 +8,7 @@ import { useSeatSelection } from "../hooks/useSeatSelection";
 import { mockMovies } from "../data/mockMovies";
 import { useTheme } from "../context/ThemeContext";
 import type { SeatDto } from "../types/seat.types";
+import axiosClient from "../api/axiosClient";
 
 const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
 const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900";
@@ -57,12 +58,16 @@ export default function SeatBookingPage() {
   const [seats, setSeats]     = useState<SeatDto[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ── Hold state ─────────────────────────────────────────────────────────────
+  // ── Hold state ─────────────────────────────────────────────────────────────────────
   const [holding, setHolding]         = useState(false);
   const [holdMessage, setHoldMessage] = useState("");
   const [holdError, setHoldError]     = useState("");
   const [heldCodes, setHeldCodes]     = useState<string[]>([]);
   const [countdown, setCountdown]     = useState(0);
+
+  // ── Navigating state (khi đang tạo booking) ──────────────────────────────────────────
+  const [navigating, setNavigating]   = useState(false);
+  const [navError, setNavError]       = useState("");
 
   const {
     selectedSeats: selectedSeatIds,
@@ -76,7 +81,7 @@ export default function SeatBookingPage() {
     clearSelectionRef.current = clearSelection;
   });
 
-  // ── Load seats ─────────────────────────────────────────────────────────────
+  // ── Load seats ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const stId = searchParams.get("showtimeId") ?? id ?? undefined;
     let cancelled = false;
@@ -86,6 +91,7 @@ export default function SeatBookingPage() {
       setHeldCodes([]);
       setHoldMessage("");
       setHoldError("");
+      setNavError("");
       setCountdown(0);
       await new Promise<void>((resolve) => setTimeout(resolve, 700));
       if (cancelled) return;
@@ -96,7 +102,7 @@ export default function SeatBookingPage() {
     return () => { cancelled = true; };
   }, [id, searchParams]);
 
-  // ── Countdown timer ────────────────────────────────────────────────────────
+  // ── Countdown timer ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (countdown <= 0) return;
     const timer = setInterval(() => {
@@ -114,7 +120,7 @@ export default function SeatBookingPage() {
     return () => clearInterval(timer);
   }, [countdown]);
 
-  // ── Mock handleHold (thay bằng API call thật khi có backend) ───────────────
+  // ── Mock handleHold ─────────────────────────────────────────────────────────────────
   const handleHold = async () => {
     if (selectedSeats.length === 0) return;
     setHolding(true);
@@ -133,9 +139,78 @@ export default function SeatBookingPage() {
     }
   };
 
-  // ✅ Bỏ useMemo – để React Compiler tự tối ưu, tránh lỗi preserve-manual-memoization
+  // ── Tiếp tục thanh toán: tạo booking trên backend rồi navigate ────────────────────────────────
+  const handleContinueToPayment = async () => {
+    if (selectedSeats.length === 0) return;
+    setNavigating(true);
+    setNavError("");
+
+    const showtimeId = searchParams.get("showtimeId");
+    const date       = searchParams.get("date")   ?? "";
+    const cinema     = searchParams.get("cinema") ?? "";
+    const time       = searchParams.get("time")   ?? "";
+    const room       = searchParams.get("room")   ?? "";
+
+    try {
+      // --- Cố gắng tạo booking thật trên backend ---
+      // Backend yêu cầu holdIds (BIGINT[]) từ bước hold ghế thật.
+      // Hiện tại màn sức ghế dùng mock, nên nếu backend chưa có holdIds
+      // ta fallback sang navigate trực tiếp với params thật.
+      if (showtimeId) {
+        // Có showtimeId thật → thử tạo booking
+        const seatCodes = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`);
+        const res = await axiosClient.post('/bookings', {
+          showtimeId: Number(showtimeId),
+          // holdIds sẽ được thêm khi tích hợp hold API thật
+          holdIds: selectedSeatIds, // tạm dùng seatId — sẽ thay bằng holdId thật
+          totalAmount,
+          seatCodes,
+        }) as Record<string, unknown>;
+
+        const bookingId = (res as Record<string, unknown>).bookingId
+          ?? (res as Record<string, unknown>).id;
+
+        navigate(`/payment/${bookingId}`);
+      } else {
+        // Không có showtimeId thật → truyền toàn bộ thông tin qua query params
+        // để PaymentPage dùng bảng hiển thị tạm (offline mode)
+        const seatCodes = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`).join(",");
+        navigate(
+          `/payment/local?seats=${seatCodes}` +
+          `&total=${totalAmount}` +
+          `&movie=${encodeURIComponent(movie?.title ?? '')}` +
+          `&cinema=${encodeURIComponent(cinema)}` +
+          `&date=${encodeURIComponent(date)}` +
+          `&time=${encodeURIComponent(time)}` +
+          `&room=${encodeURIComponent(room)}`
+        );
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } }; message?: string })
+        ?.response?.data?.message ?? (err as { message?: string })?.message ?? '';
+      // Nếu backend lỗi (chưa có holdId thật) → fallback offline mode
+      const seatCodes = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`).join(",");
+      if (msg && !msg.includes('hold')) {
+        setNavError(`Lỗi: ${msg}`);
+        setNavigating(false);
+        return;
+      }
+      // Fallback: navigate offline
+      navigate(
+        `/payment/local?seats=${seatCodes}` +
+        `&total=${totalAmount}` +
+        `&movie=${encodeURIComponent(movie?.title ?? '')}` +
+        `&cinema=${encodeURIComponent(cinema)}` +
+        `&date=${encodeURIComponent(date)}` +
+        `&time=${encodeURIComponent(time)}` +
+        `&room=${encodeURIComponent(room)}`
+      );
+    }
+  };
+
   const selectedSeats   = getSelectedSeats(seats);
   const totalPrice      = selectedSeats.length * SEAT_PRICE;
+  const totalAmount     = totalPrice;
   const trailerEmbedUrl = movie ? getYoutubeEmbedUrl(movie.trailer_url) : null;
 
   const card = darkMode ? "bg-gray-900 border border-gray-800" : "bg-white shadow";
@@ -144,7 +219,7 @@ export default function SeatBookingPage() {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Không tìm thấy phim</h1>
+          <h1 className="text-3xl font-bold mb-4">Không tìm thấy phìm</h1>
           <button onClick={() => navigate(-1)} className="bg-red-500 text-white px-5 py-2 rounded-lg">
             Quay lại
           </button>
@@ -244,7 +319,7 @@ export default function SeatBookingPage() {
                 </div>
               ) : (
                 <p className={darkMode ? "text-gray-400" : "text-gray-500"}>
-                  Hiện chưa có trailer phù hợp cho phim này.
+                  Hiện chưa có trailer phù hợp cho phìm này.
                 </p>
               )}
             </div>
@@ -309,14 +384,21 @@ export default function SeatBookingPage() {
             />
 
             <div className={`rounded-2xl p-5 ${card}`}>
-              <h3 className="font-bold mb-2">Thông tin phim</h3>
-              <p className="text-sm mb-1"><span className="font-semibold">Tên phim:</span> {movie.title}</p>
+              <h3 className="font-bold mb-2">Thông tin phìm</h3>
+              <p className="text-sm mb-1"><span className="font-semibold">Tên phìm:</span> {movie.title}</p>
               <p className="text-sm mb-1"><span className="font-semibold">Thời lượng:</span> {movie.duration_minutes} phút</p>
               <p className="text-sm mb-1"><span className="font-semibold">Phân loại:</span> {movie.age_rating}</p>
               <p className="text-sm"><span className="font-semibold">Thể loại:</span> {movie.genres.join(", ")}</p>
             </div>
           </div>
         </div>
+
+        {/* Error khi navigate */}
+        {navError && (
+          <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm font-medium">
+            {navError}
+          </div>
+        )}
 
         <div className="mt-6 flex gap-3">
           <button
@@ -326,11 +408,18 @@ export default function SeatBookingPage() {
             Quay lại
           </button>
           <button
-            disabled={selectedSeats.length === 0}
-            onClick={() => navigate(`/payment/${id}?seats=${selectedSeatIds.join(",")}&total=${totalPrice}`)}
-            className="flex-1 px-5 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition"
+            disabled={selectedSeats.length === 0 || navigating}
+            onClick={handleContinueToPayment}
+            className="flex-1 px-5 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
           >
-            Tiếp tục thanh toán ({selectedSeats.length} ghế)
+            {navigating ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Đang xử lý…
+              </>
+            ) : (
+              `Tiếp tục thanh toán (${selectedSeats.length} ghế)`
+            )}
           </button>
         </div>
       </div>
