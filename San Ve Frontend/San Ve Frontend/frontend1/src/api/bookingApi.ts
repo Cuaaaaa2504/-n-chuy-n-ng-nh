@@ -25,7 +25,6 @@ function normalizeTicket(item: Record<string, unknown>): BookingTicket {
 
 export async function getMyBookings(params: { page: number; limit: number }) {
   const payload = await axiosClient.get('/bookings/my', { params }) as Record<string, unknown>;
-  // Sửa: thêm fallback payload.items cho shape { items, total }
   const rawItems = Array.isArray(payload)
     ? payload
     : ((payload.data as unknown[]) ?? (payload.items as unknown[]) ?? []);
@@ -40,6 +39,7 @@ export async function getMyBookings(params: { page: number; limit: number }) {
 
 export async function getBookingTickets(bookingId: string): Promise<BookingTicket[]> {
   if (!bookingId) throw new Error('Thiếu mã booking');
+  // FIX: route đúng là GET /bookings/:id/tickets (booking.controller.ts đã được thêm route này)
   const payload = await axiosClient.get(`/bookings/${bookingId}/tickets`) as Record<string, unknown>;
   const rawItems = Array.isArray(payload)
     ? payload
@@ -49,5 +49,6 @@ export async function getBookingTickets(bookingId: string): Promise<BookingTicke
 
 export async function cancelBooking(bookingId: string) {
   if (!bookingId) throw new Error('Thiếu mã booking');
-  return axiosClient.post(`/bookings/${bookingId}/cancel`);
+  // FIX: backend dùng DELETE /bookings/:id (không có POST /bookings/:id/cancel)
+  return axiosClient.delete(`/bookings/${bookingId}`);
 }
