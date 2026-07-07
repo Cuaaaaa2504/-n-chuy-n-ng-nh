@@ -10,9 +10,8 @@ import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
 import { SeatHold } from '../entities/seat-hold.entity';
-import { Payment } from '../entities/payment.entity';
 import { Voucher } from '../entities/voucher.entity';
-import { ConcessionCombo } from '../entities/concession-combo.entity'; // FIX #1: combo.entity không tồn tại
+import { ConcessionCombo } from '../entities/concession-combo.entity';
 import { BookingCombo } from '../entities/booking-combo.entity';
 import {
   BookingResponse,
@@ -31,11 +30,9 @@ export class BookingService {
     private readonly showtimeSeatRepo: Repository<ShowtimeSeat>,
     @InjectRepository(SeatHold)
     private readonly holdRepo: Repository<SeatHold>,
-    @InjectRepository(Payment)
-    private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Voucher)
     private readonly voucherRepo: Repository<Voucher>,
-    @InjectRepository(ConcessionCombo) // FIX #1: dùng ConcessionCombo thay Combo
+    @InjectRepository(ConcessionCombo)
     private readonly productRepo: Repository<ConcessionCombo>,
     @InjectRepository(BookingCombo)
     private readonly bookingComboRepo: Repository<BookingCombo>,
@@ -161,7 +158,6 @@ export class BookingService {
 
       await manager.update(SeatHold, { holdId: In(request.holdIds) }, { status: 'CONVERTED' });
 
-      // FIX #2: trả đủ tất cả fields của BookingResponse
       return {
         bookingId,
         bookingCode: booking.bookingCode,
@@ -177,7 +173,6 @@ export class BookingService {
     });
   }
 
-  // FIX #4: method required by PaymentService.createPayment()
   async validateBookingForPayment(bookingId: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
       where: { bookingId, userId },
@@ -203,7 +198,6 @@ export class BookingService {
     };
   }
 
-  // FIX #3: method required by BookingExpireScheduler
   async expirePendingBookings(): Promise<{ expiredCount: number }> {
     const now = new Date();
 
