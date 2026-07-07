@@ -1,60 +1,71 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-  OneToMany,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from './user.entity';
+import { Showtime } from './showtime.entity';
 import { BookingDetail } from './booking-detail.entity';
 import { Payment } from './payment.entity';
+import { BookingCombo } from './booking-combo.entity';
 
 @Entity('booking_orders')
 export class BookingOrder {
-  @PrimaryGeneratedColumn({ name: 'booking_id' })
+  @PrimaryGeneratedColumn()
   booking_id: number;
 
-  @Column({ name: 'user_id' })
+  @Column()
   user_id: number;
 
-  @Column({ name: 'showtime_id', nullable: true })
+  @Column()
   showtime_id: number;
 
-  // FIX: đổi name từ 'booking_status' → 'status' để khớp với SQL
-  @Column({ name: 'status', length: 30, default: 'PENDING' })
+  @Column({ default: 'PENDING' })
   status: string;
 
-  @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   total_amount: number;
 
-  @Column({ name: 'discount_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   discount_amount: number;
 
-  @Column({ name: 'final_amount', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   final_amount: number;
 
-  @Column({ name: 'promotion_id', nullable: true })
+  @Column({ nullable: true })
   promotion_id: number;
 
-  @Column({ name: 'notes', type: 'nvarchar', length: 500, nullable: true })
+  @Column({ nullable: true, type: 'nvarchar', length: 500 })
   notes: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn()
   created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn()
   updated_at: Date;
+
+  @Column({ nullable: true })
+  expires_at: Date;
+
+  @Column({ nullable: true, length: 50 })
+  booking_code: string;
+
+  @Column({ nullable: true })
+  paid_at: Date;
+
+  @Column({ nullable: true })
+  cancelled_at: Date;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @OneToMany(() => BookingDetail, (bd) => bd.bookingOrder)
-  bookingDetails: BookingDetail[];
+  @ManyToOne(() => Showtime)
+  @JoinColumn({ name: 'showtime_id' })
+  showtime: Showtime;
 
-  @OneToMany(() => Payment, (p) => p.bookingOrder)
+  @OneToMany(() => BookingDetail, (bd) => bd.booking_order)
+  booking_details: BookingDetail[];
+
+  @OneToMany(() => Payment, (p) => p.booking_order)
   payments: Payment[];
+
+  @OneToMany(() => BookingCombo, (bc) => bc.booking_order)
+  booking_combos: BookingCombo[];
 }
