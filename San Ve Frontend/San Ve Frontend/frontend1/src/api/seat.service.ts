@@ -1,11 +1,20 @@
 // src/api/seat.service.ts
+// ✅ Sử dụng axiosClient (có baseURL + auth interceptor)
+// ✅ URL đúng: /showtime-seats/:showtimeId  (backend: ShowtimeSeatsController @Get(':showtimeId'))
 
-import axios from 'axios';
-import type { SeatDto } from '../types/seat.types'; // ✅ thêm type
+import axiosClient from './axiosClient';
+import type { SeatDto } from '../types/seat.types';
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+interface SeatMapResponse {
+  showtimeId: number;
+  movieTitle: string | null;
+  cinemaName: string | null;
+  roomName: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  seats: SeatDto[];
+}
 
-// ✅ Định nghĩa response types thay cho any
 interface HoldSeatsResponse {
   success: boolean;
   expiresAt?: string;
@@ -20,18 +29,47 @@ interface BookSeatsResponse {
 }
 
 export const seatService = {
+  /**
+   * Lấy sơ đồ ghế theo suất chiếu
+   * Backend route: GET /showtime-seats/:showtimeId
+   */
   getSeatsByShowtime: async (showtimeId: string | number): Promise<SeatDto[]> => {
-    const { data } = await axios.get<SeatDto[]>(`${BASE}/api/showtimes/${showtimeId}/seats`);
-    return data;
+    const data = await axiosClient.get<unknown, SeatMapResponse>(
+      `/showtime-seats/${showtimeId}`,
+    );
+    // axiosClient interceptor trả về response.data trực tiếp
+    return data.seats;
   },
 
-  holdSeats: async (showtimeId: string | number, seatIds: number[]): Promise<HoldSeatsResponse> => { // ✅ thay any
-    const { data } = await axios.post<HoldSeatsResponse>(`${BASE}/api/showtimes/${showtimeId}/hold`, { seatIds });
-    return data;
+  /**
+   * Lấy đầy đủ SeatMapResponse (bao gồm cả movieTitle, roomName...)
+   * Dùng cho trang booking cần hiển thị thông tin suất chiếu
+   */
+  getSeatMap: async (showtimeId: string | number): Promise<SeatMapResponse> => {
+    return axiosClient.get<unknown, SeatMapResponse>(
+      `/showtime-seats/${showtimeId}`,
+    );
   },
 
-  bookSeats: async (showtimeId: string | number, seatIds: number[]): Promise<BookSeatsResponse> => { // ✅ thay any
-    const { data } = await axios.post<BookSeatsResponse>(`${BASE}/api/showtimes/${showtimeId}/book`, { seatIds });
-    return data;
+  holdSeats: async (
+    showtimeId: string | number,
+    seatIds: number[],
+  ): Promise<HoldSeatsResponse> => {
+    return axiosClient.post<unknown, HoldSeatsResponse>(
+      `/showtime-seats/hold`,
+      // Backend: @Post('hold') nhận HoldSeatDto { showtimeSeatId, holdMinutes? }
+      // Nếu cần hold nhiều ghế: POST /showtime-seats/hold-many
+      { showtimeSeatIds: seatIds, showtimeId },
+    );
+  },
+
+  bookSeats: async (
+    showtimeId: string | number,
+    seatIds: number[],
+  ): Promise<BookSeatsResponse> => {
+    return axiosClient.post<unknown, BookSeatsResponse>(
+      `/showtime-seats/book`,
+      { showtimeSeatIds: seatIds, showtimeId },
+    );
   },
 };
