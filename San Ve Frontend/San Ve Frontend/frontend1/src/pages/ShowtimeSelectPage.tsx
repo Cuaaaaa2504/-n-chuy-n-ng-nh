@@ -128,8 +128,7 @@ export default function ShowtimeSelectPage() {
   const [allShowtimes, setAllShowtimes]         = useState<Showtime[]>([]);
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
   const [selectedDate, setSelectedDate]         = useState<string | null>(null);
-  // FIX TS6133: đổi tên thành _selectedCinemaId để ESLint/TS biết là intentionally unused
-  const [selectedCinemaId, _setSelectedCinemaId] = useState<number | null>(null);
+  // FIX: xóa selectedCinemaId state (chưa dùng) — filter cinema sẽ implement sau
   const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
 
   const movieIdRef = useRef(movieId);
@@ -195,12 +194,10 @@ export default function ShowtimeSelectPage() {
   }, [movieId]);
 
   const filtered = useMemo(() => {
-    let list = allShowtimes.filter((s) =>
+    return allShowtimes.filter((s) =>
       selectedDate ? s.startTime.startsWith(selectedDate) : true
     );
-    if (selectedCinemaId) list = list.filter((s) => s.cinemaId === selectedCinemaId);
-    return list;
-  }, [allShowtimes, selectedDate, selectedCinemaId]);
+  }, [allShowtimes, selectedDate]);
 
   const groupedByCinema = useMemo(() => {
     const map: Record<string, Showtime[]> = {};
