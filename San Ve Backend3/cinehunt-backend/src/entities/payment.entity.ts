@@ -26,14 +26,20 @@ export class Payment {
   @Column({ name: 'amount', type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
-  @Column({ name: 'transaction_code', type: 'varchar', length: 60, nullable: true })
+  @Column({ name: 'transaction_code', type: 'varchar', length: 150, nullable: true })
   transactionCode: string | null;
+
+  @Column({ name: 'request_id', type: 'varchar', length: 100, nullable: true })
+  requestId: string | null;
 
   @Column({ name: 'payment_status', type: 'varchar', length: 20, default: 'PENDING' })
   paymentStatus: string;
 
   @Column({ name: 'provider_response', type: 'nvarchar', nullable: true })
   providerResponse: string | null;
+
+  @Column({ name: 'failed_reason', type: 'nvarchar', length: 500, nullable: true })
+  failedReason: string | null;
 
   @Column({ name: 'paid_at', type: 'datetime2', precision: 0, nullable: true })
   paidAt: Date | null;
