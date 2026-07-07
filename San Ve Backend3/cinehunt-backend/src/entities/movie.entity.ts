@@ -35,10 +35,12 @@ export class Movie {
   @Column({ name: 'director', type: 'nvarchar', length: 100, nullable: true })
   director: string | null;
 
-  // FIX: bỏ dấu ngoặc [] — TypeORM SQL Server driver tự quote reserved keyword 'cast'
-  // Giữ nguyên là 'cast' (không có brackets), TypeORM sẽ generate: [cast] trong SQL
-  @Column({ name: 'cast', type: 'nvarchar', nullable: true })
-  cast: string | null;
+  // 'cast' là reserved keyword của SQL Server, TypeORM không tự escape nó.
+  // FIX: đổi tên cột DB thành movie_cast (chạy SQL bên dưới), property giữ là movieCast.
+  // SQL cần chạy 1 lần trong SSMS:
+  // EXEC sp_rename 'movies.cast', 'movie_cast', 'COLUMN';
+  @Column({ name: 'movie_cast', type: 'nvarchar', nullable: true })
+  movieCast: string | null;
 
   @Column({ name: 'release_date', type: 'date', nullable: true })
   releaseDate: Date | null;
