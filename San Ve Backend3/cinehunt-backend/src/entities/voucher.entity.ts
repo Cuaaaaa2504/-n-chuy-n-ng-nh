@@ -9,48 +9,50 @@ import {
 @Entity('promotions')
 export class Voucher {
   @PrimaryGeneratedColumn({ name: 'promotion_id' })
-  promotion_id: number;
+  promotionId: number;
 
   @Column({ name: 'promotion_name', length: 150 })
-  promotion_name: string;
+  promotionName: string;
 
   @Column({ name: 'promotion_code', length: 50, unique: true })
-  promotion_code: string;
+  promotionCode: string;
 
   @Column({ name: 'discount_type', length: 20 })
-  discount_type: string;
+  discountType: string;
 
   @Column({ name: 'discount_value', type: 'decimal', precision: 10, scale: 2 })
-  discount_value: number;
+  discountValue: number;
 
+  // SQL: max_discount_amount
   @Column({ name: 'max_discount_amount', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  max_discount_amount: number;
+  maxDiscount: number | null;
 
   @Column({ name: 'min_order_amount', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  min_order_amount: number;
+  minOrderAmount: number | null;
 
   @Column({ name: 'usage_limit', nullable: true })
-  usage_limit: number;
+  usageLimit: number | null;
 
   @Column({ name: 'used_count', default: 0 })
-  used_count: number;
+  usedCount: number;
 
+  // SQL: start_date DATE
   @Column({ name: 'start_date', type: 'date', nullable: true })
-  start_date: string;
+  startAt: string | null;
 
+  // SQL: end_date DATE
   @Column({ name: 'end_date', type: 'date', nullable: true })
-  end_date: string;
+  endAt: string | null;
 
-  // FIX: đổi name từ 'voucher_status' → 'status' để khớp với cột status trong SQL
   @Column({ name: 'status', length: 20, default: 'ACTIVE' })
   status: string;
 
   @Column({ name: 'description', type: 'nvarchar', length: 'max', nullable: true })
-  description: string;
+  description: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
-  created_at: Date;
+  createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updated_at: Date;
+  updatedAt: Date;
 }

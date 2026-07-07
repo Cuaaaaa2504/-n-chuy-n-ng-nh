@@ -23,7 +23,7 @@ export class VoucherService {
       where: { promotionCode: code.toUpperCase() },
     });
     if (!voucher)
-      throw new NotFoundException(`Voucher '${code}' không tồn tại`);
+      throw new NotFoundException(`Voucher '${code}' kh\u00f4ng t\u1ed3n t\u1ea1i`);
     return voucher;
   }
 
@@ -34,22 +34,25 @@ export class VoucherService {
 
   validate(voucher: Voucher, orderAmount: number) {
     const now = new Date();
-    if (now < voucher.startAt)
-      throw new BadRequestException('Voucher chưa đến thời gian sử dụng');
-    if (now > voucher.endAt)
-      throw new BadRequestException('Voucher đã hết hạn');
+    const startDate = voucher.startAt ? new Date(voucher.startAt) : null;
+    const endDate = voucher.endAt ? new Date(voucher.endAt) : null;
+
+    if (startDate && now < startDate)
+      throw new BadRequestException('Voucher ch\u01b0a \u0111\u1ebfn th\u1eddi gian s\u1eed d\u1ee5ng');
+    if (endDate && now > endDate)
+      throw new BadRequestException('Voucher \u0111\u00e3 h\u1ebft h\u1ea1n');
     if (voucher.usageLimit && voucher.usedCount >= voucher.usageLimit)
-      throw new BadRequestException('Voucher đã hết lượt sử dụng');
+      throw new BadRequestException('Voucher \u0111\u00e3 h\u1ebft l\u01b0\u1ee3t s\u1eed d\u1ee5ng');
     if (
       voucher.minOrderAmount &&
       orderAmount < Number(voucher.minOrderAmount)
     )
       throw new BadRequestException(
-        `Đơn hàng tối thiểu ${voucher.minOrderAmount.toLocaleString()}đ để dùng voucher này`,
+        `\u0110\u01a1n h\u00e0ng t\u1ed1i thi\u1ec3u ${Number(voucher.minOrderAmount).toLocaleString()}\u0111 \u0111\u1ec3 d\u00f9ng voucher n\u00e0y`,
       );
 
     let discount = 0;
-    if (voucher.discountType === 'PERCENT') {
+    if (voucher.discountType === 'PERCENT' || voucher.discountType === 'PERCENTAGE') {
       discount = (orderAmount * Number(voucher.discountValue)) / 100;
       if (voucher.maxDiscount)
         discount = Math.min(discount, Number(voucher.maxDiscount));
@@ -66,7 +69,6 @@ export class VoucherService {
     };
   }
 
-  // FIX: sau khi validate và áp dụng voucher, tăng usedCount
   async applyVoucher(code: string, orderAmount: number) {
     const voucher = await this.findByCode(code);
     const result = this.validate(voucher, orderAmount);
@@ -78,7 +80,7 @@ export class VoucherService {
     const existing = await this.voucherRepo.findOne({
       where: { promotionCode: dto.code.toUpperCase() },
     });
-    if (existing) throw new BadRequestException('Mã voucher đã tồn tại');
+    if (existing) throw new BadRequestException('M\u00e3 voucher \u0111\u00e3 t\u1ed3n t\u1ea1i');
     const data: any = { promotionCode: dto.code.toUpperCase(), ...dto };
     const voucher = this.voucherRepo.create(data as unknown as Voucher);
     return this.voucherRepo.save(voucher);
@@ -88,7 +90,7 @@ export class VoucherService {
     const voucher = await this.voucherRepo.findOne({
       where: { promotionId: id },
     });
-    if (!voucher) throw new NotFoundException(`Voucher #${id} không tồn tại`);
+    if (!voucher) throw new NotFoundException(`Voucher #${id} kh\u00f4ng t\u1ed3n t\u1ea1i`);
     return voucher;
   }
 

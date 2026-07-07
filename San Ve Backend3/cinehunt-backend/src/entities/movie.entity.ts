@@ -11,56 +11,61 @@ import {
 import { Showtime } from './showtime.entity';
 import { Genre } from './genre.entity';
 
+export enum MovieStatus {
+  NOW_SHOWING = 'NOW_SHOWING',
+  COMING_SOON = 'COMING_SOON',
+  ENDED = 'ENDED',
+}
+
 @Entity('movies')
 export class Movie {
   @PrimaryGeneratedColumn({ name: 'movie_id' })
-  movie_id: number;
+  movieId: number;
 
   @Column({ name: 'title', length: 200 })
   title: string;
 
   @Column({ name: 'description', type: 'nvarchar', length: 'max', nullable: true })
-  description: string;
+  description: string | null;
 
   @Column({ name: 'duration_minutes', nullable: true })
-  duration_minutes: number;
+  durationMinutes: number | null;
 
   @Column({ name: 'release_date', type: 'date', nullable: true })
-  release_date: string;
+  releaseDate: string | null;
 
   @Column({ name: 'age_rating', length: 10, nullable: true })
-  age_rating: string;
+  ageRating: string | null;
 
   @Column({ name: 'poster_url', length: 500, nullable: true })
-  poster_url: string;
+  posterUrl: string | null;
 
   @Column({ name: 'backdrop_url', length: 500, nullable: true })
-  backdrop_url: string;
+  backdropUrl: string | null;
 
   @Column({ name: 'trailer_url', length: 500, nullable: true })
-  trailer_url: string;
+  trailerUrl: string | null;
 
   @Column({ name: 'language', length: 50, nullable: true })
-  language: string;
+  language: string | null;
 
   @Column({ name: 'director', length: 200, nullable: true })
-  director: string;
+  director: string | null;
 
-  // FIX: đổi name từ 'movie_cast' → 'cast_members' để khớp với SQL (cột cast_members)
   @Column({ name: 'cast_members', type: 'nvarchar', length: 'max', nullable: true })
-  cast_members: string;
+  castMembers: string | null;
 
-  @Column({ name: 'status', length: 20, default: 'NOW_SHOWING', nullable: true })
-  status: string;
+  @Column({ name: 'status', length: 20, default: MovieStatus.NOW_SHOWING, nullable: true })
+  status: string | null;
 
   @Column({ name: 'rating', type: 'decimal', precision: 3, scale: 1, nullable: true })
-  rating: number;
+  rating: number | null;
 
   @CreateDateColumn({ name: 'created_at' })
-  created_at: Date;
+  createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updated_at: Date;
+  updatedAt: Date;
 
   @OneToMany(() => Showtime, (s) => s.movie)
   showtimes: Showtime[];
