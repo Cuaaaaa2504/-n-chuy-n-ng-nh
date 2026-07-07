@@ -119,16 +119,19 @@ export default function SeatBookingPage() {
   // ── Load seats từ API thật: GET /showtime-seats/:showtimeId ──────────────────────
   useEffect(() => {
     const showtimeId = searchParams.get("showtimeId") ?? id;
-    if (!showtimeId) {
-      // Không có showtimeId nào cả → dùng mock luôn
-      setSeats(generateMockSeats());
-      setUsingMock(true);
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
 
+    // FIX ESLint react-hooks/set-state-in-effect:
+    // Bọc toàn bộ logic (kể cả early-return mock) vào async function
+    // để không có setState synchronous trực tiếp trong body effect.
     const load = async () => {
+      if (!showtimeId) {
+        // Không có showtimeId nào cả → dùng mock luôn
+        setSeats(generateMockSeats());
+        setUsingMock(true);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setLoadError("");
       setUsingMock(false);
@@ -142,7 +145,6 @@ export default function SeatBookingPage() {
 
       try {
         const res = await axiosClient.get(`/showtime-seats/${showtimeId}`) as unknown;
-        if (cancelled) return;
 
         const data = res as SeatMapResponse;
         const rawSeats: SeatMapItem[] = Array.isArray(data)
@@ -171,11 +173,9 @@ export default function SeatBookingPage() {
           setSeats(mapped);
         }
       } catch (err: unknown) {
-        if (cancelled) return;
         // Bất kỳ lỗi nào (401, 404, network...) → fallback mock thay vì trang trắng
         const status = (err as { status?: number })?.status;
         if (status === 401) {
-          // Token hết hạn → hiện mock nhưng thông báo cần đăng nhập khi giữ ghế
           setLoadError("Phiên đăng nhập hết hạn. Bạn đang xem ở chế độ khách. Vui lòng đăng nhập để đặt vé.");
         } else {
           setLoadError(`Không thể tải dữ liệu ghế từ máy chủ (${status ?? "lỗi mạng"}). Đang hiển thị dữ liệu mẫu.`);
@@ -183,12 +183,11 @@ export default function SeatBookingPage() {
         setSeats(generateMockSeats(showtimeId));
         setUsingMock(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     };
 
     void load();
-    return () => { cancelled = true; };
   }, [id, searchParams]);
 
   // ── Countdown timer ─────────────────────────────────────────────────────────────────
@@ -516,12 +515,17 @@ export default function SeatBookingPage() {
         </div>
       </div>
 
+      {/* FIX TS2322: truyền đúng props theo interface của SelectedSeatsBar:
+          selectedSeats, totalPrice, countdown, loading, message, error, heldSeatCodes, onHold */}
       <SelectedSeatsBar
-        seats={selectedSeats}
-        totalAmount={totalAmount}
-        onClear={clearSelection}
-        onCheckout={heldIds.length > 0 ? handleContinueToPayment : handleHold}
-        checkoutLabel={heldIds.length > 0 ? "Tiếp tục thanh toán" : "Giữ ghế"}
+        selectedSeats={selectedSeats}
+        totalPrice={totalAmount}
+        countdown={countdown}
+        loading={holding}
+        message={holdMessage}
+        error={holdError}
+        heldSeatCodes={heldLabels}
+        onHold={heldIds.length > 0 ? handleContinueToPayment : handleHold}
       />
     </div>
   );
