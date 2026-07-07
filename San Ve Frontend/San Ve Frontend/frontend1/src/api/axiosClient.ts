@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  // Sửa fallback: port 3000 → 3002 (khớp với PORT=3002 trong backend .env)
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api',
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
