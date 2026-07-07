@@ -14,7 +14,6 @@ const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900"
 const MAX_SEATS    = 8;
 const HOLD_SECONDS = 300;
 
-// ── Kiểu nội bộ dùng trong SeatBookingPage (khác với Seat của useSeatHold) ──
 interface BookingSeat {
   id: string;
   row: string;
@@ -22,7 +21,6 @@ interface BookingSeat {
   type: string;
   price: number;
   status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED';
-  // thêm seatId và seatCode để tương thích với SelectedSeatsBar (Seat type)
   seatId: string;
   seatCode: string;
 }
@@ -50,8 +48,8 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
 
 function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
-  // FIX no-useless-escape: bỏ escape thừa trước dấu chấm trong character class
-  const m = url.match(/(?:v=|youtu\.be\/)([\.\w-]{11})/);
+  // FIX no-useless-escape: dấu chấm trong [...] là literal, không cần escape
+  const m = url.match(/(?:v=|youtu\.be\/)([.\w-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
 }
 
@@ -92,7 +90,6 @@ interface MovieInfo {
   duration_minutes?: number;
 }
 
-// FIX: type cụ thể cho response giữ ghế, tránh any
 interface HoldResponse {
   holdIds?: number[];
   data?: { holdIds?: number[] } | number[];
@@ -179,10 +176,7 @@ export default function SeatBookingPage() {
         const raw = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`);
         const data: SeatMapResponse = ((raw as unknown) as { data: SeatMapResponse })?.data ?? (raw as unknown as SeatMapResponse);
 
-        const seatList: SeatDto[] =
-          data.seats ??
-          data.data?.seats ??
-          [];
+        const seatList: SeatDto[] = data.seats ?? data.data?.seats ?? [];
 
         const movieTitle = data.movieTitle ?? data.data?.movieTitle ?? null;
         const cinemaName = data.cinemaName ?? data.data?.cinemaName ?? qCinema ?? null;
@@ -190,14 +184,7 @@ export default function SeatBookingPage() {
         const showDate   = data.showDate   ?? data.data?.showDate   ?? qDate   ?? null;
         const showTime   = data.showTime   ?? data.data?.showTime   ?? qTime   ?? null;
 
-        setShowtimeInfo({
-          showtimeId: Number(showtimeId),
-          movieTitle,
-          cinemaName,
-          roomName,
-          showDate,
-          showTime,
-        });
+        setShowtimeInfo({ showtimeId: Number(showtimeId), movieTitle, cinemaName, roomName, showDate, showTime });
 
         if (seatList.length === 0) {
           setSeats(generateMockSeats(showtimeId));
@@ -224,22 +211,12 @@ export default function SeatBookingPage() {
           } catch {
             if (!movieSetRef.current) {
               movieSetRef.current = true;
-              setMovie({
-                movie_id: Number(movieId),
-                title: movieTitle ?? 'Đang tải...',
-                poster_url: FALLBACK_POSTER,
-                backdrop_url: FALLBACK_BACKDROP,
-              });
+              setMovie({ movie_id: Number(movieId), title: movieTitle ?? 'Đang tải...', poster_url: FALLBACK_POSTER, backdrop_url: FALLBACK_BACKDROP });
             }
           }
         } else if (movieTitle && !movieSetRef.current) {
           movieSetRef.current = true;
-          setMovie({
-            movie_id: Number(showtimeId),
-            title: movieTitle,
-            poster_url: FALLBACK_POSTER,
-            backdrop_url: FALLBACK_BACKDROP,
-          });
+          setMovie({ movie_id: Number(showtimeId), title: movieTitle, poster_url: FALLBACK_POSTER, backdrop_url: FALLBACK_BACKDROP });
         }
 
       } catch (err: unknown) {
@@ -253,12 +230,7 @@ export default function SeatBookingPage() {
         setUsingMock(true);
         if (!movieSetRef.current) {
           movieSetRef.current = true;
-          setMovie({
-            movie_id: Number(movieId ?? 0),
-            title: searchParams.get('title') ?? 'Chọn ghế',
-            poster_url: FALLBACK_POSTER,
-            backdrop_url: FALLBACK_BACKDROP,
-          });
+          setMovie({ movie_id: Number(movieId ?? 0), title: searchParams.get('title') ?? 'Chọn ghế', poster_url: FALLBACK_POSTER, backdrop_url: FALLBACK_BACKDROP });
         }
       } finally {
         setLoading(false);
@@ -325,27 +297,19 @@ export default function SeatBookingPage() {
       const selectedSeats: BookingSeat[] = Array.from(selectedIds).map((sid) => {
         const s = seats.find((seat) => String(seat.id) === sid);
         return {
-          id:       sid,
-          row:      s?.rowName ?? sid[0],
-          number:   s?.seatNumber ?? parseInt(sid.slice(1)),
-          type:     s?.type ?? 'STANDARD',
-          price:    s?.price ?? 90_000,
-          status:   (s?.status ?? 'AVAILABLE') as BookingSeat['status'],
-          seatId:   sid,
-          seatCode: `${s?.rowName ?? sid[0]}${s?.seatNumber ?? sid.slice(1)}`,
+          id: sid, row: s?.rowName ?? sid[0], number: s?.seatNumber ?? parseInt(sid.slice(1)),
+          type: s?.type ?? 'STANDARD', price: s?.price ?? 90_000,
+          status: (s?.status ?? 'AVAILABLE') as BookingSeat['status'],
+          seatId: sid, seatCode: `${s?.rowName ?? sid[0]}${s?.seatNumber ?? sid.slice(1)}`,
         };
       });
-
       const params = new URLSearchParams({
-        seats:      JSON.stringify(selectedSeats),
-        showtimeId: showtimeId ?? '',
-        movieId:    movieId ?? '',
-        movieTitle: movie?.title ?? '',
-        posterUrl:  movie?.poster_url ?? '',
-        cinema:     showtimeInfo?.cinemaName ?? searchParams.get('cinema') ?? '',
-        room:       showtimeInfo?.roomName   ?? searchParams.get('room')   ?? '',
-        date:       showtimeInfo?.showDate   ?? searchParams.get('date')   ?? '',
-        time:       showtimeInfo?.showTime   ?? searchParams.get('time')   ?? '',
+        seats: JSON.stringify(selectedSeats), showtimeId: showtimeId ?? '',
+        movieId: movieId ?? '', movieTitle: movie?.title ?? '', posterUrl: movie?.poster_url ?? '',
+        cinema: showtimeInfo?.cinemaName ?? searchParams.get('cinema') ?? '',
+        room:   showtimeInfo?.roomName   ?? searchParams.get('room')   ?? '',
+        date:   showtimeInfo?.showDate   ?? searchParams.get('date')   ?? '',
+        time:   showtimeInfo?.showTime   ?? searchParams.get('time')   ?? '',
       });
       navigate(`/payment?${params.toString()}`);
     } catch {
@@ -358,14 +322,10 @@ export default function SeatBookingPage() {
   const selectedSeatsData: BookingSeat[] = Array.from(selectedIds).map((sid) => {
     const s = seats.find((seat) => String(seat.id) === sid);
     return {
-      id:       sid,
-      row:      s?.rowName ?? sid[0],
-      number:   s?.seatNumber ?? parseInt(sid.slice(1)),
-      type:     s?.type ?? 'STANDARD',
-      price:    s?.price ?? 90_000,
-      status:   (s?.status ?? 'AVAILABLE') as BookingSeat['status'],
-      seatId:   sid,
-      seatCode: `${s?.rowName ?? sid[0]}${s?.seatNumber ?? sid.slice(1)}`,
+      id: sid, row: s?.rowName ?? sid[0], number: s?.seatNumber ?? parseInt(sid.slice(1)),
+      type: s?.type ?? 'STANDARD', price: s?.price ?? 90_000,
+      status: (s?.status ?? 'AVAILABLE') as BookingSeat['status'],
+      seatId: sid, seatCode: `${s?.rowName ?? sid[0]}${s?.seatNumber ?? sid.slice(1)}`,
     };
   });
 
@@ -380,41 +340,26 @@ export default function SeatBookingPage() {
     );
   }
 
-  const bg     = darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900';
-  const card   = darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow';
-  const muted  = darkMode ? 'text-gray-400' : 'text-gray-500';
+  const bg   = darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900';
+  const card = darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow';
+  const muted = darkMode ? 'text-gray-400' : 'text-gray-500';
 
   return (
     <div className={`min-h-screen ${bg} pb-40`}>
-
-      {/* ── Backdrop ──────────────────────────────────────────────────── */}
       {movie?.backdrop_url && (
         <div className="relative w-full h-48 md:h-64 overflow-hidden">
-          <img
-            src={movie.backdrop_url}
-            alt=""
-            className="w-full h-full object-cover opacity-30"
-          />
+          <img src={movie.backdrop_url} alt="" className="w-full h-full object-cover opacity-30" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-950" />
         </div>
       )}
-
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-
-        {/* ── Movie header ──────────────────────────────────────────── */}
         {movie && (
           <div className="flex gap-4 items-start">
-            <img
-              src={movie.poster_url ?? FALLBACK_POSTER}
-              alt={movie.title}
-              className="w-20 md:w-28 rounded-xl shadow-lg flex-shrink-0"
-            />
+            <img src={movie.poster_url ?? FALLBACK_POSTER} alt={movie.title} className="w-20 md:w-28 rounded-xl shadow-lg flex-shrink-0" />
             <div>
               <h1 className="text-xl md:text-2xl font-bold">{movie.title}</h1>
               {movie.age_rating && (
-                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-red-600 text-white font-semibold">
-                  {movie.age_rating}
-                </span>
+                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-red-600 text-white font-semibold">{movie.age_rating}</span>
               )}
               {movie.duration_minutes ? (
                 <p className={`text-sm mt-1 ${muted}`}>{movie.duration_minutes} phút</p>
@@ -422,8 +367,6 @@ export default function SeatBookingPage() {
             </div>
           </div>
         )}
-
-        {/* ── Showtime info bar ─────────────────────────────────────── */}
         {showtimeInfo && (
           <div className={`rounded-xl px-4 py-3 flex flex-wrap gap-3 text-sm ${card}`}>
             {showtimeInfo.cinemaName && <span>🏢 {showtimeInfo.cinemaName}</span>}
@@ -432,30 +375,10 @@ export default function SeatBookingPage() {
             {showtimeInfo.showTime   && <span>🕐 {showtimeInfo.showTime}</span>}
           </div>
         )}
-
-        {/* ── Warnings ──────────────────────────────────────────────── */}
-        {error && (
-          <div className="rounded-xl px-4 py-3 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm">
-            ⚠️ {error}
-          </div>
-        )}
-        {usingMock && (
-          <div className="rounded-xl px-4 py-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm">
-            ℹ️ Đang hiển thị sơ đồ ghế mẫu.
-          </div>
-        )}
-        {holdError && (
-          <div className="rounded-xl px-4 py-3 bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm">
-            ⚠️ {holdError}
-          </div>
-        )}
-        {navError && (
-          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-            ❌ {navError}
-          </div>
-        )}
-
-        {/* ── Seat map ──────────────────────────────────────────────── */}
+        {error && <div className="rounded-xl px-4 py-3 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm">⚠️ {error}</div>}
+        {usingMock && <div className="rounded-xl px-4 py-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm">ℹ️ Đang hiển thị sơ đồ ghế mẫu.</div>}
+        {holdError && <div className="rounded-xl px-4 py-3 bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm">⚠️ {holdError}</div>}
+        {navError  && <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">❌ {navError}</div>}
         <div className={`rounded-2xl p-4 md:p-6 ${card}`}>
           <h2 className="text-base font-semibold mb-4">Chọn ghế (tối đa {MAX_SEATS})</h2>
           <SeatMap
@@ -465,32 +388,20 @@ export default function SeatBookingPage() {
             heldIds={new Set(heldIds.map(String))}
           />
         </div>
-
-        {/* ── Trailer ───────────────────────────────────────────────── */}
         {embedUrl && (
           <div className={`rounded-2xl overflow-hidden ${card}`}>
             <p className="px-4 pt-4 text-sm font-semibold">🎬 Trailer</p>
             <div className="aspect-video mt-2">
-              <iframe
-                src={embedUrl}
-                className="w-full h-full"
-                allowFullScreen
-                title="Trailer"
-              />
+              <iframe src={embedUrl} className="w-full h-full" allowFullScreen title="Trailer" />
             </div>
           </div>
         )}
       </div>
-
-      {/* ── Bottom bar ────────────────────────────────────────────────── */}
       <SelectedSeatsBar
-        seats={selectedSeatsData}
-        totalPrice={totalPrice}
+        seats={selectedSeatsData} totalPrice={totalPrice}
         holdCountdown={heldIds.length > 0 ? holdCountdown : null}
-        onHold={handleHoldSeats}
-        onProceed={handleProceed}
-        holding={holding}
-        navigating={navigating}
+        onHold={handleHoldSeats} onProceed={handleProceed}
+        holding={holding} navigating={navigating}
       />
     </div>
   );
