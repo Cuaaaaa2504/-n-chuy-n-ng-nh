@@ -1,29 +1,46 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  OneToOne,
+  CreateDateColumn,
+} from 'typeorm';
 import { BookingOrder } from './booking-order.entity';
 import { ShowtimeSeat } from './showtime-seat.entity';
+import { Ticket } from './ticket.entity';
 
 @Entity('booking_details')
 export class BookingDetail {
-  @PrimaryGeneratedColumn()
-  booking_detail_id: number;
+  // SQL: booking_detail_id BIGINT IDENTITY
+  @PrimaryGeneratedColumn({ type: 'bigint', name: 'booking_detail_id' })
+  bookingDetailId: string;
 
-  @Column()
-  booking_id: number;
+  @Column({ name: 'booking_id', type: 'bigint' })
+  bookingId: string;
 
-  @Column()
-  showtime_seat_id: number;
+  @Column({ name: 'showtime_seat_id', type: 'int' })
+  showtimeSeatId: number;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
-  seat_price: number;
+  @Column({ name: 'seat_price', type: 'decimal', precision: 12, scale: 2 })
+  seatPrice: number;
 
-  @Column({ nullable: true, length: 20 })
-  ticket_code: string;
+  // SQL: status CHECK('ACTIVE','CANCELLED','EXPIRED') — entity cũ thiếu cột này
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
+  status: string;
 
-  @ManyToOne(() => BookingOrder, (booking) => booking.booking_details)
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
+  createdAt: Date;
+
+  @ManyToOne(() => BookingOrder, (booking) => booking.bookingDetails)
   @JoinColumn({ name: 'booking_id' })
-  booking_order: BookingOrder;
+  bookingOrder: BookingOrder;
 
   @ManyToOne(() => ShowtimeSeat)
   @JoinColumn({ name: 'showtime_seat_id' })
-  showtime_seat: ShowtimeSeat;
+  showtimeSeat: ShowtimeSeat;
+
+  @OneToOne(() => Ticket, (ticket) => ticket.bookingDetail)
+  ticket: Ticket;
 }

@@ -10,23 +10,28 @@ import { BookingDetail } from './booking-detail.entity';
 
 @Entity('tickets')
 export class Ticket {
+  // SQL: ticket_id BIGINT IDENTITY
   @PrimaryGeneratedColumn({ type: 'bigint', name: 'ticket_id' })
   ticketId: string;
 
   @Column({ name: 'booking_detail_id', type: 'bigint', unique: true })
   bookingDetailId: string;
 
-  @Column({ name: 'ticket_code', type: 'varchar', length: 40, unique: true })
+  // SQL: ticket_code VARCHAR(60) — entity cũ dùng length: 40 sai
+  @Column({ name: 'ticket_code', type: 'varchar', length: 60, unique: true })
   ticketCode: string;
 
-  @Column({ name: 'qr_code', type: 'varchar', length: 255, nullable: true })
-  qrCode: string | null;
+  // SQL: qr_code VARCHAR(500) NOT NULL — entity cũ nullable: true là sai
+  @Column({ name: 'qr_code', type: 'varchar', length: 500 })
+  qrCode: string;
 
+  // SQL CHECK: ('VALID','USED','CANCELLED','EXPIRED')
   @Column({ name: 'ticket_status', type: 'varchar', length: 20, default: 'VALID' })
   ticketStatus: string;
 
-  @Column({ name: 'issued_at', type: 'datetime2', precision: 0, nullable: true })
-  issuedAt: Date | null;
+  // SQL: issued_at DATETIME2(0) NOT NULL DEFAULT SYSDATETIME() — entity cũ nullable sai
+  @CreateDateColumn({ name: 'issued_at', type: 'datetime2', precision: 0 })
+  issuedAt: Date;
 
   @Column({ name: 'checked_in_at', type: 'datetime2', precision: 0, nullable: true })
   checkedInAt: Date | null;

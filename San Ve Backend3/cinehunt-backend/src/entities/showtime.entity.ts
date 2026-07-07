@@ -14,36 +14,38 @@ import { ShowtimeSeat } from './showtime-seat.entity';
 
 @Entity('showtimes')
 export class Showtime {
-  @PrimaryGeneratedColumn({ name: 'showtime_id' })
-  showtime_id: number;
+  @PrimaryGeneratedColumn({ type: 'int', name: 'showtime_id' })
+  showtimeId: number;
 
-  @Column({ name: 'movie_id' })
-  movie_id: number;
+  @Column({ name: 'movie_id', type: 'int' })
+  movieId: number;
 
-  @Column({ name: 'room_id' })
-  room_id: number;
+  @Column({ name: 'room_id', type: 'int' })
+  roomId: number;
 
-  @Column({ name: 'show_date', type: 'date' })
-  show_date: string;
+  // SQL: start_time DATETIME2(0) — full datetime, KHÔNG phải time-only
+  // Bỏ show_date — cột này KHÔNG tồn tại trong SQL V6.3
+  @Column({ name: 'start_time', type: 'datetime2', precision: 0 })
+  startTime: Date;
 
-  @Column({ name: 'start_time', type: 'time' })
-  start_time: string;
+  @Column({ name: 'end_time', type: 'datetime2', precision: 0 })
+  endTime: Date;
 
-  @Column({ name: 'end_time', type: 'time', nullable: true })
-  end_time: string;
+  @Column({ name: 'base_price', type: 'decimal', precision: 12, scale: 2 })
+  basePrice: number;
 
-  // FIX: đổi name từ 'showtime_status' → 'status' để khớp với SQL
-  @Column({ name: 'status', length: 20, default: 'ACTIVE' })
+  // SQL CHECK: ('OPEN','CANCELLED','FULL','ENDED')
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'OPEN' })
   status: string;
 
-  @Column({ name: 'base_price', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  base_price: number;
+  @Column({ name: 'created_by', type: 'int', nullable: true })
+  createdBy: number | null;
 
-  @CreateDateColumn({ name: 'created_at' })
-  created_at: Date;
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
+  createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updated_at: Date;
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
+  updatedAt: Date;
 
   @ManyToOne(() => Movie, (movie) => movie.showtimes)
   @JoinColumn({ name: 'movie_id' })

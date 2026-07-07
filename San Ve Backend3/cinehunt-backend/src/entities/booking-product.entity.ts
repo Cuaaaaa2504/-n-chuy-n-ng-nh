@@ -10,21 +10,22 @@ import { Product } from './product.entity';
 
 @Entity('booking_products')
 export class BookingProduct {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
+  @PrimaryGeneratedColumn({ type: 'bigint', name: 'booking_product_id' })
   bookingProductId: string;
 
-  @Column({ type: 'bigint' })
+  @Column({ name: 'booking_id', type: 'bigint' })
   bookingId: string;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'product_id', type: 'int' })
   productId: number;
 
-  @Column({ type: 'int' })
+  @Column({ name: 'quantity', type: 'int' })
   quantity: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'unit_price', type: 'decimal', precision: 12, scale: 2 })
   unitPrice: number;
 
+  // SQL: total_price AS (CONVERT(..., quantity * unit_price)) PERSISTED — computed column
   @Column({
     name: 'total_price',
     type: 'decimal',
@@ -36,11 +37,11 @@ export class BookingProduct {
   })
   totalPrice: number | null;
 
-  @ManyToOne(() => BookingOrder, { onDelete: 'CASCADE' })
-  @JoinColumn()
+  @ManyToOne(() => BookingOrder, (booking) => booking.bookingProducts, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'booking_id' })
   booking: BookingOrder;
 
   @ManyToOne(() => Product, (product) => product.bookingProducts)
-  @JoinColumn()
+  @JoinColumn({ name: 'product_id' })
   product: Product;
 }

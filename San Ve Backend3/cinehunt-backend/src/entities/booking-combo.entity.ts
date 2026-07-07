@@ -1,27 +1,33 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { BookingOrder } from './booking-order.entity';
 import { ConcessionCombo } from './concession-combo.entity';
 
 @Entity('booking_combos')
 export class BookingCombo {
-  @PrimaryGeneratedColumn()
-  booking_combo_id: number;
+  @PrimaryGeneratedColumn({ type: 'bigint', name: 'booking_combo_id' })
+  bookingComboId: string;
 
-  @Column()
-  booking_id: number;
+  @Column({ name: 'booking_id', type: 'bigint' })
+  bookingId: string;
 
-  @Column()
-  combo_id: number;
+  @Column({ name: 'combo_id', type: 'int' })
+  comboId: number;
 
-  @Column({ default: 1 })
+  @Column({ name: 'quantity', type: 'int', default: 1 })
   quantity: number;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
-  unit_price: number;
+  @Column({ name: 'unit_price', type: 'decimal', precision: 12, scale: 2 })
+  unitPrice: number;
 
-  @ManyToOne(() => BookingOrder, (booking) => booking.booking_combos)
+  @ManyToOne(() => BookingOrder, (booking) => booking.bookingCombos)
   @JoinColumn({ name: 'booking_id' })
-  booking_order: BookingOrder;
+  bookingOrder: BookingOrder;
 
   @ManyToOne(() => ConcessionCombo)
   @JoinColumn({ name: 'combo_id' })

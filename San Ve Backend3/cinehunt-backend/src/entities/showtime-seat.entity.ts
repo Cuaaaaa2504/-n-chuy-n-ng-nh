@@ -11,30 +11,33 @@ import { Seat } from './seat.entity';
 
 @Entity('showtime_seats')
 export class ShowtimeSeat {
-  @PrimaryGeneratedColumn({ name: 'showtime_seat_id' })
-  showtime_seat_id: number;
+  @PrimaryGeneratedColumn({ type: 'int', name: 'showtime_seat_id' })
+  showtimeSeatId: number;
 
-  @Column({ name: 'showtime_id' })
-  showtime_id: number;
+  @Column({ name: 'showtime_id', type: 'int' })
+  showtimeId: number;
 
-  @Column({ name: 'seat_id' })
-  seat_id: number;
+  @Column({ name: 'seat_id', type: 'int' })
+  seatId: number;
 
-  // FIX: đổi name từ 'seat_status' → 'status' để khớp với cột status trong SQL
-  @Column({ name: 'status', length: 20, default: 'AVAILABLE' })
-  status: string;
-
-  @Column({ name: 'price', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({ name: 'price', type: 'decimal', precision: 12, scale: 2 })
   price: number;
 
-  @Column({ name: 'held_by_user_id', nullable: true })
-  held_by_user_id: number;
+  // SQL CHECK: ('AVAILABLE','HELD','SOLD','BLOCKED')
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'AVAILABLE' })
+  status: string;
 
-  @Column({ name: 'hold_expires_at', type: 'datetime', nullable: true })
-  hold_expires_at: Date;
+  @Column({ name: 'held_by_user_id', type: 'int', nullable: true })
+  heldByUserId: number | null;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updated_at: Date;
+  // SQL: hold_expires_at DATETIME2(0)
+  @Column({ name: 'hold_expires_at', type: 'datetime2', precision: 0, nullable: true })
+  holdExpiresAt: Date | null;
+
+  // row_version ROWVERSION — không map (TypeORM không hỗ trợ natively)
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0, nullable: true })
+  updatedAt: Date;
 
   @ManyToOne(() => Showtime, (st) => st.showtimeSeats)
   @JoinColumn({ name: 'showtime_id' })
