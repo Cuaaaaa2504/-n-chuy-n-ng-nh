@@ -32,7 +32,7 @@ export class Movie {
   durationMinutes: number | null;
 
   @Column({ name: 'release_date', type: 'date', nullable: true })
-  releaseDate: string | null;
+  releaseDate: Date | null;
 
   @Column({ name: 'age_rating', length: 10, nullable: true })
   ageRating: string | null;
