@@ -24,7 +24,10 @@ export class ShowtimeSeat {
   @Column({ name: 'price', type: 'decimal', precision: 10, scale: 2 })
   price: number;
 
-  @Column({ name: 'status', type: 'varchar', length: 20, default: 'AVAILABLE' })
+  // FIX: 'status' là reserved keyword trong T-SQL (SQL Server).
+  // TypeORM tự động escape thành [status] nhưng SQL Server vẫn reject ở một số context.
+  // Giải pháp: đổi tên cột trong DB thành 'seat_status', map vào property 'status' của TypeScript.
+  @Column({ name: 'seat_status', type: 'varchar', length: 20, default: 'AVAILABLE' })
   status: string;
 
   @Column({ name: 'held_by_user_id', type: 'int', nullable: true })
