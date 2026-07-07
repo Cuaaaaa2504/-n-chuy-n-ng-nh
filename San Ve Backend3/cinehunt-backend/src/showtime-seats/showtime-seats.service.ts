@@ -27,6 +27,9 @@ export class ShowtimeSeatsService {
   }
 
   async getSeatMap(showtimeId: number) {
+    // FIX: 'heldByUser' không phải là @ManyToOne relation trong ShowtimeSeat entity
+    // (entity chỉ có cột heldByUserId kiểu int, không có relation đến User)
+    // Xóa nó khỏi relations[] để tránh EntityPropertyNotFoundError 500.
     const seats = await this.showtimeSeatRepository.find({
       where: { showtimeId },
       relations: [
@@ -36,7 +39,7 @@ export class ShowtimeSeatsService {
         'showtime.movie',
         'showtime.room',
         'showtime.room.cinema',
-        'heldByUser',
+        // 'heldByUser' — đã xóa: không có @ManyToOne User trong entity
       ],
       order: {
         seat: {
@@ -71,7 +74,7 @@ export class ShowtimeSeatsService {
         seatTypeName: item.seat?.seatType?.typeName ?? null,
         seatStatus: item.status,
         price: Number(item.price),
-        heldByUserId: item.heldByUserId,
+        heldByUserId: item.heldByUserId,   // vẫn trả về userId số bình thường
         holdExpiresAt: item.holdExpiresAt,
       })),
     };
