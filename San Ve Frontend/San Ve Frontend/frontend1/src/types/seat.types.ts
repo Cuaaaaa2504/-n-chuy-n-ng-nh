@@ -7,6 +7,8 @@ export interface SeatDto {
   rowName: string;
   seatNumber: number;
   status: SeatStatus;
+  // price từ API backend (showtimeSeat.price)
+  price?: number;
 }
 
 export interface SeatMapProps {

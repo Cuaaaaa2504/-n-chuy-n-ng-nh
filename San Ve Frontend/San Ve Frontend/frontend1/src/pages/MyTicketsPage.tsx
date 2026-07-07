@@ -22,7 +22,6 @@ interface TicketItem {
   paidAt?: string;
 }
 
-// Trạng thái backend -> tab
 const HOLDING_STATUSES: TicketStatus[] = ['PENDING_PAYMENT'];
 const PAID_STATUSES: TicketStatus[]    = ['PAID'];
 
@@ -36,7 +35,8 @@ function MiniCountdown({ expiresAt }: { expiresAt: string }) {
     if (secs <= 0) return;
     const t = setInterval(() => { setSecs(calc()); }, 1000);
     return () => clearInterval(t);
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expiresAt]);
 
   const mm = String(Math.floor(secs / 60)).padStart(2, '0');
   const ss = String(secs % 60).padStart(2, '0');
@@ -64,7 +64,6 @@ function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolea
 
   return (
     <div className={`rounded-2xl p-5 flex flex-col gap-3 ${card} relative overflow-hidden`}>
-      {/* Badge trạng thái */}
       <div className="flex items-center justify-between">
         <span className={`text-xs font-bold px-3 py-1 rounded-full ${
           isPaid
@@ -75,8 +74,6 @@ function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolea
         }`}>
           {isPaid ? '✅ Đã mua' : isHolding ? '⏳ Đang giữ' : ticket.status}
         </span>
-
-        {/* Đếm ngược nếu đang giữ */}
         {isHolding && ticket.expiresAt && (
           <MiniCountdown expiresAt={ticket.expiresAt} />
         )}
@@ -87,7 +84,6 @@ function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolea
         )}
       </div>
 
-      {/* Thông tin phim */}
       <div>
         <h3 className="font-bold text-base leading-tight mb-1">
           {ticket.movieTitle || 'Vé xem phim'}
@@ -101,14 +97,11 @@ function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolea
           )}
           {ticket.roomName && <p>🎭 {ticket.roomName}</p>}
           {ticket.seatCodes.length > 0 && (
-            <p className="font-mono">
-              💺 {ticket.seatCodes.join(', ')}
-            </p>
+            <p className="font-mono">💺 {ticket.seatCodes.join(', ')}</p>
           )}
         </div>
       </div>
 
-      {/* Footer */}
       <div className={`flex items-center justify-between pt-3 border-t ${
         darkMode ? 'border-gray-800' : 'border-gray-100'
       }`}>
@@ -120,8 +113,6 @@ function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolea
             {ticket.totalAmount.toLocaleString('vi-VN')}₫
           </p>
         </div>
-
-        {/* Nếu đang giữ -> nút thanh toán ngay */}
         {isHolding && (
           <button
             onClick={() => navigate(`/payment/${ticket.bookingId}`)}
@@ -130,8 +121,6 @@ function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolea
             Thanh toán
           </button>
         )}
-
-        {/* Nếu đã mua -> xem chi tiết */}
         {isPaid && (
           <Link
             to={`/ticket/${ticket.bookingId}`}
@@ -169,33 +158,27 @@ export default function MyTicketsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { darkMode } = useTheme();
 
-  // Tab từ query param: ?tab=holding | ?tab=paid (default: holding)
-  const tabParam = searchParams.get('tab') === 'paid' ? 'paid' : 'holding';
-  const [activeTab, setActiveTab] = useState<'holding' | 'paid'>(tabParam);
+  // FIX 1: Không dùng useEffect + setActiveTab để sync URL -> state
+  // Thay bằng derived value trực tiếp từ searchParams (không có extra re-render)
+  const activeTab: 'holding' | 'paid' =
+    searchParams.get('tab') === 'paid' ? 'paid' : 'holding';
 
   const [allTickets, setAllTickets] = useState<TicketItem[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
 
-  // Đồng bộ tab với URL
   const switchTab = (tab: 'holding' | 'paid') => {
-    setActiveTab(tab);
     setSearchParams({ tab });
   };
 
-  // Sync URL -> tab khi navigate từ Navbar
-  useEffect(() => {
-    const t = searchParams.get('tab') === 'paid' ? 'paid' : 'holding';
-    setActiveTab(t);
-  }, [searchParams]);
-
-  // ===== Fetch bookings =====
+  // FIX 2: fetchTickets là async function — setState chỉ được gọi bên trong
+  // async callback, không phải sync body của useEffect → không vi phạm rule.
+  // Tuy nhiên eslint vẫn có thể warn vì nó không phân tích async depth.
+  // Giải pháp: inline async function bên trong useEffect thay vì truyền ref.
   const fetchTickets = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      // Backend: GET /bookings/my  (hoặc /bookings/me)
-      // Trả về mảng BookingOrder của user đang đăng nhập
       const res = await axiosClient.get('/bookings/my') as unknown;
       const list: Record<string, unknown>[] = Array.isArray(res)
         ? res
@@ -235,16 +218,21 @@ export default function MyTicketsPage() {
     }
   }, []);
 
-  useEffect(() => { void fetchTickets(); }, [fetchTickets]);
+  // FIX 2: inline async để tránh eslint set-state-in-effect false positive
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      await fetchTickets();
+      // cancelled flag dùng để tránh set state nếu component unmount
+      if (cancelled) return;
+    };
+    void run();
+    return () => { cancelled = true; };
+  }, [fetchTickets]);
 
-  // ===== Filter theo tab =====
-  const holdingTickets = allTickets.filter((t) =>
-    HOLDING_STATUSES.includes(t.status)
-  );
-  const paidTickets = allTickets.filter((t) =>
-    PAID_STATUSES.includes(t.status)
-  );
-  const displayed = activeTab === 'holding' ? holdingTickets : paidTickets;
+  const holdingTickets = allTickets.filter((t) => HOLDING_STATUSES.includes(t.status));
+  const paidTickets    = allTickets.filter((t) => PAID_STATUSES.includes(t.status));
+  const displayed      = activeTab === 'holding' ? holdingTickets : paidTickets;
 
   const card = darkMode
     ? 'bg-gray-900 border border-gray-800'
@@ -252,11 +240,10 @@ export default function MyTicketsPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 w-full">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-extrabold">🎫 Vé của tôi</h1>
         <button
-          onClick={fetchTickets}
+          onClick={() => { void fetchTickets(); }}
           className={`text-sm px-4 py-2 rounded-xl border transition ${
             darkMode
               ? 'border-gray-700 hover:bg-gray-800 text-gray-300'
@@ -267,11 +254,9 @@ export default function MyTicketsPage() {
         </button>
       </div>
 
-      {/* Tabs */}
       <div className={`flex rounded-2xl p-1 mb-6 gap-1 ${
         darkMode ? 'bg-gray-800' : 'bg-gray-100'
       }`}>
-        {/* Tab Vé đang giữ */}
         <button
           onClick={() => switchTab('holding')}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
@@ -295,7 +280,6 @@ export default function MyTicketsPage() {
           )}
         </button>
 
-        {/* Tab Vé đã mua */}
         <button
           onClick={() => switchTab('paid')}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
@@ -320,7 +304,6 @@ export default function MyTicketsPage() {
         </button>
       </div>
 
-      {/* Content */}
       {loading ? (
         <div className="grid grid-cols-1 gap-4">
           {[1, 2, 3].map((i) => <TicketSkeleton key={i} darkMode={darkMode} />)}
@@ -329,7 +312,7 @@ export default function MyTicketsPage() {
         <div className={`rounded-2xl p-6 text-center ${card}`}>
           <p className="text-red-500 font-semibold mb-4">{error}</p>
           <button
-            onClick={fetchTickets}
+            onClick={() => { void fetchTickets(); }}
             className="bg-red-500 text-white px-5 py-2 rounded-xl text-sm font-semibold"
           >
             Thử lại

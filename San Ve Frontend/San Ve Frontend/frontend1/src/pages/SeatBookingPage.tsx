@@ -15,7 +15,7 @@ const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
 const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900";
 
 const MAX_SEATS    = 8;
-const HOLD_SECONDS = 300; // 5 phút
+const HOLD_SECONDS = 300;
 
 function generateMockSeats(showtimeId?: string): SeatDto[] {
   void showtimeId;
@@ -29,6 +29,7 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
         rand < 0.15 ? "SOLD"    :
         rand < 0.22 ? "HELD"    :
         rand < 0.25 ? "BLOCKED" : "AVAILABLE";
+      // FIX TS2353: SeatDto giờ có price? optional field
       seats.push({ id: id++, rowName: row, seatNumber: num, status, price: 90_000 });
     }
   });
@@ -132,11 +133,8 @@ export default function SeatBookingPage() {
       setCountdown(0);
 
       try {
-        // axiosClient interceptor đã unwrap response.data rồi
-        // nên res đã là SeatMapResponse trực tiếp
         const data = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`) as unknown as SeatMapResponse;
 
-        // Hỗ trợ cả 2 shape: API trả thẳng mảng hoặc object { seats: [...] }
         const rawSeats: SeatMapItem[] = Array.isArray(data)
           ? (data as unknown as SeatMapItem[])
           : (data?.seats ?? []);
@@ -165,7 +163,7 @@ export default function SeatBookingPage() {
       } catch (err: unknown) {
         const status = (err as { status?: number })?.status;
         if (status === 401) {
-          setLoadError("Phiên đă̆ng nhập hết hạn. Bạn đang xem ở chế độ khách.");
+          setLoadError("Phiên đăng nhập hết hạn. Bạn đang xem ở chế độ khách.");
         } else {
           setLoadError(`Không thể tải dữ liệu ghế từ máy chủ (${status ?? "lỗi mạng"}). Đang hiển thị dữ liệu mẫu.`);
         }
@@ -262,15 +260,14 @@ export default function SeatBookingPage() {
     }
   };
 
-  // SeatDto[] đã được filter theo selectedSeatIds
   const selectedSeats = getSelectedSeats(seats);
 
-  // Map sang shape Seat mà SelectedSeatsBar mộng đợi
-  // Seat = { seatId: number; seatCode: string; price: number }
+  // FIX TS2322: Seat interface yêu cầu status — thêm status vào map
   const selectedSeatsForBar: Seat[] = selectedSeats.map((s) => ({
     seatId:   s.id,
     seatCode: `${s.rowName}${s.seatNumber}`,
-    price:    (s as SeatDto & { price?: number }).price ?? 90_000,
+    price:    s.price ?? 90_000,
+    status:   s.status as Seat['status'],   // map SeatStatus -> Seat['status']
   }));
 
   const totalAmount     = selectedSeatsForBar.reduce((sum, s) => sum + s.price, 0);
@@ -291,7 +288,6 @@ export default function SeatBookingPage() {
 
   return (
     <div className="flex-1">
-      {/* Backdrop banner */}
       <div className="relative h-[260px] md:h-[340px] overflow-hidden">
         <img
           src={displayBackdrop}
@@ -400,7 +396,6 @@ export default function SeatBookingPage() {
             )}
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-4">
             {heldIds.length > 0 && countdown > 0 && (
               <div className={`rounded-2xl p-4 border ${
@@ -432,7 +427,7 @@ export default function SeatBookingPage() {
 
             {heldIds.length === 0 && (
               <button
-                onClick={handleHold}
+                onClick={() => { void handleHold(); }}
                 disabled={holding || selectedSeats.length === 0}
                 className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white font-bold py-3 rounded-2xl transition flex items-center justify-center gap-2"
               >
@@ -449,7 +444,7 @@ export default function SeatBookingPage() {
 
             {heldIds.length > 0 && (
               <button
-                onClick={handleContinueToPayment}
+                onClick={() => { void handleContinueToPayment(); }}
                 disabled={navigating}
                 className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold py-3 rounded-2xl transition flex items-center justify-center gap-2"
               >
@@ -467,7 +462,6 @@ export default function SeatBookingPage() {
         </div>
       </div>
 
-      {/* SelectedSeatsBar nhận đúng shape Seat = { seatId, seatCode, price } */}
       <SelectedSeatsBar
         selectedSeats={selectedSeatsForBar}
         totalPrice={totalAmount}
