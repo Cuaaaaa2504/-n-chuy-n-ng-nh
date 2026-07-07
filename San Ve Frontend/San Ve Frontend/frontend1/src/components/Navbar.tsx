@@ -8,13 +8,14 @@ export default function Navbar() {
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [ticketSubmenuOpen, setTicketSubmenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Đóng dropdown khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
+        setTicketSubmenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -23,11 +24,11 @@ export default function Navbar() {
 
   const handleLogout = () => {
     setDropdownOpen(false);
+    setTicketSubmenuOpen(false);
     logout();
     navigate('/');
   };
 
-  // Lấy chữ cái đầu của tên làm avatar fallback
   const avatarLetter = (user?.fullName || user?.email || 'U').charAt(0).toUpperCase();
 
   return (
@@ -64,7 +65,10 @@ export default function Navbar() {
             <div className="relative" ref={dropdownRef}>
               {/* Avatar button */}
               <button
-                onClick={() => setDropdownOpen((prev) => !prev)}
+                onClick={() => {
+                  setDropdownOpen((prev) => !prev);
+                  setTicketSubmenuOpen(false);
+                }}
                 className="flex items-center gap-2 hover:opacity-90 transition focus:outline-none"
               >
                 {user?.avatarUrl ? (
@@ -96,13 +100,13 @@ export default function Navbar() {
               {/* Dropdown menu */}
               {dropdownOpen && (
                 <div
-                  className={`absolute right-0 top-12 w-52 rounded-xl shadow-xl border overflow-hidden z-50 ${
+                  className={`absolute right-0 top-12 w-56 rounded-xl shadow-xl border overflow-visible z-50 ${
                     darkMode
                       ? 'bg-gray-800 border-gray-700 text-white'
                       : 'bg-white border-gray-200 text-gray-800'
                   }`}
                 >
-                  {/* Header dropdown */}
+                  {/* Header */}
                   <div className={`px-4 py-3 border-b ${
                     darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-100 bg-gray-50'
                   }`}>
@@ -114,17 +118,93 @@ export default function Navbar() {
 
                   {/* Menu items */}
                   <div className="py-1">
+                    {/* Thông tin cá nhân */}
+                    <Link
+                      to="/profile"
+                      onClick={() => { setDropdownOpen(false); setTicketSubmenuOpen(false); }}
+                      className={`flex items-center gap-3 px-4 py-2.5 text-sm transition ${
+                        darkMode ? 'hover:bg-gray-700' : 'hover:bg-blue-50 hover:text-blue-600'
+                      }`}
+                    >
+                      <span>👤</span>
+                      <span>Thông tin cá nhân</span>
+                    </Link>
+
+                    {/* ====== Vé của tôi — có submenu ====== */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setTicketSubmenuOpen((prev) => !prev)}
+                        className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition ${
+                          ticketSubmenuOpen
+                            ? darkMode
+                              ? 'bg-gray-700 text-blue-400'
+                              : 'bg-blue-50 text-blue-600'
+                            : darkMode
+                            ? 'hover:bg-gray-700'
+                            : 'hover:bg-blue-50 hover:text-blue-600'
+                        }`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <span>🎫</span>
+                          <span>Vé của tôi</span>
+                        </span>
+                        <svg
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                            ticketSubmenuOpen ? 'rotate-90' : ''
+                          }`}
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path fillRule="evenodd" d="M7.293 4.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L10.586 9 7.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+
+                      {/* Submenu vé — mở ra bên dưới */}
+                      {ticketSubmenuOpen && (
+                        <div className={`border-t ${
+                          darkMode ? 'border-gray-700 bg-gray-900' : 'border-gray-100 bg-gray-50'
+                        }`}>
+                          {/* Vé đang giữ */}
+                          <Link
+                            to="/my-tickets?tab=holding"
+                            onClick={() => { setDropdownOpen(false); setTicketSubmenuOpen(false); }}
+                            className={`flex items-center gap-3 pl-10 pr-4 py-2.5 text-sm transition ${
+                              darkMode
+                                ? 'hover:bg-gray-700 text-yellow-400'
+                                : 'hover:bg-yellow-50 text-yellow-600'
+                            }`}
+                          >
+                            <span>⏳</span>
+                            <span className="font-medium">Vé đang giữ</span>
+                          </Link>
+
+                          {/* Vé đã mua */}
+                          <Link
+                            to="/my-tickets?tab=paid"
+                            onClick={() => { setDropdownOpen(false); setTicketSubmenuOpen(false); }}
+                            className={`flex items-center gap-3 pl-10 pr-4 py-2.5 text-sm transition ${
+                              darkMode
+                                ? 'hover:bg-gray-700 text-green-400'
+                                : 'hover:bg-green-50 text-green-600'
+                            }`}
+                          >
+                            <span>✅</span>
+                            <span className="font-medium">Vé đã mua</span>
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Các mục còn lại */}
                     {[
-                      { to: '/profile', icon: '👤', label: 'Thông tin cá nhân' },
-                      { to: '/my-tickets', icon: '🎫', label: 'Vé của tôi' },
                       { to: '/booking-history', icon: '📜', label: 'Lịch sử mua vé' },
-                      { to: '/vouchers', icon: '🎁', label: 'Voucher' },
-                      { to: '/settings', icon: '⚙️', label: 'Cài đặt' },
+                      { to: '/vouchers',        icon: '🎁', label: 'Voucher' },
+                      { to: '/settings',        icon: '⚙️', label: 'Cài đặt' },
                     ].map((item) => (
                       <Link
                         key={item.to}
                         to={item.to}
-                        onClick={() => setDropdownOpen(false)}
+                        onClick={() => { setDropdownOpen(false); setTicketSubmenuOpen(false); }}
                         className={`flex items-center gap-3 px-4 py-2.5 text-sm transition ${
                           darkMode
                             ? 'hover:bg-gray-700'
@@ -189,7 +269,7 @@ export default function Navbar() {
           <Link to="/movies" className="hover:text-blue-500 transition">Phim</Link>
           <Link to="/cinemas" className="hover:text-blue-500 transition">Rạp</Link>
           <Link to="/price" className="hover:text-blue-500 transition">Giá vé</Link>
-          <Link to="/news" className="hover:text-blue-500 transition">Tin tức & Ưu đãi</Link>
+          <Link to="/news" className="hover:text-blue-500 transition">Tin tức &amp; Ưu đãi</Link>
           {isLoggedIn && user?.role === 'ADMIN' && (
             <Link to="/admin" className="hover:text-red-400 transition text-red-400">
               ⚙️ Admin
