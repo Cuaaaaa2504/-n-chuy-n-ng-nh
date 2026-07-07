@@ -1,15 +1,8 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import axiosClient from '../api/axiosClient';
+import authApi from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-
-interface LoginResponse {
-  accessToken?: string;
-  token?: string;
-  data?: { accessToken?: string };
-  user?: { id: number; fullName: string; email: string; phone?: string; role?: string };
-}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -32,15 +25,12 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await axiosClient.post<LoginResponse>('/auth/login', form) as LoginResponse;
-      const token = data.accessToken || data.token || data.data?.accessToken;
-      if (!token) throw new Error('API không trả về accessToken');
-      const user = data.user ?? { id: 0, fullName: '', email: form.email };
-      login(token, user);
+      const data = await authApi.login(form);
+      login(data.accessToken, data.user);
       const from = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/';
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      setError((err as { message?: string }).message || 'Đăng nhập thất bại');
+      setError((err as { message?: string }).message || 'Email hoặc mật khẩu không đúng');
     } finally {
       setLoading(false);
     }
