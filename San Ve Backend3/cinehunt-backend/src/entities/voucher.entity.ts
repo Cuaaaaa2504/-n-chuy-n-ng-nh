@@ -46,12 +46,15 @@ export class Voucher {
   @Column({ name: 'status', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @Column({ name: 'description', type: 'nvarchar', length: 'max', nullable: true })
+  @Column({ name: 'applicable_type', length: 30, nullable: true })
+  applicableType: string | null;
+
+  @Column({ name: 'description', type: 'nvarchar', length: 500, nullable: true })
   description: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @Column({ name: 'updated_at', type: 'datetime2', precision: 0, nullable: true, insert: false, update: false })
+  @Column({ name: 'updated_at', type: 'datetime2', precision: 0, nullable: true, select: false, insert: false, update: false })
   updatedAt: Date | null;
 }
