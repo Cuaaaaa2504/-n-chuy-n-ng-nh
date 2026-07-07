@@ -27,55 +27,69 @@ export class ShowtimeSeatsService {
   }
 
   async getSeatMap(showtimeId: number) {
-    // FIX: 'heldByUser' không phải là @ManyToOne relation trong ShowtimeSeat entity
-    // (entity chỉ có cột heldByUserId kiểu int, không có relation đến User)
-    // Xóa nó khỏi relations[] để tránh EntityPropertyNotFoundError 500.
+    // Không join showtime.movie qua TypeORM vì sẽ SELECT movies.cast
+    // (reserved keyword, TypeORM không tự escape → QueryFailedError 500)
+    // Thay vào đó: chỉ join những thứ cần, lấy movieTitle bằng raw query riêng
     const seats = await this.showtimeSeatRepository.find({
       where: { showtimeId },
       relations: [
         'seat',
         'seat.seatType',
         'showtime',
-        'showtime.movie',
+        // KHOÂNG join showtime.movie — tránh SELECT movies.[cast] / movies.cast
         'showtime.room',
         'showtime.room.cinema',
-        // 'heldByUser' — đã xóa: không có @ManyToOne User trong entity
       ],
       order: {
-        seat: {
-          seatRow: 'ASC',
-          seatNumber: 'ASC',
-        },
+        seat: { seatRow: 'ASC', seatNumber: 'ASC' },
       },
     });
 
     if (!seats.length) {
-      throw new NotFoundException('Không tìm thấy sơ đồ ghế cho suất chiếu này');
+      throw new NotFoundException(
+        'Không tìm thấy sơ đồ ghế cho suất chiếu này',
+      );
+    }
+
+    // Lấy movieTitle bằng raw query — chỉ chọn cột title, không SELECT *
+    let movieTitle: string | null = null;
+    try {
+      const rows = await this.dataSource.query(
+        `SELECT m.title
+         FROM showtimes st
+         JOIN movies m ON m.movie_id = st.movie_id
+         WHERE st.showtime_id = @0`,
+        [showtimeId],
+      ) as Array<{ title: string }>;
+      movieTitle = rows[0]?.title ?? null;
+    } catch {
+      // Nếu không lấy được movieTitle thì bỏ qua, không fail toàn bộ request
+      movieTitle = null;
     }
 
     const first = seats[0];
 
     return {
       showtimeId,
-      movieTitle: first.showtime?.movie?.title ?? null,
+      movieTitle,
       cinemaName: first.showtime?.room?.cinema?.cinemaName ?? null,
-      roomName: first.showtime?.room?.roomName ?? null,
-      startTime: first.showtime?.startTime ?? null,
-      endTime: first.showtime?.endTime ?? null,
+      roomName:   first.showtime?.room?.roomName ?? null,
+      startTime:  first.showtime?.startTime ?? null,
+      endTime:    first.showtime?.endTime ?? null,
       seats: seats.map((item) => ({
         showtimeSeatId: item.showtimeSeatId,
-        showtimeId: item.showtimeId,
-        seatId: item.seatId,
-        seatRow: item.seat?.seatRow ?? null,
-        seatNumber: item.seat?.seatNumber ?? null,
-        seatLabel: item.seat?.seatLabel ?? null,
-        seatTypeId: item.seat?.seatTypeId ?? null,
-        seatTypeCode: item.seat?.seatType?.typeCode ?? null,
-        seatTypeName: item.seat?.seatType?.typeName ?? null,
-        seatStatus: item.status,
-        price: Number(item.price),
-        heldByUserId: item.heldByUserId,   // vẫn trả về userId số bình thường
-        holdExpiresAt: item.holdExpiresAt,
+        showtimeId:     item.showtimeId,
+        seatId:         item.seatId,
+        seatRow:        item.seat?.seatRow        ?? null,
+        seatNumber:     item.seat?.seatNumber     ?? null,
+        seatLabel:      item.seat?.seatLabel      ?? null,
+        seatTypeId:     item.seat?.seatTypeId     ?? null,
+        seatTypeCode:   item.seat?.seatType?.typeCode  ?? null,
+        seatTypeName:   item.seat?.seatType?.typeName  ?? null,
+        seatStatus:     item.status,
+        price:          Number(item.price),
+        heldByUserId:   item.heldByUserId,
+        holdExpiresAt:  item.holdExpiresAt,
       })),
     };
   }
@@ -87,7 +101,7 @@ export class ShowtimeSeatsService {
   async holdManySeats(userId: number, dto: HoldManySeatsDto) {
     return this.seatHoldService.holdMultipleSeats(userId, {
       showtimeSeatIds: dto.showtimeSeatIds,
-      holdMinutes: dto.holdMinutes,
+      holdMinutes:     dto.holdMinutes,
     });
   }
 
@@ -109,7 +123,9 @@ export class ShowtimeSeatsService {
       await this.dataSource.query(`EXEC sp_release_expired_holds`);
       return { message: 'Expired seat holds released' };
     } catch (error) {
-      throw new InternalServerErrorException('Không thể giải phóng ghế giữ hết hạn');
+      throw new InternalServerErrorException(
+        'Không thể giải phóng ghế giữ hết hạn',
+      );
     }
   }
 }
