@@ -20,19 +20,19 @@ export interface AuthResponse {
 
 const authApi = {
   login: (data: LoginRequest) =>
-    axiosClient.post<AuthResponse>('/auth/login', data).then((r) => r.data),
+    axiosClient.post<AuthResponse>('/auth/login', data) as unknown as Promise<AuthResponse>,
 
   register: (data: RegisterRequest) =>
-    axiosClient.post<AuthResponse>('/auth/register', data).then((r) => r.data),
+    axiosClient.post<AuthResponse>('/auth/register', data) as unknown as Promise<AuthResponse>,
 
   logout: () =>
-    axiosClient.post('/auth/logout').then((r) => r.data),
+    axiosClient.post('/auth/logout'),
 
   getMe: () =>
-    axiosClient.get<User>('/auth/me').then((r) => r.data),
+    axiosClient.get<User>('/auth/me') as unknown as Promise<User>,
 
   refreshToken: () =>
-    axiosClient.post<{ accessToken: string }>('/auth/refresh').then((r) => r.data),
+    axiosClient.post<{ accessToken: string }>('/auth/refresh') as unknown as Promise<{ accessToken: string }>,
 };
 
 export default authApi;
