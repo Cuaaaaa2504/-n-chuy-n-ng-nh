@@ -25,6 +25,7 @@ import PaymentPage from '../pages/PaymentPage';
 import MyBookingsPage from '../pages/MyBookingsPage';
 import TicketPage from '../pages/TicketPage';
 import TicketDetailPage from '../pages/TicketDetailPage';
+import ProfilePage from '../pages/ProfilePage';
 
 // Admin pages
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
@@ -57,6 +58,7 @@ export default function AppRouter() {
             <Route path="/my-tickets" element={<MyBookingsPage />} />
             <Route path="/tickets" element={<TicketPage />} />
             <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
           </Route>
 
           {/* 404 */}

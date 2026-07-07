@@ -14,6 +14,16 @@ export interface UserListResponse {
   limit: number;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ChangeEmailRequest {
+  newEmail: string;
+  currentPassword: string;
+}
+
 const userApi = {
   getAll: (params?: { page?: number; limit?: number; search?: string }) =>
     axiosClient.get<UserListResponse>('/users', { params }).then((r) => r.data),
@@ -29,6 +39,23 @@ const userApi = {
 
   changeRole: (id: number, role: 'user' | 'admin') =>
     axiosClient.patch<User>(`/users/${id}/role`, { role }).then((r) => r.data),
+
+  // ── Profile ──────────────────────────────────────────────────────────
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return axiosClient
+      .post<{ avatarUrl: string }>('/users/me/avatar', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+
+  changePassword: (data: ChangePasswordRequest) =>
+    axiosClient.patch('/users/me/password', data).then((r) => r.data),
+
+  changeEmail: (data: ChangeEmailRequest) =>
+    axiosClient.patch<{ email: string }>('/users/me/email', data).then((r) => r.data),
 };
 
 export default userApi;
