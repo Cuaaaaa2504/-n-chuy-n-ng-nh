@@ -1,57 +1,57 @@
 import {
   Entity,
-  Column,
   PrimaryGeneratedColumn,
+  Column,
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { Room } from './room.entity';
 import { Movie } from './movie.entity';
+import { Room } from './room.entity';
 import { ShowtimeSeat } from './showtime-seat.entity';
 
 @Entity('showtimes')
 export class Showtime {
-  @PrimaryGeneratedColumn({ type: 'int', name: 'showtime_id' })
-  showtimeId: number;
+  @PrimaryGeneratedColumn({ name: 'showtime_id' })
+  showtime_id: number;
 
-  @Column({ name: 'movie_id', type: 'int' })
-  movieId: number;
+  @Column({ name: 'movie_id' })
+  movie_id: number;
 
-  @Column({ name: 'room_id', type: 'int' })
-  roomId: number;
+  @Column({ name: 'room_id' })
+  room_id: number;
 
-  @Column({ name: 'start_time', type: 'datetime2', precision: 0 })
-  startTime: Date;
+  @Column({ name: 'show_date', type: 'date' })
+  show_date: string;
 
-  @Column({ name: 'end_time', type: 'datetime2', precision: 0 })
-  endTime: Date;
+  @Column({ name: 'start_time', type: 'time' })
+  start_time: string;
 
-  // Bỏ dấu ngoặc vuông - TypeORM SQL Server driver tự escape reserved keywords
-  @Column({ name: 'showtime_format', type: 'varchar', length: 10, nullable: true })
-  format: string | null;
+  @Column({ name: 'end_time', type: 'time', nullable: true })
+  end_time: string;
 
-  @Column({ name: 'showtime_status', type: 'varchar', length: 20, default: 'SCHEDULED' })
+  // FIX: đổi name từ 'showtime_status' → 'status' để khớp với SQL
+  @Column({ name: 'status', length: 20, default: 'ACTIVE' })
   status: string;
 
   @Column({ name: 'base_price', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  basePrice: number | null;
+  base_price: number;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  createdAt: Date;
+  @CreateDateColumn({ name: 'created_at' })
+  created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
-  updatedAt: Date;
+  @UpdateDateColumn({ name: 'updated_at' })
+  updated_at: Date;
+
+  @ManyToOne(() => Movie, (movie) => movie.showtimes)
+  @JoinColumn({ name: 'movie_id' })
+  movie: Movie;
 
   @ManyToOne(() => Room)
   @JoinColumn({ name: 'room_id' })
   room: Room;
-
-  @ManyToOne(() => Movie)
-  @JoinColumn({ name: 'movie_id' })
-  movie: Movie;
 
   @OneToMany(() => ShowtimeSeat, (ss) => ss.showtime)
   showtimeSeats: ShowtimeSeat[];
