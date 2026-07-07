@@ -81,12 +81,14 @@ export default function PaymentPage() {
     let cancelled = false;
     (async () => {
       try {
-        // Local/offline mode: build order từ query params, không cần API
         if (isLocalMode) {
           const localOrder = buildLocalOrder(searchParams);
+          const mths = await getPaymentMethods();
           if (!cancelled) {
             setOrder(localOrder);
-            setMethods(await getPaymentMethods());
+            setMethods(mths);
+            // FIX: set default method ngay tại đây, không cần useEffect riêng
+            if (mths.length > 0) setSelectedMethod(mths[0].code);
           }
           return;
         }
@@ -107,12 +109,8 @@ export default function PaymentPage() {
     return () => { cancelled = true; };
   }, [orderId, isLocalMode, searchParams]);
 
-  // Lấy payment methods một lần nữa sau khi order được set (local mode)
-  useEffect(() => {
-    if (order && methods.length > 0 && !selectedMethod) {
-      setSelectedMethod(methods[0].code);
-    }
-  }, [order, methods, selectedMethod]);
+  // ĐÃ XÓA: useEffect thừa gọi setSelectedMethod đồng bộ — vi phạm react-hooks/set-state-in-effect
+  // Logic đó đã được xử lý bên trong effect fetch ở trên.
 
   useEffect(() => {
     if (order?.expiresAt && countdown === 0) {
@@ -123,7 +121,6 @@ export default function PaymentPage() {
   const handlePay = async () => {
     if (!selectedMethod || !order) return;
 
-    // Local mode → giả lập thanh toán thành công
     if (isLocalMode) {
       try {
         await handlePayment({ bookingId: 0, totalAmount: order.totalAmount });
