@@ -23,7 +23,6 @@ export interface OrderDetail {
 }
 
 function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
-  // Backend trả về BookingOrder entity
   const details = (raw.bookingDetails ?? []) as Record<string, unknown>[];
   const seatCodes = details.map((d) => {
     const seat = (d.showtimeSeat as Record<string, unknown>)?.seat as Record<string, unknown> | undefined;
@@ -36,7 +35,7 @@ function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
   return {
     id: String(raw.bookingId ?? raw.id ?? ''),
     orderCode: (raw.bookingCode ?? raw.orderCode) as string | undefined,
-    movieTitle: (raw.movieTitle ?? movie?.title ?? 'Vé xem phìm') as string,
+    movieTitle: (raw.movieTitle ?? movie?.title ?? 'Vé xem phim') as string,
     cinemaName: raw.cinemaName as string | undefined,
     roomName: raw.roomName as string | undefined,
     showDate: raw.showDate as string | undefined,
@@ -62,7 +61,6 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
     const list = Array.isArray(payload) ? payload : (payload.data as unknown[] ?? []);
     return list as PaymentMethod[];
   } catch {
-    // Fallback khi backend chưa có endpoint này
     return [
       { code: 'MOMO',        name: 'Ví MoMo' },
       { code: 'VNPAY',       name: 'VNPay' },
@@ -78,7 +76,8 @@ export async function payOrder(
   method: PaymentMethodCode,
 ): Promise<{ redirectUrl?: string; success: boolean }> {
   if (!bookingId) throw new Error('Thiếu mã đặt vé');
-  const payload = await axiosClient.post(`/payment/process`, {
+  // Sửa: /payment/process → /payments/process
+  const payload = await axiosClient.post(`/payments/process`, {
     bookingId,
     method,
   }) as Record<string, unknown>;

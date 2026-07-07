@@ -26,36 +26,33 @@ export interface ChangeEmailRequest {
 
 const userApi = {
   getAll: (params?: { page?: number; limit?: number; search?: string }) =>
-    axiosClient.get<UserListResponse>('/users', { params }).then((r) => r.data),
+    axiosClient.get<UserListResponse>('/users', { params }) as unknown as Promise<UserListResponse>,
 
   getById: (id: number) =>
-    axiosClient.get<User>(`/users/${id}`).then((r) => r.data),
+    axiosClient.get<User>(`/users/${id}`) as unknown as Promise<User>,
 
   update: (id: number, data: UpdateUserRequest) =>
-    axiosClient.put<User>(`/users/${id}`, data).then((r) => r.data),
+    axiosClient.put<User>(`/users/${id}`, data) as unknown as Promise<User>,
 
   delete: (id: number) =>
-    axiosClient.delete(`/users/${id}`).then((r) => r.data),
+    axiosClient.delete(`/users/${id}`),
 
   changeRole: (id: number, role: 'user' | 'admin') =>
-    axiosClient.patch<User>(`/users/${id}/role`, { role }).then((r) => r.data),
+    axiosClient.patch<User>(`/users/${id}/role`, { role }) as unknown as Promise<User>,
 
-  // ── Profile ──────────────────────────────────────────────────────────
   uploadAvatar: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return axiosClient
-      .post<{ avatarUrl: string }>('/users/me/avatar', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      .then((r) => r.data);
+    return axiosClient.post<{ avatarUrl: string }>('/users/me/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }) as unknown as Promise<{ avatarUrl: string }>;
   },
 
   changePassword: (data: ChangePasswordRequest) =>
-    axiosClient.patch('/users/me/password', data).then((r) => r.data),
+    axiosClient.patch('/users/me/password', data),
 
   changeEmail: (data: ChangeEmailRequest) =>
-    axiosClient.patch<{ email: string }>('/users/me/email', data).then((r) => r.data),
+    axiosClient.patch<{ email: string }>('/users/me/email', data) as unknown as Promise<{ email: string }>,
 };
 
 export default userApi;

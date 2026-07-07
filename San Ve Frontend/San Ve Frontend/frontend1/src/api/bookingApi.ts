@@ -25,16 +25,25 @@ function normalizeTicket(item: Record<string, unknown>): BookingTicket {
 
 export async function getMyBookings(params: { page: number; limit: number }) {
   const payload = await axiosClient.get('/bookings/my', { params }) as Record<string, unknown>;
-  const rawItems = Array.isArray(payload) ? payload : (payload.data as unknown[] || payload.items as unknown[] || []);
+  // Sửa: thêm fallback payload.items cho shape { items, total }
+  const rawItems = Array.isArray(payload)
+    ? payload
+    : ((payload.data as unknown[]) ?? (payload.items as unknown[]) ?? []);
   const items = (rawItems as Record<string, unknown>[]).map(normalizeBooking);
-  const total = (payload.total ?? (payload.data as Record<string, unknown>)?.total ?? items.length) as number;
+  const total = (
+    payload.total ??
+    (payload.data as Record<string, unknown>)?.total ??
+    items.length
+  ) as number;
   return { items, total };
 }
 
 export async function getBookingTickets(bookingId: string): Promise<BookingTicket[]> {
   if (!bookingId) throw new Error('Thiếu mã booking');
   const payload = await axiosClient.get(`/bookings/${bookingId}/tickets`) as Record<string, unknown>;
-  const rawItems = Array.isArray(payload) ? payload : (payload.data as unknown[] || payload.items as unknown[] || []);
+  const rawItems = Array.isArray(payload)
+    ? payload
+    : ((payload.data as unknown[]) ?? (payload.items as unknown[]) ?? []);
   return (rawItems as Record<string, unknown>[]).map(normalizeTicket);
 }
 

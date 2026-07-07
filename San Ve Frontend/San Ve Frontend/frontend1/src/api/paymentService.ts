@@ -1,17 +1,12 @@
 // src/api/paymentService.ts
-
-import axios from 'axios';
-
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import axiosClient from './axiosClient';
 
 export const paymentService = {
   async getBooking(bookingId: number) {
-    const { data } = await axios.get(`${BASE}/bookings/${bookingId}`);
-    return data;
+    return axiosClient.get(`/bookings/${bookingId}`);
   },
 
   async processPayment(paymentData: { bookingId: number; totalAmount: number }) {
-    const { data } = await axios.post(`${BASE}/payments`, paymentData);
-    return data;
+    return axiosClient.post(`/payments`, paymentData);
   },
 };
