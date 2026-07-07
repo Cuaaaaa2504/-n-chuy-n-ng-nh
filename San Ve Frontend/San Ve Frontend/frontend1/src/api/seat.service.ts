@@ -1,7 +1,4 @@
 // src/api/seat.service.ts
-// ✅ Sử dụng axiosClient (có baseURL + auth interceptor)
-// ✅ URL đúng: /showtime-seats/:showtimeId  (backend: ShowtimeSeatsController @Get(':showtimeId'))
-
 import axiosClient from './axiosClient';
 import type { SeatDto } from '../types/seat.types';
 
@@ -37,13 +34,11 @@ export const seatService = {
     const data = await axiosClient.get<unknown, SeatMapResponse>(
       `/showtime-seats/${showtimeId}`,
     );
-    // axiosClient interceptor trả về response.data trực tiếp
     return data.seats;
   },
 
   /**
    * Lấy đầy đủ SeatMapResponse (bao gồm cả movieTitle, roomName...)
-   * Dùng cho trang booking cần hiển thị thông tin suất chiếu
    */
   getSeatMap: async (showtimeId: string | number): Promise<SeatMapResponse> => {
     return axiosClient.get<unknown, SeatMapResponse>(
@@ -51,25 +46,32 @@ export const seatService = {
     );
   },
 
+  /**
+   * Hold nhiều ghế cùng lúc
+   * FIX: gọi POST /showtime-seats/hold-many (không phải /hold)
+   * vì backend /hold chỉ nhận 1 ghế (HoldSeatDto), còn /hold-many nhận array (HoldManySeatsDto)
+   */
   holdSeats: async (
     showtimeId: string | number,
     seatIds: number[],
   ): Promise<HoldSeatsResponse> => {
     return axiosClient.post<unknown, HoldSeatsResponse>(
-      `/showtime-seats/hold`,
-      // Backend: @Post('hold') nhận HoldSeatDto { showtimeSeatId, holdMinutes? }
-      // Nếu cần hold nhiều ghế: POST /showtime-seats/hold-many
+      `/showtime-seats/hold-many`,
       { showtimeSeatIds: seatIds, showtimeId },
     );
   },
 
+  /**
+   * Đặt vé (tạo booking)
+   * Route: POST /bookings (không phải /showtime-seats/book)
+   */
   bookSeats: async (
     showtimeId: string | number,
     seatIds: number[],
   ): Promise<BookSeatsResponse> => {
     return axiosClient.post<unknown, BookSeatsResponse>(
-      `/showtime-seats/book`,
-      { showtimeSeatIds: seatIds, showtimeId },
+      `/bookings`,
+      { showtimeId, showtimeSeatIds: seatIds },
     );
   },
 };
