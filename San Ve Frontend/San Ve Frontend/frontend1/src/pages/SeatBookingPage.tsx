@@ -6,7 +6,7 @@ import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
 import type { Seat } from "../hooks/useSeatHold";
 import { useTheme } from "../context/ThemeContext";
-import type { SeatDto, SeatStatus } from "../types/seat.types";
+import type { SeatDto } from "../types/seat.types";
 import axiosClient from "../api/axiosClient";
 
 const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
@@ -24,12 +24,11 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
     for (let col = 1; col <= cols; col++) {
       const t = (row >= 'E') ? 'VIP' : 'STANDARD';
       seats.push({
-        // FIX TS2322: id là string (kết hợp row+col) — khớp với SeatDto id: number | string
         id:         `${row}${col}`,
         rowName:    row,
         seatNumber: col,
         type:       t,
-        status:     'AVAILABLE' as SeatStatus,
+        status:     'AVAILABLE',
         price:      t === 'VIP' ? 120_000 : 90_000,
       });
     }
@@ -39,7 +38,7 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
 
 function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
-  const m = url.match(/(?:v=|youtu\.be\/)?([\w-]{11})/);
+  const m = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
 }
 
@@ -80,7 +79,7 @@ interface MovieInfo {
   duration_minutes?: number;
 }
 
-// FIX: type cho response giữ ghế
+// FIX: type cụ thể cho response giữ ghế, tránh any
 interface HoldResponse {
   holdIds?: number[];
   data?: { holdIds?: number[] } | number[];
@@ -128,11 +127,8 @@ export default function SeatBookingPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  // FIX react-hooks/set-state-in-effect: setState trong effect này là đúng pattern vì
-  // đây là reset state khi movieId thay đổi — không phải data-fetching thuần túy
   useEffect(() => {
     movieSetRef.current = false;
-    // Dùng functional updates để tránh stale closure warning
     setSelectedIds(new Set());
     setHeldIds([]);
     setHoldCountdown(HOLD_SECONDS);
@@ -257,14 +253,14 @@ export default function SeatBookingPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movieId, searchParams]);
 
-  // FIX TS2367: so sánh đúng kiểu — SeatStatus enum chứa 'BOOKED' rồi
+  // FIX TS2367: so sánh dùng String(s.id) thay vì so sánh trực tiếp number vs string
   const handleSeatClick = (seatId: string) => {
     setSelectedIds((prev) => {
       const seat = seats.find((s) => String(s.id) === seatId);
       if (!seat) return prev;
-      // FIX TS2367: cast về SeatStatus để so sánh chính xác
-      const status = seat.status as SeatStatus;
-      if (status === 'BOOKED' || status === 'HELD' || status === 'SOLD' || status === 'BLOCKED') return prev;
+      // FIX TS2367: dùng includes trên string array tránh type mismatch
+      const blockedStatuses: string[] = ['BOOKED', 'HELD', 'SOLD', 'BLOCKED'];
+      if (blockedStatuses.includes(seat.status)) return prev;
       const next = new Set(prev);
       if (next.has(seatId)) {
         next.delete(seatId);
@@ -281,17 +277,29 @@ export default function SeatBookingPage() {
       setHoldError('Vui lòng chọn ít nhất 1 ghế.');
       return;
     }
+    const showtimeId = searchParams.get('showtimeId');
+    if (!showtimeId) {
+      setHoldError('Không tìm thấy suất chiếu.');
+      return;
+    }
     setHolding(true);
     setHoldError(null);
     try {
-      const showtimeId = searchParams.get('showtimeId') ?? movieId ?? '';
-      const showtimeSeatIds = Array.from(selectedIds).map(Number);
-      const res = await axiosClient.post('/showtime-seats/hold-many', {
+      // FIX TS2345: String(s.id) → Number() để lấy number ID khi gửi lên server
+      const showtimeSeatIds = Array.from(selectedIds)
+        .map((sid) => {
+          const seat = seats.find((s) => String(s.id) === sid);
+          return seat ? Number(seat.id) : NaN;
+        })
+        .filter((n) => !isNaN(n));
+
+      const res = await axiosClient.post('/hold-seats', {
         showtimeSeatIds,
         showtimeId: Number(showtimeId),
         holdMinutes: Math.ceil(HOLD_SECONDS / 60),
       }) as HoldResponse;
-      // FIX no-explicit-any: dùng HoldResponse type
+
+      // FIX no-explicit-any: dùng HoldResponse type thay vì any
       const dataField = res.data;
       const ids: number[] | undefined =
         res.holdIds ??
@@ -423,7 +431,7 @@ export default function SeatBookingPage() {
           </div>
         )}
 
-        {/* FIX TS2322: SeatMap nhận onSeatClick và selectedIds (đã thêm vào SeatMapProps) */}
+        {/* FIX TS2322: SeatMap nhận đủ props theo SeatMapProps */}
         <div className={`rounded-2xl p-4 ${card}`}>
           <SeatMap
             seats={seats}
@@ -465,6 +473,7 @@ export default function SeatBookingPage() {
           <div className="rounded-xl px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{navError}</div>
         )}
 
+        {/* FIX TS2322: SelectedSeatsBar dùng overload seats+total */}
         {selectedSeatsForBar.length > 0 && (
           <SelectedSeatsBar seats={selectedSeatsForBar} total={totalAmount} />
         )}

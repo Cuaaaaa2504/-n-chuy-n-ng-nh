@@ -1,7 +1,8 @@
 import HoldCountdown from "./HoldCountdown";
 import type { Seat } from "../hooks/useSeatHold";
 
-interface Props {
+// Props gốc (dùng bởi các component khác)
+interface FullProps {
   selectedSeats: Seat[];
   totalPrice: number;
   countdown: number;
@@ -10,18 +11,40 @@ interface Props {
   error: string;
   heldSeatCodes: string[];
   onHold: () => void;
+  // FIX TS2322: thêm alias props để tương thích với SeatBookingPage
+  seats?: never;
+  total?: never;
 }
 
-export default function SelectedSeatsBar({
-  selectedSeats,
-  totalPrice,
-  countdown,
-  loading,
-  message,
-  error,
-  heldSeatCodes,
-  onHold,
-}: Props) {
+// Props rút gọn dùng trong SeatBookingPage
+interface SimpleProps {
+  seats: Seat[];
+  total: number;
+  selectedSeats?: never;
+  totalPrice?: never;
+  countdown?: never;
+  loading?: never;
+  message?: never;
+  error?: never;
+  heldSeatCodes?: never;
+  onHold?: never;
+}
+
+type Props = FullProps | SimpleProps;
+
+export default function SelectedSeatsBar(props: Props) {
+  // Normalise: chấp nhận cả hai dạng props
+  const selectedSeats: Seat[] =
+    'seats' in props && props.seats ? props.seats : (props.selectedSeats ?? []);
+  const totalPrice: number =
+    'total' in props && props.total !== undefined ? props.total : (props.totalPrice ?? 0);
+  const countdown   = 'countdown'    in props ? (props.countdown   ?? 0)   : 0;
+  const loading     = 'loading'      in props ? (props.loading     ?? false): false;
+  const message     = 'message'      in props ? (props.message     ?? '')   : '';
+  const error       = 'error'        in props ? (props.error       ?? '')   : '';
+  const heldSeatCodes = 'heldSeatCodes' in props ? (props.heldSeatCodes ?? []) : [];
+  const onHold      = 'onHold'       in props ? (props.onHold ?? (() => {})) : () => {};
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border p-4">
@@ -58,7 +81,7 @@ export default function SelectedSeatsBar({
       </button>
 
       {message && <p className="text-green-600 text-sm">{message}</p>}
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error   && <p className="text-red-600 text-sm">{error}</p>}
       {heldSeatCodes.length > 0 && (
         <p className="text-sm text-gray-600">
           Đã giữ: {heldSeatCodes.join(", ")}

@@ -5,7 +5,13 @@ import SeatItem from './SeatItem';
 import './SeatMap.css';
 
 const SeatMap: React.FC<SeatMapProps> = ({
-  seats, selectedSeats, onSeatSelect, maxSelectable = 10, showLegend = true
+  seats,
+  selectedSeats,
+  onSeatSelect,
+  maxSelectable = 10,
+  showLegend = true,
+  onSeatClick,
+  selectedIds,
 }) => {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
@@ -23,7 +29,12 @@ const SeatMap: React.FC<SeatMapProps> = ({
 
   const handleSeatClick = (seatId: number) => {
     const seat = seats.find(s => s.id === seatId);
-    if (!seat || ['SOLD','HELD','BLOCKED'].includes(seat.status)) return;
+    if (!seat || ['SOLD', 'HELD', 'BLOCKED', 'BOOKED'].includes(seat.status)) return;
+    // FIX TS2345: nếu có onSeatClick (string-based), dùng String(seatId)
+    if (onSeatClick) {
+      onSeatClick(String(seatId));
+      return;
+    }
     if (!selectedSeats.includes(seatId) && selectedSeats.length >= maxSelectable) {
       alert(`Bạn chỉ có thể chọn tối đa ${maxSelectable} ghế`);
       return;
@@ -36,13 +47,19 @@ const SeatMap: React.FC<SeatMapProps> = ({
     sold:      seats.filter(s => s.status === 'SOLD').length,
   };
 
+  // FIX TS2367: dùng String(s.id) khi kiểm tra selectedIds (Set<string>)
+  const isSelected = (seatId: number | string): boolean => {
+    if (selectedIds) return selectedIds.has(String(seatId));
+    return selectedSeats.includes(typeof seatId === 'number' ? seatId : Number(seatId));
+  };
+
   return (
     <div className="seat-map-wrapper">
       <div className="seat-map-header">
         <h2 className="seat-map-title">Sơ đồ ghế</h2>
         <div className="seat-stats">
           <span className="stat-item available"><span className="stat-dot"></span>Trống: {stats.available}</span>
-          <span className="stat-item selected"><span className="stat-dot"></span>Đã chọn: {selectedSeats.length}</span>
+          <span className="stat-item selected"><span className="stat-dot"></span>Đã chọn: {selectedIds ? selectedIds.size : selectedSeats.length}</span>
           <span className="stat-item sold"><span className="stat-dot"></span>Đã bán: {stats.sold}</span>
         </div>
       </div>
@@ -65,9 +82,9 @@ const SeatMap: React.FC<SeatMapProps> = ({
                   <SeatItem
                     key={seat.id}
                     seat={seat}
-                    selected={selectedSeats.includes(seat.id)}
-                    onClick={() => handleSeatClick(seat.id)}
-                    disabled={['SOLD','HELD','BLOCKED'].includes(seat.status)}
+                    selected={isSelected(seat.id)}
+                    onClick={() => handleSeatClick(typeof seat.id === 'number' ? seat.id : Number(seat.id))}
+                    disabled={['SOLD', 'HELD', 'BLOCKED', 'BOOKED'].includes(seat.status)}
                   />
                 ))}
               </div>
