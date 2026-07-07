@@ -6,7 +6,6 @@ import {
   OneToMany,
   JoinColumn,
   CreateDateColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Showtime } from './showtime.entity';
@@ -70,8 +69,8 @@ export class BookingOrder {
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
-  updatedAt: Date;
+  @Column({ name: 'updated_at', type: 'datetime2', precision: 0, nullable: true })
+  updatedAt: Date | null;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })

@@ -5,7 +5,6 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { BookingOrder } from './booking-order.entity';
 
@@ -52,8 +51,8 @@ export class Payment {
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
-  updatedAt: Date;
+  @Column({ name: 'updated_at', type: 'datetime2', precision: 0, nullable: true })
+  updatedAt: Date | null;
 
   @ManyToOne(() => BookingOrder, (booking) => booking.payments)
   @JoinColumn({ name: 'booking_id' })
