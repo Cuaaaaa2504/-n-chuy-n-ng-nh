@@ -5,11 +5,11 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
 import { useSeatSelection } from "../hooks/useSeatSelection";
-import { mockMovies } from "../data/mockMovies";
 import { useTheme } from "../context/ThemeContext";
 import type { SeatDto } from "../types/seat.types";
 import type { Seat } from "../hooks/useSeatHold";
 import axiosClient from "../api/axiosClient";
+// FIX: Xóa import mockMovies — dùng API thực để lấy thông tin phim
 
 const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
 const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900";
@@ -19,221 +19,237 @@ const HOLD_SECONDS = 300;
 
 function generateMockSeats(showtimeId?: string): SeatDto[] {
   void showtimeId;
-  const rows = ["A","B","C","D","E","F","G","H"];
+  const rows  = ['A','B','C','D','E','F','G','H'];
+  const cols  = 10;
   const seats: SeatDto[] = [];
-  let id = 1;
-  rows.forEach((row) => {
-    for (let num = 1; num <= 10; num++) {
-      const rand = Math.random();
-      const status: SeatDto["status"] =
-        rand < 0.15 ? "SOLD"    :
-        rand < 0.22 ? "HELD"    :
-        rand < 0.25 ? "BLOCKED" : "AVAILABLE";
-      // FIX TS2353: SeatDto giờ có price? optional field
-      seats.push({ id: id++, rowName: row, seatNumber: num, status, price: 90_000 });
+  for (const row of rows) {
+    for (let col = 1; col <= cols; col++) {
+      const t = (row >= 'E') ? 'VIP' : 'STANDARD';
+      seats.push({
+        id:         `${row}${col}`,
+        rowName:    row,
+        seatNumber: col,
+        type:       t,
+        status:     'AVAILABLE',
+        price:      t === 'VIP' ? 120_000 : 90_000,
+      });
     }
-  });
+  }
   return seats;
 }
 
-function getYoutubeEmbedUrl(url?: string) {
+function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
-  if (url.includes("watch?v=")) {
-    const vid = url.split("watch?v=")[1]?.split("&")[0];
-    return vid ? `https://www.youtube.com/embed/${vid}` : null;
-  }
-  if (url.includes("youtu.be/")) {
-    const vid = url.split("youtu.be/")[1]?.split("?")[0];
-    return vid ? `https://www.youtube.com/embed/${vid}` : null;
-  }
-  return null;
+  const m = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
+  return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
 }
 
-interface SeatMapItem {
-  showtimeSeatId: number;
-  seatRow:        string;
-  seatNumber:     number;
-  seatLabel:      string | null;
-  seatStatus:     string;
-  price:          number;
+type SeatStatus = 'AVAILABLE' | 'HELD' | 'BOOKED';
+
+interface SeatDto2 {
+  id: string;
+  rowName: string;
+  seatNumber: number;
+  type: string;
+  status: SeatStatus;
+  price?: number;
 }
 
 interface SeatMapResponse {
+  showtimeId?: number;
+  movieTitle?: string | null;
+  cinemaName?: string | null;
+  roomName?:   string | null;
+  showDate?:   string | null;
+  showTime?:   string | null;
+  seats?: SeatDto[];
+  data?: {
+    seats?: SeatDto[];
+    movieTitle?: string | null;
+  };
+}
+
+interface ShowtimeInfo {
   showtimeId: number;
   movieTitle: string | null;
   cinemaName: string | null;
   roomName:   string | null;
-  startTime:  string | null;
-  seats:      SeatMapItem[];
+  showDate:   string | null;
+  showTime:   string | null;
 }
 
-interface HoldResponseItem {
-  holdId:         number;
-  holdToken:      string;
-  expiresAt:      string;
-  status:         string;
-  showtimeSeatId: number;
-  seatLabel:      string | null;
-  price:          number;
+// FIX: interface MovieInfo thay thế mockMovies
+interface MovieInfo {
+  movie_id: number;
+  title: string;
+  poster_url?: string;
+  backdrop_url?: string;
+  trailer_url?: string;
+  age_rating?: string;
+  duration_minutes?: number;
+}
+
+function getSelectedSeats(seats: SeatDto[]): SeatDto[] {
+  return seats.filter((s) => (s as SeatDto2).status === 'HELD');
 }
 
 export default function SeatBookingPage() {
-  const { id } = useParams();
-  const [searchParams] = useSearchParams();
-  const navigate     = useNavigate();
-  const { darkMode } = useTheme();
+  const { id }                      = useParams<{ id: string }>();
+  const [searchParams]              = useSearchParams();
+  const { darkMode }                = useTheme();
 
-  const movie = mockMovies.find((m) => String(m.movie_id) === id) ?? null;
+  // FIX: movie state lấy từ API thay vì mockMovies
+  const [movie, setMovie] = useState<MovieInfo | null>(null);
 
   const [seats, setSeats]         = useState<SeatDto[]>([]);
+  const [showtimeInfo, setShowtimeInfo] = useState<ShowtimeInfo | null>(null);
   const [loading, setLoading]     = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [usingMock, setUsingMock] = useState(false);
-
-  const [holding, setHolding]         = useState(false);
-  const [holdMessage, setHoldMessage] = useState("");
-  const [holdError, setHoldError]     = useState("");
-  const [heldLabels, setHeldLabels]   = useState<string[]>([]);
-  const [heldIds, setHeldIds]         = useState<number[]>([]);
-  const [countdown, setCountdown]     = useState(0);
-
+  const [error, setError]         = useState<string | null>(null);
+  const [holdError, setHoldError] = useState<string | null>(null);
+  const [heldIds, setHeldIds]     = useState<number[]>([]);
+  const [holdCountdown, setHoldCountdown] = useState<number>(HOLD_SECONDS);
+  const [holding, setHolding]     = useState(false);
   const [navigating, setNavigating] = useState(false);
-  const [navError, setNavError]     = useState("");
+  const [navError, setNavError]   = useState<string>('');
+  const [usingMock, setUsingMock] = useState(false);
+  const timerRef                  = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const {
-    selectedSeats: selectedSeatIds,
-    toggleSeat,
-    clearSelection,
-    getSelectedSeats,
-  } = useSeatSelection({ maxSelectable: MAX_SEATS });
+  const navigate = useNavigate();
 
-  const clearSelectionRef = useRef(clearSelection);
-  useLayoutEffect(() => { clearSelectionRef.current = clearSelection; });
+  const startCountdown = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setHoldCountdown(HOLD_SECONDS);
+    timerRef.current = setInterval(() => {
+      setHoldCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          setHeldIds([]);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   useEffect(() => {
-    const showtimeId = searchParams.get("showtimeId") ?? id;
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
 
+  useLayoutEffect(() => {
     const load = async () => {
+      setLoading(true);
+      setError(null);
+      const showtimeId = searchParams.get('showtimeId') ?? id;
       if (!showtimeId) {
         setSeats(generateMockSeats());
         setUsingMock(true);
         setLoading(false);
         return;
       }
-
-      setLoading(true);
-      setLoadError("");
-      setUsingMock(false);
-      clearSelectionRef.current();
-      setHeldLabels([]);
-      setHeldIds([]);
-      setHoldMessage("");
-      setHoldError("");
-      setNavError("");
-      setCountdown(0);
-
       try {
         const data = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`) as unknown as SeatMapResponse;
+        // FIX: set movie info từ seatMap response (movieTitle) hoặc fallback gọi /movies/:id
+        if (data?.movieTitle) {
+          setMovie((prev) => prev ?? {
+            movie_id: Number(showtimeId),
+            title: data.movieTitle ?? '',
+            poster_url: undefined,
+            backdrop_url: undefined,
+          });
+        } else if (id) {
+          try {
+            const mRaw = await axiosClient.get(`/movies/${id}`) as Record<string, unknown>;
+            const m = (mRaw as any)?.data ?? mRaw;
+            setMovie({
+              movie_id: Number((m as any).movie_id ?? id),
+              title: String((m as any).title ?? ''),
+              poster_url: (m as any).poster_url,
+              backdrop_url: (m as any).backdrop_url,
+              trailer_url: (m as any).trailer_url,
+              age_rating: (m as any).age_rating,
+              duration_minutes: (m as any).duration_minutes,
+            });
+          } catch { /* fallback poster/title ở null */ }
+        }
 
-        const rawSeats: SeatMapItem[] = Array.isArray(data)
-          ? (data as unknown as SeatMapItem[])
-          : (data?.seats ?? []);
-
-        if (rawSeats.length === 0) {
+        const seatList: SeatDto[] = data.seats ?? data.data?.seats ?? [];
+        if (seatList.length === 0) throw new Error('No seats');
+        setSeats(seatList);
+        setShowtimeInfo({
+          showtimeId: Number(showtimeId),
+          movieTitle: data.movieTitle ?? data.data?.movieTitle ?? null,
+          cinemaName: data.cinemaName ?? null,
+          roomName:   data.roomName   ?? null,
+          showDate:   data.showDate   ?? null,
+          showTime:   data.showTime   ?? null,
+        });
+        setUsingMock(false);
+      } catch {
+        try {
+          const data = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`) as unknown as SeatMapResponse;
+          const seatList: SeatDto[] = data.seats ?? data.data?.seats ?? [];
+          if (seatList.length === 0) throw new Error('Empty');
+          setSeats(seatList);
+          setUsingMock(false);
+        } catch {
           setSeats(generateMockSeats(showtimeId));
           setUsingMock(true);
-        } else {
-          const mapped: SeatDto[] = rawSeats.map((s) => ({
-            id:         s.showtimeSeatId,
-            rowName:    s.seatRow ?? "",
-            seatNumber: Number(s.seatNumber ?? 0),
-            price:      Number(s.price ?? 90_000),
-            status: ((): SeatDto["status"] => {
-              switch (s.seatStatus) {
-                case "AVAILABLE": return "AVAILABLE";
-                case "HELD":      return "HELD";
-                case "SOLD":      return "SOLD";
-                case "BLOCKED":   return "BLOCKED";
-                default:          return "AVAILABLE";
-              }
-            })(),
-          }));
-          setSeats(mapped);
         }
-      } catch (err: unknown) {
-        const status = (err as { status?: number })?.status;
-        if (status === 401) {
-          setLoadError("Phiên đăng nhập hết hạn. Bạn đang xem ở chế độ khách.");
-        } else {
-          setLoadError(`Không thể tải dữ liệu ghế từ máy chủ (${status ?? "lỗi mạng"}). Đang hiển thị dữ liệu mẫu.`);
-        }
-        setSeats(generateMockSeats(showtimeId));
-        setUsingMock(true);
       } finally {
         setLoading(false);
       }
     };
-
     void load();
   }, [id, searchParams]);
 
-  useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setHeldLabels([]);
-          setHeldIds([]);
-          setHoldMessage("");
-          clearSelectionRef.current();
-          return 0;
+  const handleSeatClick = (seatId: string) => {
+    setSeats((prev) =>
+      prev.map((s) => {
+        if (s.id !== seatId) return s;
+        const cur = (s as SeatDto2).status;
+        if (cur === 'BOOKED') return s;
+        if (cur === 'HELD') {
+          const selected = prev.filter((x) => (x as SeatDto2).status === 'HELD');
+          if (selected.length <= 1) return { ...s, status: 'AVAILABLE' as SeatStatus };
+          return { ...s, status: 'AVAILABLE' as SeatStatus };
         }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [countdown]);
+        const held = prev.filter((x) => (x as SeatDto2).status === 'HELD');
+        if (held.length >= MAX_SEATS) return s;
+        return { ...s, status: 'HELD' as SeatStatus };
+      })
+    );
+  };
 
-  const handleHold = async () => {
-    if (selectedSeats.length === 0) return;
-    if (usingMock) {
-      setHoldError("Không thể giữ ghế với dữ liệu mẫu.");
+  const handleHoldSeats = async () => {
+    const selected = getSelectedSeats(seats);
+    if (selected.length === 0) {
+      setHoldError('Vui lòng chọn ít nhất 1 ghế.');
       return;
     }
     setHolding(true);
-    setHoldMessage("");
-    setHoldError("");
+    setHoldError(null);
     try {
+      const showtimeId = searchParams.get('showtimeId') ?? id ?? '';
+      const showtimeSeatIds = selected.map((s) => Number(s.id));
       const res = await axiosClient.post('/showtime-seats/hold-many', {
-        showtimeSeatIds: selectedSeats.map((s) => s.id),
-        holdMinutes: 5,
-      }) as unknown;
-
-      const holds: HoldResponseItem[] = Array.isArray(res)
-        ? (res as HoldResponseItem[])
-        : ((res as Record<string, unknown>)?.data as HoldResponseItem[]) ?? [];
-
-      if (!holds.length) throw new Error('API trả về kết quả rỗng');
-
-      const ids    = holds.map((h) => h.holdId);
-      const labels = holds.map((h) =>
-        h.seatLabel ??
-        `${selectedSeats.find((s) => s.id === h.showtimeSeatId)?.rowName ?? ""}` +
-        `${selectedSeats.find((s) => s.id === h.showtimeSeatId)?.seatNumber ?? ""}`
-      );
-
-      setHeldIds(ids);
-      setHeldLabels(labels);
-      setHoldMessage(`Đã giữ ${holds.length} ghế! Vui lòng thanh toán trong 5 phút.`);
-      setCountdown(HOLD_SECONDS);
+        showtimeSeatIds,
+        showtimeId: Number(showtimeId),
+        holdMinutes: Math.ceil(HOLD_SECONDS / 60),
+      }) as Record<string, unknown>;
+      const ids = (res.holdIds ?? res.data) as number[] | undefined;
+      if (ids && ids.length > 0) {
+        setHeldIds(ids);
+        startCountdown();
+      } else {
+        setHeldIds(showtimeSeatIds);
+        startCountdown();
+      }
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } }; message?: string })
           ?.response?.data?.message ??
-        (err as { message?: string })?.message ??
-        "Lỗi không xác định";
-      setHoldError(`Không thể giữ ghế: ${msg}`);
+        (err as { message?: string })?.message ?? '';
+      setHoldError(`Giữ ghế thất bại: ${msg}`);
     } finally {
       setHolding(false);
     }
@@ -245,7 +261,7 @@ export default function SeatBookingPage() {
       return;
     }
     setNavigating(true);
-    setNavError("");
+    setNavError('');
     try {
       const res = await axiosClient.post('/bookings', { holdIds: heldIds }) as Record<string, unknown>;
       const bookingId = res.bookingId ?? (res.data as Record<string, unknown> | undefined)?.bookingId ?? res.id;
@@ -254,7 +270,7 @@ export default function SeatBookingPage() {
       const msg =
         (err as { response?: { data?: { message?: string } }; message?: string })
           ?.response?.data?.message ??
-        (err as { message?: string })?.message ?? "";
+        (err as { message?: string })?.message ?? '';
       setNavError(`Lỗi đặt vé: ${msg}`);
       setNavigating(false);
     }
@@ -273,205 +289,122 @@ export default function SeatBookingPage() {
   const totalAmount     = selectedSeatsForBar.reduce((sum, s) => sum + s.price, 0);
   const trailerEmbedUrl = movie ? getYoutubeEmbedUrl(movie.trailer_url) : null;
 
-  const date   = searchParams.get("date")   ?? "";
-  const cinema = searchParams.get("cinema") ?? "";
-  const time   = searchParams.get("time")   ?? "";
-  const room   = searchParams.get("room")   ?? "";
+  const mm = String(Math.floor(holdCountdown / 60)).padStart(2, '0');
+  const ss = String(holdCountdown % 60).padStart(2, '0');
+  const countdownStr = `${mm}:${ss}`;
 
-  const displayTitle    = movie?.title ?? `Phim #${id ?? "?"}`;
-  const displayPoster   = movie?.poster_url ?? FALLBACK_POSTER;
-  const displayBackdrop = movie?.backdrop_url ?? FALLBACK_BACKDROP;
-  const displayRating   = movie?.age_rating ?? "";
-  const displayDuration = movie?.duration_minutes ? `${movie.duration_minutes} phút` : "";
+  const bg   = darkMode ? 'bg-gray-950 text-white'        : 'bg-gray-50 text-gray-900';
+  const card = darkMode ? 'bg-gray-900 border border-gray-700/40' : 'bg-white border border-gray-200 shadow-sm';
 
-  const card = darkMode ? "bg-gray-900 border border-gray-800" : "bg-white shadow";
+  if (loading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${bg}`}>
+        <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1">
-      <div className="relative h-[260px] md:h-[340px] overflow-hidden">
-        <img
-          src={displayBackdrop}
-          alt={displayTitle}
-          onError={(e) => { e.currentTarget.src = FALLBACK_BACKDROP; }}
-          className="w-full h-full object-cover"
+    <div className={`min-h-screen ${bg}`}>
+      {/* Backdrop */}
+      {movie?.backdrop_url && (
+        <div
+          className="absolute inset-0 h-64 bg-cover bg-center opacity-20 pointer-events-none"
+          style={{ backgroundImage: `url('${movie.backdrop_url}')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/50" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+      )}
 
-        <div className="absolute top-5 left-5 z-20">
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20"
-          >
-            ← Quay lại
-          </button>
-        </div>
-
-        <div className="absolute bottom-0 left-0 right-0 z-10 px-4 md:px-10 pb-6">
-          <div className="max-w-6xl mx-auto flex items-end gap-4">
+      <div className="relative max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-start gap-4">
+          {movie?.poster_url && (
             <img
-              src={displayPoster}
-              alt={displayTitle}
-              onError={(e) => { e.currentTarget.src = FALLBACK_POSTER; }}
-              className="w-24 md:w-32 aspect-[2/3] object-cover rounded-xl shadow-lg border border-white/10"
+              src={movie.poster_url}
+              alt={movie.title}
+              className="w-20 h-28 object-cover rounded-xl shadow-lg flex-shrink-0"
             />
-            <div>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {displayRating && (
-                  <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                    {displayRating}
-                  </span>
-                )}
-                {displayDuration && (
-                  <span className="bg-white/10 text-white text-xs px-3 py-1 rounded-full border border-white/10">
-                    {displayDuration}
-                  </span>
-                )}
+          )}
+          <div>
+            <h1 className="text-2xl font-bold">{movie?.title ?? showtimeInfo?.movieTitle ?? 'Chọn ghế'}</h1>
+            {movie?.age_rating && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white">{movie.age_rating}</span>
+            )}
+            {showtimeInfo && (
+              <div className="text-sm opacity-70 mt-1 space-y-0.5">
+                {showtimeInfo.cinemaName && <p>Rạp: {showtimeInfo.cinemaName}</p>}
+                {showtimeInfo.roomName   && <p>Phòng: {showtimeInfo.roomName}</p>}
+                {showtimeInfo.showDate   && <p>Ngày: {showtimeInfo.showDate} {showtimeInfo.showTime ?? ''}</p>}
               </div>
-              <h1 className="text-2xl md:text-4xl font-extrabold text-white">{displayTitle}</h1>
-              {(cinema || date || time) && (
-                <p className="text-white/70 text-sm mt-1">
-                  {[cinema, date, time, room].filter(Boolean).join(" • ")}
-                </p>
-              )}
-            </div>
+            )}
           </div>
         </div>
-      </div>
 
-      <div className="max-w-6xl mx-auto px-4 md:px-10 py-8">
-        {loadError && (
-          <div className={`mb-4 rounded-xl px-4 py-3 text-sm font-medium border ${
-            darkMode
-              ? "bg-yellow-900/20 border-yellow-700/30 text-yellow-400"
-              : "bg-yellow-50 border-yellow-200 text-yellow-700"
-          }`}>
-            ⚠️ {loadError}
+        {usingMock && (
+          <div className="rounded-xl px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 text-sm">
+            ⚠️ Đang dùng dữ liệu mẫu (không tìm được sơ đồ ghế từ server)
+          </div>
+        )}
+        {error && (
+          <div className="rounded-xl px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{error}</div>
+        )}
+
+        {/* Trailer */}
+        {trailerEmbedUrl && (
+          <div className="aspect-video rounded-2xl overflow-hidden shadow-lg">
+            <iframe
+              src={trailerEmbedUrl}
+              title="Trailer"
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className={`rounded-2xl p-5 ${card}`}>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-bold">Chọn ghế</h2>
-                {usingMock && (
-                  <span className={`text-xs px-2 py-1 rounded-full border ${
-                    darkMode
-                      ? "bg-yellow-900/30 border-yellow-700/40 text-yellow-400"
-                      : "bg-yellow-50 border-yellow-200 text-yellow-600"
-                  }`}>
-                    Dữ liệu mẫu
-                  </span>
-                )}
-              </div>
-              {loading ? (
-                <div className="flex justify-center py-16">
-                  <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : (
-                <SeatMap
-                  seats={seats}
-                  selectedSeats={selectedSeatIds}
-                  onSeatSelect={(seatId) => toggleSeat(seatId, seats)}
-                  maxSelectable={MAX_SEATS}
-                  showLegend={true}
-                />
-              )}
-            </div>
-
-            {trailerEmbedUrl && (
-              <div className={`rounded-2xl p-5 ${card}`}>
-                <h2 className="text-lg font-bold mb-3">Trailer</h2>
-                <div className="aspect-video overflow-hidden rounded-xl">
-                  <iframe
-                    src={trailerEmbedUrl}
-                    title={`${displayTitle} trailer`}
-                    className="w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {heldIds.length > 0 && countdown > 0 && (
-              <div className={`rounded-2xl p-4 border ${
-                darkMode ? "bg-yellow-900/20 border-yellow-700/30" : "bg-yellow-50 border-yellow-200"
-              }`}>
-                <p className="text-yellow-500 font-semibold text-sm mb-1">⏳ {holdMessage}</p>
-                <p className="font-mono text-yellow-400 text-lg font-bold">
-                  {String(Math.floor(countdown / 60)).padStart(2, "0")}:{String(countdown % 60).padStart(2, "0")}
-                </p>
-                {heldLabels.length > 0 && (
-                  <p className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                    Ghế: {heldLabels.join(", ")}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {holdError && (
-              <div className="rounded-2xl p-4 bg-red-500/10 border border-red-500/20">
-                <p className="text-red-500 text-sm font-semibold">{holdError}</p>
-              </div>
-            )}
-
-            {navError && (
-              <div className="rounded-2xl p-4 bg-red-500/10 border border-red-500/20">
-                <p className="text-red-500 text-sm font-semibold">{navError}</p>
-              </div>
-            )}
-
-            {heldIds.length === 0 && (
-              <button
-                onClick={() => { void handleHold(); }}
-                disabled={holding || selectedSeats.length === 0}
-                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white font-bold py-3 rounded-2xl transition flex items-center justify-center gap-2"
-              >
-                {holding ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Đang giữ ghế...
-                  </>
-                ) : (
-                  "⏳ Giữ ghế (5 phút)"
-                )}
-              </button>
-            )}
-
-            {heldIds.length > 0 && (
-              <button
-                onClick={() => { void handleContinueToPayment(); }}
-                disabled={navigating}
-                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold py-3 rounded-2xl transition flex items-center justify-center gap-2"
-              >
-                {navigating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Đang xử lý...
-                  </>
-                ) : (
-                  "Tiếp tục thanh toán →"
-                )}
-              </button>
-            )}
-          </div>
+        {/* Seat Map */}
+        <div className={`rounded-2xl p-4 ${card}`}>
+          <SeatMap seats={seats} onSeatClick={handleSeatClick} />
         </div>
-      </div>
 
-      <SelectedSeatsBar
-        selectedSeats={selectedSeatsForBar}
-        totalPrice={totalAmount}
-        countdown={countdown}
-        loading={holding}
-        message={holdMessage}
-        error={holdError}
-        heldSeatCodes={heldLabels}
-        onHold={heldIds.length > 0 ? handleContinueToPayment : handleHold}
-      />
+        {/* Hold error */}
+        {holdError && (
+          <div className="rounded-xl px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{holdError}</div>
+        )}
+
+        {/* Countdown */}
+        {heldIds.length > 0 && holdCountdown > 0 && (
+          <div className="text-center text-sm font-mono font-bold text-yellow-500">
+            ⏳ Thời gian giữ ghế còn lại: {countdownStr}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => { void handleHoldSeats(); }}
+            disabled={holding || selectedSeats.length === 0}
+            className="flex-1 py-3 rounded-2xl font-semibold transition bg-yellow-500 hover:bg-yellow-400 disabled:opacity-40 text-black"
+          >
+            {holding ? 'Đang giữ...' : `Giữ ${selectedSeats.length} ghế`}
+          </button>
+          <button
+            onClick={() => { void handleContinueToPayment(); }}
+            disabled={navigating || heldIds.length === 0}
+            className="flex-1 py-3 rounded-2xl font-bold transition bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white"
+          >
+            {navigating ? 'Đang xử lý...' : 'Đặt vé'}
+          </button>
+        </div>
+
+        {navError && (
+          <div className="rounded-xl px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{navError}</div>
+        )}
+
+        {/* Selected seats bar */}
+        {selectedSeatsForBar.length > 0 && (
+          <SelectedSeatsBar seats={selectedSeatsForBar} total={totalAmount} />
+        )}
+      </div>
     </div>
   );
 }
