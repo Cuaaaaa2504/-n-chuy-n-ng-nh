@@ -128,8 +128,8 @@ export default function ShowtimeSelectPage() {
   const [allShowtimes, setAllShowtimes]         = useState<Showtime[]>([]);
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
   const [selectedDate, setSelectedDate]         = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null);
+  // selectedCinemaId dùng để lọc trong filtered useMemo bên dưới
+  const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
 
   const movieIdRef = useRef(movieId);

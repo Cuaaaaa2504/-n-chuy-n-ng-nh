@@ -14,13 +14,15 @@ export interface SeatDto {
 
 export interface SeatMapProps {
   seats: SeatDto[];
-  selectedSeats: number[];
-  onSeatSelect: (seatId: number) => void;
+  selectedSeats?: number[];
+  onSeatSelect?: (seatId: number) => void;
   maxSelectable?: number;
   showLegend?: boolean;
-  // FIX TS2322: thêm props string-based id dùng trong SeatBookingPage
+  // props string-based id dùng trong SeatBookingPage
   onSeatClick?: (seatId: string) => void;
   selectedIds?: Set<string>;
+  // FIX TS2322: thêm heldIds để SeatBookingPage có thể truyền vào
+  heldIds?: Set<string>;
 }
 
 export interface SeatItemProps {

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import type { User } from '../context/AuthContext';
 import userApi from '../api/userApi';
 
 // ─── Tabs ───────────────────────────────────────────────────────────────────
@@ -10,10 +11,10 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<Tab>('info');
 
   // ── Info state ──────────────────────────────────────────────────────────
-  const [fullName, setFullName] = useState(user?.fullName ?? '');
-  const [phone, setPhone] = useState(user?.phone ?? '');
-  const [avatarUrl, setAvatarUrl] = useState<string>(user?.avatarUrl ?? '');
-  const [avatarPreview, setAvatarPreview] = useState<string>(user?.avatarUrl ?? '');
+  const [fullName, setFullName] = useState((user as User | null)?.fullName ?? '');
+  const [phone, setPhone] = useState((user as User | null)?.phone ?? '');
+  const [avatarUrl, setAvatarUrl] = useState<string>((user as User | null)?.avatarUrl ?? '');
+  const [avatarPreview, setAvatarPreview] = useState<string>((user as User | null)?.avatarUrl ?? '');
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoMsg, setInfoMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,10 +33,11 @@ export default function ProfilePage() {
   const [emailMsg, setEmailMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
-    setFullName(user?.fullName ?? '');
-    setPhone(user?.phone ?? '');
-    setAvatarUrl(user?.avatarUrl ?? '');
-    setAvatarPreview(user?.avatarUrl ?? '');
+    const u = user as User | null;
+    setFullName(u?.fullName ?? '');
+    setPhone(u?.phone ?? '');
+    setAvatarUrl(u?.avatarUrl ?? '');
+    setAvatarPreview(u?.avatarUrl ?? '');
   }, [user]);
 
   // ── Avatar pick ──────────────────────────────────────────────────────────
@@ -51,7 +53,7 @@ export default function ProfilePage() {
       setAvatarUrl(res.avatarUrl);
       // Cập nhật context để Navbar cũng đổi avatar
       if (user && token) {
-        login(token, { ...user, avatarUrl: res.avatarUrl });
+        login(token, { ...(user as User), avatarUrl: res.avatarUrl });
       }
       setInfoMsg({ type: 'ok', text: 'Cập nhật ảnh đại diện thành công!' });
     } catch {
@@ -66,8 +68,8 @@ export default function ProfilePage() {
     setInfoLoading(true);
     setInfoMsg(null);
     try {
-      const updated = await userApi.update(user.id, { fullName, phone });
-      if (token) login(token, { ...user, ...updated });
+      const updated = await userApi.update((user as User).id, { fullName, phone });
+      if (token) login(token, { ...(user as User), ...updated });
       setInfoMsg({ type: 'ok', text: 'Lưu thông tin thành công!' });
     } catch {
       setInfoMsg({ type: 'err', text: 'Cập nhật thất bại. Vui lòng thử lại.' });
@@ -110,7 +112,7 @@ export default function ProfilePage() {
     setEmailMsg(null);
     try {
       const res = await userApi.changeEmail({ newEmail, currentPassword: emailPwd });
-      if (user && token) login(token, { ...user, email: res.email ?? newEmail });
+      if (user && token) login(token, { ...(user as User), email: res.email ?? newEmail });
       setEmailMsg({ type: 'ok', text: 'Đổi email thành công!' });
       setNewEmail(''); setEmailPwd('');
     } catch (err: unknown) {
@@ -121,7 +123,7 @@ export default function ProfilePage() {
     }
   };
 
-  const initials = user?.fullName?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() ?? '?';
+  const initials = (user as User | null)?.fullName?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() ?? '?';
 
   return (
     <div className="min-h-screen bg-gray-950 text-white py-10 px-4">
@@ -208,7 +210,7 @@ export default function ProfilePage() {
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Email</label>
                 <input
-                  value={user?.email ?? ''}
+                  value={(user as User | null)?.email ?? ''}
                   readOnly
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-400 cursor-not-allowed"
                 />
@@ -322,7 +324,7 @@ export default function ProfilePage() {
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Email hiện tại</label>
                 <input
-                  value={user?.email ?? ''}
+                  value={(user as User | null)?.email ?? ''}
                   readOnly
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-400 cursor-not-allowed"
                 />

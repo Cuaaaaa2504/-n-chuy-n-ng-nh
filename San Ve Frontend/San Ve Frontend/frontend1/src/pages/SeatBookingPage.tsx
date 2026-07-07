@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
-import type { Seat } from "../hooks/useSeatHold";
 import { useTheme } from "../context/ThemeContext";
 import type { SeatDto } from "../types/seat.types";
 import axiosClient from "../api/axiosClient";
@@ -14,6 +13,19 @@ const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900"
 
 const MAX_SEATS    = 8;
 const HOLD_SECONDS = 300;
+
+// ── Kiểu nội bộ dùng trong SeatBookingPage (khác với Seat của useSeatHold) ──
+interface BookingSeat {
+  id: string;
+  row: string;
+  number: number;
+  type: string;
+  price: number;
+  status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED';
+  // thêm seatId và seatCode để tương thích với SelectedSeatsBar (Seat type)
+  seatId: string;
+  seatCode: string;
+}
 
 function generateMockSeats(showtimeId?: string): SeatDto[] {
   void showtimeId;
@@ -38,6 +50,7 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
 
 function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
+  // FIX no-useless-escape: bỏ escape thừa trước dấu chấm trong character class
   const m = url.match(/(?:v=|youtu\.be\/)([\.\w-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
 }
@@ -310,15 +323,17 @@ export default function SeatBookingPage() {
     setNavError('');
     try {
       const showtimeId = searchParams.get('showtimeId');
-      const selectedSeats: Seat[] = Array.from(selectedIds).map((sid) => {
+      const selectedSeats: BookingSeat[] = Array.from(selectedIds).map((sid) => {
         const s = seats.find((seat) => String(seat.id) === sid);
         return {
-          id:         sid,
-          row:        s?.rowName ?? sid[0],
-          number:     s?.seatNumber ?? parseInt(sid.slice(1)),
-          type:       (s?.type ?? 'STANDARD') as Seat['type'],
-          price:      s?.price ?? 90_000,
-          status:     (s?.status ?? 'AVAILABLE') as Seat['status'],
+          id:       sid,
+          row:      s?.rowName ?? sid[0],
+          number:   s?.seatNumber ?? parseInt(sid.slice(1)),
+          type:     s?.type ?? 'STANDARD',
+          price:    s?.price ?? 90_000,
+          status:   (s?.status ?? 'AVAILABLE') as BookingSeat['status'],
+          seatId:   sid,
+          seatCode: `${s?.rowName ?? sid[0]}${s?.seatNumber ?? sid.slice(1)}`,
         };
       });
 
@@ -341,15 +356,17 @@ export default function SeatBookingPage() {
     }
   };
 
-  const selectedSeatsData: Seat[] = Array.from(selectedIds).map((sid) => {
+  const selectedSeatsData: BookingSeat[] = Array.from(selectedIds).map((sid) => {
     const s = seats.find((seat) => String(seat.id) === sid);
     return {
-      id:      sid,
-      row:     s?.rowName ?? sid[0],
-      number:  s?.seatNumber ?? parseInt(sid.slice(1)),
-      type:    (s?.type ?? 'STANDARD') as Seat['type'],
-      price:   s?.price ?? 90_000,
-      status:  (s?.status ?? 'AVAILABLE') as Seat['status'],
+      id:       sid,
+      row:      s?.rowName ?? sid[0],
+      number:   s?.seatNumber ?? parseInt(sid.slice(1)),
+      type:     s?.type ?? 'STANDARD',
+      price:    s?.price ?? 90_000,
+      status:   (s?.status ?? 'AVAILABLE') as BookingSeat['status'],
+      seatId:   sid,
+      seatCode: `${s?.rowName ?? sid[0]}${s?.seatNumber ?? sid.slice(1)}`,
     };
   });
 
