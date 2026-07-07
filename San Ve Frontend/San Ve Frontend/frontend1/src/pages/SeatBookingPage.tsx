@@ -63,6 +63,7 @@ export default function SeatBookingPage() {
   const [holdMessage, setHoldMessage] = useState("");
   const [holdError, setHoldError]     = useState("");
   const [heldCodes, setHeldCodes]     = useState<string[]>([]);
+  const [heldIds, setHeldIds]         = useState<number[]>([]); // holdIds thật từ API hold
   const [countdown, setCountdown]     = useState(0);
 
   // ── Navigating state (khi đang tạo booking) ──────────────────────────────────────────
@@ -89,6 +90,7 @@ export default function SeatBookingPage() {
       setLoading(true);
       clearSelectionRef.current();
       setHeldCodes([]);
+      setHeldIds([]);
       setHoldMessage("");
       setHoldError("");
       setNavError("");
@@ -110,6 +112,7 @@ export default function SeatBookingPage() {
         if (prev <= 1) {
           clearInterval(timer);
           setHeldCodes([]);
+          setHeldIds([]);
           setHoldMessage("");
           clearSelectionRef.current();
           return 0;
@@ -130,6 +133,7 @@ export default function SeatBookingPage() {
       await new Promise<void>((resolve) => setTimeout(resolve, 1000));
       const codes = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`);
       setHeldCodes(codes);
+      // Khi tích hợp API hold thật, lưu holdIds từ response vào setHeldIds([...])
       setHoldMessage(`Đã giữ ${codes.length} ghế! Vui lòng thanh toán trong 5 phút.`);
       setCountdown(HOLD_SECONDS);
     } catch {
@@ -139,73 +143,49 @@ export default function SeatBookingPage() {
     }
   };
 
-  // ── Tiếp tục thanh toán: tạo booking trên backend rồi navigate ────────────────────────────────
+  // ── Tiếp tục thanh toán ────────────────────────────────────────────────────────────
   const handleContinueToPayment = async () => {
     if (selectedSeats.length === 0) return;
     setNavigating(true);
     setNavError("");
 
-    const showtimeId = searchParams.get("showtimeId");
-    const date       = searchParams.get("date")   ?? "";
-    const cinema     = searchParams.get("cinema") ?? "";
-    const time       = searchParams.get("time")   ?? "";
-    const room       = searchParams.get("room")   ?? "";
+    const date   = searchParams.get("date")   ?? "";
+    const cinema = searchParams.get("cinema") ?? "";
+    const time   = searchParams.get("time")   ?? "";
+    const room   = searchParams.get("room")   ?? "";
 
-    try {
-      // --- Cố gắng tạo booking thật trên backend ---
-      // Backend yêu cầu holdIds (BIGINT[]) từ bước hold ghế thật.
-      // Hiện tại màn sức ghế dùng mock, nên nếu backend chưa có holdIds
-      // ta fallback sang navigate trực tiếp với params thật.
-      if (showtimeId) {
-        // Có showtimeId thật → thử tạo booking
-        const seatCodes = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`);
+    const seatCodesStr = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`).join(",");
+
+    // Nếu có holdIds thật từ bước hold API → gọi backend tạo booking
+    if (heldIds.length > 0) {
+      try {
+        // Chỉ gửi đúng các field mà DTO backend chấp nhận: holdIds (+ voucherCode tùy chọn)
         const res = await axiosClient.post('/bookings', {
-          showtimeId: Number(showtimeId),
-          // holdIds sẽ được thêm khi tích hợp hold API thật
-          holdIds: selectedSeatIds, // tạm dùng seatId — sẽ thay bằng holdId thật
-          totalAmount,
-          seatCodes,
+          holdIds: heldIds,
         }) as Record<string, unknown>;
 
-        const bookingId = (res as Record<string, unknown>).bookingId
-          ?? (res as Record<string, unknown>).id;
-
+        const bookingId = res.bookingId ?? res.id;
         navigate(`/payment/${bookingId}`);
-      } else {
-        // Không có showtimeId thật → truyền toàn bộ thông tin qua query params
-        // để PaymentPage dùng bảng hiển thị tạm (offline mode)
-        const seatCodes = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`).join(",");
-        navigate(
-          `/payment/local?seats=${seatCodes}` +
-          `&total=${totalAmount}` +
-          `&movie=${encodeURIComponent(movie?.title ?? '')}` +
-          `&cinema=${encodeURIComponent(cinema)}` +
-          `&date=${encodeURIComponent(date)}` +
-          `&time=${encodeURIComponent(time)}` +
-          `&room=${encodeURIComponent(room)}`
-        );
-      }
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } }; message?: string })
-        ?.response?.data?.message ?? (err as { message?: string })?.message ?? '';
-      // Nếu backend lỗi (chưa có holdId thật) → fallback offline mode
-      const seatCodes = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`).join(",");
-      if (msg && !msg.includes('hold')) {
-        setNavError(`Lỗi: ${msg}`);
+        return;
+      } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { message?: string } }; message?: string })
+          ?.response?.data?.message ?? (err as { message?: string })?.message ?? "";
+        setNavError(`Lỗi đặt vé: ${msg}`);
         setNavigating(false);
         return;
       }
-      // Fallback: navigate offline
-      navigate(
-        `/payment/local?seats=${seatCodes}` +
-        `&total=${totalAmount}` +
-        `&movie=${encodeURIComponent(movie?.title ?? '')}` +
-        `&cinema=${encodeURIComponent(cinema)}` +
-        `&date=${encodeURIComponent(date)}` +
-        `&time=${encodeURIComponent(time)}` +
-        `&room=${encodeURIComponent(room)}`
-      );
     }
+
+    // Chưa có holdIds thật → dùng offline/local mode, truyền thông tin qua query params
+    navigate(
+      `/payment/local?seats=${seatCodesStr}` +
+      `&total=${totalAmount}` +
+      `&movie=${encodeURIComponent(movie?.title ?? "")}` +
+      `&cinema=${encodeURIComponent(cinema)}` +
+      `&date=${encodeURIComponent(date)}` +
+      `&time=${encodeURIComponent(time)}` +
+      `&room=${encodeURIComponent(room)}`
+    );
   };
 
   const selectedSeats   = getSelectedSeats(seats);
