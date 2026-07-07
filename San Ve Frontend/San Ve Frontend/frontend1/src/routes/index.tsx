@@ -1,3 +1,4 @@
+// src/routes/index.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
@@ -53,7 +54,9 @@ export default function AppRouter() {
           {/* Protected (yêu cầu đăng nhập) */}
           <Route element={<PrivateRoute />}>
             <Route path="/showtimes/:movieId" element={<ShowtimeSelectPage />} />
-            <Route path="/booking/:id" element={<SeatBookingPage />} />
+            {/* FIX #10: đổi tên param từ :id → :movieId để rõ ràng hơn
+                showtimeId vẫn truyền qua query string: ?showtimeId=... */}
+            <Route path="/booking/:movieId" element={<SeatBookingPage />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />
             <Route path="/my-tickets" element={<MyBookingsPage />} />
             <Route path="/tickets" element={<TicketPage />} />

@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { mockMovies } from "../data/mockMovies";
 import { useTheme } from "../context/ThemeContext";
 import EmptyShowtime from "../components/showtime/EmptyShowtime";
+import axiosClient from "../api/axiosClient";
 
 type Cinema = { id: number; name: string; address: string };
 
@@ -23,18 +24,27 @@ const cinemas: Cinema[] = [
   { id: 3, name: "CMC Cinema HCM",     address: "99 Lý Tự Trọng, TP.HCM" },
 ];
 
+// FIX #4: tạo mock với các suất chiếu trong TƯƠNG LAI để không bị isPast
 function buildMockShowtimes(movieId: string | undefined): Showtime[] {
   if (!movieId) return [];
-  const base = Date.now();
   const result: Showtime[] = [];
   let id = 1;
   cinemas.forEach((cinema) => {
     [0, 1, 2].forEach((dayOffset) => {
-      [9, 12.5, 16, 20.25].forEach((hour) => {
-        const start = new Date(base);
-        start.setHours(0, 0, 0, 0);
-        start.setDate(start.getDate() + dayOffset);
-        start.setHours(Math.floor(hour), (hour % 1) * 60);
+      // FIX #4: bắt đầu từ ngày mai (dayOffset+1) hoặc từ giờ hiện tại + 2h để không bị disabled
+      const hoursToAdd = dayOffset === 0 ? [2, 4, 6, 8] : [9, 12.5, 16, 20.25];
+      hoursToAdd.forEach((hoursFromNow) => {
+        let start: Date;
+        if (dayOffset === 0) {
+          // Ngày hôm nay: cộng thêm số giờ từ hiện tại
+          start = new Date(Date.now() + hoursFromNow * 60 * 60 * 1000);
+        } else {
+          // Các ngày tiếp theo: đặt giờ cố định
+          start = new Date();
+          start.setHours(0, 0, 0, 0);
+          start.setDate(start.getDate() + dayOffset);
+          start.setHours(Math.floor(hoursFromNow), (hoursFromNow % 1) * 60);
+        }
         const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
         result.push({
           showtimeId: id++,
@@ -73,14 +83,49 @@ export default function ShowtimeSelectPage() {
   const navigate    = useNavigate();
   const { darkMode } = useTheme();
 
-  const movie = mockMovies.find((m) => String(m.movie_id) === movieId);
+  // FIX #8: thử fetch movie từ API trước, fallback về mockMovies
+  const mockMovie = mockMovies.find((m) => String(m.movie_id) === movieId);
+  const [movie, setMovie] = useState(mockMovie ?? null);
+  const [loadingMovie, setLoadingMovie] = useState(!mockMovie);
+
+  useEffect(() => {
+    if (mockMovie) {
+      setMovie(mockMovie);
+      setLoadingMovie(false);
+      return;
+    }
+    if (!movieId) { setLoadingMovie(false); return; }
+    let cancelled = false;
+    axiosClient.get(`/movies/${movieId}`)
+      .then((res) => {
+        if (cancelled) return;
+        const m = (res as any)?.data ?? res as any;
+        setMovie({
+          movie_id: Number(m.movie_id ?? movieId),
+          title: String(m.title ?? ''),
+          poster_url: m.poster_url ?? '',
+          backdrop_url: m.backdrop_url ?? '',
+          trailer_url: m.trailer_url ?? '',
+          age_rating: m.age_rating ?? '',
+          duration_minutes: Number(m.duration_minutes ?? 0),
+          genres: Array.isArray(m.genres) ? m.genres : [],
+          description: m.description ?? '',
+          release_date: m.release_date ?? '',
+        } as typeof mockMovie);
+      })
+      .catch(() => { /* không có trong API cũng không crash */ })
+      .finally(() => { if (!cancelled) setLoadingMovie(false); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movieId]);
 
   const [allShowtimes, setAllShowtimes]         = useState<Showtime[]>([]);
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
   const [selectedDate, setSelectedDate]         = useState<string | null>(null);
   const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null);
+  // FIX #3: track xem đang dùng mock hay API thật
+  const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
 
-  // ✅ FIX: dùng useLayoutEffect thay vì update ref trực tiếp trong render
   const movieIdRef = useRef(movieId);
   useLayoutEffect(() => {
     movieIdRef.current = movieId;
@@ -89,13 +134,39 @@ export default function ShowtimeSelectPage() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      // ✅ FIX: setLoading trong async function, không phải sync body của effect
       setLoadingShowtimes(true);
       setSelectedDate(null);
-      await new Promise<void>((resolve) => setTimeout(resolve, 600));
-      if (cancelled) return;
-      setAllShowtimes(buildMockShowtimes(movieIdRef.current));
-      setLoadingShowtimes(false);
+
+      // FIX #3: thử gọi API thật trước, nếu lỗi hoặc rỗng mới dùng mock
+      try {
+        const raw = await axiosClient.get(`/showtimes?movieId=${movieIdRef.current}`);
+        const data = (raw as any)?.data ?? raw as any;
+        const list: Showtime[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+          ? data.data
+          : [];
+
+        if (cancelled) return;
+
+        if (list.length > 0) {
+          setAllShowtimes(list);
+          setUsingMockShowtimes(false);
+        } else {
+          // API trả về rỗng → dùng mock
+          setAllShowtimes(buildMockShowtimes(movieIdRef.current));
+          setUsingMockShowtimes(true);
+        }
+      } catch {
+        if (cancelled) return;
+        // API lỗi → dùng mock
+        await new Promise<void>((resolve) => setTimeout(resolve, 400));
+        if (cancelled) return;
+        setAllShowtimes(buildMockShowtimes(movieIdRef.current));
+        setUsingMockShowtimes(true);
+      } finally {
+        if (!cancelled) setLoadingShowtimes(false);
+      }
     };
     void load();
     return () => { cancelled = true; };
@@ -148,6 +219,14 @@ export default function ShowtimeSelectPage() {
     ? "bg-gray-900 border border-gray-800"
     : "bg-white shadow";
 
+  if (loadingMovie) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-4">
+        <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!movie) {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
@@ -175,6 +254,13 @@ export default function ShowtimeSelectPage() {
           Quay lại phim
         </button>
       </div>
+
+      {/* FIX #3: hiển thị banner nếu đang dùng mock data */}
+      {usingMockShowtimes && (
+        <div className="mb-4 rounded-xl px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 text-sm">
+          ⚠️ Đang hiển thị suất chiếu mẫu (không kết nối được server)
+        </div>
+      )}
 
       {loadingShowtimes ? (
         <div className="flex justify-center py-20">
@@ -265,7 +351,7 @@ export default function ShowtimeSelectPage() {
                           disabled={disabled}
                           onClick={() =>
                             navigate(
-                              `/booking/${movie.movie_id}?date=${selectedDate}&cinema=${encodeURIComponent(cinemaName)}&time=${formatTime(st.startTime)}&room=${encodeURIComponent(st.roomName)}&showtimeId=${st.showtimeId}`
+                              `/booking/${movie.movie_id}?date=${selectedDate}&cinema=${encodeURIComponent(cinemaName)}&time=${encodeURIComponent(formatTime(st.startTime))}&room=${encodeURIComponent(st.roomName)}&showtimeId=${st.showtimeId}`
                             )
                           }
                           className={`rounded-xl border px-4 py-3 font-semibold transition ${
@@ -292,7 +378,7 @@ export default function ShowtimeSelectPage() {
               <p className="text-sm mb-2"><span className="font-semibold">Tên phim:</span> {movie.title}</p>
               <p className="text-sm mb-2"><span className="font-semibold">Phân loại:</span> {movie.age_rating}</p>
               <p className="text-sm mb-2"><span className="font-semibold">Thời lượng:</span> {movie.duration_minutes} phút</p>
-              <p className="text-sm"><span className="font-semibold">Thể loại:</span> {movie.genres.join(", ")}</p>
+              <p className="text-sm"><span className="font-semibold">Thể loại:</span> {movie.genres?.join(", ")}</p>
             </div>
             <div className={`rounded-2xl p-5 ${card}`}>
               <h3 className="font-bold mb-3">Đã chọn</h3>
