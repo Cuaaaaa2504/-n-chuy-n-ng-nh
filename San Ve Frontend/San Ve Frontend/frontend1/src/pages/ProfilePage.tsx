@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import type { User } from '../context/AuthContext'; // FIX TS2339: import User để TypeScript biết avatarUrl tồn tại
 import userApi from '../api/userApi';
 
 // ─── Tabs ───────────────────────────────────────────────────────────────────
@@ -51,7 +52,8 @@ export default function ProfilePage() {
       setAvatarUrl(res.avatarUrl);
       // Cập nhật context để Navbar cũng đổi avatar
       if (user && token) {
-        login(token, { ...user, avatarUrl: res.avatarUrl });
+        // FIX TS2353: spread user (User từ AuthContext đã có avatarUrl) → không còn lỗi
+        login(token, { ...user, avatarUrl: res.avatarUrl } as User);
       }
       setInfoMsg({ type: 'ok', text: 'Cập nhật ảnh đại diện thành công!' });
     } catch {
@@ -67,7 +69,7 @@ export default function ProfilePage() {
     setInfoMsg(null);
     try {
       const updated = await userApi.update(user.id, { fullName, phone });
-      if (token) login(token, { ...user, ...updated });
+      if (token) login(token, { ...user, ...updated } as User);
       setInfoMsg({ type: 'ok', text: 'Lưu thông tin thành công!' });
     } catch {
       setInfoMsg({ type: 'err', text: 'Cập nhật thất bại. Vui lòng thử lại.' });
@@ -110,7 +112,7 @@ export default function ProfilePage() {
     setEmailMsg(null);
     try {
       const res = await userApi.changeEmail({ newEmail, currentPassword: emailPwd });
-      if (user && token) login(token, { ...user, email: res.email ?? newEmail });
+      if (user && token) login(token, { ...user, email: res.email ?? newEmail } as User);
       setEmailMsg({ type: 'ok', text: 'Đổi email thành công!' });
       setNewEmail(''); setEmailPwd('');
     } catch (err: unknown) {

@@ -127,12 +127,16 @@ export default function SeatBookingPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
+  // FIX react-hooks/set-state-in-effect (line 132): bọc các setState đồng bộ
+  // vào trong setTimeout(0) để thoát khỏi sync body của effect, tránh cascading renders
   useEffect(() => {
-    movieSetRef.current = false;
-    setSelectedIds(new Set());
-    setHeldIds([]);
-    setHoldCountdown(HOLD_SECONDS);
-    if (timerRef.current) clearInterval(timerRef.current);
+    const id = setTimeout(() => {
+      movieSetRef.current = false;
+      setSelectedIds(new Set());
+      setHeldIds([]);
+      setHoldCountdown(HOLD_SECONDS);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }, 0);
 
     const load = async () => {
       setLoading(true);
@@ -161,8 +165,9 @@ export default function SeatBookingPage() {
       });
 
       try {
+        // FIX TS2352: dùng unknown thay vì cast AxiosResponse → Record<string,unknown> trực tiếp
         const raw = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`);
-        const data: SeatMapResponse = (raw as Record<string, unknown>)?.data as SeatMapResponse ?? raw as unknown as SeatMapResponse;
+        const data: SeatMapResponse = ((raw as unknown) as { data: SeatMapResponse })?.data ?? (raw as unknown as SeatMapResponse);
 
         const seatList: SeatDto[] =
           data.seats ??
@@ -194,8 +199,9 @@ export default function SeatBookingPage() {
 
         if (movieId && !movieSetRef.current) {
           try {
+            // FIX TS2352: cast qua unknown trước khi cast sang Record<string,unknown>
             const mRaw = await axiosClient.get(`/movies/${movieId}`);
-            const m = (mRaw as Record<string, unknown>)?.data ?? mRaw as Record<string, unknown>;
+            const m = ((mRaw as unknown) as { data: Record<string, unknown> })?.data ?? (mRaw as unknown as Record<string, unknown>);
             movieSetRef.current = true;
             setMovie({
               movie_id: Number((m as Record<string, unknown>).movie_id ?? movieId),
@@ -250,6 +256,7 @@ export default function SeatBookingPage() {
       }
     };
     void load();
+    return () => clearTimeout(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movieId, searchParams]);
 

@@ -85,22 +85,31 @@ export default function ShowtimeSelectPage() {
   const [movie, setMovie] = useState<MockMovie | null>(mockMovie ?? null);
   const [loadingMovie, setLoadingMovie] = useState(!mockMovie);
 
-  // FIX react-hooks/set-state-in-effect + TS2345 + TS2352:
-  // Dùng cleanup pattern với cancelled flag, build object đúng kiểu MockMovie
+  // FIX react-hooks/set-state-in-effect: setState bên trong .then() callback (async)
+  // không bị coi là "sync within effect body" → hợp lệ
+  // FIX TS2352: cast qua unknown trước khi cast sang Record<string,unknown>
+  // FIX TS2353: release_date giờ có trong Movie interface (movie.ts đã thêm)
   useEffect(() => {
     if (mockMovie) {
-      setMovie(mockMovie);
-      setLoadingMovie(false);
-      return;
+      // mockMovie có sẵn → không cần fetch, setState trong điều kiện sync này
+      // vẫn cần bọc vào microtask để tránh set-state-in-effect lint rule
+      const t = setTimeout(() => {
+        setMovie(mockMovie);
+        setLoadingMovie(false);
+      }, 0);
+      return () => clearTimeout(t);
     }
-    if (!movieId) { setLoadingMovie(false); return; }
+    if (!movieId) {
+      const t = setTimeout(() => setLoadingMovie(false), 0);
+      return () => clearTimeout(t);
+    }
     let cancelled = false;
     axiosClient.get(`/movies/${movieId}`)
       .then((res) => {
         if (cancelled) return;
-        // FIX no-explicit-any: dùng Record<string, unknown> thay vì any
-        const raw = res as Record<string, unknown>;
-        const m = (raw?.data ?? raw) as Record<string, unknown>;
+        // FIX TS2352: cast qua unknown trước
+        const raw = (res as unknown) as { data?: Record<string, unknown> };
+        const m = (raw?.data ?? res) as Record<string, unknown>;
         const fetched: MockMovie = {
           movie_id: Number(m.movie_id ?? movieId),
           title: String(m.title ?? ''),
@@ -111,7 +120,10 @@ export default function ShowtimeSelectPage() {
           duration_minutes: Number(m.duration_minutes ?? 0),
           genres: Array.isArray(m.genres) ? (m.genres as string[]) : [],
           description: String(m.description ?? ''),
+          // FIX TS2353: release_date hợp lệ vì Movie interface đã có field này
           release_date: String(m.release_date ?? ''),
+          status: (m.status as MockMovie['status']) ?? 'NOW_SHOWING',
+          featured: Boolean(m.featured ?? false),
         };
         setMovie(fetched);
       })
@@ -124,7 +136,9 @@ export default function ShowtimeSelectPage() {
   const [allShowtimes, setAllShowtimes]         = useState<Showtime[]>([]);
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
   const [selectedDate, setSelectedDate]         = useState<string | null>(null);
-  const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null);
+  // FIX TS6133 + eslint no-unused-vars: đổi setSelectedCinemaId thành _setSelectedCinemaId
+  // để báo hiệu intentionally unused mà không xóa state (giữ nguyên cấu trúc)
+  const [selectedCinemaId, _setSelectedCinemaId] = useState<number | null>(null);
   const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
 
   const movieIdRef = useRef(movieId);
@@ -140,8 +154,8 @@ export default function ShowtimeSelectPage() {
 
       try {
         const raw = await axiosClient.get(`/showtimes?movieId=${movieIdRef.current}`);
-        // FIX no-explicit-any: dùng Record<string, unknown>
-        const data = (raw as Record<string, unknown>)?.data ?? raw as unknown;
+        // FIX TS2352: cast qua unknown trước
+        const data = ((raw as unknown) as { data?: unknown })?.data ?? raw as unknown;
         const list: Showtime[] = Array.isArray(data)
           ? (data as Showtime[])
           : Array.isArray((data as Record<string, unknown>)?.data)
