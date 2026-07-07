@@ -11,7 +11,10 @@ export class Voucher {
   @PrimaryGeneratedColumn({ type: 'int', name: 'promotion_id' })
   promotionId: number;
 
-  @Column({ name: 'promotion_code', type: 'varchar', length: 40, unique: true })
+  @Column({ name: 'promotion_name', type: 'nvarchar', length: 150 })
+  promotionName: string;
+
+  @Column({ name: 'promotion_code', type: 'varchar', length: 50, unique: true })
   promotionCode: string;
 
   @Column({ name: 'description', type: 'nvarchar', nullable: true })
@@ -41,8 +44,8 @@ export class Voucher {
   @Column({ name: 'end_at', type: 'datetime2', precision: 0 })
   endAt: Date;
 
-  // Đổi tên cột từ 'status' (reserved keyword T-SQL) sang 'voucher_status'
-  @Column({ name: 'voucher_status', type: 'varchar', length: 20, default: 'ACTIVE' })
+  // FIX: SQL dùng cột 'status' (không phải 'voucher_status')
+  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
