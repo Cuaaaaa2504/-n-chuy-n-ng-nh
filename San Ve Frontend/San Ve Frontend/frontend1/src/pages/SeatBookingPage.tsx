@@ -291,7 +291,6 @@ export default function SeatBookingPage() {
     if (!showtimeId) {
       startCountdown();
       setHeldIds(Array.from(selectedIds).map(Number));
-      setHoldError(null);
       return;
     }
     setHolding(true);

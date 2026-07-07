@@ -8,8 +8,7 @@ import React, {
   useState,
 } from 'react';
 
-// FIX TS2339: export User interface để ProfilePage (và các file khác) có thể
-// import trực tiếp, tránh TypeScript infer sai type thiếu avatarUrl
+// FIX TS2339: export User interface với avatarUrl để ProfilePage import được
 export interface User {
   id: number;
   fullName: string;

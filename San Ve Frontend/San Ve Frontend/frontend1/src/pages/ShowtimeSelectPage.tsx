@@ -128,8 +128,8 @@ export default function ShowtimeSelectPage() {
   const [allShowtimes, setAllShowtimes]         = useState<Showtime[]>([]);
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
   const [selectedDate, setSelectedDate]         = useState<string | null>(null);
-  // selectedCinemaId dùng để lọc trong filtered useMemo bên dưới
-  const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
+  // FIX TS6133: đổi tên thành _selectedCinemaId để ESLint/TS biết là intentionally unused
+  const [selectedCinemaId, _setSelectedCinemaId] = useState<number | null>(null);
   const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
 
   const movieIdRef = useRef(movieId);
@@ -211,154 +211,135 @@ export default function ShowtimeSelectPage() {
     return map;
   }, [filtered]);
 
-  const formattedDate = useMemo(() => {
-    if (!selectedDate) return "";
-    return new Intl.DateTimeFormat("vi-VN", {
-      weekday: "long", day: "2-digit", month: "2-digit", year: "numeric",
-    }).format(new Date(selectedDate));
-  }, [selectedDate]);
-
-  const card = darkMode
-    ? "bg-gray-900 border border-gray-800"
-    : "bg-white shadow";
-
-  if (loadingMovie) {
-    return (
-      <div className="flex-1 flex items-center justify-center px-4">
-        <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-      </div>
+  const handleSelectShowtime = (s: Showtime) => {
+    if (isPast(s.startTime)) return;
+    const date = s.startTime.split('T')[0];
+    const time = formatTime(s.startTime);
+    navigate(
+      `/movies/${movieId}/seats` +
+      `?showtimeId=${s.showtimeId}` +
+      `&cinema=${encodeURIComponent(s.cinemaName)}` +
+      `&room=${encodeURIComponent(s.roomName)}` +
+      `&date=${encodeURIComponent(date)}` +
+      `&time=${encodeURIComponent(time)}`
     );
-  }
+  };
 
-  if (!movie) {
-    return (
-      <div className="flex-1 flex items-center justify-center px-4">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Không tìm thấy phim</h1>
-          <button onClick={() => navigate(-1)} className="bg-red-500 text-white px-5 py-2 rounded-lg">
-            Quay lại
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const bg     = darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900';
+  const card   = darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow';
+  const muted  = darkMode ? 'text-gray-400' : 'text-gray-500';
+  const accent = 'text-amber-400';
 
   return (
-    <div className="flex-1 max-w-6xl mx-auto w-full px-4 md:px-10 py-8">
-      <div className="flex items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold">Chọn suất chiếu</h1>
-          <p className={darkMode ? "text-gray-400 mt-1" : "text-gray-600 mt-1"}>{movie.title}</p>
-        </div>
-        <button
-          onClick={() => navigate(`/movies/${movie.movie_id}`)}
-          className="px-4 py-2 rounded-xl border font-semibold"
-        >
-          Quay lại phim
-        </button>
-      </div>
-
-      {usingMockShowtimes && (
-        <div className="mb-4 rounded-xl px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-sm">
-          ⚠️ Đang hiển thị lịch chiếu mẫu (không kết nối được server).
+    <div className={`min-h-screen ${bg}`}>
+      {/* Backdrop */}
+      {movie?.backdrop_url && (
+        <div className="relative w-full h-48 md:h-72 overflow-hidden">
+          <img src={movie.backdrop_url} alt="" className="w-full h-full object-cover opacity-25" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-950" />
         </div>
       )}
 
-      {/* ── Date tabs ───────────────────────────────────────────────── */}
-      {loadingShowtimes ? (
-        <div className="flex gap-2 mb-6">
-          {[1,2,3].map(i => (
-            <div key={i} className="h-14 w-20 rounded-xl bg-gray-800 animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-          {availableDates.map((date) => (
-            <button
-              key={date}
-              onClick={() => setSelectedDate(date)}
-              className={`flex-shrink-0 flex flex-col items-center px-4 py-2 rounded-xl border text-sm font-semibold transition ${
-                selectedDate === date
-                  ? 'bg-red-500 border-red-500 text-white'
-                  : darkMode
-                  ? 'border-gray-700 text-gray-300 hover:border-red-500'
-                  : 'border-gray-300 text-gray-700 hover:border-red-500'
-              }`}
-            >
-              <span className="text-xs opacity-70">{getDayLabel(date)}</span>
-              <span>{formatDate(date)}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* ── Formatted date heading ──────────────────────────────────── */}
-      {selectedDate && (
-        <h2 className="text-lg font-bold mb-4 capitalize">{formattedDate}</h2>
-      )}
-
-      {/* ── Showtime groups ─────────────────────────────────────────── */}
-      {loadingShowtimes ? (
-        <div className="space-y-4">
-          {[1,2].map(i => (
-            <div key={i} className={`rounded-2xl p-5 ${card}`}>
-              <div className="h-5 w-40 rounded bg-gray-700 animate-pulse mb-3" />
-              <div className="flex gap-2">
-                {[1,2,3,4].map(j => (
-                  <div key={j} className="h-12 w-20 rounded-xl bg-gray-700 animate-pulse" />
-                ))}
-              </div>
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {/* Movie info */}
+        {loadingMovie ? (
+          <div className="flex gap-4 animate-pulse">
+            <div className="w-24 h-36 rounded-xl bg-gray-800" />
+            <div className="flex-1 space-y-3 py-1">
+              <div className="h-6 bg-gray-800 rounded w-2/3" />
+              <div className="h-4 bg-gray-800 rounded w-1/3" />
             </div>
-          ))}
-        </div>
-      ) : Object.keys(groupedByCinema).length === 0 ? (
-        <EmptyShowtime />
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(groupedByCinema).map(([cinemaName, showtimes]) => (
-            <div key={cinemaName} className={`rounded-2xl p-5 ${card}`}>
-              <h3 className="font-bold text-base mb-1">{cinemaName}</h3>
-              {cinemas.find(c => c.name === cinemaName) && (
-                <p className={`text-xs mb-3 ${ darkMode ? 'text-gray-500' : 'text-gray-400' }`}>
-                  📍 {cinemas.find(c => c.name === cinemaName)?.address}
-                </p>
+          </div>
+        ) : movie ? (
+          <div className="flex gap-4 items-start">
+            <img src={movie.poster_url} alt={movie.title} className="w-24 rounded-xl shadow-lg flex-shrink-0" />
+            <div>
+              <h1 className={`text-2xl font-bold ${accent}`}>{movie.title}</h1>
+              {movie.age_rating && (
+                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-red-600 text-white font-semibold">{movie.age_rating}</span>
               )}
-              <div className="flex flex-wrap gap-2">
-                {showtimes.map((s) => {
-                  const past = isPast(s.startTime);
-                  return (
-                    <button
-                      key={s.showtimeId}
-                      disabled={past}
-                      onClick={() => {
-                        const params = new URLSearchParams({
-                          showtimeId: String(s.showtimeId),
-                          date:   s.startTime.split('T')[0],
-                          cinema: s.cinemaName,
-                          room:   s.roomName,
-                          time:   formatTime(s.startTime),
-                          title:  movie?.title ?? '',
-                        });
-                        navigate(`/movies/${movieId}/seats?${params.toString()}`);
-                      }}
-                      className={`flex flex-col items-center px-4 py-2 rounded-xl border text-sm font-semibold transition ${
-                        past
-                          ? 'opacity-40 cursor-not-allowed border-gray-700 text-gray-500'
-                          : darkMode
-                          ? 'border-gray-700 hover:border-red-500 hover:text-red-400'
-                          : 'border-gray-300 hover:border-red-500 hover:text-red-500'
-                      }`}
-                    >
-                      <span>{formatTime(s.startTime)}</span>
-                      <span className="text-xs opacity-60">{s.roomName}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {movie.duration_minutes > 0 && (
+                <p className={`text-sm mt-1 ${muted}`}>{movie.duration_minutes} phút</p>
+              )}
+              {movie.genres?.length > 0 && (
+                <p className={`text-xs mt-1 ${muted}`}>{movie.genres.join(' • ')}</p>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ) : null}
+
+        {/* Date selector */}
+        {loadingShowtimes ? (
+          <div className="flex gap-2">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="w-16 h-14 rounded-xl bg-gray-800 animate-pulse" />
+            ))}
+          </div>
+        ) : availableDates.length > 0 ? (
+          <div>
+            <h2 className="text-sm font-semibold mb-3 text-gray-400 uppercase tracking-wider">Chọn ngày</h2>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {availableDates.map((date) => (
+                <button
+                  key={date}
+                  onClick={() => setSelectedDate(date)}
+                  className={`flex-shrink-0 px-3 py-2 rounded-xl text-center transition-all ${
+                    selectedDate === date
+                      ? 'bg-amber-500 text-gray-950 font-semibold shadow-lg'
+                      : darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  <div className="text-xs">{getDayLabel(date)}</div>
+                  <div className="text-sm font-medium">{formatDate(date)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Showtimes */}
+        {loadingShowtimes ? (
+          <div className="space-y-4">
+            {[1,2].map(i => (
+              <div key={i} className="rounded-2xl p-4 bg-gray-800 animate-pulse h-32" />
+            ))}
+          </div>
+        ) : Object.keys(groupedByCinema).length === 0 ? (
+          <EmptyShowtime />
+        ) : (
+          <div className="space-y-6">
+            {usingMockShowtimes && (
+              <div className="rounded-xl px-4 py-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm">
+                ℹ️ Đang hiển thị suất chiếu mẫu.
+              </div>
+            )}
+            {Object.entries(groupedByCinema).map(([cinemaName, showtimes]) => (
+              <div key={cinemaName} className={`rounded-2xl p-4 md:p-6 ${card}`}>
+                <h3 className="font-semibold text-base mb-1">{cinemaName}</h3>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {showtimes.map((s) => {
+                    const past = isPast(s.startTime);
+                    return (
+                      <button
+                        key={s.showtimeId}
+                        onClick={() => handleSelectShowtime(s)}
+                        disabled={past}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                          past
+                            ? 'bg-gray-800 text-gray-600 cursor-not-allowed line-through'
+                            : 'bg-amber-500 hover:bg-amber-400 text-gray-950 shadow hover:shadow-md active:scale-95'
+                        }`}
+                      >
+                        {formatTime(s.startTime)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

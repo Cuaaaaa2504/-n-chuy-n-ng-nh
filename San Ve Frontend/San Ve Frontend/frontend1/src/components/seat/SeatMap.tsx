@@ -6,7 +6,7 @@ import './SeatMap.css';
 
 const SeatMap: React.FC<SeatMapProps> = ({
   seats,
-  selectedSeats,
+  selectedSeats = [],
   onSeatSelect,
   maxSelectable = 10,
   showLegend = true,
@@ -39,7 +39,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
       alert(`Bạn chỉ có thể chọn tối đa ${maxSelectable} ghế`);
       return;
     }
-    onSeatSelect(seatId);
+    if (onSeatSelect) onSeatSelect(seatId);
   };
 
   const stats = {
