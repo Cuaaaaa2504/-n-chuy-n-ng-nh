@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  // Sửa fallback: port 3000 → 3002 (khớp với PORT=3002 trong backend .env)
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api',
+  // FIX: bỏ /api trong fallback — backend không có global prefix
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002',
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -15,13 +15,30 @@ axiosClient.interceptors.request.use((config) => {
 
 axiosClient.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
     const status = error.response?.status as number | undefined;
     const message: string =
       error.response?.data?.message || error.message || 'Có lỗi xảy ra';
     console.error('[API ERROR]', { status, message, url: error.config?.url });
 
-    if (status === 401) {
+    if (status === 401 && !error.config?._retry) {
+      // FIX: Thử refresh token trước khi redirect login
+      try {
+        error.config._retry = true;
+        const res = await axios.post(
+          (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002') + '/auth/refresh',
+          {},
+          { withCredentials: true },
+        );
+        const newToken = res.data?.accessToken;
+        if (newToken) {
+          localStorage.setItem('accessToken', newToken);
+          error.config.headers.Authorization = 'Bearer ' + newToken;
+          return axiosClient(error.config);
+        }
+      } catch {
+        // refresh thất bại → clear và redirect
+      }
       localStorage.removeItem('accessToken');
       localStorage.removeItem('user');
       window.dispatchEvent(new Event('auth-changed'));
