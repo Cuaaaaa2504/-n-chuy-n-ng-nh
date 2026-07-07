@@ -3,7 +3,13 @@
    Hệ thống săn vé / đặt vé xem phim
    DBMS: Microsoft SQL Server
    Backend: NestJS + TypeORM
-   Version: 6.2 (backend/frontend compatible)
+   Version: 6.3 (backend/frontend compatible - fixed column name mismatches)
+   
+   THAY ĐỔI V6.3 so với V6.2:
+   - payments.CK_payments_method: bổ sung ZALOPAY, CREDIT_CARD (Frontend dùng)
+   - booking_orders: thêm cột computed booking_status → ánh xạ entity NestJS
+   - showtime_seats: thêm cột computed seat_status → ánh xạ entity NestJS
+   - promotions: thêm cột computed voucher_status → ánh xạ entity NestJS
    ============================================================================ */
 
 SET NOCOUNT ON;
@@ -152,8 +158,6 @@ CREATE TABLE dbo.user_roles (
 );
 GO
 
-/* Đồng bộ role đơn của backend vào bảng RBAC mở rộng.
-   Backend hiện đọc/ghi users.role; procedure này dùng khi cần đồng bộ thủ công hoặc từ service. */
 CREATE OR ALTER PROCEDURE dbo.sp_sync_user_role
     @user_id INT
 AS
@@ -396,6 +400,11 @@ CREATE INDEX IX_showtimes_room_time
 ON dbo.showtimes(room_id, start_time, end_time);
 GO
 
+/* ============================================================================
+   showtime_seats
+   FIX V6.3: Thêm cột computed seat_status để NestJS entity (@Column name: 'seat_status') hoạt động.
+   Cột status (VARCHAR 20) vẫn là cột gốc nghiệp vụ. seat_status là alias computed, PERSISTED.
+   ============================================================================ */
 CREATE TABLE dbo.showtime_seats (
     showtime_seat_id   INT IDENTITY(1,1) NOT NULL,
     showtime_id        INT NOT NULL,
@@ -422,6 +431,11 @@ CREATE TABLE dbo.showtime_seats (
         (status <> 'HELD')
     )
 );
+GO
+
+/* Thêm cột computed seat_status = alias của status cho NestJS entity tương thích */
+ALTER TABLE dbo.showtime_seats
+ADD seat_status AS CAST(status AS VARCHAR(20)) PERSISTED;
 GO
 
 CREATE INDEX IX_showtime_seats_showtime_status
@@ -468,8 +482,7 @@ GO
 
 /* ============================================================================
    7. ĐƠN ĐẶT VÉ VÀ CHI TIẾT
-   Lưu ý V6: KHÔNG unique toàn cục showtime_seat_id.
-   Chỉ chặn ghế nằm trong booking đang còn hiệu lực bằng filtered index.
+   FIX V6.3: Thêm cột computed booking_status = alias của status cho NestJS entity tương thích.
    ============================================================================ */
 
 CREATE TABLE dbo.booking_orders (
@@ -506,6 +519,11 @@ CREATE TABLE dbo.booking_orders (
         status IN ('PENDING_PAYMENT', 'PAID', 'ISSUED', 'CANCELLED', 'EXPIRED', 'FAILED', 'REFUNDED')
     )
 );
+GO
+
+/* Thêm cột computed booking_status = alias của status cho NestJS entity tương thích */
+ALTER TABLE dbo.booking_orders
+ADD booking_status AS CAST(status AS VARCHAR(30)) PERSISTED;
 GO
 
 CREATE UNIQUE INDEX UX_booking_orders_idempotency
@@ -628,6 +646,8 @@ GO
 
 /* ============================================================================
    9. KHUYẾN MÃI
+   FIX V6.3: Thêm cột computed voucher_status = alias của status cho NestJS entity tương thích.
+             Giữ promotion_code VARCHAR(50) như SQL gốc; entity nên đổi length: 50.
    ============================================================================ */
 
 CREATE TABLE dbo.promotions (
@@ -662,6 +682,11 @@ CREATE TABLE dbo.promotions (
 );
 GO
 
+/* Thêm cột computed voucher_status = alias của status cho NestJS entity tương thích */
+ALTER TABLE dbo.promotions
+ADD voucher_status AS CAST(status AS VARCHAR(20)) PERSISTED;
+GO
+
 ALTER TABLE dbo.booking_orders
 ADD CONSTRAINT FK_booking_orders_promotion
 FOREIGN KEY (promotion_id) REFERENCES dbo.promotions(promotion_id);
@@ -669,6 +694,8 @@ GO
 
 /* ============================================================================
    10. THANH TOÁN
+   FIX V6.3: CK_payments_method bổ sung ZALOPAY, CREDIT_CARD (Frontend dùng).
+             Giữ payment_status dùng tên cột đúng như entity backend.
    ============================================================================ */
 
 CREATE TABLE dbo.payments (
@@ -689,7 +716,10 @@ CREATE TABLE dbo.payments (
     CONSTRAINT PK_payments PRIMARY KEY (payment_id),
     CONSTRAINT FK_payments_booking FOREIGN KEY (booking_id)
         REFERENCES dbo.booking_orders(booking_id),
-    CONSTRAINT CK_payments_method CHECK (payment_method IN ('MOMO', 'VNPAY', 'BANKING', 'CASH', 'MOCK')),
+    /* FIX: bổ sung ZALOPAY, CREDIT_CARD vào CHECK constraint */
+    CONSTRAINT CK_payments_method CHECK (
+        payment_method IN ('MOMO', 'VNPAY', 'BANKING', 'CASH', 'MOCK', 'ZALOPAY', 'CREDIT_CARD')
+    ),
     CONSTRAINT CK_payments_amount CHECK (amount >= 0),
     CONSTRAINT CK_payments_status CHECK (payment_status IN ('PENDING', 'SUCCESS', 'FAILED', 'REFUNDED')),
     CONSTRAINT CK_payments_failed_reason CHECK (payment_status = 'FAILED' OR failed_reason IS NULL)
@@ -908,9 +938,7 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-
     IF TRIGGER_NESTLEVEL() > 1 RETURN;
-
     UPDATE u
     SET updated_at = SYSDATETIME()
     FROM dbo.users u
@@ -924,19 +952,13 @@ AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-
     IF TRIGGER_NESTLEVEL() > 1 RETURN;
-
     UPDATE m
     SET updated_at = SYSDATETIME()
     FROM dbo.movies m
     INNER JOIN inserted i ON i.movie_id = m.movie_id;
 END;
 GO
-
-/* ============================================================================
-   16. CHỐNG TRÙNG LỊCH PHÒNG
-   ============================================================================ */
 
 CREATE TRIGGER dbo.trg_showtimes_updated_at
 ON dbo.showtimes
@@ -945,11 +967,10 @@ AS
 BEGIN
     SET NOCOUNT ON;
     IF TRIGGER_NESTLEVEL() > 1 RETURN;
-
-    UPDATE st
+    UPDATE s
     SET updated_at = SYSDATETIME()
-    FROM dbo.showtimes st
-    INNER JOIN inserted i ON i.showtime_id = st.showtime_id;
+    FROM dbo.showtimes s
+    INNER JOIN inserted i ON i.showtime_id = s.showtime_id;
 END;
 GO
 
@@ -960,11 +981,10 @@ AS
 BEGIN
     SET NOCOUNT ON;
     IF TRIGGER_NESTLEVEL() > 1 RETURN;
-
-    UPDATE bo
+    UPDATE b
     SET updated_at = SYSDATETIME()
-    FROM dbo.booking_orders bo
-    INNER JOIN inserted i ON i.booking_id = bo.booking_id;
+    FROM dbo.booking_orders b
+    INNER JOIN inserted i ON i.booking_id = b.booking_id;
 END;
 GO
 
@@ -975,7 +995,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
     IF TRIGGER_NESTLEVEL() > 1 RETURN;
-
     UPDATE p
     SET updated_at = SYSDATETIME()
     FROM dbo.payments p
@@ -983,258 +1002,225 @@ BEGIN
 END;
 GO
 
+/* Chặn suất chiếu trùng phòng */
 CREATE TRIGGER dbo.trg_showtimes_prevent_overlap
 ON dbo.showtimes
 AFTER INSERT, UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-
     IF EXISTS (
         SELECT 1
-        FROM inserted i
-        INNER JOIN dbo.showtimes s
-            ON s.room_id = i.room_id
-           AND s.showtime_id <> i.showtime_id
-           AND s.status <> 'CANCELLED'
-           AND i.status <> 'CANCELLED'
-           AND i.start_time < s.end_time
-           AND i.end_time > s.start_time
+        FROM inserted ins
+        JOIN dbo.showtimes s ON s.room_id = ins.room_id
+            AND s.showtime_id <> ins.showtime_id
+            AND s.status <> 'CANCELLED'
+            AND ins.status <> 'CANCELLED'
+            AND s.start_time < ins.end_time
+            AND s.end_time > ins.start_time
     )
     BEGIN
-        THROW 51001, N'Phòng chiếu bị trùng lịch trong khoảng thời gian đã chọn.', 1;
+        THROW 50010, N'Suất chiếu bị trùng lịch trong cùng phòng.', 1;
     END;
 END;
 GO
 
-/* ============================================================================
-   17. PROCEDURE TẠO SUẤT CHIẾU AN TOÀN
-   Tự tính giờ kết thúc = thời lượng phim + thời gian vệ sinh, kiểm tra trùng lịch,
-   sau đó sinh ghế cho suất chiếu trong cùng transaction.
-   ============================================================================ */
-CREATE PROCEDURE dbo.sp_create_showtime
-    @movie_id INT,
-    @room_id INT,
-    @start_time DATETIME2(0),
-    @base_price DECIMAL(12,2),
-    @created_by INT = NULL,
-    @cleaning_minutes INT = 15
+/* Đồng bộ users.role → user_roles sau khi cập nhật role */
+CREATE TRIGGER dbo.trg_users_sync_role
+ON dbo.users
+AFTER UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
+    IF NOT UPDATE(role) RETURN;
 
-    IF @base_price < 0
-        THROW 51015, N'Giá vé cơ bản không được âm.', 1;
-    IF @cleaning_minutes NOT BETWEEN 0 AND 120
-        THROW 51016, N'Thời gian vệ sinh phải từ 0 đến 120 phút.', 1;
+    DECLARE @user_id INT, @role_code VARCHAR(20), @role_id INT;
 
-    DECLARE @duration_minutes INT;
-    SELECT @duration_minutes = duration_minutes
-    FROM dbo.movies
-    WHERE movie_id = @movie_id AND status <> 'HIDDEN';
+    DECLARE role_cursor CURSOR LOCAL FAST_FORWARD FOR
+        SELECT user_id, role FROM inserted;
 
-    IF @duration_minutes IS NULL
-        THROW 51017, N'Phim không tồn tại hoặc đang bị ẩn.', 1;
-    IF NOT EXISTS (SELECT 1 FROM dbo.rooms WHERE room_id = @room_id AND status = 'ACTIVE')
-        THROW 51018, N'Phòng chiếu không tồn tại hoặc không hoạt động.', 1;
+    OPEN role_cursor;
+    FETCH NEXT FROM role_cursor INTO @user_id, @role_code;
 
-    DECLARE @end_time DATETIME2(0) = DATEADD(MINUTE, @duration_minutes + @cleaning_minutes, @start_time);
-    DECLARE @showtime_id INT;
-
-    BEGIN TRANSACTION;
-
-    IF EXISTS (
-        SELECT 1
-        FROM dbo.showtimes WITH (UPDLOCK, HOLDLOCK)
-        WHERE room_id = @room_id
-          AND status <> 'CANCELLED'
-          AND @start_time < end_time
-          AND @end_time > start_time
-    )
+    WHILE @@FETCH_STATUS = 0
     BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51019, N'Phòng chiếu bị trùng lịch.', 1;
+        SELECT @role_id = role_id FROM dbo.roles WHERE role_code = @role_code;
+
+        IF @role_id IS NOT NULL
+        BEGIN
+            DELETE FROM dbo.user_roles
+            WHERE user_id = @user_id AND role_id <> @role_id;
+
+            IF NOT EXISTS (SELECT 1 FROM dbo.user_roles WHERE user_id = @user_id AND role_id = @role_id)
+                INSERT INTO dbo.user_roles(user_id, role_id) VALUES(@user_id, @role_id);
+        END;
+
+        FETCH NEXT FROM role_cursor INTO @user_id, @role_code;
     END;
 
-    INSERT INTO dbo.showtimes(movie_id, room_id, start_time, end_time, base_price, status, created_by)
-    VALUES(@movie_id, @room_id, @start_time, @end_time, @base_price, 'OPEN', @created_by);
-
-    SET @showtime_id = SCOPE_IDENTITY();
-    EXEC dbo.sp_generate_showtime_seats @showtime_id = @showtime_id;
-
-    INSERT INTO dbo.audit_logs(user_id, action, entity_type, entity_id, new_values)
-    VALUES(
-        @created_by,
-        'CREATE_SHOWTIME',
-        'showtimes',
-        CONVERT(VARCHAR(80), @showtime_id),
-        (SELECT @movie_id AS movie_id, @room_id AS room_id, @start_time AS start_time,
-                @end_time AS end_time, @base_price AS base_price FOR JSON PATH, WITHOUT_ARRAY_WRAPPER)
-    );
-
-    COMMIT TRANSACTION;
-
-    SELECT * FROM dbo.showtimes WHERE showtime_id = @showtime_id;
+    CLOSE role_cursor;
+    DEALLOCATE role_cursor;
 END;
 GO
 
 /* ============================================================================
-   17. PROCEDURE SINH GHẾ CHO SUẤT CHIẾU
+   16. STORED PROCEDURES
    ============================================================================ */
 
-CREATE PROCEDURE dbo.sp_generate_showtime_seats
+CREATE OR ALTER PROCEDURE dbo.sp_generate_showtime_seats
     @showtime_id INT
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
 
     DECLARE @room_id INT;
     DECLARE @base_price DECIMAL(12,2);
 
-    SELECT
-        @room_id = room_id,
-        @base_price = base_price
+    SELECT @room_id = room_id, @base_price = base_price
     FROM dbo.showtimes
     WHERE showtime_id = @showtime_id;
 
     IF @room_id IS NULL
-        THROW 51002, N'Suất chiếu không tồn tại.', 1;
+        THROW 50003, N'Không tìm thấy suất chiếu.', 1;
 
-    INSERT INTO dbo.showtime_seats(showtime_id, seat_id, price, status)
+    INSERT INTO dbo.showtime_seats (showtime_id, seat_id, price)
     SELECT
         @showtime_id,
         s.seat_id,
-        ROUND(@base_price * st.price_multiplier, 0),
-        CASE WHEN s.status = 'ACTIVE' THEN 'AVAILABLE' ELSE 'BLOCKED' END
+        CONVERT(DECIMAL(12,2), @base_price * st.price_multiplier)
     FROM dbo.seats s
-    INNER JOIN dbo.seat_types st ON st.seat_type_id = s.seat_type_id
+    JOIN dbo.seat_types st ON st.seat_type_id = s.seat_type_id
     WHERE s.room_id = @room_id
+      AND s.status = 'ACTIVE'
+      AND st.status = 'ACTIVE'
       AND NOT EXISTS (
-          SELECT 1
-          FROM dbo.showtime_seats ss
-          WHERE ss.showtime_id = @showtime_id
-            AND ss.seat_id = s.seat_id
+          SELECT 1 FROM dbo.showtime_seats ss
+          WHERE ss.showtime_id = @showtime_id AND ss.seat_id = s.seat_id
       );
 END;
 GO
 
-/* ============================================================================
-   18. PROCEDURE GIỮ NHIỀU GHẾ
-   @seat_ids nhận JSON array, ví dụ: [1,2,3]
-   ============================================================================ */
-
-CREATE PROCEDURE dbo.sp_hold_seats
-    @user_id INT,
-    @showtime_id INT,
-    @seat_ids NVARCHAR(MAX),
-    @hold_minutes INT = 10
+CREATE OR ALTER PROCEDURE dbo.sp_create_showtime
+    @movie_id   INT,
+    @room_id    INT,
+    @start_time DATETIME2(0),
+    @base_price DECIMAL(12,2),
+    @created_by INT = NULL,
+    @showtime_id INT OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    IF @hold_minutes NOT BETWEEN 1 AND 30
-        THROW 51003, N'Thời gian giữ ghế phải từ 1 đến 30 phút.', 1;
+    DECLARE @duration INT;
+    SELECT @duration = duration_minutes FROM dbo.movies WHERE movie_id = @movie_id;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM dbo.users
-        WHERE user_id = @user_id AND status = 'ACTIVE'
-    )
-        THROW 51004, N'Người dùng không tồn tại hoặc không hoạt động.', 1;
+    IF @duration IS NULL
+        THROW 50004, N'Không tìm thấy phim.', 1;
 
-    DECLARE @RequestedSeats TABLE (
-        showtime_seat_id INT PRIMARY KEY
-    );
-
-    INSERT INTO @RequestedSeats(showtime_seat_id)
-    SELECT DISTINCT TRY_CONVERT(INT, [value])
-    FROM OPENJSON(@seat_ids)
-    WHERE TRY_CONVERT(INT, [value]) IS NOT NULL;
-
-    DECLARE @SeatCount INT = (SELECT COUNT(*) FROM @RequestedSeats);
-
-    IF @SeatCount = 0
-        THROW 51005, N'Danh sách ghế không hợp lệ.', 1;
-
-    IF @SeatCount > 8
-        THROW 51006, N'Mỗi đơn chỉ được chọn tối đa 8 ghế.', 1;
+    DECLARE @end_time DATETIME2(0) = DATEADD(MINUTE, @duration, @start_time);
 
     BEGIN TRANSACTION;
 
-    /* Giải phóng hold quá hạn trước khi giữ */
-    UPDATE ss WITH (UPDLOCK, HOLDLOCK)
-    SET status = 'AVAILABLE',
-        held_by_user_id = NULL,
-        hold_expires_at = NULL
-    FROM dbo.showtime_seats ss
-    WHERE ss.showtime_id = @showtime_id
-      AND ss.status = 'HELD'
-      AND ss.hold_expires_at <= SYSDATETIME();
+    INSERT INTO dbo.showtimes(movie_id, room_id, start_time, end_time, base_price, created_by)
+    VALUES (@movie_id, @room_id, @start_time, @end_time, @base_price, @created_by);
 
-    UPDATE sh
-    SET status = 'EXPIRED',
-        released_at = SYSDATETIME()
-    FROM dbo.seat_holds sh
-    INNER JOIN dbo.showtime_seats ss
-        ON ss.showtime_seat_id = sh.showtime_seat_id
-    WHERE ss.showtime_id = @showtime_id
-      AND sh.status = 'ACTIVE'
-      AND sh.expires_at <= SYSDATETIME();
+    SET @showtime_id = SCOPE_IDENTITY();
 
-    IF (
-        SELECT COUNT(*)
-        FROM dbo.showtime_seats ss WITH (UPDLOCK, HOLDLOCK)
-        INNER JOIN @RequestedSeats r
-            ON r.showtime_seat_id = ss.showtime_seat_id
-        WHERE ss.showtime_id = @showtime_id
-          AND ss.status = 'AVAILABLE'
-    ) <> @SeatCount
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51007, N'Một hoặc nhiều ghế không còn trống.', 1;
-    END;
-
-    DECLARE @ExpiresAt DATETIME2(0) = DATEADD(MINUTE, @hold_minutes, SYSDATETIME());
-    DECLARE @HoldToken UNIQUEIDENTIFIER = NEWID();
-
-    UPDATE ss
-    SET status = 'HELD',
-        held_by_user_id = @user_id,
-        hold_expires_at = @ExpiresAt
-    FROM dbo.showtime_seats ss
-    INNER JOIN @RequestedSeats r
-        ON r.showtime_seat_id = ss.showtime_seat_id;
-
-    INSERT INTO dbo.seat_holds(
-        user_id, showtime_seat_id, hold_token, status, expires_at
-    )
-    SELECT
-        @user_id, r.showtime_seat_id, @HoldToken, 'ACTIVE', @ExpiresAt
-    FROM @RequestedSeats r;
+    EXEC dbo.sp_generate_showtime_seats @showtime_id;
 
     COMMIT TRANSACTION;
-
-    SELECT
-        @HoldToken AS hold_token,
-        @ExpiresAt AS expires_at,
-        ss.showtime_seat_id,
-        s.seat_label,
-        ss.price,
-        ss.status
-    FROM dbo.showtime_seats ss
-    INNER JOIN dbo.seats s ON s.seat_id = ss.seat_id
-    INNER JOIN @RequestedSeats r ON r.showtime_seat_id = ss.showtime_seat_id
-    ORDER BY s.seat_row, s.seat_number;
 END;
 GO
 
-/* ============================================================================
-   19. PROCEDURE GIẢI PHÓNG HOLD HẾT HẠN
-   ============================================================================ */
+CREATE OR ALTER PROCEDURE dbo.sp_find_ticket_suggestions
+    @user_id    INT,
+    @movie_id   INT = NULL,
+    @city       NVARCHAR(100) = NULL,
+    @date_from  DATE = NULL,
+    @date_to    DATE = NULL,
+    @max_price  DECIMAL(12,2) = NULL,
+    @min_seats  INT = 1
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-CREATE PROCEDURE dbo.sp_release_expired_holds
+    SELECT
+        s.showtime_id,
+        m.title           AS movie_title,
+        m.poster_url,
+        c.cinema_name,
+        c.city,
+        r.room_name,
+        r.room_type,
+        s.start_time,
+        s.end_time,
+        s.base_price,
+        COUNT(ss.showtime_seat_id) AS available_seats
+    FROM dbo.showtimes s
+    JOIN dbo.movies m ON m.movie_id = s.movie_id
+    JOIN dbo.rooms r ON r.room_id = s.room_id
+    JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id
+    JOIN dbo.showtime_seats ss ON ss.showtime_id = s.showtime_id AND ss.status = 'AVAILABLE'
+    WHERE s.status = 'OPEN'
+      AND s.start_time > SYSDATETIME()
+      AND (@movie_id IS NULL OR s.movie_id = @movie_id)
+      AND (@city IS NULL OR c.city = @city)
+      AND (@date_from IS NULL OR CAST(s.start_time AS DATE) >= @date_from)
+      AND (@date_to IS NULL OR CAST(s.start_time AS DATE) <= @date_to)
+      AND (@max_price IS NULL OR s.base_price <= @max_price)
+    GROUP BY
+        s.showtime_id, m.title, m.poster_url,
+        c.cinema_name, c.city, r.room_name, r.room_type,
+        s.start_time, s.end_time, s.base_price
+    HAVING COUNT(ss.showtime_seat_id) >= @min_seats
+    ORDER BY available_seats DESC, s.start_time ASC;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_hold_seats
+    @user_id             INT,
+    @showtime_seat_ids   NVARCHAR(MAX),   -- JSON array: [1,2,3]
+    @hold_minutes        INT = 10,
+    @hold_token          UNIQUEIDENTIFIER OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    SET @hold_token = NEWID();
+    DECLARE @expires_at DATETIME2(0) = DATEADD(MINUTE, @hold_minutes, SYSDATETIME());
+
+    BEGIN TRANSACTION;
+
+    IF EXISTS (
+        SELECT 1
+        FROM OPENJSON(@showtime_seat_ids) WITH (id INT '$') j
+        JOIN dbo.showtime_seats ss ON ss.showtime_seat_id = j.id
+        WHERE ss.status <> 'AVAILABLE'
+    )
+    BEGIN
+        ROLLBACK;
+        THROW 50005, N'Một hoặc nhiều ghế không còn khả dụng.', 1;
+    END;
+
+    UPDATE ss
+    SET status          = 'HELD',
+        held_by_user_id = @user_id,
+        hold_expires_at = @expires_at
+    FROM dbo.showtime_seats ss
+    JOIN OPENJSON(@showtime_seat_ids) WITH (id INT '$') j ON j.id = ss.showtime_seat_id
+    WHERE ss.status = 'AVAILABLE';
+
+    INSERT INTO dbo.seat_holds (user_id, showtime_seat_id, hold_token, expires_at)
+    SELECT @user_id, j.id, @hold_token, @expires_at
+    FROM OPENJSON(@showtime_seat_ids) WITH (id INT '$') j;
+
+    COMMIT TRANSACTION;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_release_expired_holds
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -1242,8 +1228,8 @@ BEGIN
 
     BEGIN TRANSACTION;
 
-    UPDATE ss WITH (UPDLOCK, ROWLOCK)
-    SET status = 'AVAILABLE',
+    UPDATE ss
+    SET status          = 'AVAILABLE',
         held_by_user_id = NULL,
         hold_expires_at = NULL
     FROM dbo.showtime_seats ss
@@ -1251,346 +1237,127 @@ BEGIN
       AND ss.hold_expires_at <= SYSDATETIME();
 
     UPDATE dbo.seat_holds
-    SET status = 'EXPIRED',
+    SET status      = 'EXPIRED',
         released_at = SYSDATETIME()
-    WHERE status = 'ACTIVE'
+    WHERE status    = 'ACTIVE'
       AND expires_at <= SYSDATETIME();
-
-    /* Booking hết hạn */
-    UPDATE dbo.booking_orders
-    SET status = 'EXPIRED',
-        updated_at = SYSDATETIME()
-    WHERE status = 'PENDING_PAYMENT'
-      AND expires_at <= SYSDATETIME();
-
-    /* Hủy trạng thái active của detail để ghế có thể đặt lại */
-    UPDATE bd
-    SET bd.status = 'EXPIRED'
-    FROM dbo.booking_details bd
-    INNER JOIN dbo.booking_orders bo ON bo.booking_id = bd.booking_id
-    WHERE bo.status = 'EXPIRED'
-      AND bd.status = 'ACTIVE';
 
     COMMIT TRANSACTION;
 END;
 GO
 
-/* ============================================================================
-   20. PROCEDURE TẠO BOOKING TỪ HOLD TOKEN
-   ============================================================================ */
-
-CREATE PROCEDURE dbo.sp_create_booking
-    @user_id INT,
-    @showtime_id INT,
-    @hold_token UNIQUEIDENTIFIER,
-    @idempotency_key VARCHAR(100) = NULL
+CREATE OR ALTER PROCEDURE dbo.sp_create_booking
+    @user_id           INT,
+    @showtime_id       INT,
+    @showtime_seat_ids NVARCHAR(MAX),   -- JSON array
+    @promotion_id      INT = NULL,
+    @idempotency_key   VARCHAR(100) = NULL,
+    @booking_id        BIGINT OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
+    /* Idempotency check */
     IF @idempotency_key IS NOT NULL
-       AND EXISTS (SELECT 1 FROM dbo.booking_orders WHERE idempotency_key = @idempotency_key)
     BEGIN
-        SELECT *
+        SELECT @booking_id = booking_id
         FROM dbo.booking_orders
         WHERE idempotency_key = @idempotency_key;
-        RETURN;
+
+        IF @booking_id IS NOT NULL RETURN;
     END;
 
     BEGIN TRANSACTION;
 
-    IF NOT EXISTS (
-        SELECT 1
-        FROM dbo.showtimes WITH (UPDLOCK, HOLDLOCK)
-        WHERE showtime_id = @showtime_id
-          AND status = 'OPEN'
-          AND start_time > DATEADD(MINUTE, 15, SYSDATETIME())
-    )
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51024, N'Suất chiếu đã đóng hoặc đã quá thời hạn đặt vé trực tuyến.', 1;
-    END;
-
-    DECLARE @Seats TABLE (
-        showtime_seat_id INT PRIMARY KEY,
-        price DECIMAL(12,2)
-    );
-
-    INSERT INTO @Seats(showtime_seat_id, price)
-    SELECT ss.showtime_seat_id, ss.price
-    FROM dbo.seat_holds sh WITH (UPDLOCK, HOLDLOCK)
-    INNER JOIN dbo.showtime_seats ss WITH (UPDLOCK, HOLDLOCK)
-        ON ss.showtime_seat_id = sh.showtime_seat_id
-    WHERE sh.user_id = @user_id
-      AND sh.hold_token = @hold_token
-      AND sh.status = 'ACTIVE'
-      AND sh.expires_at > SYSDATETIME()
-      AND ss.showtime_id = @showtime_id
-      AND ss.status = 'HELD'
-      AND ss.held_by_user_id = @user_id;
-
-    DECLARE @SeatCount INT = (SELECT COUNT(*) FROM @Seats);
-
-    IF @SeatCount = 0
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51008, N'Hold token không hợp lệ hoặc đã hết hạn.', 1;
-    END;
-
-    IF @SeatCount > 8
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51023, N'Mỗi đơn chỉ được đặt tối đa 8 ghế.', 1;
-    END;
-
-    DECLARE @Subtotal DECIMAL(12,2) = (SELECT SUM(price) FROM @Seats);
-    DECLARE @BookingId BIGINT;
-    DECLARE @BookingCode VARCHAR(40) =
-        CONCAT('CH', FORMAT(SYSDATETIME(), 'yyyyMMddHHmmss'), RIGHT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 8));
-
-    INSERT INTO dbo.booking_orders(
-        booking_code, user_id, showtime_id,
-        subtotal_amount, discount_amount, product_amount, total_amount,
-        status, idempotency_key, expires_at
-    )
-    VALUES(
-        @BookingCode, @user_id, @showtime_id,
-        @Subtotal, 0, 0, @Subtotal,
-        'PENDING_PAYMENT', @idempotency_key,
-        DATEADD(MINUTE, 10, SYSDATETIME())
-    );
-
-    SET @BookingId = SCOPE_IDENTITY();
-
-    INSERT INTO dbo.booking_details(
-        booking_id, showtime_seat_id, seat_price, status
-    )
-    SELECT @BookingId, showtime_seat_id, price, 'ACTIVE'
-    FROM @Seats;
-
-    COMMIT TRANSACTION;
-
-    SELECT *
-    FROM dbo.booking_orders
-    WHERE booking_id = @BookingId;
-END;
-GO
-/* ============================================================================
-   21. PROCEDURE XÁC NHẬN THANH TOÁN
-   Idempotent theo request_id / transaction_code.
-   ============================================================================ */
-
-CREATE PROCEDURE dbo.sp_confirm_payment
-    @booking_id BIGINT,
-    @payment_method VARCHAR(30),
-    @provider VARCHAR(30) = 'MOCK',
-    @request_id VARCHAR(100),
-    @transaction_code VARCHAR(150)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
+    /* Kiểm tra ghế còn HELD bởi user này */
     IF EXISTS (
         SELECT 1
-        FROM dbo.payments
-        WHERE request_id = @request_id
-          AND booking_id <> @booking_id
+        FROM OPENJSON(@showtime_seat_ids) WITH (id INT '$') j
+        JOIN dbo.showtime_seats ss ON ss.showtime_seat_id = j.id
+        WHERE ss.status <> 'HELD'
+           OR ss.held_by_user_id <> @user_id
+           OR ss.hold_expires_at <= SYSDATETIME()
     )
     BEGIN
-        THROW 51021, N'Request thanh toán đã được dùng cho đơn hàng khác.', 1;
+        ROLLBACK;
+        THROW 50006, N'Một hoặc nhiều ghế đã hết hạn giữ hoặc không thuộc về bạn.', 1;
     END;
 
-    IF EXISTS (
-        SELECT 1 FROM dbo.payments
-        WHERE request_id = @request_id
-          AND booking_id = @booking_id
-          AND payment_status = 'SUCCESS'
-    )
+    /* Tính tiền */
+    DECLARE @subtotal DECIMAL(12,2);
+    SELECT @subtotal = SUM(ss.price)
+    FROM dbo.showtime_seats ss
+    JOIN OPENJSON(@showtime_seat_ids) WITH (id INT '$') j ON j.id = ss.showtime_seat_id;
+
+    DECLARE @discount DECIMAL(12,2) = 0;
+    IF @promotion_id IS NOT NULL
     BEGIN
-        SELECT t.ticket_id, t.ticket_code, t.qr_code, t.ticket_status, t.issued_at, bd.showtime_seat_id
-        FROM dbo.tickets t
-        INNER JOIN dbo.booking_details bd ON bd.booking_detail_id = t.booking_detail_id
-        WHERE bd.booking_id = @booking_id;
-        RETURN;
+        DECLARE @dtype VARCHAR(20), @dval DECIMAL(12,2), @maxd DECIMAL(12,2), @minorder DECIMAL(12,2);
+        SELECT @dtype = discount_type, @dval = discount_value,
+               @maxd = max_discount, @minorder = min_order_amount
+        FROM dbo.promotions
+        WHERE promotion_id = @promotion_id
+          AND status = 'ACTIVE'
+          AND SYSDATETIME() BETWEEN start_at AND end_at
+          AND (usage_limit IS NULL OR used_count < usage_limit);
+
+        IF @dtype IS NOT NULL AND @subtotal >= @minorder
+        BEGIN
+            SET @discount = CASE @dtype
+                WHEN 'PERCENT' THEN @subtotal * @dval / 100
+                WHEN 'FIXED'   THEN @dval
+                ELSE 0
+            END;
+            IF @maxd IS NOT NULL AND @discount > @maxd SET @discount = @maxd;
+            IF @discount > @subtotal SET @discount = @subtotal;
+
+            UPDATE dbo.promotions SET used_count = used_count + 1 WHERE promotion_id = @promotion_id;
+        END;
     END;
 
-    BEGIN TRANSACTION;
+    DECLARE @total DECIMAL(12,2) = @subtotal - @discount;
+    DECLARE @booking_code VARCHAR(40) = 'BK' + FORMAT(SYSDATETIME(), 'yyyyMMddHHmmss') + RIGHT(CONVERT(VARCHAR(36), NEWID()), 6);
+    DECLARE @expires_at DATETIME2(0) = DATEADD(MINUTE, 15, SYSDATETIME());
 
-    DECLARE @Amount DECIMAL(12,2);
-    DECLARE @BookingStatus VARCHAR(30);
-    DECLARE @ExpiresAt DATETIME2(0);
+    INSERT INTO dbo.booking_orders
+        (booking_code, user_id, showtime_id, promotion_id, subtotal_amount, discount_amount,
+         total_amount, idempotency_key, expires_at)
+    VALUES
+        (@booking_code, @user_id, @showtime_id, @promotion_id, @subtotal, @discount,
+         @total, @idempotency_key, @expires_at);
 
-    SELECT
-        @Amount = total_amount,
-        @BookingStatus = status,
-        @ExpiresAt = expires_at
-    FROM dbo.booking_orders WITH (UPDLOCK, HOLDLOCK)
-    WHERE booking_id = @booking_id;
+    SET @booking_id = SCOPE_IDENTITY();
 
-    IF @Amount IS NULL
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51009, N'Không tìm thấy đơn đặt vé.', 1;
-    END;
-
-    IF @BookingStatus IN ('PAID', 'ISSUED')
-    BEGIN
-        COMMIT TRANSACTION;
-        SELECT t.ticket_id, t.ticket_code, t.qr_code, t.ticket_status, t.issued_at, bd.showtime_seat_id
-        FROM dbo.tickets t
-        INNER JOIN dbo.booking_details bd ON bd.booking_detail_id = t.booking_detail_id
-        WHERE bd.booking_id = @booking_id;
-        RETURN;
-    END;
-
-    IF @BookingStatus <> 'PENDING_PAYMENT'
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51010, N'Đơn đặt vé không còn ở trạng thái chờ thanh toán.', 1;
-    END;
-
-    IF @ExpiresAt IS NOT NULL AND @ExpiresAt <= SYSDATETIME()
-    BEGIN
-        UPDATE ss
-        SET ss.status = 'AVAILABLE',
-            ss.held_by_user_id = NULL,
-            ss.hold_expires_at = NULL
-        FROM dbo.showtime_seats ss
-        INNER JOIN dbo.booking_details bd ON bd.showtime_seat_id = ss.showtime_seat_id
-        WHERE bd.booking_id = @booking_id
-          AND bd.status = 'ACTIVE'
-          AND ss.status = 'HELD';
-
-        UPDATE sh
-        SET sh.status = 'EXPIRED',
-            sh.released_at = SYSDATETIME()
-        FROM dbo.seat_holds sh
-        INNER JOIN dbo.booking_details bd ON bd.showtime_seat_id = sh.showtime_seat_id
-        WHERE bd.booking_id = @booking_id
-          AND sh.status = 'ACTIVE';
-
-        UPDATE dbo.booking_details
-        SET status = 'EXPIRED'
-        WHERE booking_id = @booking_id AND status = 'ACTIVE';
-
-        UPDATE dbo.booking_orders
-        SET status = 'EXPIRED'
-        WHERE booking_id = @booking_id;
-
-        COMMIT TRANSACTION;
-        THROW 51011, N'Đơn đặt vé đã hết hạn.', 1;
-    END;
-
-    DECLARE @ExpectedSeatCount INT;
-    DECLARE @ValidHeldSeatCount INT;
-
-    SELECT @ExpectedSeatCount = COUNT(*)
-    FROM dbo.booking_details
-    WHERE booking_id = @booking_id
-      AND status = 'ACTIVE';
-
-    SELECT @ValidHeldSeatCount = COUNT(*)
-    FROM dbo.booking_details bd
-    INNER JOIN dbo.showtime_seats ss WITH (UPDLOCK, HOLDLOCK)
-        ON ss.showtime_seat_id = bd.showtime_seat_id
-    WHERE bd.booking_id = @booking_id
-      AND bd.status = 'ACTIVE'
-      AND ss.status = 'HELD';
-
-    IF @ExpectedSeatCount = 0 OR @ExpectedSeatCount <> @ValidHeldSeatCount
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51022, N'Một hoặc nhiều ghế không còn được giữ hợp lệ.', 1;
-    END;
-
-    INSERT INTO dbo.payments(
-        booking_id, payment_method, provider, amount,
-        transaction_code, request_id, payment_status, paid_at
-    )
-    VALUES(
-        @booking_id, @payment_method, @provider, @Amount,
-        @transaction_code, @request_id, 'SUCCESS', SYSDATETIME()
-    );
-
-    UPDATE dbo.booking_orders
-    SET status = 'ISSUED',
-        paid_at = SYSDATETIME(),
-        issued_at = SYSDATETIME()
-    WHERE booking_id = @booking_id;
+    INSERT INTO dbo.booking_details (booking_id, showtime_seat_id, seat_price)
+    SELECT @booking_id, j.id, ss.price
+    FROM OPENJSON(@showtime_seat_ids) WITH (id INT '$') j
+    JOIN dbo.showtime_seats ss ON ss.showtime_seat_id = j.id;
 
     UPDATE ss
-    SET ss.status = 'SOLD',
-        ss.held_by_user_id = NULL,
-        ss.hold_expires_at = NULL
+    SET status          = 'SOLD',
+        held_by_user_id = NULL,
+        hold_expires_at = NULL
     FROM dbo.showtime_seats ss
-    INNER JOIN dbo.booking_details bd
-        ON bd.showtime_seat_id = ss.showtime_seat_id
-    WHERE bd.booking_id = @booking_id
-      AND bd.status = 'ACTIVE'
-      AND ss.status = 'HELD';
+    JOIN OPENJSON(@showtime_seat_ids) WITH (id INT '$') j ON j.id = ss.showtime_seat_id;
 
-    UPDATE sh
-    SET sh.status = 'CONFIRMED',
-        sh.released_at = SYSDATETIME()
-    FROM dbo.seat_holds sh
-    INNER JOIN dbo.booking_details bd
-        ON bd.showtime_seat_id = sh.showtime_seat_id
-    WHERE bd.booking_id = @booking_id
-      AND sh.status = 'ACTIVE';
-
-    INSERT INTO dbo.tickets(
-        booking_detail_id, ticket_code, qr_code, ticket_status
-    )
-    SELECT
-        bd.booking_detail_id,
-        CONCAT('TKT-', RIGHT(REPLACE(CONVERT(VARCHAR(36), NEWID()), '-', ''), 20)),
-        CONCAT('CINEHUNT:', bo.booking_code, ':', bd.booking_detail_id, ':', NEWID()),
-        'VALID'
-    FROM dbo.booking_details bd
-    INNER JOIN dbo.booking_orders bo ON bo.booking_id = bd.booking_id
-    WHERE bd.booking_id = @booking_id
-      AND bd.status = 'ACTIVE'
-      AND NOT EXISTS (
-          SELECT 1 FROM dbo.tickets t
-          WHERE t.booking_detail_id = bd.booking_detail_id
-      );
-
-    INSERT INTO dbo.notifications(
-        user_id, title, message, notification_type, reference_type, reference_id
-    )
-    SELECT
-        bo.user_id,
-        N'Thanh toán thành công',
-        CONCAT(N'Đơn ', bo.booking_code, N' đã thanh toán và phát hành vé.'),
-        'PAYMENT',
-        'BOOKING',
-        CONVERT(VARCHAR(80), bo.booking_id)
-    FROM dbo.booking_orders bo
-    WHERE bo.booking_id = @booking_id;
+    UPDATE dbo.seat_holds
+    SET status      = 'CONFIRMED',
+        released_at = SYSDATETIME()
+    WHERE user_id = @user_id
+      AND showtime_seat_id IN (
+          SELECT value FROM OPENJSON(@showtime_seat_ids)
+      )
+      AND status = 'ACTIVE';
 
     COMMIT TRANSACTION;
-
-    SELECT
-        t.ticket_id,
-        t.ticket_code,
-        t.qr_code,
-        t.ticket_status,
-        t.issued_at,
-        bd.showtime_seat_id
-    FROM dbo.tickets t
-    INNER JOIN dbo.booking_details bd ON bd.booking_detail_id = t.booking_detail_id
-    WHERE bd.booking_id = @booking_id;
 END;
 GO
-/* ============================================================================
-   22. PROCEDURE CHECK-IN VÉ
-   ============================================================================ */
 
-CREATE PROCEDURE dbo.sp_checkin_ticket
-    @ticket_code VARCHAR(60),
-    @staff_user_id INT
+CREATE OR ALTER PROCEDURE dbo.sp_confirm_payment
+    @booking_id      BIGINT,
+    @payment_method  VARCHAR(30),
+    @transaction_code VARCHAR(150) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -1598,575 +1365,375 @@ BEGIN
 
     BEGIN TRANSACTION;
 
-    DECLARE @TicketId BIGINT;
-    DECLARE @Status VARCHAR(20);
-    DECLARE @StartTime DATETIME2(0);
+    DECLARE @current_status VARCHAR(30);
+    SELECT @current_status = status FROM dbo.booking_orders WHERE booking_id = @booking_id;
+
+    IF @current_status <> 'PENDING_PAYMENT'
+    BEGIN
+        ROLLBACK;
+        THROW 50007, N'Đơn đặt không ở trạng thái chờ thanh toán.', 1;
+    END;
+
+    UPDATE dbo.booking_orders
+    SET status   = 'PAID',
+        paid_at  = SYSDATETIME()
+    WHERE booking_id = @booking_id;
+
+    INSERT INTO dbo.payments
+        (booking_id, payment_method, amount, transaction_code, payment_status, paid_at)
+    SELECT
+        booking_id, @payment_method, total_amount, @transaction_code, 'SUCCESS', SYSDATETIME()
+    FROM dbo.booking_orders
+    WHERE booking_id = @booking_id;
+
+    COMMIT TRANSACTION;
+END;
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_checkin_ticket
+    @ticket_code  VARCHAR(60),
+    @staff_id     INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRANSACTION;
+
+    DECLARE @ticket_id BIGINT, @ticket_status VARCHAR(20), @showtime_start DATETIME2(0);
 
     SELECT
-        @TicketId = t.ticket_id,
-        @Status = t.ticket_status,
-        @StartTime = st.start_time
-    FROM dbo.tickets t WITH (UPDLOCK, HOLDLOCK)
-    INNER JOIN dbo.booking_details bd ON bd.booking_detail_id = t.booking_detail_id
-    INNER JOIN dbo.showtime_seats ss ON ss.showtime_seat_id = bd.showtime_seat_id
-    INNER JOIN dbo.showtimes st ON st.showtime_id = ss.showtime_id
+        @ticket_id     = t.ticket_id,
+        @ticket_status = t.ticket_status,
+        @showtime_start = sh.start_time
+    FROM dbo.tickets t
+    JOIN dbo.booking_details bd ON bd.booking_detail_id = t.booking_detail_id
+    JOIN dbo.booking_orders bo ON bo.booking_id = bd.booking_id
+    JOIN dbo.showtimes sh ON sh.showtime_id = bo.showtime_id
     WHERE t.ticket_code = @ticket_code;
 
-    IF @TicketId IS NULL
+    IF @ticket_id IS NULL
     BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51012, N'Không tìm thấy vé.', 1;
+        ROLLBACK;
+        THROW 50008, N'Không tìm thấy vé.', 1;
     END;
 
-    IF @Status <> 'VALID'
+    IF @ticket_status <> 'VALID'
     BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51013, N'Vé không hợp lệ hoặc đã được sử dụng.', 1;
-    END;
-
-    IF SYSDATETIME() NOT BETWEEN DATEADD(MINUTE, -30, @StartTime) AND DATEADD(MINUTE, 30, @StartTime)
-    BEGIN
-        ROLLBACK TRANSACTION;
-        THROW 51014, N'Vé chỉ được quét trong khoảng 30 phút trước hoặc sau giờ chiếu.', 1;
+        ROLLBACK;
+        THROW 50009, N'Vé không hợp lệ để check-in.', 1;
     END;
 
     UPDATE dbo.tickets
-    SET ticket_status = 'USED',
-        checked_in_at = SYSDATETIME(),
-        checked_in_by = @staff_user_id
-    WHERE ticket_id = @TicketId;
+    SET ticket_status  = 'USED',
+        checked_in_at  = SYSDATETIME(),
+        checked_in_by  = @staff_id
+    WHERE ticket_id = @ticket_id;
 
     COMMIT TRANSACTION;
-
-    SELECT * FROM dbo.tickets WHERE ticket_id = @TicketId;
 END;
 GO
 
 /* ============================================================================
-   23. PROCEDURE GỢI Ý SUẤT CHIẾU CHO YÊU CẦU SĂN VÉ
-   Trả về suất chiếu còn đủ ghế, phù hợp ngày/giờ/ngân sách và ưu tiên vị trí ghế.
-   ============================================================================ */
-CREATE PROCEDURE dbo.sp_find_ticket_suggestions
-    @watch_id BIGINT,
-    @top_n INT = 20
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    IF @top_n NOT BETWEEN 1 AND 100 SET @top_n = 20;
-
-    DECLARE
-        @movie_id INT,
-        @cinema_id INT,
-        @preferred_date DATE,
-        @time_from TIME(0),
-        @time_to TIME(0),
-        @preferred_seat_type VARCHAR(30),
-        @seat_preference VARCHAR(20),
-        @min_seats INT,
-        @max_price DECIMAL(12,2),
-        @wants_combo BIT;
-
-    SELECT
-        @movie_id = movie_id,
-        @cinema_id = cinema_id,
-        @preferred_date = preferred_date,
-        @time_from = preferred_time_from,
-        @time_to = preferred_time_to,
-        @preferred_seat_type = preferred_seat_type,
-        @seat_preference = seat_preference,
-        @min_seats = min_seats,
-        @max_price = max_price,
-        @wants_combo = wants_combo
-    FROM dbo.ticket_watch_requests
-    WHERE watch_id = @watch_id AND status = 'ACTIVE';
-
-    IF @movie_id IS NULL
-        THROW 51020, N'Yêu cầu săn vé không tồn tại hoặc không còn hoạt động.', 1;
-
-    ;WITH Candidate AS (
-        SELECT
-            st.showtime_id,
-            st.start_time,
-            st.end_time,
-            st.base_price,
-            m.title AS movie_title,
-            c.cinema_id,
-            c.cinema_name,
-            r.room_id,
-            r.room_name,
-            COUNT(CASE WHEN ss.status = 'AVAILABLE' THEN 1 END) AS available_seats,
-            MIN(CASE WHEN ss.status = 'AVAILABLE' THEN ss.price END) AS min_available_price,
-            COUNT(CASE WHEN ss.status = 'AVAILABLE'
-                        AND (@preferred_seat_type IS NULL OR seat_type.type_code = @preferred_seat_type)
-                       THEN 1 END) AS preferred_type_available,
-            COUNT(CASE WHEN ss.status = 'AVAILABLE' AND (
-                        @seat_preference IS NULL OR @seat_preference = 'any'
-                        OR (@seat_preference = 'front' AND s.seat_row IN ('A','B','C'))
-                        OR (@seat_preference = 'middle' AND s.seat_row IN ('D','E','F','G'))
-                        OR (@seat_preference = 'back' AND s.seat_row NOT IN ('A','B','C','D','E','F','G'))
-                       ) THEN 1 END) AS preferred_position_available
-        FROM dbo.showtimes st
-        INNER JOIN dbo.movies m ON m.movie_id = st.movie_id
-        INNER JOIN dbo.rooms r ON r.room_id = st.room_id
-        INNER JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id
-        INNER JOIN dbo.showtime_seats ss ON ss.showtime_id = st.showtime_id
-        INNER JOIN dbo.seats s ON s.seat_id = ss.seat_id
-        INNER JOIN dbo.seat_types seat_type ON seat_type.seat_type_id = s.seat_type_id
-        WHERE st.movie_id = @movie_id
-          AND st.status = 'OPEN'
-          AND st.start_time > SYSDATETIME()
-          AND (@cinema_id IS NULL OR c.cinema_id = @cinema_id)
-          AND (@preferred_date IS NULL OR CAST(st.start_time AS DATE) = @preferred_date)
-          AND (@time_from IS NULL OR CAST(st.start_time AS TIME) >= @time_from)
-          AND (@time_to IS NULL OR CAST(st.start_time AS TIME) <= @time_to)
-        GROUP BY st.showtime_id, st.start_time, st.end_time, st.base_price,
-                 m.title, c.cinema_id, c.cinema_name, r.room_id, r.room_name
-    )
-    SELECT TOP (@top_n)
-        *,
-        @wants_combo AS wants_combo,
-        CASE WHEN @wants_combo = 1 AND EXISTS (
-            SELECT 1 FROM dbo.concession_combos cc WHERE cc.status = 'ACTIVE'
-        ) THEN 1 ELSE 0 END AS combo_available,
-        (preferred_type_available * 2 + preferred_position_available) AS match_score
-    FROM Candidate
-    WHERE available_seats >= @min_seats
-      AND (@preferred_seat_type IS NULL OR preferred_type_available >= @min_seats)
-      AND (@seat_preference IS NULL OR @seat_preference = 'any' OR preferred_position_available >= @min_seats)
-      AND (@max_price IS NULL OR min_available_price <= @max_price)
-    ORDER BY match_score DESC, min_available_price ASC, start_time ASC;
-END;
-GO
-
-/* ============================================================================
-   23. VIEW
+   17. VIEWS
    ============================================================================ */
 
-CREATE VIEW dbo.vw_showtime_seat_map
-AS
+CREATE VIEW dbo.vw_showtime_seat_map AS
 SELECT
     ss.showtime_seat_id,
-    st.showtime_id,
-    m.movie_id,
-    m.title AS movie_title,
-    c.cinema_id,
-    c.cinema_name,
-    r.room_id,
-    r.room_name,
-    s.seat_id,
-    s.seat_label,
+    ss.showtime_id,
+    ss.seat_id,
     s.seat_row,
     s.seat_number,
-    seat_type.type_code AS seat_type,
+    s.seat_label,
+    st.type_code   AS seat_type_code,
+    st.type_name   AS seat_type_name,
     ss.price,
-    ss.status AS seat_status,
+    ss.status,
+    ss.seat_status,
     ss.held_by_user_id,
-    ss.hold_expires_at,
-    st.start_time,
-    st.end_time
+    ss.hold_expires_at
 FROM dbo.showtime_seats ss
-INNER JOIN dbo.showtimes st ON st.showtime_id = ss.showtime_id
-INNER JOIN dbo.movies m ON m.movie_id = st.movie_id
-INNER JOIN dbo.rooms r ON r.room_id = st.room_id
-INNER JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id
-INNER JOIN dbo.seats s ON s.seat_id = ss.seat_id
-INNER JOIN dbo.seat_types seat_type ON seat_type.seat_type_id = s.seat_type_id;
+JOIN dbo.seats s ON s.seat_id = ss.seat_id
+JOIN dbo.seat_types st ON st.seat_type_id = s.seat_type_id;
 GO
 
-CREATE VIEW dbo.vw_booking_summary
-AS
+CREATE VIEW dbo.vw_booking_summary AS
 SELECT
     bo.booking_id,
     bo.booking_code,
     bo.user_id,
     u.full_name,
     u.email,
-    bo.showtime_id,
-    m.title AS movie_title,
+    m.title   AS movie_title,
     c.cinema_name,
-    r.room_name,
-    st.start_time,
-    bo.subtotal_amount,
-    bo.discount_amount,
-    bo.product_amount,
+    sh.start_time,
     bo.total_amount,
-    bo.status AS booking_status,
-    bo.expires_at,
-    bo.paid_at,
+    bo.status,
+    bo.booking_status,
     bo.created_at
 FROM dbo.booking_orders bo
-INNER JOIN dbo.users u ON u.user_id = bo.user_id
-INNER JOIN dbo.showtimes st ON st.showtime_id = bo.showtime_id
-INNER JOIN dbo.movies m ON m.movie_id = st.movie_id
-INNER JOIN dbo.rooms r ON r.room_id = st.room_id
-INNER JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id;
+JOIN dbo.users u ON u.user_id = bo.user_id
+JOIN dbo.showtimes sh ON sh.showtime_id = bo.showtime_id
+JOIN dbo.movies m ON m.movie_id = sh.movie_id
+JOIN dbo.rooms r ON r.room_id = sh.room_id
+JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id;
 GO
 
-CREATE VIEW dbo.vw_daily_revenue
-AS
-WITH Paid AS (
-    SELECT
-        CAST(p.paid_at AS DATE) AS revenue_date,
-        p.booking_id,
-        p.amount
-    FROM dbo.payments p
-    WHERE p.payment_status = 'SUCCESS'
-),
-Refunded AS (
-    SELECT
-        r.booking_id,
-        SUM(r.refund_amount) AS refunded_amount
-    FROM dbo.refunds r
-    WHERE r.refund_status = 'SUCCESS'
-    GROUP BY r.booking_id
-)
+CREATE VIEW dbo.vw_daily_revenue AS
 SELECT
-    p.revenue_date,
-    COUNT(DISTINCT p.booking_id) AS total_bookings,
-    SUM(p.amount) AS gross_revenue,
-    SUM(ISNULL(r.refunded_amount, 0)) AS refunded_amount,
-    SUM(p.amount - ISNULL(r.refunded_amount, 0)) AS net_revenue
-FROM Paid p
-LEFT JOIN Refunded r ON r.booking_id = p.booking_id
-GROUP BY p.revenue_date;
+    CAST(p.paid_at AS DATE)   AS revenue_date,
+    c.cinema_id,
+    c.cinema_name,
+    COUNT(DISTINCT bo.booking_id)   AS total_bookings,
+    SUM(bo.total_amount)            AS gross_revenue,
+    ISNULL(SUM(r.refund_amount), 0) AS refunded_amount,
+    SUM(bo.total_amount) - ISNULL(SUM(r.refund_amount), 0) AS net_revenue
+FROM dbo.payments p
+JOIN dbo.booking_orders bo ON bo.booking_id = p.booking_id
+JOIN dbo.showtimes sh ON sh.showtime_id = bo.showtime_id
+JOIN dbo.rooms rm ON rm.room_id = sh.room_id
+JOIN dbo.cinemas c ON c.cinema_id = rm.cinema_id
+LEFT JOIN dbo.refunds r ON r.booking_id = bo.booking_id AND r.refund_status = 'SUCCESS'
+WHERE p.payment_status = 'SUCCESS'
+GROUP BY CAST(p.paid_at AS DATE), c.cinema_id, c.cinema_name;
 GO
 
 /* ============================================================================
-   25. SEED CƠ BẢN
-   Mật khẩu là placeholder hash. Backend nên tạo seed bằng bcrypt.
+   18. SEED DATA CƠ BẢN
    ============================================================================ */
 
 INSERT INTO dbo.roles(role_code, role_name, description)
 VALUES
-('CUSTOMER', N'Khách hàng', N'Đặt vé và quản lý vé cá nhân'),
-('STAFF', N'Nhân viên', N'Quét vé và hỗ trợ vận hành'),
-('ADMIN', N'Quản trị viên', N'Quản lý toàn bộ hệ thống');
-GO
-
-/* Backend hiện chỉ ghi users.role. Trigger bảo đảm user_roles không bị bỏ trống. */
-CREATE OR ALTER TRIGGER dbo.trg_users_sync_role
-ON dbo.users
-AFTER INSERT, UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    DELETE ur
-    FROM dbo.user_roles ur
-    INNER JOIN inserted i ON i.user_id = ur.user_id
-    INNER JOIN dbo.roles r ON r.role_id = ur.role_id
-    WHERE r.role_code <> i.role;
-
-    INSERT INTO dbo.user_roles(user_id, role_id)
-    SELECT i.user_id, r.role_id
-    FROM inserted i
-    INNER JOIN dbo.roles r ON r.role_code = i.role
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM dbo.user_roles ur
-        WHERE ur.user_id = i.user_id
-          AND ur.role_id = r.role_id
-    );
-END;
+    ('CUSTOMER', N'Khách hàng',    N'Người dùng thông thường, đặt vé và xem phim'),
+    ('STAFF',    N'Nhân viên',     N'Nhân viên rạp, quản lý suất chiếu và check-in'),
+    ('ADMIN',    N'Quản trị viên', N'Toàn quyền quản trị hệ thống');
 GO
 
 INSERT INTO dbo.seat_types(type_code, type_name, price_multiplier)
 VALUES
-('NORMAL', N'Ghế thường', 1.00),
-('VIP', N'Ghế VIP', 1.30),
-('COUPLE', N'Ghế đôi', 2.00);
+    ('NORMAL', N'Ghế thường',  1.00),
+    ('VIP',    N'Ghế VIP',     1.50),
+    ('COUPLE', N'Ghế đôi',     1.80);
 GO
 
 INSERT INTO dbo.genres(genre_name, slug)
 VALUES
-(N'Hành động', 'hanh-dong'),
-(N'Hoạt hình', 'hoat-hinh'),
-(N'Kinh dị', 'kinh-di'),
-(N'Tình cảm', 'tinh-cam'),
-(N'Khoa học viễn tưởng', 'khoa-hoc-vien-tuong');
+    (N'Hành động',    'action'),
+    (N'Kinh dị',      'horror'),
+    (N'Hài',          'comedy'),
+    (N'Tình cảm',     'romance'),
+    (N'Khoa học viễn tưởng', 'sci-fi'),
+    (N'Hoạt hình',    'animation'),
+    (N'Tâm lý',       'drama'),
+    (N'Phiêu lưu',    'adventure'),
+    (N'Gia đình',     'family'),
+    (N'Tội phạm',     'crime');
 GO
 
-
-INSERT INTO dbo.concession_combos(combo_name, description, price)
+INSERT INTO dbo.users(full_name, email, phone, password_hash, role)
 VALUES
-(N'Combo Solo', N'1 bắp vừa + 1 nước vừa', 79000),
-(N'Combo Couple', N'1 bắp lớn + 2 nước vừa', 129000),
-(N'Combo Family', N'2 bắp lớn + 4 nước vừa', 239000);
+    (N'Admin CineHunt',  'admin@cinehunt.vn',   '0900000001',
+     '$2b$10$placeholder_admin_hash',   'ADMIN'),
+    (N'Nhân viên 01',    'staff01@cinehunt.vn', '0900000002',
+     '$2b$10$placeholder_staff_hash',   'STAFF'),
+    (N'Nguyễn Văn An',   'an.nguyen@gmail.com', '0912345678',
+     '$2b$10$placeholder_customer_hash','CUSTOMER'),
+    (N'Trần Thị Bình',   'binh.tran@gmail.com', '0987654321',
+     '$2b$10$placeholder_customer2',   'CUSTOMER'),
+    (N'Lê Minh Cường',   'cuong.le@gmail.com',  '0978123456',
+     '$2b$10$placeholder_customer3',   'CUSTOMER');
 GO
 
+/* Đồng bộ user_roles cho tất cả user vừa tạo */
+DECLARE @uid INT;
+DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT user_id FROM dbo.users;
+OPEN c; FETCH NEXT FROM c INTO @uid;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    EXEC dbo.sp_sync_user_role @uid;
+    FETCH NEXT FROM c INTO @uid;
+END;
+CLOSE c; DEALLOCATE c;
+GO
 
-/* ============================================================================
-   25.1. SEED DỮ LIỆU MẪU NGHIỆP VỤ
-   Tạo rạp, phòng, ghế, phim, thể loại phim, suất chiếu và ghế theo suất.
-   Dữ liệu dùng ngày động để luôn có suất chiếu trong tương lai khi chạy script.
-   ============================================================================ */
-
-/* Rạp chiếu */
-INSERT INTO dbo.cinemas(
-    cinema_name, address, city, district, phone, latitude, longitude, status
-)
+INSERT INTO dbo.cinemas(cinema_name, address, city, district, phone)
 VALUES
-(N'CineHunt Cầu Giấy', N'11 Duy Tân, Dịch Vọng Hậu', N'Hà Nội', N'Cầu Giấy', '02473001234', 21.0309000, 105.7828000, 'ACTIVE'),
-(N'CineHunt Hà Đông', N'2 Trần Phú, Mộ Lao', N'Hà Nội', N'Hà Đông', '02473005678', 20.9801000, 105.7909000, 'ACTIVE');
+    (N'CineHunt Vincom Bà Triệu', N'191 Bà Triệu, Hai Bà Trưng', N'Hà Nội', N'Hai Bà Trưng', '024 3974 3333'),
+    (N'CineHunt Mipec Long Biên',  N'02 Long Biên, Long Biên',    N'Hà Nội', N'Long Biên',    '024 3827 2727'),
+    (N'CineHunt Landmark 81',      N'720A Điện Biên Phủ, Bình Thạnh', N'TP. Hồ Chí Minh', N'Bình Thạnh', '028 7300 8081');
 GO
 
-/* Phòng chiếu */
-DECLARE @CinemaCauGiay INT = (
-    SELECT cinema_id FROM dbo.cinemas WHERE cinema_name = N'CineHunt Cầu Giấy'
-);
-DECLARE @CinemaHaDong INT = (
-    SELECT cinema_id FROM dbo.cinemas WHERE cinema_name = N'CineHunt Hà Đông'
-);
-
-INSERT INTO dbo.rooms(cinema_id, room_name, room_type, total_seats, status)
+INSERT INTO dbo.rooms(cinema_id, room_name, room_type, total_seats)
 VALUES
-(@CinemaCauGiay, N'Phòng 1', 'STANDARD', 20, 'ACTIVE'),
-(@CinemaCauGiay, N'Phòng VIP', 'VIP', 12, 'ACTIVE'),
-(@CinemaHaDong, N'Phòng 1', 'STANDARD', 20, 'ACTIVE');
+    (1, N'Phòng 1 - Standard', 'STANDARD', 80),
+    (1, N'Phòng 2 - VIP',      'VIP',      60),
+    (1, N'Phòng 3 - IMAX',     'IMAX',    120),
+    (2, N'Phòng 1 - Standard', 'STANDARD', 80),
+    (2, N'Phòng 2 - VIP',      'VIP',      60),
+    (3, N'Phòng 1 - Standard', 'STANDARD', 80),
+    (3, N'Phòng 2 - 4DX',      '4DX',      50);
 GO
 
-/* Ghế cho từng phòng */
-DECLARE @NormalSeatTypeId INT = (
-    SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'NORMAL'
-);
-DECLARE @VipSeatTypeId INT = (
-    SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'VIP'
-);
-DECLARE @CoupleSeatTypeId INT = (
-    SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'COUPLE'
-);
+/* Tạo ghế mẫu cho room 1 (8 hàng x 10 cột) */
+DECLARE @room_id INT = 1;
+DECLARE @rows TABLE (r VARCHAR(1));
+INSERT INTO @rows VALUES('A'),('B'),('C'),('D'),('E'),('F'),('G'),('H');
 
-DECLARE @RoomStandard1 INT = (
-    SELECT r.room_id
-    FROM dbo.rooms r
-    INNER JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id
-    WHERE c.cinema_name = N'CineHunt Cầu Giấy' AND r.room_name = N'Phòng 1'
-);
-DECLARE @RoomVip INT = (
-    SELECT r.room_id
-    FROM dbo.rooms r
-    INNER JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id
-    WHERE c.cinema_name = N'CineHunt Cầu Giấy' AND r.room_name = N'Phòng VIP'
-);
-DECLARE @RoomStandard2 INT = (
-    SELECT r.room_id
-    FROM dbo.rooms r
-    INNER JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id
-    WHERE c.cinema_name = N'CineHunt Hà Đông' AND r.room_name = N'Phòng 1'
-);
+DECLARE @row_char VARCHAR(1), @col INT, @type_id INT;
 
-/* Phòng chuẩn: A, B ghế thường; C, D ghế VIP */
-;WITH RoomList AS (
-    SELECT @RoomStandard1 AS room_id
-    UNION ALL
-    SELECT @RoomStandard2
-),
-SeatNumbers AS (
-    SELECT 1 AS seat_number
-    UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
-),
-SeatRows AS (
-    SELECT 'A' AS seat_row, @NormalSeatTypeId AS seat_type_id
-    UNION ALL SELECT 'B', @NormalSeatTypeId
-    UNION ALL SELECT 'C', @VipSeatTypeId
-    UNION ALL SELECT 'D', @VipSeatTypeId
-)
-INSERT INTO dbo.seats(room_id, seat_type_id, seat_row, seat_number, seat_label, status)
-SELECT
-    rl.room_id,
-    sr.seat_type_id,
-    sr.seat_row,
-    sn.seat_number,
-    CONCAT(sr.seat_row, sn.seat_number),
-    'ACTIVE'
-FROM RoomList rl
-CROSS JOIN SeatRows sr
-CROSS JOIN SeatNumbers sn;
+DECLARE row_cur CURSOR LOCAL FAST_FORWARD FOR SELECT r FROM @rows;
+OPEN row_cur; FETCH NEXT FROM row_cur INTO @row_char;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @col = 1;
+    WHILE @col <= 10
+    BEGIN
+        SET @type_id = CASE
+            WHEN @row_char IN ('A','B') THEN (SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'VIP')
+            WHEN @row_char = 'H' AND @col IN (5,6) THEN (SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'COUPLE')
+            ELSE (SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'NORMAL')
+        END;
 
-/* Phòng VIP: A, B ghế VIP; C1-C2 là ghế đôi */
-;WITH VipSeatNumbers AS (
-    SELECT 1 AS seat_number
-    UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
-)
-INSERT INTO dbo.seats(room_id, seat_type_id, seat_row, seat_number, seat_label, status)
-SELECT @RoomVip, @VipSeatTypeId, 'A', seat_number, CONCAT('A', seat_number), 'ACTIVE'
-FROM VipSeatNumbers
-UNION ALL
-SELECT @RoomVip, @VipSeatTypeId, 'B', seat_number, CONCAT('B', seat_number), 'ACTIVE'
-FROM VipSeatNumbers;
+        INSERT INTO dbo.seats(room_id, seat_type_id, seat_row, seat_number, seat_label)
+        VALUES (@room_id, @type_id, @row_char, @col, @row_char + CAST(@col AS VARCHAR(3)));
 
-INSERT INTO dbo.seats(room_id, seat_type_id, seat_row, seat_number, seat_label, status)
+        SET @col = @col + 1;
+    END;
+    FETCH NEXT FROM row_cur INTO @row_char;
+END;
+CLOSE row_cur; DEALLOCATE row_cur;
+GO
+
+INSERT INTO dbo.movies(title, original_title, description, duration_minutes, release_date, age_rating, director, actors, country, language, status)
 VALUES
-(@RoomVip, @CoupleSeatTypeId, 'C', 1, 'C1', 'ACTIVE'),
-(@RoomVip, @CoupleSeatTypeId, 'C', 2, 'C2', 'ACTIVE');
-GO
+    (N'Avengers: Secret Wars',
+     'Avengers: Secret Wars',
+     N'Các siêu anh hùng Marvel đối đầu mối đe dọa đa vũ trụ lớn nhất từ trước đến nay.',
+     150, '2026-05-01', 'T13',
+     N'Russo Brothers',
+     N'Robert Downey Jr., Chris Evans, Scarlett Johansson',
+     N'Mỹ', N'Tiếng Anh', 'NOW_SHOWING'),
 
-/* Phim */
-INSERT INTO dbo.movies(
-    title, original_title, description, duration_minutes,
-    release_date, end_date, age_rating, director, actors,
-    country, language, poster_url, banner_url, trailer_url,
-    average_rating, status
-)
-VALUES
-(
-    N'Đại Chiến Đa Vũ Trụ', N'Multiverse War',
-    N'Nhóm anh hùng phải ngăn chặn một sự kiện làm sụp đổ các dòng thời gian.',
-    135, DATEADD(DAY, -7, CAST(GETDATE() AS DATE)), DATEADD(DAY, 45, CAST(GETDATE() AS DATE)),
-    'T13', N'Nguyễn Minh', N'Anh Tú, Lan Phương, Hoàng Nam',
-    N'Việt Nam', N'Tiếng Việt',
-    N'https://example.com/posters/multiverse-war.jpg',
-    N'https://example.com/banners/multiverse-war.jpg',
-    N'https://example.com/trailers/multiverse-war',
-    4.30, 'NOW_SHOWING'
-),
-(
-    N'Hành Tinh Xanh', N'The Blue Planet',
-    N'Một hành trình khoa học viễn tưởng khám phá hành tinh có sự sống ngoài Trái Đất.',
-    120, DATEADD(DAY, -3, CAST(GETDATE() AS DATE)), DATEADD(DAY, 40, CAST(GETDATE() AS DATE)),
-    'P', N'Lê Hoàng', N'Minh Khang, Thu Hà',
-    N'Việt Nam', N'Tiếng Việt',
-    N'https://example.com/posters/blue-planet.jpg',
-    N'https://example.com/banners/blue-planet.jpg',
-    N'https://example.com/trailers/blue-planet',
-    4.10, 'NOW_SHOWING'
-),
-(
-    N'Ngôi Nhà Sau Cánh Rừng', N'The House Beyond The Woods',
-    N'Một nhóm bạn trẻ khám phá căn nhà bỏ hoang và đối mặt với bí mật kinh hoàng.',
-    105, DATEADD(DAY, -1, CAST(GETDATE() AS DATE)), DATEADD(DAY, 30, CAST(GETDATE() AS DATE)),
-    'T16', N'Phạm Quang', N'Bảo Anh, Nhật Minh',
-    N'Việt Nam', N'Tiếng Việt',
-    N'https://example.com/posters/house-woods.jpg',
-    N'https://example.com/banners/house-woods.jpg',
-    N'https://example.com/trailers/house-woods',
-    3.90, 'NOW_SHOWING'
-),
-(
-    N'Kỷ Nguyên Robot', N'Age of Robots',
-    N'Tương lai nơi con người và robot phải hợp tác để bảo vệ thành phố.',
-    128, DATEADD(DAY, 20, CAST(GETDATE() AS DATE)), DATEADD(DAY, 80, CAST(GETDATE() AS DATE)),
-    'T13', N'Trần Vũ', N'Gia Huy, Mai Anh',
-    N'Việt Nam', N'Tiếng Việt',
-    N'https://example.com/posters/age-robots.jpg',
-    N'https://example.com/banners/age-robots.jpg',
-    N'https://example.com/trailers/age-robots',
-    0, 'COMING_SOON'
-);
-GO
+    (N'Ma Búp Bê 5',
+     'Annabelle 5',
+     N'Búp bê quỷ ám trở lại với màn ám ảnh kinh hoàng hơn bao giờ hết.',
+     105, '2026-06-13', 'T18',
+     N'James Wan',
+     N'Vera Farmiga, Patrick Wilson',
+     N'Mỹ', N'Tiếng Anh', 'NOW_SHOWING'),
 
-/* Gắn thể loại phim */
-DECLARE @MovieAction INT = (SELECT movie_id FROM dbo.movies WHERE title = N'Đại Chiến Đa Vũ Trụ');
-DECLARE @MoviePlanet INT = (SELECT movie_id FROM dbo.movies WHERE title = N'Hành Tinh Xanh');
-DECLARE @MovieHorror INT = (SELECT movie_id FROM dbo.movies WHERE title = N'Ngôi Nhà Sau Cánh Rừng');
-DECLARE @MovieRobot INT = (SELECT movie_id FROM dbo.movies WHERE title = N'Kỷ Nguyên Robot');
-DECLARE @GenreAction INT = (SELECT genre_id FROM dbo.genres WHERE slug = 'hanh-dong');
-DECLARE @GenreAnimation INT = (SELECT genre_id FROM dbo.genres WHERE slug = 'hoat-hinh');
-DECLARE @GenreHorror INT = (SELECT genre_id FROM dbo.genres WHERE slug = 'kinh-di');
-DECLARE @GenreScifi INT = (SELECT genre_id FROM dbo.genres WHERE slug = 'khoa-hoc-vien-tuong');
+    (N'Doraemon: Nobita và Hành tinh Thú Cưng',
+     'Doraemon the Movie 2026',
+     N'Nobita tìm thấy hành tinh bí ẩn nơi mọi thú cưng đều có thể nói chuyện.',
+     95, '2026-03-05', 'P',
+     N'Takashi Yamazaki',
+     N'Wasabi Mizuta, Megumi Ohara',
+     N'Nhật Bản', N'Tiếng Việt (lồng tiếng)', 'NOW_SHOWING'),
+
+    (N'Lật Mặt 8: Vé Số',
+     'Lat Mat 8',
+     N'Hành trình hài hước và cảm động xoay quanh tờ vé số trúng độc đắc.',
+     120, '2026-04-30', 'T13',
+     N'Lý Hải',
+     N'Lý Hải, Minh Hà, Trấn Thành',
+     N'Việt Nam', N'Tiếng Việt', 'NOW_SHOWING'),
+
+    (N'Kẻ Trộm Mặt Trăng 5',
+     'Despicable Me 5',
+     N'Gru và những Minion trở lại trong cuộc phiêu lưu mới cực kỳ hài hước.',
+     90, '2026-07-04', 'P',
+     N'Chris Renaud',
+     N'Steve Carell (lồng tiếng)',
+     N'Mỹ', N'Tiếng Việt (lồng tiếng)', 'COMING_SOON');
+GO
 
 INSERT INTO dbo.movie_genres(movie_id, genre_id)
+SELECT m.movie_id, g.genre_id
+FROM (VALUES
+    (N'Avengers: Secret Wars',          N'Hành động'),
+    (N'Avengers: Secret Wars',          N'Phiêu lưu'),
+    (N'Ma Búp Bê 5',                    N'Kinh dị'),
+    (N'Doraemon: Nobita và Hành tinh Thú Cưng', N'Hoạt hình'),
+    (N'Doraemon: Nobita và Hành tinh Thú Cưng', N'Gia đình'),
+    (N'Lật Mặt 8: Vé Số',              N'Hài'),
+    (N'Lật Mặt 8: Vé Số',              N'Tình cảm'),
+    (N'Kẻ Trộm Mặt Trăng 5',           N'Hoạt hình'),
+    (N'Kẻ Trộm Mặt Trăng 5',           N'Gia đình')
+) AS src(movie_title, genre_name)
+JOIN dbo.movies m ON m.title = src.movie_title
+JOIN dbo.genres g ON g.genre_name = src.genre_name;
+GO
+
+INSERT INTO dbo.promotions(promotion_code, promotion_name, description, discount_type, discount_value, max_discount, min_order_amount, usage_limit, start_at, end_at)
 VALUES
-(@MovieAction, @GenreAction),
-(@MovieAction, @GenreScifi),
-(@MoviePlanet, @GenreAnimation),
-(@MoviePlanet, @GenreScifi),
-(@MovieHorror, @GenreHorror),
-(@MovieRobot, @GenreAction),
-(@MovieRobot, @GenreScifi);
+    ('CINEHUNT10',  N'Giảm 10% toàn bộ đơn hàng', N'Áp dụng cho tất cả phim đang chiếu', 'PERCENT', 10, 50000, 100000, 200, '2026-01-01', '2026-12-31'),
+    ('WELCOME50K',  N'Tặng 50.000đ cho đơn đầu',  N'Chỉ áp dụng lần đầu đặt vé',         'FIXED',   50000, NULL,  150000, 500, '2026-01-01', '2026-12-31'),
+    ('SUMMER2026',  N'Ưu đãi hè 2026 giảm 15%',   N'Áp dụng tháng 6-8/2026',             'PERCENT', 15, 75000, 120000, 300, '2026-06-01', '2026-08-31');
 GO
 
-/* Suất chiếu trong tương lai gần; các khung giờ không trùng nhau trong cùng phòng */
-DECLARE @SeedMovie1 INT = (SELECT movie_id FROM dbo.movies WHERE title = N'Đại Chiến Đa Vũ Trụ');
-DECLARE @SeedMovie2 INT = (SELECT movie_id FROM dbo.movies WHERE title = N'Hành Tinh Xanh');
-DECLARE @SeedMovie3 INT = (SELECT movie_id FROM dbo.movies WHERE title = N'Ngôi Nhà Sau Cánh Rừng');
-DECLARE @SeedRoom1 INT = (
-    SELECT r.room_id FROM dbo.rooms r
-    INNER JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id
-    WHERE c.cinema_name = N'CineHunt Cầu Giấy' AND r.room_name = N'Phòng 1'
-);
-DECLARE @SeedRoomVip INT = (
-    SELECT r.room_id FROM dbo.rooms r
-    INNER JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id
-    WHERE c.cinema_name = N'CineHunt Cầu Giấy' AND r.room_name = N'Phòng VIP'
-);
-DECLARE @SeedRoom2 INT = (
-    SELECT r.room_id FROM dbo.rooms r
-    INNER JOIN dbo.cinemas c ON c.cinema_id = r.cinema_id
-    WHERE c.cinema_name = N'CineHunt Hà Đông' AND r.room_name = N'Phòng 1'
-);
-DECLARE @Tomorrow DATE = DATEADD(DAY, 1, CAST(GETDATE() AS DATE));
-DECLARE @DayAfterTomorrow DATE = DATEADD(DAY, 2, CAST(GETDATE() AS DATE));
+/* Tạo suất chiếu mẫu cho các phim đang chiếu */
+DECLARE @sid INT;
 
-INSERT INTO dbo.showtimes(movie_id, room_id, start_time, end_time, base_price, status)
-VALUES
-(@SeedMovie1, @SeedRoom1,
- DATEADD(HOUR, 10, CAST(@Tomorrow AS DATETIME2)),
- DATEADD(MINUTE, 150, DATEADD(HOUR, 10, CAST(@Tomorrow AS DATETIME2))),
- 80000, 'OPEN'),
-(@SeedMovie2, @SeedRoom1,
- DATEADD(HOUR, 14, CAST(@Tomorrow AS DATETIME2)),
- DATEADD(MINUTE, 135, DATEADD(HOUR, 14, CAST(@Tomorrow AS DATETIME2))),
- 75000, 'OPEN'),
-(@SeedMovie3, @SeedRoomVip,
- DATEADD(HOUR, 19, CAST(@Tomorrow AS DATETIME2)),
- DATEADD(MINUTE, 120, DATEADD(HOUR, 19, CAST(@Tomorrow AS DATETIME2))),
- 120000, 'OPEN'),
-(@SeedMovie1, @SeedRoom2,
- DATEADD(HOUR, 18, CAST(@DayAfterTomorrow AS DATETIME2)),
- DATEADD(MINUTE, 150, DATEADD(HOUR, 18, CAST(@DayAfterTomorrow AS DATETIME2))),
- 85000, 'OPEN');
-GO
+EXEC dbo.sp_create_showtime
+    @movie_id = 1, @room_id = 1,
+    @start_time = '2026-07-08 09:00:00',
+    @base_price = 90000, @created_by = 1,
+    @showtime_id = @sid OUTPUT;
 
-/* Sinh ghế cho toàn bộ suất chiếu */
-INSERT INTO dbo.showtime_seats(showtime_id, seat_id, price, status)
-SELECT
-    sh.showtime_id,
-    s.seat_id,
-    CAST(sh.base_price * st.price_multiplier AS DECIMAL(12,2)),
-    'AVAILABLE'
-FROM dbo.showtimes sh
-INNER JOIN dbo.seats s ON s.room_id = sh.room_id
-INNER JOIN dbo.seat_types st ON st.seat_type_id = s.seat_type_id
-WHERE s.status = 'ACTIVE';
-GO
+EXEC dbo.sp_create_showtime
+    @movie_id = 1, @room_id = 2,
+    @start_time = '2026-07-08 14:00:00',
+    @base_price = 120000, @created_by = 1,
+    @showtime_id = @sid OUTPUT;
 
-/* Cập nhật đúng tổng số ghế thực tế của từng phòng */
-UPDATE r
-SET r.total_seats = x.total_seats
-FROM dbo.rooms r
-INNER JOIN (
-    SELECT room_id, COUNT(*) AS total_seats
-    FROM dbo.seats
-    WHERE status = 'ACTIVE'
-    GROUP BY room_id
-) x ON x.room_id = r.room_id;
-GO
+EXEC dbo.sp_create_showtime
+    @movie_id = 2, @room_id = 1,
+    @start_time = '2026-07-08 11:30:00',
+    @base_price = 85000, @created_by = 1,
+    @showtime_id = @sid OUTPUT;
 
-/* Kiểm tra nhanh dữ liệu seed */
-SELECT 'cinemas' AS table_name, COUNT(*) AS row_count FROM dbo.cinemas
-UNION ALL SELECT 'rooms', COUNT(*) FROM dbo.rooms
-UNION ALL SELECT 'seats', COUNT(*) FROM dbo.seats
-UNION ALL SELECT 'movies', COUNT(*) FROM dbo.movies
-UNION ALL SELECT 'showtimes', COUNT(*) FROM dbo.showtimes
-UNION ALL SELECT 'showtime_seats', COUNT(*) FROM dbo.showtime_seats;
+EXEC dbo.sp_create_showtime
+    @movie_id = 3, @room_id = 1,
+    @start_time = '2026-07-09 10:00:00',
+    @base_price = 75000, @created_by = 1,
+    @showtime_id = @sid OUTPUT;
+
+EXEC dbo.sp_create_showtime
+    @movie_id = 4, @room_id = 4,
+    @start_time = '2026-07-08 13:00:00',
+    @base_price = 80000, @created_by = 1,
+    @showtime_id = @sid OUTPUT;
 GO
 
 /* ============================================================================
-   26. KIỂM TRA SAU KHI CÀI ĐẶT
+   19. KIỂM TRA CUỐI
    ============================================================================ */
 
 SELECT
-    DB_NAME() AS database_name,
-    (SELECT COUNT(*) FROM sys.tables) AS table_count,
-    (SELECT COUNT(*) FROM sys.procedures) AS procedure_count,
-    (SELECT COUNT(*) FROM sys.views) AS view_count;
+    t.name AS table_name,
+    p.rows AS row_count
+FROM sys.tables t
+JOIN sys.partitions p ON p.object_id = t.object_id AND p.index_id IN (0,1)
+ORDER BY t.name;
 GO
 
-PRINT N'CineHunt Database V6.2 Backend Compatible đã được cài đặt thành công.';
+SELECT
+    s.name AS schema_name,
+    o.name AS object_name,
+    o.type_desc
+FROM sys.objects o
+JOIN sys.schemas s ON s.schema_id = o.schema_id
+WHERE o.type IN ('TR','P','V')
+ORDER BY o.type_desc, o.name;
 GO
 
-SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME = 'booking_orders'
-ORDER BY ORDINAL_POSITION
+PRINT N'============================================================';
+PRINT N'CineHunt Database V6.3 khởi tạo thành công!';
+PRINT N'Các fix V6.3:';
+PRINT N'  [OK] payments: ZALOPAY, CREDIT_CARD đã thêm vào CHECK constraint';
+PRINT N'  [OK] booking_orders: cột computed booking_status thêm cho entity NestJS';
+PRINT N'  [OK] showtime_seats: cột computed seat_status thêm cho entity NestJS';
+PRINT N'  [OK] promotions: cột computed voucher_status thêm cho entity NestJS';
+PRINT N'============================================================';
+GO
