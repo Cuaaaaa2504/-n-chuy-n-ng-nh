@@ -41,7 +41,8 @@ export class Voucher {
   @Column({ name: 'end_at', type: 'datetime2', precision: 0 })
   endAt: Date;
 
-  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
+  // Đổi tên cột từ 'status' (reserved keyword T-SQL) sang 'voucher_status'
+  @Column({ name: 'voucher_status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })

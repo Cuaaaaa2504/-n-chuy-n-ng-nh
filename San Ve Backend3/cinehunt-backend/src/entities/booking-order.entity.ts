@@ -45,7 +45,8 @@ export class BookingOrder {
   @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2 })
   totalAmount: number;
 
-  @Column({ name: 'status', type: 'varchar', length: 30, default: 'PENDING_PAYMENT' })
+  // Đổi tên cột từ 'status' (reserved keyword T-SQL) sang 'booking_status'
+  @Column({ name: 'booking_status', type: 'varchar', length: 30, default: 'PENDING_PAYMENT' })
   status: string;
 
   @Column({ name: 'idempotency_key', type: 'varchar', length: 100, nullable: true })
