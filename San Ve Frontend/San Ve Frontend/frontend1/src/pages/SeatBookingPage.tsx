@@ -1,15 +1,13 @@
 // src/pages/SeatBookingPage.tsx
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
-import { useSeatSelection } from "../hooks/useSeatSelection";
+import type { Seat } from "../hooks/useSeatHold";
 import { useTheme } from "../context/ThemeContext";
 import type { SeatDto } from "../types/seat.types";
-import type { Seat } from "../hooks/useSeatHold";
 import axiosClient from "../api/axiosClient";
-// FIX: Xóa import mockMovies — dùng API thực để lấy thông tin phim
 
 const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
 const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900";
@@ -40,7 +38,7 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
 
 function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
-  const m = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
+  const m = url.match(/(?:v=|youtu\.be\/)?([\w-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
 }
 
@@ -66,6 +64,10 @@ interface SeatMapResponse {
   data?: {
     seats?: SeatDto[];
     movieTitle?: string | null;
+    cinemaName?: string | null;
+    roomName?:   string | null;
+    showDate?:   string | null;
+    showTime?:   string | null;
   };
 }
 
@@ -78,7 +80,6 @@ interface ShowtimeInfo {
   showTime:   string | null;
 }
 
-// FIX: interface MovieInfo thay thế mockMovies
 interface MovieInfo {
   movie_id: number;
   title: string;
@@ -98,21 +99,19 @@ export default function SeatBookingPage() {
   const [searchParams]              = useSearchParams();
   const { darkMode }                = useTheme();
 
-  // FIX: movie state lấy từ API thay vì mockMovies
-  const [movie, setMovie] = useState<MovieInfo | null>(null);
-
-  const [seats, setSeats]         = useState<SeatDto[]>([]);
+  const [movie, setMovie]           = useState<MovieInfo | null>(null);
+  const [seats, setSeats]           = useState<SeatDto[]>([]);
   const [showtimeInfo, setShowtimeInfo] = useState<ShowtimeInfo | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [holdError, setHoldError] = useState<string | null>(null);
-  const [heldIds, setHeldIds]     = useState<number[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [holdError, setHoldError]   = useState<string | null>(null);
+  const [heldIds, setHeldIds]       = useState<number[]>([]);
   const [holdCountdown, setHoldCountdown] = useState<number>(HOLD_SECONDS);
-  const [holding, setHolding]     = useState(false);
+  const [holding, setHolding]       = useState(false);
   const [navigating, setNavigating] = useState(false);
-  const [navError, setNavError]   = useState<string>('');
-  const [usingMock, setUsingMock] = useState(false);
-  const timerRef                  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [navError, setNavError]     = useState<string>('');
+  const [usingMock, setUsingMock]   = useState(false);
+  const timerRef                    = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const navigate = useNavigate();
 
@@ -135,7 +134,8 @@ export default function SeatBookingPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  useLayoutEffect(() => {
+  // FIX: đổi useLayoutEffect → useEffect để tránh crash khi async throw lỗi
+  useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -147,59 +147,81 @@ export default function SeatBookingPage() {
         return;
       }
       try {
-        const data = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`) as unknown as SeatMapResponse;
-        // FIX: set movie info từ seatMap response (movieTitle) hoặc fallback gọi /movies/:id
-        if (data?.movieTitle) {
+        // FIX: unwrap cả 2 dạng response: { seats: [...] } và { data: { seats: [...] } }
+        const raw = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`);
+        const data: SeatMapResponse = (raw as any)?.data ?? raw as unknown as SeatMapResponse;
+
+        const seatList: SeatDto[] =
+          data.seats ??
+          data.data?.seats ??
+          [];
+
+        const movieTitle = data.movieTitle ?? data.data?.movieTitle ?? null;
+        const cinemaName = data.cinemaName ?? data.data?.cinemaName ?? null;
+        const roomName   = data.roomName   ?? data.data?.roomName   ?? null;
+        const showDate   = data.showDate   ?? data.data?.showDate   ?? null;
+        const showTime   = data.showTime   ?? data.data?.showTime   ?? null;
+
+        if (movieTitle) {
           setMovie((prev) => prev ?? {
             movie_id: Number(showtimeId),
-            title: data.movieTitle ?? '',
-            poster_url: undefined,
-            backdrop_url: undefined,
+            title: movieTitle,
+            poster_url: FALLBACK_POSTER,
+            backdrop_url: FALLBACK_BACKDROP,
           });
-        } else if (id) {
+        }
+
+        // Nếu có movie_id từ params, thử lấy chi tiết phim
+        if (id && !movie) {
           try {
-            const mRaw = await axiosClient.get(`/movies/${id}`) as Record<string, unknown>;
+            const mRaw = await axiosClient.get(`/movies/${id}`);
             const m = (mRaw as any)?.data ?? mRaw;
             setMovie({
               movie_id: Number((m as any).movie_id ?? id),
-              title: String((m as any).title ?? ''),
-              poster_url: (m as any).poster_url,
-              backdrop_url: (m as any).backdrop_url,
+              title: String((m as any).title ?? movieTitle ?? ''),
+              poster_url: (m as any).poster_url ?? FALLBACK_POSTER,
+              backdrop_url: (m as any).backdrop_url ?? FALLBACK_BACKDROP,
               trailer_url: (m as any).trailer_url,
               age_rating: (m as any).age_rating,
               duration_minutes: (m as any).duration_minutes,
             });
-          } catch { /* fallback poster/title ở null */ }
+          } catch {
+            // fallback về title từ seatMap
+          }
         }
 
-        const seatList: SeatDto[] = data.seats ?? data.data?.seats ?? [];
-        if (seatList.length === 0) throw new Error('No seats');
-        setSeats(seatList);
-        setShowtimeInfo({
-          showtimeId: Number(showtimeId),
-          movieTitle: data.movieTitle ?? data.data?.movieTitle ?? null,
-          cinemaName: data.cinemaName ?? null,
-          roomName:   data.roomName   ?? null,
-          showDate:   data.showDate   ?? null,
-          showTime:   data.showTime   ?? null,
-        });
-        setUsingMock(false);
-      } catch {
-        try {
-          const data = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`) as unknown as SeatMapResponse;
-          const seatList: SeatDto[] = data.seats ?? data.data?.seats ?? [];
-          if (seatList.length === 0) throw new Error('Empty');
-          setSeats(seatList);
-          setUsingMock(false);
-        } catch {
+        if (seatList.length === 0) {
+          // Không throw — dùng mock thay vì crash
           setSeats(generateMockSeats(showtimeId));
           setUsingMock(true);
+        } else {
+          setSeats(seatList);
+          setUsingMock(false);
         }
+
+        setShowtimeInfo({
+          showtimeId: Number(showtimeId),
+          movieTitle,
+          cinemaName,
+          roomName,
+          showDate,
+          showTime,
+        });
+      } catch (err: unknown) {
+        const status = (err as any)?.response?.status;
+        if (status === 401) {
+          setError('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+        } else {
+          setError('Không thể tải sơ đồ ghế. Đang dùng dữ liệu mẫu.');
+        }
+        setSeats(generateMockSeats(showtimeId));
+        setUsingMock(true);
       } finally {
         setLoading(false);
       }
     };
     void load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, searchParams]);
 
   const handleSeatClick = (seatId: string) => {
@@ -209,8 +231,6 @@ export default function SeatBookingPage() {
         const cur = (s as SeatDto2).status;
         if (cur === 'BOOKED') return s;
         if (cur === 'HELD') {
-          const selected = prev.filter((x) => (x as SeatDto2).status === 'HELD');
-          if (selected.length <= 1) return { ...s, status: 'AVAILABLE' as SeatStatus };
           return { ...s, status: 'AVAILABLE' as SeatStatus };
         }
         const held = prev.filter((x) => (x as SeatDto2).status === 'HELD');
@@ -236,14 +256,13 @@ export default function SeatBookingPage() {
         showtimeId: Number(showtimeId),
         holdMinutes: Math.ceil(HOLD_SECONDS / 60),
       }) as Record<string, unknown>;
-      const ids = (res.holdIds ?? res.data) as number[] | undefined;
-      if (ids && ids.length > 0) {
+      const ids = (res.holdIds ?? (res.data as any)?.holdIds ?? res.data) as number[] | undefined;
+      if (ids && Array.isArray(ids) && ids.length > 0) {
         setHeldIds(ids);
-        startCountdown();
       } else {
         setHeldIds(showtimeSeatIds);
-        startCountdown();
       }
+      startCountdown();
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } }; message?: string })
@@ -264,7 +283,11 @@ export default function SeatBookingPage() {
     setNavError('');
     try {
       const res = await axiosClient.post('/bookings', { holdIds: heldIds }) as Record<string, unknown>;
-      const bookingId = res.bookingId ?? (res.data as Record<string, unknown> | undefined)?.bookingId ?? res.id;
+      const bookingId =
+        res.bookingId ??
+        (res.data as Record<string, unknown> | undefined)?.bookingId ??
+        res.id ??
+        (res.data as any)?.id;
       navigate(`/payment/${String(bookingId)}`);
     } catch (err: unknown) {
       const msg =
@@ -278,12 +301,11 @@ export default function SeatBookingPage() {
 
   const selectedSeats = getSelectedSeats(seats);
 
-  // FIX TS2322: Seat interface yêu cầu status — thêm status vào map
   const selectedSeatsForBar: Seat[] = selectedSeats.map((s) => ({
     seatId:   s.id,
     seatCode: `${s.rowName}${s.seatNumber}`,
     price:    s.price ?? 90_000,
-    status:   s.status as Seat['status'],   // map SeatStatus -> Seat['status']
+    status:   s.status as Seat['status'],
   }));
 
   const totalAmount     = selectedSeatsForBar.reduce((sum, s) => sum + s.price, 0);
@@ -317,13 +339,11 @@ export default function SeatBookingPage() {
       <div className="relative max-w-5xl mx-auto px-4 py-6 space-y-6">
         {/* Header */}
         <div className="flex items-start gap-4">
-          {movie?.poster_url && (
-            <img
-              src={movie.poster_url}
-              alt={movie.title}
-              className="w-20 h-28 object-cover rounded-xl shadow-lg flex-shrink-0"
-            />
-          )}
+          <img
+            src={movie?.poster_url ?? FALLBACK_POSTER}
+            alt={movie?.title ?? 'Poster'}
+            className="w-20 h-28 object-cover rounded-xl shadow-lg flex-shrink-0"
+          />
           <div>
             <h1 className="text-2xl font-bold">{movie?.title ?? showtimeInfo?.movieTitle ?? 'Chọn ghế'}</h1>
             {movie?.age_rating && (

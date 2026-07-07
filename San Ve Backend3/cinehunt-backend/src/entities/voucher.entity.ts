@@ -1,56 +1,56 @@
 import {
   Entity,
-  Column,
   PrimaryGeneratedColumn,
+  Column,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('promotions')
 export class Voucher {
-  @PrimaryGeneratedColumn({ type: 'int', name: 'promotion_id' })
-  promotionId: number;
+  @PrimaryGeneratedColumn({ name: 'promotion_id' })
+  promotion_id: number;
 
-  @Column({ name: 'promotion_name', type: 'nvarchar', length: 150 })
-  promotionName: string;
+  @Column({ name: 'promotion_name', length: 150 })
+  promotion_name: string;
 
-  @Column({ name: 'promotion_code', type: 'varchar', length: 50, unique: true })
-  promotionCode: string;
+  @Column({ name: 'promotion_code', length: 50, unique: true })
+  promotion_code: string;
 
-  @Column({ name: 'description', type: 'nvarchar', nullable: true })
-  description: string | null;
-
-  @Column({ name: 'discount_type', type: 'varchar', length: 10 })
-  discountType: string;
+  @Column({ name: 'discount_type', length: 20 })
+  discount_type: string;
 
   @Column({ name: 'discount_value', type: 'decimal', precision: 10, scale: 2 })
-  discountValue: number;
+  discount_value: number;
 
-  @Column({ name: 'max_discount', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  maxDiscount: number | null;
+  @Column({ name: 'max_discount_amount', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  max_discount_amount: number;
 
-  @Column({ name: 'min_order_amount', type: 'decimal', precision: 12, scale: 2, nullable: true })
-  minOrderAmount: number | null;
+  @Column({ name: 'min_order_amount', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  min_order_amount: number;
 
-  @Column({ name: 'usage_limit', type: 'int', nullable: true })
-  usageLimit: number | null;
+  @Column({ name: 'usage_limit', nullable: true })
+  usage_limit: number;
 
-  @Column({ name: 'used_count', type: 'int', default: 0 })
-  usedCount: number;
+  @Column({ name: 'used_count', default: 0 })
+  used_count: number;
 
-  @Column({ name: 'start_at', type: 'datetime2', precision: 0 })
-  startAt: Date;
+  @Column({ name: 'start_date', type: 'date', nullable: true })
+  start_date: string;
 
-  @Column({ name: 'end_at', type: 'datetime2', precision: 0 })
-  endAt: Date;
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  end_date: string;
 
-  // FIX: SQL dùng cột 'status' (không phải 'voucher_status')
-  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
+  // FIX: đổi name từ 'voucher_status' → 'status' để khớp với SQL
+  @Column({ name: 'status', length: 20, default: 'ACTIVE' })
   status: string;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  createdAt: Date;
+  @Column({ name: 'description', type: 'nvarchar', length: 'max', nullable: true })
+  description: string;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0 })
-  updatedAt: Date;
+  @CreateDateColumn({ name: 'created_at' })
+  created_at: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updated_at: Date;
 }
