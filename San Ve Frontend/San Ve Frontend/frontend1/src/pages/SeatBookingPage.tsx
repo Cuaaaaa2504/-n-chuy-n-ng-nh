@@ -16,7 +16,7 @@ const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900"
 const MAX_SEATS    = 8;
 const HOLD_SECONDS = 300; // 5 phút
 
-// Fallback mock chỉ dùng khi API chưa có dữ liệu
+// Fallback mock chỉ dùng khi API chưa có dữ liệu hoặc lỗi
 function generateMockSeats(showtimeId?: string): SeatDto[] {
   void showtimeId;
   const rows = ["A","B","C","D","E","F","G","H"];
@@ -85,16 +85,21 @@ export default function SeatBookingPage() {
   const navigate     = useNavigate();
   const { darkMode } = useTheme();
 
-  const movie = mockMovies.find((m) => String(m.movie_id) === id);
-  const [seats, setSeats]     = useState<SeatDto[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Tìm movie theo movie_id từ route param :id
+  // Nếu không tìm thấy trong mockMovies, vẫn render trang với thông tin từ query params
+  const movie = mockMovies.find((m) => String(m.movie_id) === id) ?? null;
+
+  const [seats, setSeats]         = useState<SeatDto[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [usingMock, setUsingMock] = useState(false);
 
   // ── Hold state ───────────────────────────────────────────────────────────────────
   const [holding, setHolding]         = useState(false);
   const [holdMessage, setHoldMessage] = useState("");
   const [holdError, setHoldError]     = useState("");
-  const [heldLabels, setHeldLabels]   = useState<string[]>([]);  // nhãn ghế để hiển thị
-  const [heldIds, setHeldIds]         = useState<number[]>([]);  // holdId thật từ API
+  const [heldLabels, setHeldLabels]   = useState<string[]>([]);
+  const [heldIds, setHeldIds]         = useState<number[]>([]);
   const [countdown, setCountdown]     = useState(0);
 
   // ── Navigating state ──────────────────────────────────────────────────────────────
@@ -113,13 +118,20 @@ export default function SeatBookingPage() {
 
   // ── Load seats từ API thật: GET /showtime-seats/:showtimeId ──────────────────────
   useEffect(() => {
-    // showtimeId từ query param, fallback về :id trong route
     const showtimeId = searchParams.get("showtimeId") ?? id;
-    if (!showtimeId) return;
+    if (!showtimeId) {
+      // Không có showtimeId nào cả → dùng mock luôn
+      setSeats(generateMockSeats());
+      setUsingMock(true);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
+      setLoadError("");
+      setUsingMock(false);
       clearSelectionRef.current();
       setHeldLabels([]);
       setHeldIds([]);
@@ -129,35 +141,47 @@ export default function SeatBookingPage() {
       setCountdown(0);
 
       try {
-        // GET /showtime-seats/:showtimeId  (param path, không phải query)
         const res = await axiosClient.get(`/showtime-seats/${showtimeId}`) as unknown;
         if (cancelled) return;
 
         const data = res as SeatMapResponse;
         const rawSeats: SeatMapItem[] = Array.isArray(data)
-          ? (data as unknown as SeatMapItem[])           // fallback nếu API trả thẳng mảng
+          ? (data as unknown as SeatMapItem[])
           : (data?.seats ?? []);
 
-        const mapped: SeatDto[] = rawSeats.map((s) => ({
-          id:         s.showtimeSeatId,
-          rowName:    s.seatRow ?? "",
-          seatNumber: Number(s.seatNumber ?? 0),
-          // Map seatStatus backend -> status frontend
-          status: ((): SeatDto["status"] => {
-            switch (s.seatStatus) {
-              case "AVAILABLE": return "AVAILABLE";
-              case "HELD":      return "HELD";
-              case "SOLD":      return "SOLD";
-              case "BLOCKED":   return "BLOCKED";
-              default:          return "AVAILABLE";
-            }
-          })(),
-        }));
-
-        setSeats(mapped);
-      } catch {
-        // Chỉ fallback mock nếu API lỗi (ví dụ: chưa có dữ liệu suất chiếu)
-        if (!cancelled) setSeats(generateMockSeats(showtimeId));
+        if (rawSeats.length === 0) {
+          // API trả về mảng rỗng → dùng mock
+          setSeats(generateMockSeats(showtimeId));
+          setUsingMock(true);
+        } else {
+          const mapped: SeatDto[] = rawSeats.map((s) => ({
+            id:         s.showtimeSeatId,
+            rowName:    s.seatRow ?? "",
+            seatNumber: Number(s.seatNumber ?? 0),
+            status: ((): SeatDto["status"] => {
+              switch (s.seatStatus) {
+                case "AVAILABLE": return "AVAILABLE";
+                case "HELD":      return "HELD";
+                case "SOLD":      return "SOLD";
+                case "BLOCKED":   return "BLOCKED";
+                default:          return "AVAILABLE";
+              }
+            })(),
+          }));
+          setSeats(mapped);
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        // Bất kỳ lỗi nào (401, 404, network...) → fallback mock thay vì trang trắng
+        const status = (err as { status?: number })?.status;
+        if (status === 401) {
+          // Token hết hạn → hiện mock nhưng thông báo cần đăng nhập khi giữ ghế
+          setLoadError("Phiên đăng nhập hết hạn. Bạn đang xem ở chế độ khách. Vui lòng đăng nhập để đặt vé.");
+        } else {
+          setLoadError(`Không thể tải dữ liệu ghế từ máy chủ (${status ?? "lỗi mạng"}). Đang hiển thị dữ liệu mẫu.`);
+        }
+        setSeats(generateMockSeats(showtimeId));
+        setUsingMock(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -189,12 +213,16 @@ export default function SeatBookingPage() {
   // ── handleHold: POST /showtime-seats/hold-many ────────────────────────────────
   const handleHold = async () => {
     if (selectedSeats.length === 0) return;
+
+    if (usingMock) {
+      setHoldError("Không thể giữ ghế với dữ liệu mẫu. Vui lòng kiểm tra kết nối đến backend hoặc đăng nhập lại.");
+      return;
+    }
+
     setHolding(true);
     setHoldMessage("");
     setHoldError("");
     try {
-      // Gọi đúng endpoint: POST /showtime-seats/hold-many
-      // Body: { showtimeSeatIds: number[], holdMinutes: number }
       const res = await axiosClient.post('/showtime-seats/hold-many', {
         showtimeSeatIds: selectedSeats.map((s) => s.id),
         holdMinutes: 5,
@@ -206,9 +234,7 @@ export default function SeatBookingPage() {
 
       if (!holds.length) throw new Error('API trả về kết quả rỗng');
 
-      // holdId thật để dùng khi tạo booking
       const ids    = holds.map((h) => h.holdId);
-      // seatLabel từ API (e.g. "A1", "B5") hoặc tự ghép từ rowName+seatNumber
       const labels = holds.map((h) =>
         h.seatLabel ??
         `${selectedSeats.find((s) => s.id === h.showtimeSeatId)?.rowName ?? ""}` +
@@ -262,37 +288,30 @@ export default function SeatBookingPage() {
   };
 
   const selectedSeats   = getSelectedSeats(seats);
-  // Tính giá dựa vào price từ API nếu có, fallback 90.000
   const totalAmount = selectedSeats.reduce((sum, s) => sum + ((s as SeatDto & { price?: number }).price ?? 90_000), 0);
   const trailerEmbedUrl = movie ? getYoutubeEmbedUrl(movie.trailer_url) : null;
 
+  // Lấy thông tin hiển thị: ưu tiên từ movie object, fallback về query params
+  const date     = searchParams.get("date")   ?? "";
+  const cinema   = searchParams.get("cinema") ?? "";
+  const time     = searchParams.get("time")   ?? "";
+  const room     = searchParams.get("room")   ?? "";
+
+  const displayTitle    = movie?.title ?? `Phim #${id ?? "?"}`;
+  const displayPoster   = movie?.poster_url ?? FALLBACK_POSTER;
+  const displayBackdrop = movie?.backdrop_url ?? FALLBACK_BACKDROP;
+  const displayRating   = movie?.age_rating ?? "";
+  const displayDuration = movie?.duration_minutes ? `${movie.duration_minutes} phút` : "";
+
   const card = darkMode ? "bg-gray-900 border border-gray-800" : "bg-white shadow";
-
-  if (!movie) {
-    return (
-      <div className="flex-1 flex items-center justify-center px-4">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Không tìm thấy phìm</h1>
-          <button onClick={() => navigate(-1)} className="bg-red-500 text-white px-5 py-2 rounded-lg">
-            Quay lại
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const date   = searchParams.get("date")   ?? "";
-  const cinema = searchParams.get("cinema") ?? "";
-  const time   = searchParams.get("time")   ?? "";
-  const room   = searchParams.get("room")   ?? "";
 
   return (
     <div className="flex-1">
       {/* Backdrop banner */}
       <div className="relative h-[260px] md:h-[340px] overflow-hidden">
         <img
-          src={movie.backdrop_url || FALLBACK_BACKDROP}
-          alt={movie.title}
+          src={displayBackdrop}
+          alt={displayTitle}
           onError={(e) => { e.currentTarget.src = FALLBACK_BACKDROP; }}
           className="w-full h-full object-cover"
         />
@@ -311,21 +330,25 @@ export default function SeatBookingPage() {
         <div className="absolute bottom-0 left-0 right-0 z-10 px-4 md:px-10 pb-6">
           <div className="max-w-6xl mx-auto flex items-end gap-4">
             <img
-              src={movie.poster_url}
-              alt={movie.title}
+              src={displayPoster}
+              alt={displayTitle}
               onError={(e) => { e.currentTarget.src = FALLBACK_POSTER; }}
               className="w-24 md:w-32 aspect-[2/3] object-cover rounded-xl shadow-lg border border-white/10"
             />
             <div>
               <div className="flex flex-wrap gap-2 mb-2">
-                <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                  {movie.age_rating}
-                </span>
-                <span className="bg-white/10 text-white text-xs px-3 py-1 rounded-full border border-white/10">
-                  {movie.duration_minutes} phút
-                </span>
+                {displayRating && (
+                  <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                    {displayRating}
+                  </span>
+                )}
+                {displayDuration && (
+                  <span className="bg-white/10 text-white text-xs px-3 py-1 rounded-full border border-white/10">
+                    {displayDuration}
+                  </span>
+                )}
               </div>
-              <h1 className="text-2xl md:text-4xl font-extrabold text-white">{movie.title}</h1>
+              <h1 className="text-2xl md:text-4xl font-extrabold text-white">{displayTitle}</h1>
               {(cinema || date || time) && (
                 <p className="text-white/70 text-sm mt-1">
                   {[cinema, date, time, room].filter(Boolean).join(" • ")}
@@ -337,11 +360,33 @@ export default function SeatBookingPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 md:px-10 py-8">
+        {/* Thông báo lỗi load / dùng mock */}
+        {loadError && (
+          <div className={`mb-4 rounded-xl px-4 py-3 text-sm font-medium border ${
+            darkMode
+              ? "bg-yellow-900/20 border-yellow-700/30 text-yellow-400"
+              : "bg-yellow-50 border-yellow-200 text-yellow-700"
+          }`}>
+            ⚠️ {loadError}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             {/* Seat Map */}
             <div className={`rounded-2xl p-5 ${card}`}>
-              <h2 className="text-lg font-bold mb-3">Chọn ghế</h2>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-bold">Chọn ghế</h2>
+                {usingMock && (
+                  <span className={`text-xs px-2 py-1 rounded-full border ${
+                    darkMode
+                      ? "bg-yellow-900/30 border-yellow-700/40 text-yellow-400"
+                      : "bg-yellow-50 border-yellow-200 text-yellow-600"
+                  }`}>
+                    Dữ liệu mẫu
+                  </span>
+                )}
+              </div>
               {loading ? (
                 <div className="flex justify-center py-16">
                   <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
@@ -357,25 +402,21 @@ export default function SeatBookingPage() {
               )}
             </div>
 
-            {/* Trailer */}
-            <div className={`rounded-2xl p-5 ${card}`}>
-              <h2 className="text-lg font-bold mb-3">Trailer</h2>
-              {trailerEmbedUrl ? (
+            {/* Trailer — chỉ hiện nếu có movie */}
+            {trailerEmbedUrl && (
+              <div className={`rounded-2xl p-5 ${card}`}>
+                <h2 className="text-lg font-bold mb-3">Trailer</h2>
                 <div className="aspect-video overflow-hidden rounded-xl">
                   <iframe
                     src={trailerEmbedUrl}
-                    title={`${movie.title} trailer`}
+                    title={`${displayTitle} trailer`}
                     className="w-full h-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
                 </div>
-              ) : (
-                <p className={darkMode ? "text-gray-400" : "text-gray-500"}>
-                  Hiện chưa có trailer phù hợp cho phìm này.
-                </p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
