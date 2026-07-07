@@ -33,7 +33,6 @@ export class BookingService {
   async createBooking(userId: number, request: CreateBookingRequest): Promise<BookingResponse> {
     const now = new Date();
 
-    // FIX: holdId là number (BIGINT), không map sang String
     const holds = await this.holdRepo.find({
       where: {
         holdId: In(request.holdIds),
@@ -69,13 +68,11 @@ export class BookingService {
       throw new BadRequestException('Có sản phẩm không tồn tại hoặc không hoạt động');
     }
 
-    // FIX: tính productAmount đúng từ danh sách combo
     const productAmount = requestedProducts.reduce((sum, item) => {
       const product = products.find((p) => p.comboId === item.productId)!;
       return sum + Number(product.price) * item.quantity;
     }, 0);
 
-    // FIX: tích hợp voucher — tính discountAmount thực sự
     let discountAmount = 0;
     let appliedPromotionId: number | null = request.promotionId ?? null;
 
@@ -155,7 +152,6 @@ export class BookingService {
         await manager.save(BookingCombo, bookingProducts);
       }
 
-      // FIX: tăng used_count của voucher nếu đã áp dụng
       if (request.voucherCode && appliedPromotionId) {
         await manager.increment(Voucher, { promotionId: appliedPromotionId }, 'usedCount', 1);
       }
@@ -188,6 +184,53 @@ export class BookingService {
     });
   }
 
+  async getMyBookings(userId: number) {
+    const bookings = await this.bookingRepo.find({
+      where: { userId },
+      relations: {
+        bookingDetails: {
+          showtimeSeat: {
+            seat: true,
+            showtime: { movie: true, room: { cinema: true } as any } as any,
+          } as any,
+        } as any,
+        payments: true,
+      } as any,
+      order: { createdAt: 'DESC' },
+    });
+
+    return bookings.map((b) => {
+      const firstDetail = b.bookingDetails?.[0];
+      const showtimeSeat = firstDetail?.showtimeSeat as any;
+      const showtime = showtimeSeat?.showtime as any;
+      const movie = showtime?.movie as any;
+      const room = showtime?.room as any;
+      const cinema = room?.cinema as any;
+
+      const seatCodes = (b.bookingDetails ?? []).map((d) => {
+        const ss = (d.showtimeSeat as any)?.seat;
+        return ss ? `${ss.rowName ?? ss.seatRow ?? ''}${ss.seatNumber ?? ''}` : '';
+      }).filter(Boolean);
+
+      return {
+        bookingId: b.bookingId,
+        bookingCode: b.bookingCode,
+        movieTitle: movie?.title ?? 'Vé xem phim',
+        cinemaName: cinema?.name ?? null,
+        roomName: room?.name ?? null,
+        showDate: showtime?.showDate
+          ? new Date(showtime.showDate).toLocaleDateString('vi-VN')
+          : null,
+        showTime: showtime?.startTime ?? null,
+        seatCodes,
+        totalAmount: Number(b.totalAmount ?? 0),
+        status: b.status,
+        expiresAt: b.expiresAt ?? null,
+        paidAt: b.paidAt ?? null,
+      };
+    });
+  }
+
   async getBookingDetail(bookingId: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
       where: { bookingId, userId },
@@ -206,7 +249,6 @@ export class BookingService {
   }
 
   async cancelBooking(bookingId: string, userId: number) {
-    // FIX: userId bắt buộc phải là number hợp lệ — không cho phép undefined
     if (userId === undefined || userId === null) {
       throw new BadRequestException('userId không hợp lệ khi hủy booking');
     }
@@ -248,7 +290,6 @@ export class BookingService {
     });
   }
 
-  // FIX: expirePendingBookings — bỏ double-update, dùng 1 lần set EXPIRED
   async expirePendingBookings() {
     const now = new Date();
     const bookings = await this.bookingRepo.find({

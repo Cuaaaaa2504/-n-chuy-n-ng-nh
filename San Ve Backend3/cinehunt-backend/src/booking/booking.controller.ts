@@ -28,11 +28,14 @@ export class BookingController {
     @Body() request: CreateBookingRequest,
   ): Promise<BookingResponse> {
     const userId = req.user.userId;
+    return this.bookingService.createBooking(userId, request);
+  }
 
-    return this.bookingService.createBooking(
-      userId,
-      request,
-    );
+  // MUST be before @Get(':id') to avoid NestJS matching 'my' as :id
+  @Get('my')
+  async getMyBookings(@Request() req) {
+    const userId = req.user.userId;
+    return this.bookingService.getMyBookings(userId);
   }
 
   @Get(':id')
@@ -41,11 +44,7 @@ export class BookingController {
     @Param('id') id: string,
   ) {
     const userId = req.user.userId;
-
-    return this.bookingService.getBookingDetail(
-      id,
-      userId,
-    );
+    return this.bookingService.getBookingDetail(id, userId);
   }
 
   @Delete(':id')
@@ -54,10 +53,6 @@ export class BookingController {
     @Param('id') id: string,
   ) {
     const userId = req.user.userId;
-
-    return this.bookingService.cancelBooking(
-      id,
-      userId,
-    );
+    return this.bookingService.cancelBooking(id, userId);
   }
 }

@@ -66,7 +66,7 @@ export default function SeatBookingPage() {
   const [heldIds, setHeldIds]         = useState<number[]>([]); // holdIds thật từ API hold
   const [countdown, setCountdown]     = useState(0);
 
-  // ── Navigating state (khi đang tạo booking) ──────────────────────────────────────────
+  // ── Navigating state ──────────────────────────────────────────────────────────────
   const [navigating, setNavigating]   = useState(false);
   const [navError, setNavError]       = useState("");
 
@@ -82,10 +82,12 @@ export default function SeatBookingPage() {
     clearSelectionRef.current = clearSelection;
   });
 
-  // ── Load seats ────────────────────────────────────────────────────────────────────
+  // ── Load seats từ API thật ────────────────────────────────────────────────────────
   useEffect(() => {
-    const stId = searchParams.get("showtimeId") ?? id ?? undefined;
+    const showtimeId = searchParams.get("showtimeId") ?? id;
+    if (!showtimeId) return;
     let cancelled = false;
+
     const load = async () => {
       setLoading(true);
       clearSelectionRef.current();
@@ -95,11 +97,37 @@ export default function SeatBookingPage() {
       setHoldError("");
       setNavError("");
       setCountdown(0);
-      await new Promise<void>((resolve) => setTimeout(resolve, 700));
-      if (cancelled) return;
-      setSeats(generateMockSeats(stId));
-      setLoading(false);
+
+      try {
+        // Gọi API lấy ghế thật của suất chiếu
+        const res = await axiosClient.get(`/showtime-seats?showtimeId=${showtimeId}`) as unknown;
+        if (cancelled) return;
+
+        const rawList: Record<string, unknown>[] = Array.isArray(res)
+          ? (res as Record<string, unknown>[])
+          : Array.isArray((res as Record<string, unknown>).data)
+          ? ((res as Record<string, unknown>).data as Record<string, unknown>[])
+          : [];
+
+        const mapped: SeatDto[] = rawList.map((s) => {
+          const seat = s.seat as Record<string, unknown> | undefined;
+          return {
+            id: Number(s.showtimeSeatId ?? s.id),
+            rowName: String(seat?.seatRow ?? seat?.rowName ?? s.rowName ?? ""),
+            seatNumber: Number(seat?.seatNumber ?? s.seatNumber ?? 0),
+            status: (s.status ?? "AVAILABLE") as SeatDto["status"],
+          };
+        });
+
+        setSeats(mapped);
+      } catch {
+        // Fallback sang mock nếu API chưa có dữ liệu
+        if (!cancelled) setSeats(generateMockSeats(showtimeId));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
+
     void load();
     return () => { cancelled = true; };
   }, [id, searchParams]);
@@ -123,69 +151,72 @@ export default function SeatBookingPage() {
     return () => clearInterval(timer);
   }, [countdown]);
 
-  // ── Mock handleHold ─────────────────────────────────────────────────────────────────
+  // ── handleHold — gọi API hold thật ───────────────────────────────────────────────
   const handleHold = async () => {
     if (selectedSeats.length === 0) return;
     setHolding(true);
     setHoldMessage("");
     setHoldError("");
     try {
-      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+      // Gọi API hold nhiều ghế cùng lúc
+      const res = await axiosClient.post('/showtime-seats/hold-multiple', {
+        showtimeSeatIds: selectedSeats.map((s) => s.id),
+        holdMinutes: 5,
+      }) as unknown;
+
+      const holds: Array<{ holdId: number; expiresAt?: string }> = Array.isArray(res)
+        ? (res as Array<{ holdId: number; expiresAt?: string }>)
+        : Array.isArray((res as Record<string, unknown>).data)
+        ? ((res as Record<string, unknown>).data as Array<{ holdId: number; expiresAt?: string }>)
+        : [];
+
+      const ids   = holds.map((h) => Number(h.holdId));
       const codes = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`);
+
+      setHeldIds(ids);
       setHeldCodes(codes);
-      // Khi tích hợp API hold thật, lưu holdIds từ response vào setHeldIds([...])
       setHoldMessage(`Đã giữ ${codes.length} ghế! Vui lòng thanh toán trong 5 phút.`);
       setCountdown(HOLD_SECONDS);
-    } catch {
-      setHoldError("Không thể giữ ghế. Vui lòng thử lại.");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } }; message?: string })
+          ?.response?.data?.message ??
+        (err as { message?: string })?.message ??
+        "Lỗi không xác định";
+      setHoldError(`Không thể giữ ghế: ${msg}`);
     } finally {
       setHolding(false);
     }
   };
 
-  // ── Tiếp tục thanh toán ────────────────────────────────────────────────────────────
+  // ── Tiếp tục thanh toán — bắt buộc phải có heldIds từ API ───────────────────────
   const handleContinueToPayment = async () => {
-    if (selectedSeats.length === 0) return;
+    if (heldIds.length === 0) {
+      setNavError("Vui lòng bấm 'Giữ ghế' trước khi tiếp tục.");
+      return;
+    }
     setNavigating(true);
     setNavError("");
+    try {
+      const res = await axiosClient.post('/bookings', {
+        holdIds: heldIds,
+      }) as Record<string, unknown>;
 
-    const date   = searchParams.get("date")   ?? "";
-    const cinema = searchParams.get("cinema") ?? "";
-    const time   = searchParams.get("time")   ?? "";
-    const room   = searchParams.get("room")   ?? "";
+      const bookingId =
+        res.bookingId ??
+        (res.data as Record<string, unknown> | undefined)?.bookingId ??
+        (res as Record<string, unknown>).id;
 
-    const seatCodesStr = selectedSeats.map((s) => `${s.rowName}${s.seatNumber}`).join(",");
-
-    // Nếu có holdIds thật từ bước hold API → gọi backend tạo booking
-    if (heldIds.length > 0) {
-      try {
-        // Chỉ gửi đúng các field mà DTO backend chấp nhận: holdIds (+ voucherCode tùy chọn)
-        const res = await axiosClient.post('/bookings', {
-          holdIds: heldIds,
-        }) as Record<string, unknown>;
-
-        const bookingId = res.bookingId ?? res.id;
-        navigate(`/payment/${bookingId}`);
-        return;
-      } catch (err: unknown) {
-        const msg = (err as { response?: { data?: { message?: string } }; message?: string })
-          ?.response?.data?.message ?? (err as { message?: string })?.message ?? "";
-        setNavError(`Lỗi đặt vé: ${msg}`);
-        setNavigating(false);
-        return;
-      }
+      navigate(`/payment/${String(bookingId)}`);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } }; message?: string })
+          ?.response?.data?.message ??
+        (err as { message?: string })?.message ??
+        "";
+      setNavError(`Lỗi đặt vé: ${msg}`);
+      setNavigating(false);
     }
-
-    // Chưa có holdIds thật → dùng offline/local mode, truyền thông tin qua query params
-    navigate(
-      `/payment/local?seats=${seatCodesStr}` +
-      `&total=${totalAmount}` +
-      `&movie=${encodeURIComponent(movie?.title ?? "")}` +
-      `&cinema=${encodeURIComponent(cinema)}` +
-      `&date=${encodeURIComponent(date)}` +
-      `&time=${encodeURIComponent(time)}` +
-      `&room=${encodeURIComponent(room)}`
-    );
   };
 
   const selectedSeats   = getSelectedSeats(seats);
@@ -319,90 +350,88 @@ export default function SeatBookingPage() {
                     {selectedSeats.map((s) => (
                       <span
                         key={s.id}
-                        className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-1 rounded-lg text-sm font-mono font-semibold"
+                        className="bg-blue-500/15 text-blue-400 text-xs font-mono font-bold px-3 py-1 rounded-full"
                       >
                         {s.rowName}{s.seatNumber}
                       </span>
                     ))}
                   </div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Số ghế:</span>
-                    <span className="font-semibold">{selectedSeats.length}</span>
+                  <div className={`text-sm font-semibold ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                    Tổng: <span className="text-red-500">{totalAmount.toLocaleString("vi-VN")}₫</span>
                   </div>
-                  <div className="flex justify-between text-sm mb-3">
-                    <span>Đơn giá:</span>
-                    <span>{SEAT_PRICE.toLocaleString("vi-VN")}₫/ghế</span>
-                  </div>
-                  <div className="flex justify-between font-bold text-base border-t pt-3">
-                    <span>Tổng tiền:</span>
-                    <span className="text-red-500">{totalPrice.toLocaleString("vi-VN")}₫</span>
-                  </div>
-                  <button
-                    onClick={clearSelection}
-                    className="mt-3 text-xs text-gray-400 hover:text-red-400 transition"
-                  >
-                    Xóa tất cả
-                  </button>
                 </>
               )}
             </div>
 
-            <SelectedSeatsBar
-              selectedSeats={selectedSeats.map((s) => ({
-                seatId:   s.id,
-                seatCode: `${s.rowName}${s.seatNumber}`,
-                price:    SEAT_PRICE,
-                status:   s.status as 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED',
-              }))}
-              totalPrice={totalPrice}
-              countdown={countdown}
-              loading={holding}
-              message={holdMessage}
-              error={holdError}
-              heldSeatCodes={heldCodes}
-              onHold={handleHold}
-            />
-
-            <div className={`rounded-2xl p-5 ${card}`}>
-              <h3 className="font-bold mb-2">Thông tin phìm</h3>
-              <p className="text-sm mb-1"><span className="font-semibold">Tên phìm:</span> {movie.title}</p>
-              <p className="text-sm mb-1"><span className="font-semibold">Thời lượng:</span> {movie.duration_minutes} phút</p>
-              <p className="text-sm mb-1"><span className="font-semibold">Phân loại:</span> {movie.age_rating}</p>
-              <p className="text-sm"><span className="font-semibold">Thể loại:</span> {movie.genres.join(", ")}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Error khi navigate */}
-        {navError && (
-          <div className="mt-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm font-medium">
-            {navError}
-          </div>
-        )}
-
-        <div className="mt-6 flex gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="px-5 py-3 rounded-xl border font-semibold"
-          >
-            Quay lại
-          </button>
-          <button
-            disabled={selectedSeats.length === 0 || navigating}
-            onClick={handleContinueToPayment}
-            className="flex-1 px-5 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
-          >
-            {navigating ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Đang xử lý…
-              </>
-            ) : (
-              `Tiếp tục thanh toán (${selectedSeats.length} ghế)`
+            {/* Hold message / countdown */}
+            {heldCodes.length > 0 && countdown > 0 && (
+              <div className={`rounded-2xl p-4 border ${
+                darkMode ? "bg-yellow-900/20 border-yellow-700/30" : "bg-yellow-50 border-yellow-200"
+              }`}>
+                <p className="text-yellow-500 font-semibold text-sm mb-1">⏳ {holdMessage}</p>
+                <p className="font-mono text-yellow-400 text-lg font-bold">
+                  {String(Math.floor(countdown / 60)).padStart(2, "0")}:{String(countdown % 60).padStart(2, "0")}
+                </p>
+                <p className={`text-xs mt-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  Ghế: {heldCodes.join(", ")}
+                </p>
+              </div>
             )}
-          </button>
+
+            {/* Hold error */}
+            {holdError && (
+              <div className="rounded-2xl p-4 bg-red-500/10 border border-red-500/20">
+                <p className="text-red-500 text-sm font-semibold">{holdError}</p>
+              </div>
+            )}
+
+            {/* Nav error */}
+            {navError && (
+              <div className="rounded-2xl p-4 bg-red-500/10 border border-red-500/20">
+                <p className="text-red-500 text-sm font-semibold">{navError}</p>
+              </div>
+            )}
+
+            {/* Nút giữ ghế */}
+            {heldIds.length === 0 && (
+              <button
+                onClick={handleHold}
+                disabled={holding || selectedSeats.length === 0}
+                className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white font-bold py-3 rounded-2xl transition flex items-center justify-center gap-2"
+              >
+                {holding ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang giữ ghế...</>
+                ) : (
+                  "⏳ Giữ ghế (5 phút)"
+                )}
+              </button>
+            )}
+
+            {/* Nút tiếp tục thanh toán — chỉ hiện sau khi giữ ghế thành công */}
+            {heldIds.length > 0 && (
+              <button
+                onClick={handleContinueToPayment}
+                disabled={navigating}
+                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold py-3 rounded-2xl transition flex items-center justify-center gap-2"
+              >
+                {navigating ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang xử lý...</>
+                ) : (
+                  "Tiếp tục thanh toán →"
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      <SelectedSeatsBar
+        seats={selectedSeats}
+        totalAmount={totalAmount}
+        onClear={clearSelection}
+        onCheckout={heldIds.length > 0 ? handleContinueToPayment : handleHold}
+        checkoutLabel={heldIds.length > 0 ? "Tiếp tục thanh toán" : "Giữ ghế"}
+      />
     </div>
   );
 }
