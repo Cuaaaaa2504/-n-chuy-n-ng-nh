@@ -2,18 +2,17 @@
 import {
   BadRequestException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, LessThan, Repository } from 'typeorm';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
 import { SeatHold } from '../entities/seat-hold.entity';
 import { Payment } from '../entities/payment.entity';
 import { Voucher } from '../entities/voucher.entity';
-import { Combo } from '../entities/combo.entity';
+import { ConcessionCombo } from '../entities/concession-combo.entity'; // FIX #1: combo.entity không tồn tại
 import { BookingCombo } from '../entities/booking-combo.entity';
 import {
   BookingResponse,
@@ -36,8 +35,8 @@ export class BookingService {
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Voucher)
     private readonly voucherRepo: Repository<Voucher>,
-    @InjectRepository(Combo)
-    private readonly productRepo: Repository<Combo>,
+    @InjectRepository(ConcessionCombo) // FIX #1: dùng ConcessionCombo thay Combo
+    private readonly productRepo: Repository<ConcessionCombo>,
     @InjectRepository(BookingCombo)
     private readonly bookingComboRepo: Repository<BookingCombo>,
     private readonly dataSource: DataSource,
@@ -162,14 +161,88 @@ export class BookingService {
 
       await manager.update(SeatHold, { holdId: In(request.holdIds) }, { status: 'CONVERTED' });
 
+      // FIX #2: trả đủ tất cả fields của BookingResponse
       return {
         bookingId,
         bookingCode: booking.bookingCode,
+        showtimeId,
+        seatCount: holds.length,
+        subtotalAmount,
+        productAmount,
+        discountAmount,
         totalAmount,
-        expiresAt: expiresAt.toISOString(),
         status: 'PENDING_PAYMENT',
-      };
+        expiresAt,
+      } satisfies BookingResponse;
     });
+  }
+
+  // FIX #4: method required by PaymentService.createPayment()
+  async validateBookingForPayment(bookingId: string, userId: number) {
+    const booking = await this.bookingRepo.findOne({
+      where: { bookingId, userId },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Không tìm thấy booking');
+    }
+
+    if (booking.status !== 'PENDING_PAYMENT') {
+      throw new BadRequestException(
+        `Booking đang ở trạng thái ${booking.status}, không thể thanh toán`,
+      );
+    }
+
+    if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
+      throw new BadRequestException('Booking đã hết hạn thanh toán');
+    }
+
+    return {
+      ...booking,
+      finalAmount: Number(booking.totalAmount),
+    };
+  }
+
+  // FIX #3: method required by BookingExpireScheduler
+  async expirePendingBookings(): Promise<{ expiredCount: number }> {
+    const now = new Date();
+
+    const expiredBookings = await this.bookingRepo.find({
+      where: {
+        status: 'PENDING_PAYMENT',
+        expiresAt: LessThan(now),
+      },
+      relations: { bookingDetails: true },
+    });
+
+    if (!expiredBookings.length) {
+      return { expiredCount: 0 };
+    }
+
+    const bookingIds = expiredBookings.map((b) => b.bookingId);
+
+    await this.bookingRepo.update(
+      { bookingId: In(bookingIds) },
+      { status: 'EXPIRED', cancelledAt: now },
+    );
+
+    const allSeatIds = expiredBookings.flatMap((b) =>
+      b.bookingDetails.map((d: any) => d.showtimeSeatId),
+    );
+
+    if (allSeatIds.length) {
+      await this.showtimeSeatRepo.update(
+        { showtimeSeatId: In(allSeatIds) },
+        { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
+      );
+
+      await this.holdRepo.update(
+        { showtimeSeatId: In(allSeatIds), status: 'ACTIVE' },
+        { status: 'EXPIRED', releasedAt: now },
+      );
+    }
+
+    return { expiredCount: expiredBookings.length };
   }
 
   async getMyBookings(userId: number) {
@@ -245,7 +318,6 @@ export class BookingService {
     );
   }
 
-  // FIX: Thêm method cho route GET /bookings/:id/tickets (MyTicketsPage)
   async getBookingTickets(bookingId: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
       where: { bookingId, userId },
