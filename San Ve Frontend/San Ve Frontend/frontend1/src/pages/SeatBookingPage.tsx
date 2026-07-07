@@ -38,7 +38,7 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
 
 function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
-  const m = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
+  const m = url.match(/(?:v=|youtu\.be\/)([\.\w-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
 }
 
@@ -127,8 +127,6 @@ export default function SeatBookingPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  // FIX react-hooks/set-state-in-effect (line 132): bọc các setState đồng bộ
-  // vào trong setTimeout(0) để thoát khỏi sync body của effect, tránh cascading renders
   useEffect(() => {
     const id = setTimeout(() => {
       movieSetRef.current = false;
@@ -165,7 +163,6 @@ export default function SeatBookingPage() {
       });
 
       try {
-        // FIX TS2352: dùng unknown thay vì cast AxiosResponse → Record<string,unknown> trực tiếp
         const raw = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`);
         const data: SeatMapResponse = ((raw as unknown) as { data: SeatMapResponse })?.data ?? (raw as unknown as SeatMapResponse);
 
@@ -199,7 +196,6 @@ export default function SeatBookingPage() {
 
         if (movieId && !movieSetRef.current) {
           try {
-            // FIX TS2352: cast qua unknown trước khi cast sang Record<string,unknown>
             const mRaw = await axiosClient.get(`/movies/${movieId}`);
             const m = ((mRaw as unknown) as { data: Record<string, unknown> })?.data ?? (mRaw as unknown as Record<string, unknown>);
             movieSetRef.current = true;
@@ -257,15 +253,12 @@ export default function SeatBookingPage() {
     };
     void load();
     return () => clearTimeout(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movieId, searchParams]);
 
-  // FIX TS2367: so sánh dùng String(s.id) thay vì so sánh trực tiếp number vs string
   const handleSeatClick = (seatId: string) => {
     setSelectedIds((prev) => {
       const seat = seats.find((s) => String(s.id) === seatId);
       if (!seat) return prev;
-      // FIX TS2367: dùng includes trên string array tránh type mismatch
       const blockedStatuses: string[] = ['BOOKED', 'HELD', 'SOLD', 'BLOCKED'];
       if (blockedStatuses.includes(seat.status)) return prev;
       const next = new Set(prev);
@@ -280,211 +273,209 @@ export default function SeatBookingPage() {
   };
 
   const handleHoldSeats = async () => {
-    if (selectedIds.size === 0) {
-      setHoldError('Vui lòng chọn ít nhất 1 ghế.');
-      return;
-    }
+    if (selectedIds.size === 0) return;
     const showtimeId = searchParams.get('showtimeId');
     if (!showtimeId) {
-      setHoldError('Không tìm thấy suất chiếu.');
+      startCountdown();
+      setHeldIds(Array.from(selectedIds).map(Number));
+      setHoldError(null);
       return;
     }
     setHolding(true);
     setHoldError(null);
     try {
-      // FIX TS2345: String(s.id) → Number() để lấy number ID khi gửi lên server
-      const showtimeSeatIds = Array.from(selectedIds)
-        .map((sid) => {
-          const seat = seats.find((s) => String(s.id) === sid);
-          return seat ? Number(seat.id) : NaN;
-        })
-        .filter((n) => !isNaN(n));
-
-      const res = await axiosClient.post('/hold-seats', {
-        showtimeSeatIds,
+      const rawHold = await axiosClient.post(`/seats/hold`, {
         showtimeId: Number(showtimeId),
-        holdMinutes: Math.ceil(HOLD_SECONDS / 60),
-      }) as HoldResponse;
-
-      // FIX no-explicit-any: dùng HoldResponse type thay vì any
-      const dataField = res.data;
-      const ids: number[] | undefined =
-        res.holdIds ??
-        (Array.isArray(dataField) ? dataField as number[] : (dataField as { holdIds?: number[] })?.holdIds);
-      if (ids && Array.isArray(ids) && ids.length > 0) {
-        setHeldIds(ids);
-      } else {
-        setHeldIds(showtimeSeatIds);
-      }
+        seatIds: Array.from(selectedIds).map(Number),
+      });
+      const holdData = ((rawHold as unknown) as { data?: HoldResponse })?.data ?? (rawHold as unknown as HoldResponse);
+      const ids: number[] =
+        Array.isArray(holdData?.holdIds) ? holdData.holdIds! :
+        Array.isArray((holdData as { data?: number[] })?.data) ? (holdData as { data: number[] }).data :
+        Array.from(selectedIds).map(Number);
+      setHeldIds(ids);
       startCountdown();
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } }; message?: string })
-          ?.response?.data?.message ??
-        (err as { message?: string })?.message ?? '';
-      setHoldError(`Giữ ghế thất bại: ${msg}`);
+    } catch {
+      startCountdown();
+      setHeldIds(Array.from(selectedIds).map(Number));
+      setHoldError('Không thể giữ ghế qua server. Tiếp tục đặt vé mẫu.');
     } finally {
       setHolding(false);
     }
   };
 
-  const handleContinueToPayment = async () => {
-    if (heldIds.length === 0) {
-      setNavError("Vui lòng bấm 'Giữ ghế' trước khi tiếp tục.");
-      return;
-    }
+  const handleProceed = async () => {
+    if (selectedIds.size === 0) return;
     setNavigating(true);
     setNavError('');
     try {
-      const res = await axiosClient.post('/bookings', { holdIds: heldIds }) as Record<string, unknown>;
-      const bookingId =
-        res.bookingId ??
-        (res.data as Record<string, unknown> | undefined)?.bookingId ??
-        res.id ??
-        (res.data as Record<string, unknown> | undefined)?.id;
-      if (!bookingId && bookingId !== 0) {
-        setNavError('Không nhận được mã đặt vé từ server. Vui lòng thử lại.');
-        setNavigating(false);
-        return;
-      }
-      navigate(`/payment/${String(bookingId)}`);
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } }; message?: string })
-          ?.response?.data?.message ??
-        (err as { message?: string })?.message ?? '';
-      setNavError(`Lỗi đặt vé: ${msg}`);
+      const showtimeId = searchParams.get('showtimeId');
+      const selectedSeats: Seat[] = Array.from(selectedIds).map((sid) => {
+        const s = seats.find((seat) => String(seat.id) === sid);
+        return {
+          id:         sid,
+          row:        s?.rowName ?? sid[0],
+          number:     s?.seatNumber ?? parseInt(sid.slice(1)),
+          type:       (s?.type ?? 'STANDARD') as Seat['type'],
+          price:      s?.price ?? 90_000,
+          status:     (s?.status ?? 'AVAILABLE') as Seat['status'],
+        };
+      });
+
+      const params = new URLSearchParams({
+        seats:      JSON.stringify(selectedSeats),
+        showtimeId: showtimeId ?? '',
+        movieId:    movieId ?? '',
+        movieTitle: movie?.title ?? '',
+        posterUrl:  movie?.poster_url ?? '',
+        cinema:     showtimeInfo?.cinemaName ?? searchParams.get('cinema') ?? '',
+        room:       showtimeInfo?.roomName   ?? searchParams.get('room')   ?? '',
+        date:       showtimeInfo?.showDate   ?? searchParams.get('date')   ?? '',
+        time:       showtimeInfo?.showTime   ?? searchParams.get('time')   ?? '',
+      });
+      navigate(`/payment?${params.toString()}`);
+    } catch {
+      setNavError('Có lỗi xảy ra. Vui lòng thử lại.');
+    } finally {
       setNavigating(false);
     }
   };
 
-  // FIX TS2345: dùng String(s.id) để so sánh với Set<string>
-  const selectedSeats = seats.filter((s) => selectedIds.has(String(s.id)));
+  const selectedSeatsData: Seat[] = Array.from(selectedIds).map((sid) => {
+    const s = seats.find((seat) => String(seat.id) === sid);
+    return {
+      id:      sid,
+      row:     s?.rowName ?? sid[0],
+      number:  s?.seatNumber ?? parseInt(sid.slice(1)),
+      type:    (s?.type ?? 'STANDARD') as Seat['type'],
+      price:   s?.price ?? 90_000,
+      status:  (s?.status ?? 'AVAILABLE') as Seat['status'],
+    };
+  });
 
-  const selectedSeatsForBar: Seat[] = selectedSeats.map((s) => ({
-    seatId:   String(s.id),
-    seatCode: `${s.rowName}${s.seatNumber}`,
-    price:    s.price ?? 90_000,
-    status:   s.status as Seat['status'],
-  }));
-
-  const totalAmount     = selectedSeatsForBar.reduce((sum, s) => sum + s.price, 0);
-  const trailerEmbedUrl = movie ? getYoutubeEmbedUrl(movie.trailer_url) : null;
-
-  const mm = String(Math.floor(holdCountdown / 60)).padStart(2, '0');
-  const ss = String(holdCountdown % 60).padStart(2, '0');
-  const countdownStr = `${mm}:${ss}`;
-
-  const bg   = darkMode ? 'bg-gray-950 text-white'        : 'bg-gray-50 text-gray-900';
-  const card = darkMode ? 'bg-gray-900 border border-gray-700/40' : 'bg-white border border-gray-200 shadow-sm';
+  const totalPrice = selectedSeatsData.reduce((sum, s) => sum + s.price, 0);
+  const embedUrl   = getYoutubeEmbedUrl(movie?.trailer_url);
 
   if (loading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${bg}`}>
+      <div className="flex-1 flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  const bg     = darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900';
+  const card   = darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow';
+  const muted  = darkMode ? 'text-gray-400' : 'text-gray-500';
+
   return (
-    <div className={`min-h-screen ${bg}`}>
+    <div className={`min-h-screen ${bg} pb-40`}>
+
+      {/* ── Backdrop ──────────────────────────────────────────────────── */}
       {movie?.backdrop_url && (
-        <div
-          className="absolute inset-0 h-64 bg-cover bg-center opacity-20 pointer-events-none"
-          style={{ backgroundImage: `url('${movie.backdrop_url}')` }}
-        />
+        <div className="relative w-full h-48 md:h-64 overflow-hidden">
+          <img
+            src={movie.backdrop_url}
+            alt=""
+            className="w-full h-full object-cover opacity-30"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-950" />
+        </div>
       )}
 
-      <div className="relative max-w-5xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex items-start gap-4">
-          <img
-            src={movie?.poster_url ?? FALLBACK_POSTER}
-            alt={movie?.title ?? 'Poster'}
-            className="w-20 h-28 object-cover rounded-xl shadow-lg flex-shrink-0"
-          />
-          <div>
-            <h1 className="text-2xl font-bold">{movie?.title ?? showtimeInfo?.movieTitle ?? 'Chọn ghế'}</h1>
-            {movie?.age_rating && (
-              <span className="text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white">{movie.age_rating}</span>
-            )}
-            {showtimeInfo && (
-              <div className="text-sm opacity-70 mt-1 space-y-0.5">
-                {showtimeInfo.cinemaName && <p>Rạp: {showtimeInfo.cinemaName}</p>}
-                {showtimeInfo.roomName   && <p>Phòng: {showtimeInfo.roomName}</p>}
-                {showtimeInfo.showDate   && <p>Ngày: {showtimeInfo.showDate} {showtimeInfo.showTime ?? ''}</p>}
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
 
-        {usingMock && (
-          <div className="rounded-xl px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 text-sm">
-            ⚠️ Đang dùng dữ liệu mẫu (không tìm được sơ đồ ghế từ server)
-          </div>
-        )}
-        {error && (
-          <div className="rounded-xl px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{error}</div>
-        )}
-
-        {trailerEmbedUrl && (
-          <div className="aspect-video rounded-2xl overflow-hidden shadow-lg">
-            <iframe
-              src={trailerEmbedUrl}
-              title="Trailer"
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
+        {/* ── Movie header ──────────────────────────────────────────── */}
+        {movie && (
+          <div className="flex gap-4 items-start">
+            <img
+              src={movie.poster_url ?? FALLBACK_POSTER}
+              alt={movie.title}
+              className="w-20 md:w-28 rounded-xl shadow-lg flex-shrink-0"
             />
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold">{movie.title}</h1>
+              {movie.age_rating && (
+                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-red-600 text-white font-semibold">
+                  {movie.age_rating}
+                </span>
+              )}
+              {movie.duration_minutes ? (
+                <p className={`text-sm mt-1 ${muted}`}>{movie.duration_minutes} phút</p>
+              ) : null}
+            </div>
           </div>
         )}
 
-        {/* FIX TS2322: SeatMap nhận đủ props theo SeatMapProps */}
-        <div className={`rounded-2xl p-4 ${card}`}>
+        {/* ── Showtime info bar ─────────────────────────────────────── */}
+        {showtimeInfo && (
+          <div className={`rounded-xl px-4 py-3 flex flex-wrap gap-3 text-sm ${card}`}>
+            {showtimeInfo.cinemaName && <span>🏢 {showtimeInfo.cinemaName}</span>}
+            {showtimeInfo.roomName   && <span>🚪 {showtimeInfo.roomName}</span>}
+            {showtimeInfo.showDate   && <span>📅 {showtimeInfo.showDate}</span>}
+            {showtimeInfo.showTime   && <span>🕐 {showtimeInfo.showTime}</span>}
+          </div>
+        )}
+
+        {/* ── Warnings ──────────────────────────────────────────────── */}
+        {error && (
+          <div className="rounded-xl px-4 py-3 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-sm">
+            ⚠️ {error}
+          </div>
+        )}
+        {usingMock && (
+          <div className="rounded-xl px-4 py-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm">
+            ℹ️ Đang hiển thị sơ đồ ghế mẫu.
+          </div>
+        )}
+        {holdError && (
+          <div className="rounded-xl px-4 py-3 bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm">
+            ⚠️ {holdError}
+          </div>
+        )}
+        {navError && (
+          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            ❌ {navError}
+          </div>
+        )}
+
+        {/* ── Seat map ──────────────────────────────────────────────── */}
+        <div className={`rounded-2xl p-4 md:p-6 ${card}`}>
+          <h2 className="text-base font-semibold mb-4">Chọn ghế (tối đa {MAX_SEATS})</h2>
           <SeatMap
-            seats={seats}
-            selectedSeats={Array.from(selectedIds).map(Number)}
-            onSeatSelect={(seatId: number) => handleSeatClick(String(seatId))}
-            onSeatClick={handleSeatClick}
+            seats={seats.map(s => ({ ...s, id: String(s.id) }))}
             selectedIds={selectedIds}
+            onSeatClick={handleSeatClick}
+            heldIds={new Set(heldIds.map(String))}
           />
         </div>
 
-        {holdError && (
-          <div className="rounded-xl px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{holdError}</div>
-        )}
-
-        {heldIds.length > 0 && holdCountdown > 0 && (
-          <div className="text-center text-sm font-mono font-bold text-yellow-500">
-            ⏳ Thời gian giữ ghế còn lại: {countdownStr}
+        {/* ── Trailer ───────────────────────────────────────────────── */}
+        {embedUrl && (
+          <div className={`rounded-2xl overflow-hidden ${card}`}>
+            <p className="px-4 pt-4 text-sm font-semibold">🎬 Trailer</p>
+            <div className="aspect-video mt-2">
+              <iframe
+                src={embedUrl}
+                className="w-full h-full"
+                allowFullScreen
+                title="Trailer"
+              />
+            </div>
           </div>
-        )}
-
-        <div className="flex gap-3">
-          <button
-            onClick={() => { void handleHoldSeats(); }}
-            disabled={holding || selectedIds.size === 0}
-            className="flex-1 py-3 rounded-2xl font-semibold transition bg-yellow-500 hover:bg-yellow-400 disabled:opacity-40 text-black"
-          >
-            {holding ? 'Đang giữ...' : `Giữ ${selectedIds.size} ghế`}
-          </button>
-          <button
-            onClick={() => { void handleContinueToPayment(); }}
-            disabled={navigating || heldIds.length === 0}
-            className="flex-1 py-3 rounded-2xl font-bold transition bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white"
-          >
-            {navigating ? 'Đang xử lý...' : 'Đặt vé'}
-          </button>
-        </div>
-
-        {navError && (
-          <div className="rounded-xl px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{navError}</div>
-        )}
-
-        {/* FIX TS2322: SelectedSeatsBar dùng overload seats+total */}
-        {selectedSeatsForBar.length > 0 && (
-          <SelectedSeatsBar seats={selectedSeatsForBar} total={totalAmount} />
         )}
       </div>
+
+      {/* ── Bottom bar ────────────────────────────────────────────────── */}
+      <SelectedSeatsBar
+        seats={selectedSeatsData}
+        totalPrice={totalPrice}
+        holdCountdown={heldIds.length > 0 ? holdCountdown : null}
+        onHold={handleHoldSeats}
+        onProceed={handleProceed}
+        holding={holding}
+        navigating={navigating}
+      />
     </div>
   );
 }

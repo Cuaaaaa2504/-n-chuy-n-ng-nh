@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import type { User } from '../context/AuthContext'; // FIX TS2339: import User để TypeScript biết avatarUrl tồn tại
 import userApi from '../api/userApi';
 
 // ─── Tabs ───────────────────────────────────────────────────────────────────
@@ -52,8 +51,7 @@ export default function ProfilePage() {
       setAvatarUrl(res.avatarUrl);
       // Cập nhật context để Navbar cũng đổi avatar
       if (user && token) {
-        // FIX TS2353: spread user (User từ AuthContext đã có avatarUrl) → không còn lỗi
-        login(token, { ...user, avatarUrl: res.avatarUrl } as User);
+        login(token, { ...user, avatarUrl: res.avatarUrl });
       }
       setInfoMsg({ type: 'ok', text: 'Cập nhật ảnh đại diện thành công!' });
     } catch {
@@ -69,7 +67,7 @@ export default function ProfilePage() {
     setInfoMsg(null);
     try {
       const updated = await userApi.update(user.id, { fullName, phone });
-      if (token) login(token, { ...user, ...updated } as User);
+      if (token) login(token, { ...user, ...updated });
       setInfoMsg({ type: 'ok', text: 'Lưu thông tin thành công!' });
     } catch {
       setInfoMsg({ type: 'err', text: 'Cập nhật thất bại. Vui lòng thử lại.' });
@@ -112,7 +110,7 @@ export default function ProfilePage() {
     setEmailMsg(null);
     try {
       const res = await userApi.changeEmail({ newEmail, currentPassword: emailPwd });
-      if (user && token) login(token, { ...user, email: res.email ?? newEmail } as User);
+      if (user && token) login(token, { ...user, email: res.email ?? newEmail });
       setEmailMsg({ type: 'ok', text: 'Đổi email thành công!' });
       setNewEmail(''); setEmailPwd('');
     } catch (err: unknown) {
@@ -229,19 +227,24 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* ── Toast ─────────────────────────────────────────────── */}
+            {/* ── Feedback ──────────────────────────────────────────── */}
             {infoMsg && (
-              <p className={`text-sm font-medium ${ infoMsg.type === 'ok' ? 'text-green-400' : 'text-red-400' }`}>
-                {infoMsg.type === 'ok' ? '✅' : '❌'} {infoMsg.text}
-              </p>
+              <div className={`text-sm px-4 py-2.5 rounded-lg ${
+                infoMsg.type === 'ok'
+                  ? 'bg-green-900/40 text-green-400 border border-green-800'
+                  : 'bg-red-900/40 text-red-400 border border-red-800'
+              }`}>
+                {infoMsg.text}
+              </div>
             )}
 
+            {/* ── Save button ───────────────────────────────────────── */}
             <button
               onClick={handleSaveInfo}
               disabled={infoLoading}
-              className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-gray-900 font-bold py-2.5 rounded-lg transition-colors"
+              className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-900 font-bold py-3 rounded-xl transition-colors"
             >
-              {infoLoading ? 'Đang lưu...' : 'Lưu thông tin'}
+              {infoLoading ? 'Đang lưu…' : 'Lưu thông tin'}
             </button>
           </div>
         )}
@@ -250,109 +253,124 @@ export default function ProfilePage() {
         {activeTab === 'privacy' && (
           <div className="space-y-10">
 
-            {/* ── Đổi mật khẩu ────────────────────────────────────── */}
-            <section>
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span>🔑</span> Đổi mật khẩu
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Mật khẩu hiện tại</label>
-                  <div className="relative">
-                    <input
-                      type={showPwd ? 'text' : 'password'}
-                      value={pwdCurrent}
-                      onChange={e => setPwdCurrent(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 pr-10 text-white focus:outline-none focus:border-amber-400 transition"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPwd(!showPwd)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-sm"
-                    >
-                      {showPwd ? '🙈' : '👁️'}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Mật khẩu mới</label>
+            {/* ── Change password ─────────────────────────────────── */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-amber-400 border-b border-gray-800 pb-2">Đổi mật khẩu</h2>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Mật khẩu hiện tại</label>
+                <div className="relative">
                   <input
                     type={showPwd ? 'text' : 'password'}
-                    value={pwdNew}
-                    onChange={e => setPwdNew(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition"
+                    value={pwdCurrent}
+                    onChange={e => setPwdCurrent(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white pr-12 focus:outline-none focus:border-amber-400 transition"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Xác nhận mật khẩu mới</label>
-                  <input
-                    type={showPwd ? 'text' : 'password'}
-                    value={pwdConfirm}
-                    onChange={e => setPwdConfirm(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    {showPwd ? '🙈' : '👁️'}
+                  </button>
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Mật khẩu mới</label>
+                <input
+                  type="password"
+                  value={pwdNew}
+                  onChange={e => setPwdNew(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Xác nhận mật khẩu mới</label>
+                <input
+                  type="password"
+                  value={pwdConfirm}
+                  onChange={e => setPwdConfirm(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition"
+                />
+              </div>
+
               {pwdMsg && (
-                <p className={`text-sm font-medium mt-3 ${ pwdMsg.type === 'ok' ? 'text-green-400' : 'text-red-400' }`}>
-                  {pwdMsg.type === 'ok' ? '✅' : '❌'} {pwdMsg.text}
-                </p>
+                <div className={`text-sm px-4 py-2.5 rounded-lg ${
+                  pwdMsg.type === 'ok'
+                    ? 'bg-green-900/40 text-green-400 border border-green-800'
+                    : 'bg-red-900/40 text-red-400 border border-red-800'
+                }`}>
+                  {pwdMsg.text}
+                </div>
               )}
+
               <button
                 onClick={handleChangePassword}
                 disabled={pwdLoading}
-                className="mt-4 w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-gray-900 font-bold py-2.5 rounded-lg transition-colors"
+                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-900 font-bold py-3 rounded-xl transition-colors"
               >
-                {pwdLoading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+                {pwdLoading ? 'Đang đổi…' : 'Đổi mật khẩu'}
               </button>
             </section>
 
-            <div className="border-t border-gray-800" />
+            {/* ── Change email ─────────────────────────────────────── */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold text-amber-400 border-b border-gray-800 pb-2">Đổi địa chỉ email</h2>
 
-            {/* ── Đổi email ────────────────────────────────────────── */}
-            <section>
-              <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                <span>✉️</span> Đổi địa chỉ email
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Email hiện tại: <span className="text-gray-300">{user?.email}</span>
-              </p>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Email mới</label>
-                  <input
-                    type="email"
-                    value={newEmail}
-                    onChange={e => setNewEmail(e.target.value)}
-                    placeholder="email_moi@example.com"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Mật khẩu hiện tại (để xác nhận)</label>
-                  <input
-                    type="password"
-                    value={emailPwd}
-                    onChange={e => setEmailPwd(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Email hiện tại</label>
+                <input
+                  value={user?.email ?? ''}
+                  readOnly
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-400 cursor-not-allowed"
+                />
               </div>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Email mới</label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Xác nhận bằng mật khẩu hiện tại</label>
+                <input
+                  type="password"
+                  value={emailPwd}
+                  onChange={e => setEmailPwd(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition"
+                />
+              </div>
+
               {emailMsg && (
-                <p className={`text-sm font-medium mt-3 ${ emailMsg.type === 'ok' ? 'text-green-400' : 'text-red-400' }`}>
-                  {emailMsg.type === 'ok' ? '✅' : '❌'} {emailMsg.text}
-                </p>
+                <div className={`text-sm px-4 py-2.5 rounded-lg ${
+                  emailMsg.type === 'ok'
+                    ? 'bg-green-900/40 text-green-400 border border-green-800'
+                    : 'bg-red-900/40 text-red-400 border border-red-800'
+                }`}>
+                  {emailMsg.text}
+                </div>
               )}
+
               <button
                 onClick={handleChangeEmail}
                 disabled={emailLoading}
-                className="mt-4 w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-gray-900 font-bold py-2.5 rounded-lg transition-colors"
+                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-900 font-bold py-3 rounded-xl transition-colors"
               >
-                {emailLoading ? 'Đang xử lý...' : 'Đổi email'}
+                {emailLoading ? 'Đang đổi…' : 'Đổi email'}
               </button>
             </section>
+
           </div>
         )}
+
       </div>
     </div>
   );

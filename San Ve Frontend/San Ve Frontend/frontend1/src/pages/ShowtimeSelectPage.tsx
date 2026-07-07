@@ -85,14 +85,8 @@ export default function ShowtimeSelectPage() {
   const [movie, setMovie] = useState<MockMovie | null>(mockMovie ?? null);
   const [loadingMovie, setLoadingMovie] = useState(!mockMovie);
 
-  // FIX react-hooks/set-state-in-effect: setState bên trong .then() callback (async)
-  // không bị coi là "sync within effect body" → hợp lệ
-  // FIX TS2352: cast qua unknown trước khi cast sang Record<string,unknown>
-  // FIX TS2353: release_date giờ có trong Movie interface (movie.ts đã thêm)
   useEffect(() => {
     if (mockMovie) {
-      // mockMovie có sẵn → không cần fetch, setState trong điều kiện sync này
-      // vẫn cần bọc vào microtask để tránh set-state-in-effect lint rule
       const t = setTimeout(() => {
         setMovie(mockMovie);
         setLoadingMovie(false);
@@ -107,7 +101,6 @@ export default function ShowtimeSelectPage() {
     axiosClient.get(`/movies/${movieId}`)
       .then((res) => {
         if (cancelled) return;
-        // FIX TS2352: cast qua unknown trước
         const raw = (res as unknown) as { data?: Record<string, unknown> };
         const m = (raw?.data ?? res) as Record<string, unknown>;
         const fetched: MockMovie = {
@@ -120,7 +113,6 @@ export default function ShowtimeSelectPage() {
           duration_minutes: Number(m.duration_minutes ?? 0),
           genres: Array.isArray(m.genres) ? (m.genres as string[]) : [],
           description: String(m.description ?? ''),
-          // FIX TS2353: release_date hợp lệ vì Movie interface đã có field này
           release_date: String(m.release_date ?? ''),
           status: (m.status as MockMovie['status']) ?? 'NOW_SHOWING',
           featured: Boolean(m.featured ?? false),
@@ -136,9 +128,8 @@ export default function ShowtimeSelectPage() {
   const [allShowtimes, setAllShowtimes]         = useState<Showtime[]>([]);
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
   const [selectedDate, setSelectedDate]         = useState<string | null>(null);
-  // FIX TS6133 + eslint no-unused-vars: đổi setSelectedCinemaId thành _setSelectedCinemaId
-  // để báo hiệu intentionally unused mà không xóa state (giữ nguyên cấu trúc)
-  const [selectedCinemaId, _setSelectedCinemaId] = useState<number | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null);
   const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
 
   const movieIdRef = useRef(movieId);
@@ -154,7 +145,6 @@ export default function ShowtimeSelectPage() {
 
       try {
         const raw = await axiosClient.get(`/showtimes?movieId=${movieIdRef.current}`);
-        // FIX TS2352: cast qua unknown trước
         const data = ((raw as unknown) as { data?: unknown })?.data ?? raw as unknown;
         const list: Showtime[] = Array.isArray(data)
           ? (data as Showtime[])
@@ -269,127 +259,104 @@ export default function ShowtimeSelectPage() {
       </div>
 
       {usingMockShowtimes && (
-        <div className="mb-4 rounded-xl px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 text-sm">
-          ⚠️ Đang hiển thị suất chiếu mẫu (không kết nối được server)
+        <div className="mb-4 rounded-xl px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-sm">
+          ⚠️ Đang hiển thị lịch chiếu mẫu (không kết nối được server).
         </div>
       )}
 
+      {/* ── Date tabs ───────────────────────────────────────────────── */}
       {loadingShowtimes ? (
-        <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+        <div className="flex gap-2 mb-6">
+          {[1,2,3].map(i => (
+            <div key={i} className="h-14 w-20 rounded-xl bg-gray-800 animate-pulse" />
+          ))}
         </div>
-      ) : allShowtimes.length === 0 ? (
+      ) : (
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+          {availableDates.map((date) => (
+            <button
+              key={date}
+              onClick={() => setSelectedDate(date)}
+              className={`flex-shrink-0 flex flex-col items-center px-4 py-2 rounded-xl border text-sm font-semibold transition ${
+                selectedDate === date
+                  ? 'bg-red-500 border-red-500 text-white'
+                  : darkMode
+                  ? 'border-gray-700 text-gray-300 hover:border-red-500'
+                  : 'border-gray-300 text-gray-700 hover:border-red-500'
+              }`}
+            >
+              <span className="text-xs opacity-70">{getDayLabel(date)}</span>
+              <span>{formatDate(date)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Formatted date heading ──────────────────────────────────── */}
+      {selectedDate && (
+        <h2 className="text-lg font-bold mb-4 capitalize">{formattedDate}</h2>
+      )}
+
+      {/* ── Showtime groups ─────────────────────────────────────────── */}
+      {loadingShowtimes ? (
+        <div className="space-y-4">
+          {[1,2].map(i => (
+            <div key={i} className={`rounded-2xl p-5 ${card}`}>
+              <div className="h-5 w-40 rounded bg-gray-700 animate-pulse mb-3" />
+              <div className="flex gap-2">
+                {[1,2,3,4].map(j => (
+                  <div key={j} className="h-12 w-20 rounded-xl bg-gray-700 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : Object.keys(groupedByCinema).length === 0 ? (
         <EmptyShowtime />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className={`rounded-2xl p-5 ${card}`}>
-              <h2 className="text-lg font-bold mb-4">Chọn ngày</h2>
-              <div className="flex flex-wrap gap-3">
-                {availableDates.map((date) => {
-                  const active = selectedDate === date;
+        <div className="space-y-6">
+          {Object.entries(groupedByCinema).map(([cinemaName, showtimes]) => (
+            <div key={cinemaName} className={`rounded-2xl p-5 ${card}`}>
+              <h3 className="font-bold text-base mb-1">{cinemaName}</h3>
+              {cinemas.find(c => c.name === cinemaName) && (
+                <p className={`text-xs mb-3 ${ darkMode ? 'text-gray-500' : 'text-gray-400' }`}>
+                  📍 {cinemas.find(c => c.name === cinemaName)?.address}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {showtimes.map((s) => {
+                  const past = isPast(s.startTime);
                   return (
                     <button
-                      key={date}
-                      onClick={() => setSelectedDate(date)}
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold border transition ${
-                        active
-                          ? "bg-red-500 text-white border-red-500"
+                      key={s.showtimeId}
+                      disabled={past}
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          showtimeId: String(s.showtimeId),
+                          date:   s.startTime.split('T')[0],
+                          cinema: s.cinemaName,
+                          room:   s.roomName,
+                          time:   formatTime(s.startTime),
+                          title:  movie?.title ?? '',
+                        });
+                        navigate(`/movies/${movieId}/seats?${params.toString()}`);
+                      }}
+                      className={`flex flex-col items-center px-4 py-2 rounded-xl border text-sm font-semibold transition ${
+                        past
+                          ? 'opacity-40 cursor-not-allowed border-gray-700 text-gray-500'
                           : darkMode
-                          ? "bg-gray-800 border-gray-700 hover:border-gray-500"
-                          : "bg-white border-gray-200 hover:border-gray-400"
+                          ? 'border-gray-700 hover:border-red-500 hover:text-red-400'
+                          : 'border-gray-300 hover:border-red-500 hover:text-red-500'
                       }`}
                     >
-                      <span className="block text-xs opacity-70">{getDayLabel(date)}</span>
-                      <span>{formatDate(date)}</span>
+                      <span>{formatTime(s.startTime)}</span>
+                      <span className="text-xs opacity-60">{s.roomName}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
-
-            {selectedDate && (
-              <div>
-                <h2 className="text-lg font-bold mb-3">
-                  Suất chiếu — {formattedDate}
-                </h2>
-                {Object.entries(groupedByCinema).length === 0 ? (
-                  <EmptyShowtime />
-                ) : (
-                  Object.entries(groupedByCinema).map(([cinemaName, showtimes]) => (
-                    <div key={cinemaName} className={`rounded-2xl p-5 mb-4 ${card}`}>
-                      <h3 className="font-bold text-base mb-1">{cinemaName}</h3>
-                      <p className={`text-xs mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {cinemas.find((c) => c.name === cinemaName)?.address ?? ''}
-                      </p>
-                      <div className="flex flex-wrap gap-3">
-                        {showtimes.map((st) => {
-                          const past = isPast(st.startTime);
-                          return (
-                            <button
-                              key={st.showtimeId}
-                              disabled={past}
-                              onClick={() => {
-                                const dateStr  = st.startTime.split('T')[0];
-                                const timeStr  = formatTime(st.startTime);
-                                const cinema   = encodeURIComponent(st.cinemaName);
-                                const room     = encodeURIComponent(st.roomName);
-                                navigate(
-                                  `/booking/${movieId}?showtimeId=${st.showtimeId}&date=${dateStr}&time=${timeStr}&cinema=${cinema}&room=${room}`
-                                );
-                              }}
-                              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition ${
-                                past
-                                  ? 'opacity-40 cursor-not-allowed border-gray-300'
-                                  : darkMode
-                                  ? 'bg-gray-800 border-gray-700 hover:border-red-500 hover:text-red-400'
-                                  : 'bg-white border-gray-200 hover:border-red-400 hover:text-red-500'
-                              }`}
-                            >
-                              {formatTime(st.startTime)}
-                              <span className="block text-xs opacity-60">{st.roomName}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar phim */}
-          <div className="hidden lg:block">
-            <div className={`rounded-2xl overflow-hidden sticky top-24 ${card}`}>
-              <img
-                src={movie.poster_url}
-                alt={movie.title}
-                className="w-full object-cover"
-                style={{ maxHeight: 320 }}
-              />
-              <div className="p-4 space-y-2">
-                <h3 className="font-bold text-base">{movie.title}</h3>
-                {movie.age_rating && (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white">
-                    {movie.age_rating}
-                  </span>
-                )}
-                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {movie.duration_minutes} phút
-                </p>
-                {Array.isArray(movie.genres) && movie.genres.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {(movie.genres as string[]).map((g: string) => (
-                      <span key={g} className={`text-xs px-2 py-0.5 rounded-full border ${
-                        darkMode ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-600'
-                      }`}>{g}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       )}
     </div>
