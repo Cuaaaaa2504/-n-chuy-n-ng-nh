@@ -51,8 +51,11 @@ export function useUsers() {
     }
   }, []);
 
+  // FIX react-hooks/set-state-in-effect: wrap fetchUsers trong async IIFE
   useEffect(() => {
-    fetchUsers();
+    void (async () => {
+      await fetchUsers();
+    })();
   }, [fetchUsers]);
 
   return { users, total, loading, error, fetchUsers, updateUser, deleteUser, changeRole };

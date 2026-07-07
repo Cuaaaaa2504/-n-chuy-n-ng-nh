@@ -1,13 +1,13 @@
 // src/types/seat.types.ts
 
-export type SeatStatus = 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' | 'SELECTED';
+export type SeatStatus = 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' | 'SELECTED' | 'BOOKED';
 
 export interface SeatDto {
-  id: number;
+  id: number | string;
   rowName: string;
   seatNumber: number;
   status: SeatStatus;
-  // price từ API backend (showtimeSeat.price)
+  type?: string;
   price?: number;
 }
 
@@ -17,6 +17,9 @@ export interface SeatMapProps {
   onSeatSelect: (seatId: number) => void;
   maxSelectable?: number;
   showLegend?: boolean;
+  // Thêm props cho SeatBookingPage (string-based id)
+  onSeatClick?: (seatId: string) => void;
+  selectedIds?: Set<string>;
 }
 
 export interface SeatItemProps {

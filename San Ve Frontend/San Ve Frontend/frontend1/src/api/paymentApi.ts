@@ -2,7 +2,6 @@ import axiosClient from './axiosClient';
 
 // FIX: Chỉ dùng các method có trong SQL CHECK constraint:
 // ('MOMO', 'VNPAY', 'BANKING', 'CASH', 'MOCK')
-// Đã xóa ZALOPAY và CREDIT_CARD vì không có trong SQL → bị CHECK constraint reject
 export type PaymentMethodCode = 'CASH' | 'MOMO' | 'VNPAY' | 'BANKING' | 'MOCK';
 
 export interface PaymentMethod {
@@ -35,6 +34,11 @@ function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
   const showtime = (raw.showtime ?? details[0]?.showtimeSeat) as Record<string, unknown> | undefined;
   const movie = showtime?.movie as Record<string, unknown> | undefined;
 
+  // FIX TS2322: đảm bảo expiresAt luôn là string | undefined, không bao giờ là {}
+  const rawExpiresAt = raw.expiresAt ?? raw.expires_at;
+  const expiresAt: string | undefined =
+    typeof rawExpiresAt === 'string' ? rawExpiresAt : undefined;
+
   return {
     id: String(raw.bookingId ?? raw.booking_id ?? raw.id ?? ''),
     orderCode: (raw.bookingCode ?? raw.booking_code ?? raw.orderCode) as string | undefined,
@@ -46,7 +50,7 @@ function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
     seatCodes,
     totalAmount: Number(raw.totalAmount ?? raw.total_amount ?? raw.amount ?? 0),
     status: (raw.status ?? 'PENDING_PAYMENT') as string,
-    expiresAt: raw.expiresAt ?? raw.expires_at as string | undefined,
+    expiresAt,
   };
 }
 
@@ -64,7 +68,6 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
     const list = Array.isArray(payload) ? payload : (payload.data as unknown[] ?? []);
     return list as PaymentMethod[];
   } catch {
-    // Fallback — chỉ dùng các method có trong SQL CHECK constraint
     return [
       { code: 'MOMO',    name: 'Ví MoMo' },
       { code: 'VNPAY',   name: 'VNPay' },
@@ -81,8 +84,6 @@ export async function payOrder(
 ): Promise<{ redirectUrl?: string; success: boolean; paymentId?: string }> {
   if (!bookingId) throw new Error('Thiếu mã đặt vé');
 
-  // FIX Bước 1: Tạo payment record — POST /payments
-  // (trước đây gọi sai tới /payments/process không tồn tại trong backend)
   const created = await axiosClient.post(`/payments`, {
     bookingId: Number(bookingId),
     paymentMethod: method,
@@ -91,9 +92,6 @@ export async function payOrder(
   const paymentId = String(created.paymentId ?? created.payment_id ?? '');
   if (!paymentId) throw new Error('Không lấy được paymentId từ backend');
 
-  // FIX Bước 2: Xác nhận thanh toán thành công — POST /payments/:id/success
-  // Thực tế production: bước này do webhook cổng thanh toán gọi
-  // Ở môi trường dev: gọi thẳng để giả lập thanh toán thành công
   await axiosClient.post(`/payments/${paymentId}/success`);
 
   return {

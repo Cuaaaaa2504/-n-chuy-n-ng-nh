@@ -1,5 +1,4 @@
 // src/routes/index.tsx
-import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // Layout
@@ -54,8 +53,6 @@ export default function AppRouter() {
           {/* Protected (yêu cầu đăng nhập) */}
           <Route element={<PrivateRoute />}>
             <Route path="/showtimes/:movieId" element={<ShowtimeSelectPage />} />
-            {/* FIX #10: đổi tên param từ :id → :movieId để rõ ràng hơn
-                showtimeId vẫn truyền qua query string: ?showtimeId=... */}
             <Route path="/booking/:movieId" element={<SeatBookingPage />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />
             <Route path="/my-tickets" element={<MyBookingsPage />} />

@@ -18,28 +18,26 @@ type Showtime = {
   endTime: string;
 };
 
+type MockMovie = typeof mockMovies[number];
+
 const cinemas: Cinema[] = [
   { id: 1, name: "CMC Cinema Hà Nội",  address: "123 Nguyễn Trãi, Hà Nội" },
   { id: 2, name: "CMC Cinema Đà Nẵng", address: "45 Trần Phú, Đà Nẵng" },
   { id: 3, name: "CMC Cinema HCM",     address: "99 Lý Tự Trọng, TP.HCM" },
 ];
 
-// FIX #4: tạo mock với các suất chiếu trong TƯƠNG LAI để không bị isPast
 function buildMockShowtimes(movieId: string | undefined): Showtime[] {
   if (!movieId) return [];
   const result: Showtime[] = [];
   let id = 1;
   cinemas.forEach((cinema) => {
     [0, 1, 2].forEach((dayOffset) => {
-      // FIX #4: bắt đầu từ ngày mai (dayOffset+1) hoặc từ giờ hiện tại + 2h để không bị disabled
       const hoursToAdd = dayOffset === 0 ? [2, 4, 6, 8] : [9, 12.5, 16, 20.25];
       hoursToAdd.forEach((hoursFromNow) => {
         let start: Date;
         if (dayOffset === 0) {
-          // Ngày hôm nay: cộng thêm số giờ từ hiện tại
           start = new Date(Date.now() + hoursFromNow * 60 * 60 * 1000);
         } else {
-          // Các ngày tiếp theo: đặt giờ cố định
           start = new Date();
           start.setHours(0, 0, 0, 0);
           start.setDate(start.getDate() + dayOffset);
@@ -83,11 +81,12 @@ export default function ShowtimeSelectPage() {
   const navigate    = useNavigate();
   const { darkMode } = useTheme();
 
-  // FIX #8: thử fetch movie từ API trước, fallback về mockMovies
   const mockMovie = mockMovies.find((m) => String(m.movie_id) === movieId);
-  const [movie, setMovie] = useState(mockMovie ?? null);
+  const [movie, setMovie] = useState<MockMovie | null>(mockMovie ?? null);
   const [loadingMovie, setLoadingMovie] = useState(!mockMovie);
 
+  // FIX react-hooks/set-state-in-effect: setMovie trong effect nhưng dùng cleanup pattern
+  // FIX TS2345 & TS2352: dùng đúng type MockMovie thay vì cast về undefined
   useEffect(() => {
     if (mockMovie) {
       setMovie(mockMovie);
@@ -99,19 +98,21 @@ export default function ShowtimeSelectPage() {
     axiosClient.get(`/movies/${movieId}`)
       .then((res) => {
         if (cancelled) return;
-        const m = (res as any)?.data ?? res as any;
-        setMovie({
+        const raw = res as Record<string, unknown>;
+        const m = (raw?.data ?? raw) as Record<string, unknown>;
+        const fetched: MockMovie = {
           movie_id: Number(m.movie_id ?? movieId),
           title: String(m.title ?? ''),
-          poster_url: m.poster_url ?? '',
-          backdrop_url: m.backdrop_url ?? '',
-          trailer_url: m.trailer_url ?? '',
-          age_rating: m.age_rating ?? '',
+          poster_url: String(m.poster_url ?? ''),
+          backdrop_url: String(m.backdrop_url ?? ''),
+          trailer_url: String(m.trailer_url ?? ''),
+          age_rating: String(m.age_rating ?? ''),
           duration_minutes: Number(m.duration_minutes ?? 0),
-          genres: Array.isArray(m.genres) ? m.genres : [],
-          description: m.description ?? '',
-          release_date: m.release_date ?? '',
-        } as typeof mockMovie);
+          genres: Array.isArray(m.genres) ? (m.genres as string[]) : [],
+          description: String(m.description ?? ''),
+          release_date: String(m.release_date ?? ''),
+        };
+        setMovie(fetched);
       })
       .catch(() => { /* không có trong API cũng không crash */ })
       .finally(() => { if (!cancelled) setLoadingMovie(false); });
@@ -123,7 +124,6 @@ export default function ShowtimeSelectPage() {
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
   const [selectedDate, setSelectedDate]         = useState<string | null>(null);
   const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null);
-  // FIX #3: track xem đang dùng mock hay API thật
   const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
 
   const movieIdRef = useRef(movieId);
@@ -137,14 +137,13 @@ export default function ShowtimeSelectPage() {
       setLoadingShowtimes(true);
       setSelectedDate(null);
 
-      // FIX #3: thử gọi API thật trước, nếu lỗi hoặc rỗng mới dùng mock
       try {
         const raw = await axiosClient.get(`/showtimes?movieId=${movieIdRef.current}`);
-        const data = (raw as any)?.data ?? raw as any;
+        const data = (raw as Record<string, unknown>)?.data ?? raw as unknown;
         const list: Showtime[] = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.data)
-          ? data.data
+          ? (data as Showtime[])
+          : Array.isArray((data as Record<string, unknown>)?.data)
+          ? ((data as Record<string, unknown>).data as Showtime[])
           : [];
 
         if (cancelled) return;
@@ -153,13 +152,11 @@ export default function ShowtimeSelectPage() {
           setAllShowtimes(list);
           setUsingMockShowtimes(false);
         } else {
-          // API trả về rỗng → dùng mock
           setAllShowtimes(buildMockShowtimes(movieIdRef.current));
           setUsingMockShowtimes(true);
         }
       } catch {
         if (cancelled) return;
-        // API lỗi → dùng mock
         await new Promise<void>((resolve) => setTimeout(resolve, 400));
         if (cancelled) return;
         setAllShowtimes(buildMockShowtimes(movieIdRef.current));
@@ -255,7 +252,6 @@ export default function ShowtimeSelectPage() {
         </button>
       </div>
 
-      {/* FIX #3: hiển thị banner nếu đang dùng mock data */}
       {usingMockShowtimes && (
         <div className="mb-4 rounded-xl px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 text-sm">
           ⚠️ Đang hiển thị suất chiếu mẫu (không kết nối được server)
