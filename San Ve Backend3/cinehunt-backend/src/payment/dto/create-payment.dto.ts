@@ -1,11 +1,8 @@
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreatePaymentDto {
-  @IsInt()
-  @Type(() => Number)
-  @Min(1)
-  bookingId: number;
+  @IsUUID()
+  bookingId: string; // bookingId là UUID (string), không phải number
 
   @IsString()
   paymentMethod: string;
