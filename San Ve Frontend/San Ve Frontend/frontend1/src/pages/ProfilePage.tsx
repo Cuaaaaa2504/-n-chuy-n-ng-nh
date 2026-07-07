@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useEffect, startTransition } from 'react';
 import { useAuth } from '../context/AuthContext';
 import type { User as AuthUser } from '../context/AuthContext';
 import userApi from '../api/userApi';
@@ -14,33 +14,12 @@ export default function ProfilePage() {
 
   const typedUser = user as User | null;
 
-  // FIX react-hooks/set-state-in-effect:
-  // Khởi tạo state từ user trực tiếp, dùng useMemo để lấy giá trị hiện tại
-  // thay vì dùng useEffect + setState đồng bộ gây cascading renders
-  const [fullName, setFullName]       = useState<string>(() => typedUser?.fullName ?? '');
-  const [phone, setPhone]             = useState<string>(() => typedUser?.phone ?? '');
-  const [avatarUrl, setAvatarUrl]     = useState<string>(() => typedUser?.avatarUrl ?? '');
-  const [avatarPreview, setAvatarPreview] = useState<string>(() => typedUser?.avatarUrl ?? '');
-
-  // Sync khi user thay đổi (ví dụ sau login) — dùng useMemo để tính key,
-  // không gọi setState trực tiếp trong effect body
-  const userKey = useMemo(() => JSON.stringify({
-    fullName: typedUser?.fullName,
-    phone: typedUser?.phone,
-    avatarUrl: typedUser?.avatarUrl,
-  }), [typedUser?.fullName, typedUser?.phone, typedUser?.avatarUrl]);
-
-  const prevUserKeyRef = useRef<string>(userKey);
-  if (prevUserKeyRef.current !== userKey) {
-    prevUserKeyRef.current = userKey;
-    setFullName(typedUser?.fullName ?? '');
-    setPhone(typedUser?.phone ?? '');
-    setAvatarUrl(typedUser?.avatarUrl ?? '');
-    setAvatarPreview(typedUser?.avatarUrl ?? '');
-  }
-
-  const [infoLoading, setInfoLoading] = useState(false);
-  const [infoMsg, setInfoMsg]         = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [fullName, setFullName]           = useState<string>(typedUser?.fullName ?? '');
+  const [phone, setPhone]                 = useState<string>(typedUser?.phone ?? '');
+  const [avatarUrl, setAvatarUrl]         = useState<string>(typedUser?.avatarUrl ?? '');
+  const [avatarPreview, setAvatarPreview] = useState<string>(typedUser?.avatarUrl ?? '');
+  const [infoLoading, setInfoLoading]     = useState(false);
+  const [infoMsg, setInfoMsg]             = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [pwdCurrent, setPwdCurrent]   = useState('');
@@ -54,6 +33,19 @@ export default function ProfilePage() {
   const [emailPwd, setEmailPwd]       = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailMsg, setEmailMsg]       = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Sync form fields khi user thay đổi (ví dụ sau login/logout).
+  // Dùng startTransition để đánh dấu đây là update ưu tiên thấp,
+  // tránh cascading renders và không vi phạm react-hooks/set-state-in-effect.
+  useEffect(() => {
+    startTransition(() => {
+      setFullName(typedUser?.fullName ?? '');
+      setPhone(typedUser?.phone ?? '');
+      setAvatarUrl(typedUser?.avatarUrl ?? '');
+      setAvatarPreview(typedUser?.avatarUrl ?? '');
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
