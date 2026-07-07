@@ -16,7 +16,8 @@ export class BookingOrder {
   @Column()
   showtime_id: number;
 
-  @Column({ default: 'PENDING' })
+  // FIX: đổi name từ 'booking_status' → 'status' để khớp với cột status trong SQL
+  @Column({ name: 'status', default: 'PENDING' })
   status: string;
 
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })

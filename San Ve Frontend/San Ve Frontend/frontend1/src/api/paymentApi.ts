@@ -36,17 +36,17 @@ function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
   const movie = showtime?.movie as Record<string, unknown> | undefined;
 
   return {
-    id: String(raw.bookingId ?? raw.id ?? ''),
-    orderCode: (raw.bookingCode ?? raw.orderCode) as string | undefined,
+    id: String(raw.bookingId ?? raw.booking_id ?? raw.id ?? ''),
+    orderCode: (raw.bookingCode ?? raw.booking_code ?? raw.orderCode) as string | undefined,
     movieTitle: (raw.movieTitle ?? movie?.title ?? 'Vé xem phim') as string,
     cinemaName: raw.cinemaName as string | undefined,
     roomName: raw.roomName as string | undefined,
     showDate: raw.showDate as string | undefined,
     showTime: raw.showTime as string | undefined,
     seatCodes,
-    totalAmount: Number(raw.totalAmount ?? raw.amount ?? 0),
+    totalAmount: Number(raw.totalAmount ?? raw.total_amount ?? raw.amount ?? 0),
     status: (raw.status ?? 'PENDING_PAYMENT') as string,
-    expiresAt: raw.expiresAt as string | undefined,
+    expiresAt: raw.expiresAt ?? raw.expires_at as string | undefined,
   };
 }
 
@@ -64,7 +64,7 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
     const list = Array.isArray(payload) ? payload : (payload.data as unknown[] ?? []);
     return list as PaymentMethod[];
   } catch {
-    // Fallback — chỉ dùng các method có trong SQL
+    // Fallback — chỉ dùng các method có trong SQL CHECK constraint
     return [
       { code: 'MOMO',    name: 'Ví MoMo' },
       { code: 'VNPAY',   name: 'VNPay' },
@@ -81,17 +81,19 @@ export async function payOrder(
 ): Promise<{ redirectUrl?: string; success: boolean; paymentId?: string }> {
   if (!bookingId) throw new Error('Thiếu mã đặt vé');
 
-  // FIX Bước 1: Tạo payment record — POST /payments (trước đây gọi sai tới /payments/process không tồn tại)
+  // FIX Bước 1: Tạo payment record — POST /payments
+  // (trước đây gọi sai tới /payments/process không tồn tại trong backend)
   const created = await axiosClient.post(`/payments`, {
     bookingId: Number(bookingId),
     paymentMethod: method,
   }) as Record<string, unknown>;
 
   const paymentId = String(created.paymentId ?? created.payment_id ?? '');
-  if (!paymentId) throw new Error('Không lấy được paymentId');
+  if (!paymentId) throw new Error('Không lấy được paymentId từ backend');
 
-  // FIX Bước 2: Xác nhận thanh toán — POST /payments/:id/success
-  // (Thực tế sẽ là webhook từ cổng thanh toán; ở dev giả lập bằng cách gọi thẳng)
+  // FIX Bước 2: Xác nhận thanh toán thành công — POST /payments/:id/success
+  // Thực tế production: bước này do webhook cổng thanh toán gọi
+  // Ở môi trường dev: gọi thẳng để giả lập thanh toán thành công
   await axiosClient.post(`/payments/${paymentId}/success`);
 
   return {

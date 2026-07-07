@@ -39,7 +39,7 @@ export async function getMyBookings(params: { page: number; limit: number }) {
 
 export async function getBookingTickets(bookingId: string): Promise<BookingTicket[]> {
   if (!bookingId) throw new Error('Thiếu mã booking');
-  // FIX: route đúng là GET /bookings/:id/tickets (booking.controller.ts đã được thêm route này)
+  // FIX: route đúng là GET /bookings/:id/tickets (đã thêm route trong booking.controller.ts)
   const payload = await axiosClient.get(`/bookings/${bookingId}/tickets`) as Record<string, unknown>;
   const rawItems = Array.isArray(payload)
     ? payload
@@ -49,6 +49,6 @@ export async function getBookingTickets(bookingId: string): Promise<BookingTicke
 
 export async function cancelBooking(bookingId: string) {
   if (!bookingId) throw new Error('Thiếu mã booking');
-  // FIX: backend dùng DELETE /bookings/:id (không có POST /bookings/:id/cancel)
+  // FIX: backend dùng DELETE /bookings/:id (không có route POST /bookings/:id/cancel)
   return axiosClient.delete(`/bookings/${bookingId}`);
 }

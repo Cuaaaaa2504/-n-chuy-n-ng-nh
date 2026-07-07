@@ -41,7 +41,7 @@ export class Voucher {
   @Column({ name: 'end_date', type: 'date', nullable: true })
   end_date: string;
 
-  // FIX: đổi name từ 'voucher_status' → 'status' để khớp với SQL
+  // FIX: đổi name từ 'voucher_status' → 'status' để khớp với cột status trong SQL
   @Column({ name: 'status', length: 20, default: 'ACTIVE' })
   status: string;
 

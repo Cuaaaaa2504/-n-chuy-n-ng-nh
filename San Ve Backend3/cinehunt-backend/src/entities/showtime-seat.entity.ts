@@ -20,7 +20,7 @@ export class ShowtimeSeat {
   @Column({ name: 'seat_id' })
   seat_id: number;
 
-  // FIX: đổi name từ 'seat_status' → 'status' để khớp với SQL
+  // FIX: đổi name từ 'seat_status' → 'status' để khớp với cột status trong SQL
   @Column({ name: 'status', length: 20, default: 'AVAILABLE' })
   status: string;
 
