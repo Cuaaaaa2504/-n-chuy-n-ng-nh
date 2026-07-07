@@ -29,10 +29,12 @@ export class Showtime {
   @Column({ name: 'end_time', type: 'datetime2', precision: 0 })
   endTime: Date;
 
-  @Column({ name: 'format', type: 'varchar', length: 10, nullable: true })
+  // 'format' là reserved keyword trong SQL Server
+  // Dùng [format] để TypeORM tự escape khi generate query
+  @Column({ name: '[format]', type: 'varchar', length: 10, nullable: true })
   format: string | null;
 
-  @Column({ name: 'status', type: 'varchar', length: 20, default: 'SCHEDULED' })
+  @Column({ name: '[status]', type: 'varchar', length: 20, default: 'SCHEDULED' })
   status: string;
 
   @Column({ name: 'base_price', type: 'decimal', precision: 10, scale: 2, nullable: true })
