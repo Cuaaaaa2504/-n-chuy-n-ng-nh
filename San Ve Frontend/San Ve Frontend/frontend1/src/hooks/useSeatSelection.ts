@@ -5,15 +5,17 @@ import type { SeatDto } from '../types/seat.types'; // ✅ thêm type
 
 interface UseSeatSelectionProps {
   maxSelectable?: number;
-  initialSelected?: number[];
+  // FIX TS2345: initialSelected mở rộng thành number|string[] để khớp SeatDto.id
+  initialSelected?: Array<number | string>;
 }
 
 interface UseSeatSelectionReturn {
-  selectedSeats: number[];
-  selectSeat: (seatId: number, seats: SeatDto[]) => void;
-  toggleSeat: (seatId: number, seats: SeatDto[]) => void;
+  selectedSeats: Array<number | string>;
+  // FIX TS2345: seatId mở rộng thành number|string để khớp SeatDto.id (có thể là string từ server)
+  selectSeat: (seatId: number | string, seats: SeatDto[]) => void;
+  toggleSeat: (seatId: number | string, seats: SeatDto[]) => void;
   clearSelection: () => void;
-  isSelected: (seatId: number) => boolean;
+  isSelected: (seatId: number | string) => boolean;
   getSelectedCount: () => number;
   getSelectedSeats: (seats: SeatDto[]) => SeatDto[];
   canSelectMore: (seats: SeatDto[]) => boolean;
@@ -23,21 +25,23 @@ export const useSeatSelection = ({
   maxSelectable = 10,
   initialSelected = [],
 }: UseSeatSelectionProps = {}): UseSeatSelectionReturn => {
-  const [selectedSeats, setSelectedSeats] = useState<number[]>(initialSelected);
+  const [selectedSeats, setSelectedSeats] = useState<Array<number | string>>(initialSelected);
 
-  const selectSeat = useCallback((seatId: number, seats: SeatDto[]) => {
-    const seat = seats.find(s => s.id === seatId);
+  const selectSeat = useCallback((seatId: number | string, seats: SeatDto[]) => {
+    // FIX TS2367: dùng String() để so sánh an toàn khi id có thể là number hoặc string
+    const seat = seats.find(s => String(s.id) === String(seatId));
     if (!seat || seat.status === 'SOLD' || seat.status === 'HELD' || seat.status === 'BLOCKED') return;
-    if (selectedSeats.includes(seatId) || selectedSeats.length >= maxSelectable) return;
+    if (selectedSeats.map(String).includes(String(seatId)) || selectedSeats.length >= maxSelectable) return;
     setSelectedSeats(prev => [...prev, seatId]);
   }, [selectedSeats, maxSelectable]);
 
-  const toggleSeat = useCallback((seatId: number, seats: SeatDto[]) => {
-    const seat = seats.find(s => s.id === seatId);
+  const toggleSeat = useCallback((seatId: number | string, seats: SeatDto[]) => {
+    // FIX TS2367: dùng String() để so sánh an toàn
+    const seat = seats.find(s => String(s.id) === String(seatId));
     if (!seat || seat.status === 'SOLD' || seat.status === 'HELD' || seat.status === 'BLOCKED') return;
     setSelectedSeats(prev =>
-      prev.includes(seatId)
-        ? prev.filter(id => id !== seatId)
+      prev.map(String).includes(String(seatId))
+        ? prev.filter(id => String(id) !== String(seatId))
         : prev.length >= maxSelectable
         ? prev
         : [...prev, seatId]
@@ -45,11 +49,12 @@ export const useSeatSelection = ({
   }, [maxSelectable]);
 
   const clearSelection   = useCallback(() => setSelectedSeats([]), []);
-  const isSelected       = useCallback((seatId: number) => selectedSeats.includes(seatId), [selectedSeats]);
+  const isSelected       = useCallback((seatId: number | string) => selectedSeats.map(String).includes(String(seatId)), [selectedSeats]);
   const getSelectedCount = useCallback(() => selectedSeats.length, [selectedSeats]);
-  const getSelectedSeats = useCallback((seats: SeatDto[]) => seats.filter(s => selectedSeats.includes(s.id)), [selectedSeats]);
+  // FIX TS2367: dùng String() khi so sánh SeatDto.id (number|string) với selectedSeats (number|string[])
+  const getSelectedSeats = useCallback((seats: SeatDto[]) => seats.filter(s => selectedSeats.map(String).includes(String(s.id))), [selectedSeats]);
   const canSelectMore    = useCallback((seats: SeatDto[]) => {
-    const available = seats.filter(s => s.status === 'AVAILABLE' && !selectedSeats.includes(s.id));
+    const available = seats.filter(s => s.status === 'AVAILABLE' && !selectedSeats.map(String).includes(String(s.id)));
     return available.length > 0 && selectedSeats.length < maxSelectable;
   }, [selectedSeats, maxSelectable]);
 
