@@ -13,15 +13,12 @@ export class OtpCode {
   @PrimaryGeneratedColumn({ type: 'bigint', name: 'otp_id' })
   otpId: string;
 
-  // SQL: column name is user_id
   @Column({ name: 'user_id', type: 'int' })
   userId: number;
 
   @Column({ name: 'code', type: 'varchar', length: 10 })
   code: string;
 
-  // SQL CHECK: ('VERIFY_EMAIL','FORGOT_PASSWORD','RESET_PASSWORD','LOGIN')
-  // Entity cũ thiếu 'CHANGE_PHONE' không có trong DB CHECK, và thiếu 'FORGOT_PASSWORD','LOGIN'
   @Column({ name: 'purpose', type: 'varchar', length: 30 })
   purpose: string;
 

@@ -25,18 +25,15 @@ export class AuditLog {
   @Column({ name: 'entity_id', type: 'varchar', length: 80, nullable: true })
   entityId: string | null;
 
-  // SQL: old_values NVARCHAR(MAX) — nvarchar without length = MAX
   @Column({ name: 'old_values', type: 'nvarchar', nullable: true })
   oldValues: string | null;
 
-  // SQL: new_values NVARCHAR(MAX)
   @Column({ name: 'new_values', type: 'nvarchar', nullable: true })
   newValues: string | null;
 
   @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
   ipAddress: string | null;
 
-  // SQL: user_agent NVARCHAR(500) — entity cũ thiếu name: 'user_agent'
   @Column({ name: 'user_agent', type: 'nvarchar', length: 500, nullable: true })
   userAgent: string | null;
 

@@ -12,7 +12,6 @@ export class User {
   @PrimaryGeneratedColumn({ type: 'int', name: 'user_id' })
   userId: number;
 
-  // SQL: full_name NVARCHAR(120) — entity cũ dùng length: 100 sai
   @Column({ name: 'full_name', type: 'nvarchar', length: 120 })
   fullName: string;
 
@@ -22,36 +21,34 @@ export class User {
   @Column({ name: 'phone', type: 'varchar', length: 20, nullable: true })
   phone: string | null;
 
+  // FIX [M-15]: thêm select: false để passwordHash không bao giờ bị trả về
+  // trong các query thông thường — phải dùng addSelect() rõ ràng mới lấy được
   @Column({ name: 'password_hash', type: 'varchar', length: 255, select: false })
   passwordHash: string;
 
-  // SQL: avatar_url NVARCHAR(500) — entity cũ dùng varchar sai
   @Column({ name: 'avatar_url', type: 'nvarchar', length: 500, nullable: true })
   avatarUrl: string | null;
 
-  // SQL: date_of_birth DATE NULL — thiếu hoàn toàn trong entity cũ
   @Column({ name: 'date_of_birth', type: 'date', nullable: true })
   dateOfBirth: string | null;
 
   @Column({ name: 'email_verified', type: 'bit', default: false })
   emailVerified: boolean;
 
-  // SQL: failed_login_attempts INT NOT NULL DEFAULT 0 — thiếu trong entity cũ
   @Column({ name: 'failed_login_attempts', type: 'int', default: 0 })
   failedLoginAttempts: number;
 
-  // SQL: locked_until DATETIME2(0) NULL — thiếu trong entity cũ
   @Column({ name: 'locked_until', type: 'datetime2', precision: 0, nullable: true })
   lockedUntil: Date | null;
+
+  @Column({ name: 'last_login_at', type: 'datetime2', precision: 0, nullable: true })
+  lastLoginAt: Date | null;
 
   @Column({ name: 'role', type: 'varchar', length: 20, default: 'CUSTOMER' })
   role: string;
 
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
-
-  @Column({ name: 'last_login_at', type: 'datetime2', precision: 0, nullable: true })
-  lastLoginAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;

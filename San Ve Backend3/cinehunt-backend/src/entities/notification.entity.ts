@@ -19,12 +19,9 @@ export class Notification {
   @Column({ name: 'title', type: 'nvarchar', length: 200 })
   title: string;
 
-  // SQL: message NVARCHAR(MAX)
   @Column({ name: 'message', type: 'nvarchar' })
   message: string;
 
-  // SQL CHECK: ('BOOKING','PAYMENT','TICKET','TICKET_WATCH','PROMOTION','SYSTEM')
-  // entity cũ thiếu name: 'notification_type'
   @Column({ name: 'notification_type', type: 'varchar', length: 30 })
   notificationType: string;
 

@@ -34,26 +34,21 @@ export class TicketWatchRequest {
   @Column({ name: 'preferred_time_to', type: 'time', precision: 0, nullable: true })
   preferredTimeTo: string | null;
 
-  // SQL CHECK: (NULL OR IN ('NORMAL','VIP','COUPLE'))
   @Column({ name: 'preferred_seat_type', type: 'varchar', length: 30, nullable: true })
   preferredSeatType: string | null;
 
-  // SQL: seat_preference VARCHAR(20) NULL — thiếu hoàn toàn trong entity cũ
   @Column({ name: 'seat_preference', type: 'varchar', length: 20, nullable: true })
   seatPreference: string | null;
 
-  // SQL: wants_combo BIT NOT NULL DEFAULT 0 — thiếu hoàn toàn trong entity cũ
   @Column({ name: 'wants_combo', type: 'bit', default: false })
   wantsCombo: boolean;
 
-  // SQL: min_seats INT NOT NULL DEFAULT 1
   @Column({ name: 'min_seats', type: 'int', default: 1 })
   minSeats: number;
 
   @Column({ name: 'max_price', type: 'decimal', precision: 12, scale: 2, nullable: true })
   maxPrice: number | null;
 
-  // SQL CHECK: ('ACTIVE','MATCHED','CANCELLED','EXPIRED')
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
