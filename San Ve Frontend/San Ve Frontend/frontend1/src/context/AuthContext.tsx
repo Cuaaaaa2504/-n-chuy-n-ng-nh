@@ -22,6 +22,9 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoggedIn: boolean;
+  // FIX [H-03]: export loading state để PrivateRoute và AdminRouteGuard
+  // đợi verify xong mới quyết định redirect — tránh logout nhầm sau page refresh
+  loading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
 }
@@ -42,6 +45,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   });
+  // FIX [H-03]: loading = true trong lúc khởi tạo initial state từ localStorage
+  // Sử dụng false vì giá trị được khởi tạo đồng bộ từ localStorage ngay trong useState()
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Đảm bảo loading = false sau khi hydrate xong (trường hợp SSR hoặc lazy init)
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     const handler = () => {
@@ -80,8 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, token, isLoggedIn: !!token, login, logout }),
-    [user, token, login, logout]
+    () => ({ user, token, isLoggedIn: !!token, loading, login, logout }),
+    [user, token, loading, login, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
