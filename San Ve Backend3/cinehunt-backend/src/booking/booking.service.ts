@@ -249,6 +249,24 @@ export class BookingService {
     });
   }
 
+  /** Lấy chi tiết booking kèm thông tin vé — dùng cho GET :id/tickets */
+  async getBookingTickets(bookingId: string, userId: number) {
+    const booking = await this.bookingRepo.findOne({
+      where: { bookingId, userId },
+      relations: {
+        bookingDetails: { showtimeSeat: { seat: true } as any },
+        showtime: { movie: true, room: { cinema: true } as any } as any,
+        bookingCombos: { combo: true } as any,
+      } as any,
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Không tìm thấy booking');
+    }
+
+    return booking;
+  }
+
   async getBookingDetail(bookingId: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
       where: { bookingId, userId },
@@ -267,6 +285,8 @@ export class BookingService {
   }
 
   async cancelBooking(bookingId: string, userId: number) {
+    const now = new Date();
+
     const booking = await this.bookingRepo.findOne({
       where: { bookingId, userId },
       relations: { bookingDetails: true },
@@ -282,7 +302,7 @@ export class BookingService {
 
     await this.bookingRepo.update(
       { bookingId },
-      { status: 'CANCELLED', cancelledAt: new Date() },
+      { status: 'CANCELLED', cancelledAt: now },
     );
 
     const showtimeSeatIds = booking.bookingDetails.map((d: any) => d.showtimeSeatId);
@@ -290,6 +310,12 @@ export class BookingService {
       await this.showtimeSeatRepo.update(
         { showtimeSeatId: In(showtimeSeatIds) },
         { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
+      );
+
+      // FIX: release SeatHold tương ứng khi cancel booking
+      await this.holdRepo.update(
+        { showtimeSeatId: In(showtimeSeatIds), status: In(['ACTIVE', 'CONVERTED']) },
+        { status: 'RELEASED', releasedAt: now },
       );
     }
 
