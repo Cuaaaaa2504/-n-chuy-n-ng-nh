@@ -16,17 +16,72 @@ const EMPTY_FORM: Omit<Movie, 'movie_id'> = {
   poster_url: '', status: 'NOW_SHOWING', genres: [],
 };
 
+// ── Validate helpers ──────────────────────────────────────────────────────
+function isValidUrl(value: string): boolean {
+  if (!value) return true; // optional fields
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+interface FormErrors {
+  title?: string;
+  duration_minutes?: string;
+  poster_url?: string;
+  trailer_url?: string;
+}
+
+function validateForm(form: Omit<Movie, 'movie_id'>): FormErrors {
+  const errors: FormErrors = {};
+
+  if (!form.title.trim()) {
+    errors.title = 'Tên phim không được để trống.';
+  } else if (form.title.trim().length < 2) {
+    errors.title = 'Tên phim phải có ít nhất 2 ký tự.';
+  } else if (form.title.trim().length > 200) {
+    errors.title = 'Tên phim không được vượt quá 200 ký tự.';
+  }
+
+  if (!form.duration_minutes || form.duration_minutes < 1) {
+    errors.duration_minutes = 'Thời lượng phải lớn hơn 0 phút.';
+  } else if (form.duration_minutes > 600) {
+    errors.duration_minutes = 'Thời lượng không được vượt quá 600 phút.';
+  }
+
+  if (form.poster_url && !isValidUrl(form.poster_url)) {
+    errors.poster_url = 'URL Poster không hợp lệ (phải bắt đầu bằng http:// hoặc https://).';
+  }
+
+  if (form.trailer_url && !isValidUrl(form.trailer_url)) {
+    errors.trailer_url = 'URL Trailer không hợp lệ (phải bắt đầu bằng http:// hoặc https://).';
+  }
+
+  return errors;
+}
+
 function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
   const [form, setForm] = useState<Omit<Movie, 'movie_id'>>(
     movie ? { ...movie } : { ...EMPTY_FORM }
   );
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  const set = (key: keyof typeof form, val: unknown) =>
+  const set = (key: keyof typeof form, val: unknown) => {
     setForm(prev => ({ ...prev, [key]: val }));
+    // clear error khi user sửa field
+    setErrors(prev => ({ ...prev, [key]: undefined }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validationErrors = validateForm(form);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
     setSubmitting(true);
     await onSubmit(form);
     setSubmitting(false);
@@ -34,25 +89,30 @@ function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg p-6">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <h3 className="text-xl font-bold mb-5">{movie ? 'Chỉnh sửa phim' : 'Thêm phim mới'}</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          {/* Tên phim */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">Tên phim *</label>
             <input
-              required value={form.title}
+              value={form.title}
               onChange={e => set('title', e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
+              className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none ${errors.title ? 'border-red-500' : 'border-gray-700'}`}
             />
+            {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
           </div>
+
+          {/* Thời lượng + Age rating */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Thời lượng (phút)</label>
+              <label className="block text-sm text-gray-400 mb-1">Thời lượng (phút) *</label>
               <input
-                type="number" min={1} value={form.duration_minutes}
+                type="number" min={1} max={600} value={form.duration_minutes}
                 onChange={e => set('duration_minutes', Number(e.target.value))}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
+                className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none ${errors.duration_minutes ? 'border-red-500' : 'border-gray-700'}`}
               />
+              {errors.duration_minutes && <p className="text-red-400 text-xs mt-1">{errors.duration_minutes}</p>}
             </div>
             <div>
               <label className="block text-sm text-gray-400 mb-1">Giới hạn độ tuổi</label>
@@ -65,15 +125,20 @@ function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
               </select>
             </div>
           </div>
+
+          {/* URL Poster */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">URL Poster</label>
             <input
               value={form.poster_url}
               onChange={e => set('poster_url', e.target.value)}
               placeholder="https://..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
+              className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none ${errors.poster_url ? 'border-red-500' : 'border-gray-700'}`}
             />
+            {errors.poster_url && <p className="text-red-400 text-xs mt-1">{errors.poster_url}</p>}
           </div>
+
+          {/* Trạng thái — bao gồm HIDDEN */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">Trạng thái</label>
             <select
@@ -81,11 +146,13 @@ function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
               onChange={e => set('status', e.target.value as Movie['status'])}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
             >
-              {(['NOW_SHOWING', 'COMING_SOON', 'ENDED'] as const).map(s => (
-                <option key={s} value={s}>{MOVIE_STATUS_LABEL[s]}</option>
+              {(['NOW_SHOWING', 'COMING_SOON', 'ENDED', 'HIDDEN'] as const).map(s => (
+                <option key={s} value={s}>{MOVIE_STATUS_LABEL[s] ?? s}</option>
               ))}
             </select>
           </div>
+
+          {/* Thể loại */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">Thể loại (cách nhau bởi dấu phẩy)</label>
             <input
@@ -95,6 +162,8 @@ function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
             />
           </div>
+
+          {/* Mô tả */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">Mô tả</label>
             <textarea
@@ -104,15 +173,20 @@ function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none resize-none"
             />
           </div>
+
+          {/* URL Trailer */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">URL Trailer</label>
             <input
               value={form.trailer_url ?? ''}
               onChange={e => set('trailer_url', e.target.value)}
               placeholder="https://youtube.com/..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
+              className={`w-full bg-gray-800 border rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none ${errors.trailer_url ? 'border-red-500' : 'border-gray-700'}`}
             />
+            {errors.trailer_url && <p className="text-red-400 text-xs mt-1">{errors.trailer_url}</p>}
           </div>
+
+          {/* Featured */}
           <div className="flex items-center gap-2">
             <input
               type="checkbox" id="featured" checked={form.featured ?? false}
@@ -121,6 +195,8 @@ function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
             />
             <label htmlFor="featured" className="text-sm text-gray-300">Phim nổi bật (hiển thị trang chủ)</label>
           </div>
+
+          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button
               type="submit" disabled={submitting}
@@ -232,8 +308,8 @@ const AdminMoviesPage: React.FC = () => {
           className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-white focus:border-blue-500 outline-none"
         >
           <option value="">Tất cả trạng thái</option>
-          {(['NOW_SHOWING', 'COMING_SOON', 'ENDED'] as const).map(s => (
-            <option key={s} value={s}>{MOVIE_STATUS_LABEL[s]}</option>
+          {(['NOW_SHOWING', 'COMING_SOON', 'ENDED', 'HIDDEN'] as const).map(s => (
+            <option key={s} value={s}>{MOVIE_STATUS_LABEL[s] ?? s}</option>
           ))}
         </select>
         <span className="self-center text-sm text-gray-400">Tổng: {filtered.length} phim</span>
