@@ -46,10 +46,10 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
   return seats;
 }
 
-// FIX: regex cũ bị lỗi cú pháp: [.[\w-]{11} → sửa thành [\w-]{11}
+// FIX: regex cũ bị lỗi cú pháp: [.[\\w-]{11} → sửa thành [\\w-]{11}
 function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
-  const m = url.match(/(?:v=|youtu\.be\/)([ \w-]{11})/);
+  const m = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
 }
 
@@ -105,6 +105,8 @@ export default function SeatBookingPage() {
   const [holdError, setHoldError]   = useState<string | null>(null);
   const [heldIds, setHeldIds]       = useState<number[]>([]);
   const [holdCountdown, setHoldCountdown] = useState<number>(HOLD_SECONDS);
+  // FIX #51: thêm state thông báo hết hạn giữ ghế
+  const [holdExpired, setHoldExpired] = useState(false);
   const [holding, setHolding]       = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [navError, setNavError]     = useState<string>('');
@@ -117,11 +119,16 @@ export default function SeatBookingPage() {
   const startCountdown = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setHoldCountdown(HOLD_SECONDS);
+    // FIX #51: reset trạng thái expired khi bắt đầu countdown mới
+    setHoldExpired(false);
     timerRef.current = setInterval(() => {
       setHoldCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
+          // FIX #51: khi hết hạn — xóa hold, reset selectedIds, báo cho user
           setHeldIds([]);
+          setSelectedIds(new Set());
+          setHoldExpired(true);
           return 0;
         }
         return prev - 1;
@@ -139,6 +146,7 @@ export default function SeatBookingPage() {
       setSelectedIds(new Set());
       setHeldIds([]);
       setHoldCountdown(HOLD_SECONDS);
+      setHoldExpired(false);
       if (timerRef.current) clearInterval(timerRef.current);
     }, 0);
 
@@ -331,6 +339,10 @@ export default function SeatBookingPage() {
   const bg     = darkMode ? 'bg-gray-950 text-white'        : 'bg-gray-50 text-gray-900';
   const card   = darkMode ? 'bg-gray-900 border-gray-800'   : 'bg-white border-gray-200';
 
+  // FIX #51: tính totalPrice và danh sách ghế đã chọn để truyền đúng vào SelectedSeatsBar
+  const selectedSeatObjects = seats.filter((s) => selectedIds.has(s.id));
+  const totalPrice = selectedSeatObjects.reduce((sum, s) => sum + s.price, 0);
+
   if (loading) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${bg}`}>
@@ -411,12 +423,19 @@ export default function SeatBookingPage() {
           maxSeats={MAX_SEATS}
         />
 
-        {/* Hold countdown */}
+        {/* Hold countdown — inline trong page */}
         {heldIds.length > 0 && (
           <div className={`text-center text-sm font-mono font-bold ${
             holdCountdown < 60 ? 'text-red-500' : 'text-yellow-500'
           }`}>
             ⏳ Ghế đang được giữ: {String(Math.floor(holdCountdown / 60)).padStart(2,'0')}:{String(holdCountdown % 60).padStart(2,'0')}
+          </div>
+        )}
+
+        {/* FIX #51: banner thông báo rõ ràng khi giữ ghế hết hạn */}
+        {holdExpired && (
+          <div className="rounded-xl px-4 py-3 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-sm font-medium">
+            ⌛ Thời gian giữ ghế đã hết. Vui lòng chọn lại ghế và tiến hành đặt vé.
           </div>
         )}
 
@@ -432,12 +451,14 @@ export default function SeatBookingPage() {
           </div>
         )}
 
-        {/* Selected seats bar */}
+        {/* FIX #51: truyền đúng totalPrice, selectedSeatObjects và holdCountdown vào SelectedSeatsBar */}
         <SelectedSeatsBar
-          seats={seats}
-          selectedIds={selectedIds}
-          onProceed={() => { void handleProceed(); }}
-          isLoading={holding || navigating}
+          seats={selectedSeatObjects}
+          totalPrice={totalPrice}
+          holdCountdown={heldIds.length > 0 ? holdCountdown : null}
+          onProceed={handleProceed}
+          holding={holding}
+          navigating={navigating}
         />
       </div>
     </div>
