@@ -58,9 +58,13 @@ export class AuthService {
 
   async login(dto: LoginDto, meta?: { deviceInfo?: string; ipAddress?: string }) {
     const normalizedEmail = dto.email.trim().toLowerCase();
-    const user = await this.userRepository.findOne({
-      where: { email: normalizedEmail },
-    });
+
+    // FIX: passwordHash có select: false nên phải dùng addSelect() để lấy rõ ràng
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password_hash')
+      .where('user.email = :email', { email: normalizedEmail })
+      .getOne();
 
     if (!user) throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     if (user.status !== 'ACTIVE')
@@ -179,7 +183,12 @@ export class AuthService {
     userId: number,
     dto: { currentPassword: string; newPassword: string },
   ) {
-    const user = await this.userRepository.findOne({ where: { userId } });
+    // FIX: passwordHash có select: false nên phải dùng addSelect() để lấy rõ ràng
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password_hash')
+      .where('user.userId = :userId', { userId })
+      .getOne();
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
 
     const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
