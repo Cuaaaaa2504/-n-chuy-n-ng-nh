@@ -30,7 +30,6 @@ export class AuthService {
     });
     if (existedUser) throw new BadRequestException('Email đã được sử dụng');
 
-    // Kiểm tra số điện thoại trùng lặp nếu có
     if (dto.phone?.trim()) {
       const existedPhone = await this.userRepository.findOne({
         where: { phone: dto.phone.trim() },
@@ -59,10 +58,10 @@ export class AuthService {
   async login(dto: LoginDto, meta?: { deviceInfo?: string; ipAddress?: string }) {
     const normalizedEmail = dto.email.trim().toLowerCase();
 
-    // FIX: passwordHash có select: false nên phải dùng addSelect() để lấy rõ ràng
+    // FIX: dùng tên property TypeScript 'user.passwordHash' (không phải tên cột SQL)
     const user = await this.userRepository
       .createQueryBuilder('user')
-      .addSelect('user.password_hash')
+      .addSelect('user.passwordHash')
       .where('user.email = :email', { email: normalizedEmail })
       .getOne();
 
@@ -74,7 +73,6 @@ export class AuthService {
     if (!isPasswordValid)
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
 
-    // Dùng update() thay vì save() để tránh TypeORM cố INSERT lại gây duplicate key
     await this.userRepository.update(
       { userId: user.userId },
       { lastLoginAt: new Date() },
@@ -183,10 +181,10 @@ export class AuthService {
     userId: number,
     dto: { currentPassword: string; newPassword: string },
   ) {
-    // FIX: passwordHash có select: false nên phải dùng addSelect() để lấy rõ ràng
+    // FIX: dùng tên property TypeScript 'user.passwordHash'
     const user = await this.userRepository
       .createQueryBuilder('user')
-      .addSelect('user.password_hash')
+      .addSelect('user.passwordHash')
       .where('user.userId = :userId', { userId })
       .getOne();
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
