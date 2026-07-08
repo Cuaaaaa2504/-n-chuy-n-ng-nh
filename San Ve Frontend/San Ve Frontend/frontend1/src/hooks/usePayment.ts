@@ -39,7 +39,7 @@ export const usePayment = () => {
           return { status: 'SUCCESS', redirectUrl: result.redirectUrl };
         }
         throw new Error('Payment failed');
-      } catch (err: unknown) { // ✅ thay any → unknown
+      } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Thanh toán thất bại';
         setPaymentStatus('FAILED');
         setError(msg);

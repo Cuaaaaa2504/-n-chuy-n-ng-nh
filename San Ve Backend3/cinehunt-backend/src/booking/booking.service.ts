@@ -100,14 +100,12 @@ export class BookingService {
         );
       }
 
-      // FIX: Đồng bộ với SQL CHECK constraint — chỉ dùng 'PERCENTAGE'
       if (voucher.discountType === 'PERCENTAGE') {
         discountAmount = (orderTotal * Number(voucher.discountValue)) / 100;
         if (voucher.maxDiscount) {
           discountAmount = Math.min(discountAmount, Number(voucher.maxDiscount));
         }
       } else {
-        // FIXED_AMOUNT
         discountAmount = Math.min(Number(voucher.discountValue), orderTotal);
       }
 
@@ -207,7 +205,6 @@ export class BookingService {
         status: 'PENDING_PAYMENT',
         expiresAt: LessThan(now),
       },
-      // FIX: load nested relation showtimeSeat để lấy showtimeSeatId chính xác
       relations: { bookingDetails: { showtimeSeat: true } },
     });
 
@@ -238,7 +235,6 @@ export class BookingService {
       );
     }
 
-    // FIX: Xóa (cancel) BookingCombo liên quan để không bị treo
     if (bookingIds.length) {
       await this.bookingComboRepo.delete({ bookingId: In(bookingIds) });
     }
@@ -258,7 +254,7 @@ export class BookingService {
       where: { bookingId, userId },
       relations: {
         bookingDetails: { showtimeSeat: { seat: true } as any },
-        payments: true,
+        showtime: { movie: true, room: { cinema: true } as any } as any,
         bookingCombos: { combo: true } as any,
       } as any,
     });
@@ -267,21 +263,10 @@ export class BookingService {
       throw new NotFoundException('Không tìm thấy booking');
     }
 
-    if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
-      throw new BadRequestException('Booking đã hết hạn');
-    }
-
-    return {
-      ...booking,
-      finalAmount: Number(booking.totalAmount),
-    };
+    return booking;
   }
 
   async cancelBooking(bookingId: string, userId: number) {
-    if (userId === undefined || userId === null) {
-      throw new BadRequestException('userId không hợp lệ khi hủy booking');
-    }
-
     const booking = await this.bookingRepo.findOne({
       where: { bookingId, userId },
       relations: { bookingDetails: true },
@@ -291,58 +276,23 @@ export class BookingService {
       throw new NotFoundException('Không tìm thấy booking');
     }
 
-    if (booking.status === 'PAID') {
-      throw new BadRequestException('Không thể hủy booking đã thanh toán');
+    if (!['PENDING_PAYMENT', 'CONFIRMED'].includes(booking.status)) {
+      throw new BadRequestException('Booking không thể hủy ở trạng thái hiện tại');
     }
 
-    await this.bookingRepo.update({ bookingId }, { status: 'CANCELLED', cancelledAt: new Date() });
+    await this.bookingRepo.update(
+      { bookingId },
+      { status: 'CANCELLED', cancelledAt: new Date() },
+    );
 
     const showtimeSeatIds = booking.bookingDetails.map((d: any) => d.showtimeSeatId);
     if (showtimeSeatIds.length) {
       await this.showtimeSeatRepo.update(
         { showtimeSeatId: In(showtimeSeatIds) },
-        { status: 'AVAILABLE' },
+        { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
       );
     }
 
-    return { message: 'Hủy booking thành công', bookingId };
-  }
-
-  async updateBookingToPaid(bookingId: string) {
-    await this.bookingRepo.update(
-      { bookingId },
-      {
-        status: 'PAID',
-        paidAt: new Date(),
-        issuedAt: new Date(),
-      },
-    );
-  }
-
-  async getBookingTickets(bookingId: string, userId: number) {
-    const booking = await this.bookingRepo.findOne({
-      where: { bookingId, userId },
-      relations: {
-        bookingDetails: {
-          showtimeSeat: { seat: true },
-          ticket: true,
-        },
-      } as any,
-    });
-
-    if (!booking) {
-      throw new NotFoundException('Không tìm thấy booking');
-    }
-
-    return booking.bookingDetails.map((detail: any) => ({
-      bookingDetailId: detail.bookingDetailId,
-      seatPrice: Number(detail.seatPrice),
-      status: detail.status,
-      seatRow: detail.showtimeSeat?.seat?.seatRow ?? null,
-      seatNumber: detail.showtimeSeat?.seat?.seatNumber ?? null,
-      seatLabel: detail.showtimeSeat?.seat?.seatLabel ?? null,
-      ticketId: detail.ticket?.ticketId ?? null,
-      qrCode: detail.ticket?.qrCode ?? null,
-    }));
+    return { success: true };
   }
 }

@@ -168,7 +168,6 @@ export default function SeatBookingPage() {
       });
 
       try {
-        // axiosClient interceptor đã unwrap response.data — dùng trực tiếp
         const data = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`) as unknown as SeatMapResponse;
 
         const seatList: SeatDto[] = data.seats ?? [];
@@ -262,7 +261,6 @@ export default function SeatBookingPage() {
     setHolding(true);
     setHoldError(null);
     try {
-      // FIX: endpoint đúng là /showtime-seats/hold-many (theo ShowtimeSeatsController)
       const holdData = await axiosClient.post(`/showtime-seats/hold-many`, {
         showtimeId: Number(showtimeId),
         seatIds: Array.from(selectedIds).map(Number),
@@ -288,7 +286,6 @@ export default function SeatBookingPage() {
     try {
       const showtimeId = searchParams.get('showtimeId');
 
-      // FIX: Tạo booking trước, lấy bookingId rồi mới navigate
       if (showtimeId && heldIds.length > 0) {
         const bookingData = await axiosClient.post(`/bookings`, {
           holdIds: heldIds,
@@ -297,7 +294,6 @@ export default function SeatBookingPage() {
         return;
       }
 
-      // Mock mode — không có hold thật, navigate local
       const selectedSeats: BookingSeat[] = Array.from(selectedIds).map((sid) => {
         const s = seats.find((seat) => String(seat.id) === sid);
         return {
@@ -403,11 +399,15 @@ export default function SeatBookingPage() {
           </div>
         )}
       </div>
+
       <SelectedSeatsBar
-        seats={selectedSeatsData} totalPrice={totalPrice}
-        holdCountdown={heldIds.length > 0 ? holdCountdown : null}
-        onHold={handleHoldSeats} onProceed={handleProceed}
-        holding={holding} navigating={navigating}
+        selectedSeats={selectedSeatsData}
+        totalPrice={totalPrice}
+        holdCountdown={holdCountdown}
+        isHolding={holding}
+        isNavigating={navigating}
+        onHold={handleHoldSeats}
+        onProceed={handleProceed}
       />
     </div>
   );

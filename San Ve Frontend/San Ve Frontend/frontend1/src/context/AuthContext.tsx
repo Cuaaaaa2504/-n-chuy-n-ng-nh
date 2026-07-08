@@ -45,8 +45,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const handler = () => {
-      setToken(null);
-      setUser(null);
+      const nextToken = localStorage.getItem('accessToken');
+      const nextUserRaw = localStorage.getItem('user');
+      setToken(nextToken);
+      if (!nextUserRaw) {
+        setUser(null);
+        return;
+      }
+      try {
+        setUser(JSON.parse(nextUserRaw) as User);
+      } catch {
+        localStorage.removeItem('user');
+        setUser(null);
+      }
     };
     window.addEventListener('auth-changed', handler);
     return () => window.removeEventListener('auth-changed', handler);
