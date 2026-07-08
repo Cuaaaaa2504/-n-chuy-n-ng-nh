@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,44 +17,71 @@ export class UsersService {
   ) {}
 
   async findById(userId: number): Promise<User> {
-    const user = await this.userRepo.findOne({ where: { userId } });
+    // FIX [M-15]: dùng addSelect để lấy passwordHash chỉ khi cần
+    // Các query thông thường KHÔNG lấy passwordHash nhờ select:false trên entity
+    const user = await this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.userId = :userId', { userId })
+      .getOne();
     if (!user) throw new NotFoundException(`User #${userId} không tồn tại`);
     return user;
   }
 
   async getProfile(userId: number) {
-    const user = await this.userRepo.findOne({ where: { userId } });
-    if (!user) throw new NotFoundException('Không tìm thấy user');
-    return this.toProfile(user);
+    try {
+      const user = await this.userRepo.findOne({ where: { userId } });
+      if (!user) throw new NotFoundException('Không tìm thấy user');
+      return this.toProfile(user);
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      throw new InternalServerErrorException('Không tải được thông tin người dùng');
+    }
   }
 
   async updateProfile(
     userId: number,
     dto: { fullName?: string; avatarUrl?: string },
   ) {
-    const user = await this.findById(userId);
-    if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
-    if (dto.avatarUrl !== undefined) user.avatarUrl = dto.avatarUrl ?? null;
-    await this.userRepo.save(user);
-    return this.toProfile(user);
+    try {
+      const user = await this.userRepo.findOne({ where: { userId } });
+      if (!user) throw new NotFoundException('Không tìm thấy user');
+      if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
+      if (dto.avatarUrl !== undefined) user.avatarUrl = dto.avatarUrl ?? null;
+      await this.userRepo.save(user);
+      return this.toProfile(user);
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      throw new InternalServerErrorException('Không cập nhật được thông tin');
+    }
   }
 
   async changePassword(
     userId: number,
     dto: { currentPassword: string; newPassword: string },
   ) {
-    const user = await this.userRepo.findOne({ where: { userId } });
-    if (!user) throw new NotFoundException('Không tìm thấy user');
-    const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
-    if (!valid)
-      throw new BadRequestException('Mật khẩu hiện tại không đúng');
-    user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
-    await this.userRepo.save(user);
-    return { message: 'Đổi mật khẩu thành công' };
+    try {
+      const user = await this.findById(userId);
+      const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+      if (!valid)
+        throw new BadRequestException('Mật khẩu hiện tại không đúng');
+      user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+      await this.userRepo.save(user);
+      return { message: 'Đổi mật khẩu thành công' };
+    } catch (err) {
+      if (err instanceof NotFoundException || err instanceof BadRequestException) throw err;
+      throw new InternalServerErrorException('Không đổi được mật khẩu');
+    }
   }
 
   async getAllUsers() {
-    return this.userRepo.find({ order: { createdAt: 'DESC' } });
+    try {
+      // FIX [M-15]: find() thông thường KHÔNG trả về passwordHash (select:false trên entity)
+      const users = await this.userRepo.find({ order: { createdAt: 'DESC' } });
+      return users.map((u) => this.toProfile(u));
+    } catch {
+      throw new InternalServerErrorException('Không tải được danh sách người dùng');
+    }
   }
 
   listUsers() {
@@ -61,9 +89,14 @@ export class UsersService {
   }
 
   async getUserById(targetId: number) {
-    const user = await this.userRepo.findOne({ where: { userId: targetId } });
-    if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
-    return this.toProfile(user);
+    try {
+      const user = await this.userRepo.findOne({ where: { userId: targetId } });
+      if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
+      return this.toProfile(user);
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      throw new InternalServerErrorException('Không tải được thông tin người dùng');
+    }
   }
 
   adminGetUser(targetId: number) {
@@ -71,19 +104,29 @@ export class UsersService {
   }
 
   async setUserStatus(targetId: number, status: string) {
-    const user = await this.userRepo.findOne({ where: { userId: targetId } });
-    if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
-    (user as any).status = status;
-    await this.userRepo.save(user);
-    return this.toProfile(user);
+    try {
+      const user = await this.userRepo.findOne({ where: { userId: targetId } });
+      if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
+      (user as any).status = status;
+      await this.userRepo.save(user);
+      return this.toProfile(user);
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      throw new InternalServerErrorException('Không cập nhật được trạng thái người dùng');
+    }
   }
 
   async adminUpdateRole(targetId: number, role: string) {
-    const user = await this.userRepo.findOne({ where: { userId: targetId } });
-    if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
-    (user as any).role = role;
-    await this.userRepo.save(user);
-    return this.toProfile(user);
+    try {
+      const user = await this.userRepo.findOne({ where: { userId: targetId } });
+      if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
+      (user as any).role = role;
+      await this.userRepo.save(user);
+      return this.toProfile(user);
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      throw new InternalServerErrorException('Không cập nhật được quyền người dùng');
+    }
   }
 
   private toProfile(user: User) {
@@ -98,6 +141,7 @@ export class UsersService {
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      // passwordHash KHÔNG có trong toProfile — không bao giờ trả ra ngoài
     };
   }
 }

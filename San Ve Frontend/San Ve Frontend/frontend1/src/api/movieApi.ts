@@ -18,45 +18,71 @@ function normalizeMovie(item: Record<string, unknown>): Movie {
   };
 }
 
+// FIX [M-14]: thêm try/catch thống nhất cho tất cả hàm trong movieApi
 /** Lấy danh sách phim — có thể lọc theo status */
 export async function getMovies(params?: {
   status?: Movie['status'];
   page?: number;
   limit?: number;
 }): Promise<{ items: Movie[]; total: number }> {
-  const payload = await axiosClient.get('/movies', { params }) as unknown;
-  const raw = Array.isArray(payload)
-    ? payload
-    : ((payload as Record<string, unknown>).data as unknown[]
-       ?? (payload as Record<string, unknown>).items as unknown[]
-       ?? []);
-  const items = (raw as Record<string, unknown>[]).map(normalizeMovie);
-  const total = ((payload as Record<string, unknown>).total as number) ?? items.length;
-  return { items, total };
+  try {
+    const payload = await axiosClient.get('/movies', { params }) as unknown;
+    const raw = Array.isArray(payload)
+      ? payload
+      : ((payload as Record<string, unknown>).data as unknown[]
+         ?? (payload as Record<string, unknown>).items as unknown[]
+         ?? []);
+    const items = (raw as Record<string, unknown>[]).map(normalizeMovie);
+    const total = ((payload as Record<string, unknown>).total as number) ?? items.length;
+    return { items, total };
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message ?? 'Không tải được danh sách phim';
+    throw new Error(msg);
+  }
 }
 
 /** Lấy chi tiết một phim */
 export async function getMovieById(id: number): Promise<Movie> {
-  const payload = await axiosClient.get(`/movies/${id}`) as unknown;
-  const item = (payload as Record<string, unknown>).data ?? payload;
-  return normalizeMovie(item as Record<string, unknown>);
+  try {
+    const payload = await axiosClient.get(`/movies/${id}`) as unknown;
+    const item = (payload as Record<string, unknown>).data ?? payload;
+    return normalizeMovie(item as Record<string, unknown>);
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message ?? 'Không tải được thông tin phim';
+    throw new Error(msg);
+  }
 }
 
 /** Thêm phim mới (admin) */
 export async function createMovie(data: Omit<Movie, 'movie_id'>): Promise<Movie> {
-  const res = await axiosClient.post('/movies', data) as unknown;
-  const item = (res as Record<string, unknown>).data ?? res;
-  return normalizeMovie(item as Record<string, unknown>);
+  try {
+    const res = await axiosClient.post('/movies', data) as unknown;
+    const item = (res as Record<string, unknown>).data ?? res;
+    return normalizeMovie(item as Record<string, unknown>);
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message ?? 'Không tạo được phim';
+    throw new Error(msg);
+  }
 }
 
 /** Cập nhật phim (admin) */
 export async function updateMovie(id: number, data: Partial<Omit<Movie, 'movie_id'>>): Promise<Movie> {
-  const res = await axiosClient.put(`/movies/${id}`, data) as unknown;
-  const item = (res as Record<string, unknown>).data ?? res;
-  return normalizeMovie(item as Record<string, unknown>);
+  try {
+    const res = await axiosClient.put(`/movies/${id}`, data) as unknown;
+    const item = (res as Record<string, unknown>).data ?? res;
+    return normalizeMovie(item as Record<string, unknown>);
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message ?? 'Không cập nhật được phim';
+    throw new Error(msg);
+  }
 }
 
 /** Xóa phim (admin) */
 export async function deleteMovie(id: number): Promise<void> {
-  await axiosClient.delete(`/movies/${id}`);
+  try {
+    await axiosClient.delete(`/movies/${id}`);
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message ?? 'Không xóa được phim';
+    throw new Error(msg);
+  }
 }

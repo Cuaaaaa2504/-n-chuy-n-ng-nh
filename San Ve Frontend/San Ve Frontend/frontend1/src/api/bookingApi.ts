@@ -23,32 +23,48 @@ function normalizeTicket(item: Record<string, unknown>): BookingTicket {
   };
 }
 
+// FIX [M-14]: thêm try/catch thống nhất cho tất cả hàm trong bookingApi
 export async function getMyBookings(params: { page: number; limit: number }) {
-  const payload = await axiosClient.get('/bookings/my', { params }) as Record<string, unknown>;
-  const rawItems = Array.isArray(payload)
-    ? payload
-    : ((payload.data as unknown[]) ?? (payload.items as unknown[]) ?? []);
-  const items = (rawItems as Record<string, unknown>[]).map(normalizeBooking);
-  const total = (
-    payload.total ??
-    (payload.data as Record<string, unknown>)?.total ??
-    items.length
-  ) as number;
-  return { items, total };
+  try {
+    const payload = await axiosClient.get('/bookings/my', { params }) as Record<string, unknown>;
+    const rawItems = Array.isArray(payload)
+      ? payload
+      : ((payload.data as unknown[]) ?? (payload.items as unknown[]) ?? []);
+    const items = (rawItems as Record<string, unknown>[]).map(normalizeBooking);
+    const total = (
+      payload.total ??
+      (payload.data as Record<string, unknown>)?.total ??
+      items.length
+    ) as number;
+    return { items, total };
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message ?? 'Không tải được danh sách booking';
+    throw new Error(msg);
+  }
 }
 
 export async function getBookingTickets(bookingId: string): Promise<BookingTicket[]> {
   if (!bookingId) throw new Error('Thiếu mã booking');
-  // FIX: route đúng là GET /bookings/:id/tickets (đã thêm route trong booking.controller.ts)
-  const payload = await axiosClient.get(`/bookings/${bookingId}/tickets`) as Record<string, unknown>;
-  const rawItems = Array.isArray(payload)
-    ? payload
-    : ((payload.data as unknown[]) ?? (payload.items as unknown[]) ?? []);
-  return (rawItems as Record<string, unknown>[]).map(normalizeTicket);
+  try {
+    // FIX: route đúng là GET /bookings/:id/tickets (đã thêm route trong booking.controller.ts)
+    const payload = await axiosClient.get(`/bookings/${bookingId}/tickets`) as Record<string, unknown>;
+    const rawItems = Array.isArray(payload)
+      ? payload
+      : ((payload.data as unknown[]) ?? (payload.items as unknown[]) ?? []);
+    return (rawItems as Record<string, unknown>[]).map(normalizeTicket);
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message ?? 'Không tải được vé';
+    throw new Error(msg);
+  }
 }
 
 export async function cancelBooking(bookingId: string) {
   if (!bookingId) throw new Error('Thiếu mã booking');
-  // FIX: backend dùng DELETE /bookings/:id (không có route POST /bookings/:id/cancel)
-  return axiosClient.delete(`/bookings/${bookingId}`);
+  try {
+    // FIX: backend dùng DELETE /bookings/:id (không có route POST /bookings/:id/cancel)
+    return await axiosClient.delete(`/bookings/${bookingId}`);
+  } catch (err: unknown) {
+    const msg = (err as { message?: string })?.message ?? 'Không hủy được booking';
+    throw new Error(msg);
+  }
 }

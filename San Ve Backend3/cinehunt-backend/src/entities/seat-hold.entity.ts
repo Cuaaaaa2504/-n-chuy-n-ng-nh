@@ -11,8 +11,10 @@ import { ShowtimeSeat } from './showtime-seat.entity';
 
 @Entity('seat_holds')
 export class SeatHold {
+  // FIX [M-11]: holdId BIGINT → typed string để tránh mất an toàn số học
+  // JS number chỉ an toàn đến 2^53-1, BIGINT DB có thể vượt qua ngưỡng đó
   @PrimaryGeneratedColumn({ type: 'bigint', name: 'hold_id' })
-  holdId: number;
+  holdId: string;
 
   @Column({ name: 'user_id', type: 'int' })
   userId: number;

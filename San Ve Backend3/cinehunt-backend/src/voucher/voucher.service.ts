@@ -7,6 +7,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Voucher } from '../entities/voucher.entity';
 
+export interface VoucherPage {
+  items: Voucher[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 @Injectable()
 export class VoucherService {
   constructor(
@@ -14,8 +22,21 @@ export class VoucherService {
     private readonly voucherRepo: Repository<Voucher>,
   ) {}
 
-  findAll(): Promise<Voucher[]> {
-    return this.voucherRepo.find({ order: { promotionId: 'DESC' } });
+  // FIX [M-16]: thêm pagination để tránh trả toàn bộ voucher khi hệ thống lớn
+  async findAll(page = 1, limit = 20): Promise<VoucherPage> {
+    const skip = (page - 1) * limit;
+    const [items, total] = await this.voucherRepo.findAndCount({
+      order: { promotionId: 'DESC' },
+      skip,
+      take: limit,
+    });
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findByCode(code: string): Promise<Voucher> {
@@ -23,7 +44,7 @@ export class VoucherService {
       where: { promotionCode: code.toUpperCase() },
     });
     if (!voucher)
-      throw new NotFoundException(`Voucher '${code}' kh\u00f4ng t\u1ed3n t\u1ea1i`);
+      throw new NotFoundException(`Voucher '${code}' không tồn tại`);
     return voucher;
   }
 
@@ -38,17 +59,17 @@ export class VoucherService {
     const endDate = voucher.endAt ? new Date(voucher.endAt) : null;
 
     if (startDate && now < startDate)
-      throw new BadRequestException('Voucher ch\u01b0a \u0111\u1ebfn th\u1eddi gian s\u1eed d\u1ee5ng');
+      throw new BadRequestException('Voucher chưa đến thời gian sử dụng');
     if (endDate && now > endDate)
-      throw new BadRequestException('Voucher \u0111\u00e3 h\u1ebft h\u1ea1n');
+      throw new BadRequestException('Voucher đã hết hạn');
     if (voucher.usageLimit && voucher.usedCount >= voucher.usageLimit)
-      throw new BadRequestException('Voucher \u0111\u00e3 h\u1ebft l\u01b0\u1ee3t s\u1eed d\u1ee5ng');
+      throw new BadRequestException('Voucher đã hết lượt sử dụng');
     if (
       voucher.minOrderAmount &&
       orderAmount < Number(voucher.minOrderAmount)
     )
       throw new BadRequestException(
-        `\u0110\u01a1n h\u00e0ng t\u1ed1i thi\u1ec3u ${Number(voucher.minOrderAmount).toLocaleString()}\u0111 \u0111\u1ec3 d\u00f9ng voucher n\u00e0y`,
+        `Đơn hàng tối thiểu ${Number(voucher.minOrderAmount).toLocaleString()}đ để dùng voucher này`,
       );
 
     let discount = 0;
@@ -80,7 +101,7 @@ export class VoucherService {
     const existing = await this.voucherRepo.findOne({
       where: { promotionCode: dto.code.toUpperCase() },
     });
-    if (existing) throw new BadRequestException('M\u00e3 voucher \u0111\u00e3 t\u1ed3n t\u1ea1i');
+    if (existing) throw new BadRequestException('Mã voucher đã tồn tại');
     const data: any = { promotionCode: dto.code.toUpperCase(), ...dto };
     const voucher = this.voucherRepo.create(data as unknown as Voucher);
     return this.voucherRepo.save(voucher);
@@ -90,7 +111,7 @@ export class VoucherService {
     const voucher = await this.voucherRepo.findOne({
       where: { promotionId: id },
     });
-    if (!voucher) throw new NotFoundException(`Voucher #${id} kh\u00f4ng t\u1ed3n t\u1ea1i`);
+    if (!voucher) throw new NotFoundException(`Voucher #${id} không tồn tại`);
     return voucher;
   }
 
