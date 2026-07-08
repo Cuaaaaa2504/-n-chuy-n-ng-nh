@@ -93,6 +93,20 @@ export class BookingService {
         throw new BadRequestException('Voucher không hợp lệ hoặc đã hết hạn');
       }
 
+      // FIX [H-02]: kiểm tra usageLimit trước khi áp dụng voucher
+      if (voucher.usageLimit !== null && voucher.usageLimit !== undefined && voucher.usedCount >= voucher.usageLimit) {
+        throw new BadRequestException('Voucher đã hết lượt sử dụng');
+      }
+
+      // Kiểm tra thời gian hiệu lực
+      const vNow = new Date();
+      if (voucher.startAt && vNow < new Date(voucher.startAt)) {
+        throw new BadRequestException('Voucher chưa đến thời gian sử dụng');
+      }
+      if (voucher.endAt && vNow > new Date(voucher.endAt)) {
+        throw new BadRequestException('Voucher đã hết hạn');
+      }
+
       const orderTotal = subtotalAmount + productAmount;
       if (voucher.minOrderAmount && orderTotal < Number(voucher.minOrderAmount)) {
         throw new BadRequestException(
@@ -116,8 +130,10 @@ export class BookingService {
     const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
 
     return this.dataSource.transaction(async (manager) => {
+      // FIX [M-03]: thêm random suffix để tránh bookingCode trùng khi 2 request đến cùng millisecond
+      const randomSuffix = Math.random().toString(36).slice(2, 6).toUpperCase();
       const booking = manager.create(BookingOrder, {
-        bookingCode: `BK-${Date.now()}`,
+        bookingCode: `BK-${Date.now()}-${randomSuffix}`,
         userId,
         showtimeId,
         promotionId: appliedPromotionId,
@@ -156,6 +172,11 @@ export class BookingService {
       }
 
       await manager.update(SeatHold, { holdId: In(request.holdIds) }, { status: 'CONVERTED' });
+
+      // FIX [H-02]: tăng usedCount của voucher sau khi booking thành công
+      if (request.voucherCode && appliedPromotionId) {
+        await manager.increment(Voucher, { promotionId: appliedPromotionId }, 'usedCount', 1);
+      }
 
       return {
         bookingId: savedBookingId,
@@ -214,30 +235,37 @@ export class BookingService {
 
     const bookingIds = expiredBookings.map((b) => b.bookingId);
 
-    await this.bookingRepo.update(
-      { bookingId: In(bookingIds) },
-      { status: 'EXPIRED', cancelledAt: now },
-    );
-
     const allSeatIds = expiredBookings.flatMap((b) =>
       b.bookingDetails.map((d: any) => d.showtimeSeatId),
     );
 
-    if (allSeatIds.length) {
-      await this.showtimeSeatRepo.update(
-        { showtimeSeatId: In(allSeatIds) },
-        { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
+    // FIX [C-02]: bọc toàn bộ expirePendingBookings trong một transaction duy nhất
+    // để đảm bảo atomic — nếu một bước fail, toàn bộ rollback, tránh data inconsistent
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        BookingOrder,
+        { bookingId: In(bookingIds) },
+        { status: 'EXPIRED', cancelledAt: now },
       );
 
-      await this.holdRepo.update(
-        { showtimeSeatId: In(allSeatIds), status: 'ACTIVE' },
-        { status: 'EXPIRED', releasedAt: now },
-      );
-    }
+      if (allSeatIds.length) {
+        await manager.update(
+          ShowtimeSeat,
+          { showtimeSeatId: In(allSeatIds) },
+          { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
+        );
 
-    if (bookingIds.length) {
-      await this.bookingComboRepo.delete({ bookingId: In(bookingIds) });
-    }
+        await manager.update(
+          SeatHold,
+          { showtimeSeatId: In(allSeatIds), status: 'ACTIVE' },
+          { status: 'EXPIRED', releasedAt: now },
+        );
+      }
+
+      if (bookingIds.length) {
+        await manager.delete(BookingCombo, { bookingId: In(bookingIds) });
+      }
+    });
 
     return { expiredCount: expiredBookings.length };
   }
@@ -300,24 +328,32 @@ export class BookingService {
       throw new BadRequestException('Booking không thể hủy ở trạng thái hiện tại');
     }
 
-    await this.bookingRepo.update(
-      { bookingId },
-      { status: 'CANCELLED', cancelledAt: now },
-    );
-
     const showtimeSeatIds = booking.bookingDetails.map((d: any) => d.showtimeSeatId);
-    if (showtimeSeatIds.length) {
-      await this.showtimeSeatRepo.update(
-        { showtimeSeatId: In(showtimeSeatIds) },
-        { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
+
+    // FIX [C-01]: bỜ cancelBooking trong transaction — nếu một bước fail,
+    // toàn bộ rollback tránh trường hợp booking CANCELLED nhưng ghế vẫn HELD
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        BookingOrder,
+        { bookingId },
+        { status: 'CANCELLED', cancelledAt: now },
       );
 
-      // FIX: release SeatHold tương ứng khi cancel booking
-      await this.holdRepo.update(
-        { showtimeSeatId: In(showtimeSeatIds), status: In(['ACTIVE', 'CONVERTED']) },
-        { status: 'RELEASED', releasedAt: now },
-      );
-    }
+      if (showtimeSeatIds.length) {
+        await manager.update(
+          ShowtimeSeat,
+          { showtimeSeatId: In(showtimeSeatIds) },
+          { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
+        );
+
+        // Release SeatHold tương ứng khi cancel booking
+        await manager.update(
+          SeatHold,
+          { showtimeSeatId: In(showtimeSeatIds), status: In(['ACTIVE', 'CONVERTED']) },
+          { status: 'RELEASED', releasedAt: now },
+        );
+      }
+    });
 
     return { success: true };
   }
