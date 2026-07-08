@@ -4,7 +4,6 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { Showtime } from './showtime.entity';
 import { Seat } from './seat.entity';
@@ -35,9 +34,7 @@ export class ShowtimeSeat {
   holdExpiresAt: Date | null;
 
   // row_version ROWVERSION — không map (TypeORM không hỗ trợ natively)
-
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime2', precision: 0, nullable: true })
-  updatedAt: Date;
+  // updated_at — không tồn tại trong bảng showtime_seats, không map
 
   @ManyToOne(() => Showtime, (st) => st.showtimeSeats)
   @JoinColumn({ name: 'showtime_id' })
