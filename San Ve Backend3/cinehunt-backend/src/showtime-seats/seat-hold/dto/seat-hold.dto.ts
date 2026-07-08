@@ -29,8 +29,7 @@ export class HoldSeatsDto {
 }
 
 export class HoldResponseDto {
-  // FIX: holdId là BIGINT (number), không phải string
-  holdId: number;
+  holdId: string;  // BIGINT — TypeORM trả về string để tránh mất an toàn số học
   holdToken: string;
   expiresAt: Date;
   status: string;

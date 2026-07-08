@@ -227,8 +227,7 @@ export class SeatHoldService {
     }));
   }
 
-  async getHoldDetails(holdId: number, userId: number) {
-    // FIX: holdId là number (BIGINT), không dùng String()
+  async getHoldDetails(holdId: string, userId: number) {
     const hold = await this.seatHoldRepository.findOne({
       where: { holdId, userId },
       relations: [
@@ -264,13 +263,12 @@ export class SeatHoldService {
     };
   }
 
-  async releaseHold(holdId: number, userId: number) {
+  async releaseHold(holdId: string, userId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // FIX: holdId là number, không dùng String()
       const hold = await queryRunner.manager.findOne(SeatHold, {
         where: { holdId, userId, status: 'ACTIVE' },
       });
