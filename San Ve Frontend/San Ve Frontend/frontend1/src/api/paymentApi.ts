@@ -1,6 +1,6 @@
 import axiosClient from './axiosClient';
 
-// FIX: Chỉ dùng các method có trong SQL CHECK constraint:
+// Chỉ dùng các method có trong SQL CHECK constraint:
 // ('MOMO', 'VNPAY', 'BANKING', 'CASH', 'MOCK')
 export type PaymentMethodCode = 'CASH' | 'MOMO' | 'VNPAY' | 'BANKING' | 'MOCK';
 
@@ -34,12 +34,12 @@ function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
   const showtime = (raw.showtime ?? details[0]?.showtimeSeat) as Record<string, unknown> | undefined;
   const movie = showtime?.movie as Record<string, unknown> | undefined;
 
-  // FIX TS2322: đảm bảo expiresAt luôn là string | undefined, không bao giờ là {}
   const rawExpiresAt = raw.expiresAt ?? raw.expires_at;
   const expiresAt: string | undefined =
     typeof rawExpiresAt === 'string' ? rawExpiresAt : undefined;
 
   return {
+    // FIX: bookingId là string (BK-xxx) — giữ nguyên string, không parseInt
     id: String(raw.bookingId ?? raw.booking_id ?? raw.id ?? ''),
     orderCode: (raw.bookingCode ?? raw.booking_code ?? raw.orderCode) as string | undefined,
     movieTitle: (raw.movieTitle ?? movie?.title ?? 'Vé xem phim') as string,
@@ -57,15 +57,15 @@ function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
 /** Lấy thông tin booking theo id — gọi GET /bookings/:id */
 export async function getOrder(bookingId: string): Promise<OrderDetail> {
   if (!bookingId) throw new Error('Thiếu mã đặt vé');
-  const payload = await axiosClient.get(`/bookings/${bookingId}`) as Record<string, unknown>;
-  const raw = (payload.data ?? payload) as Record<string, unknown>;
+  // axiosClient đã unwrap response.data — dùng trực tiếp
+  const raw = await axiosClient.get(`/bookings/${bookingId}`) as unknown as Record<string, unknown>;
   return normalizeBooking(raw);
 }
 
 export async function getPaymentMethods(): Promise<PaymentMethod[]> {
   try {
-    const payload = await axiosClient.get('/payment-methods') as Record<string, unknown>;
-    const list = Array.isArray(payload) ? payload : (payload.data as unknown[] ?? []);
+    const payload = await axiosClient.get('/payment-methods') as unknown;
+    const list = Array.isArray(payload) ? payload : ((payload as Record<string, unknown>).data as unknown[] ?? []);
     return list as PaymentMethod[];
   } catch {
     return [
@@ -84,10 +84,11 @@ export async function payOrder(
 ): Promise<{ redirectUrl?: string; success: boolean; paymentId?: string }> {
   if (!bookingId) throw new Error('Thiếu mã đặt vé');
 
+  // FIX: bookingId là string (BK-xxx) — gửi nguyên string, không Number()
   const created = await axiosClient.post(`/payments`, {
-    bookingId: Number(bookingId),
+    bookingId,
     paymentMethod: method,
-  }) as Record<string, unknown>;
+  }) as unknown as Record<string, unknown>;
 
   const paymentId = String(created.paymentId ?? created.payment_id ?? '');
   if (!paymentId) throw new Error('Không lấy được paymentId từ backend');

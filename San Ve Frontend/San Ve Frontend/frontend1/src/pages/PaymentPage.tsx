@@ -7,8 +7,7 @@ import { getOrder, getPaymentMethods, payOrder } from '../api/paymentApi';
 import { usePayment } from '../hooks/usePayment';
 import type { OrderDetail, PaymentMethod, PaymentMethodCode } from '../api/paymentApi';
 
-// FIX: Chỉ giữ method có trong SQL CHECK constraint (MOMO, VNPAY, BANKING, CASH, MOCK)
-// Đã xóa ZALOPAY và CREDIT_CARD vì không có trong DB → sẽ bị CHECK constraint reject
+// Chỉ giữ method có trong SQL CHECK constraint (MOMO, VNPAY, BANKING, CASH, MOCK)
 const METHOD_ICONS: Record<string, string> = {
   MOMO: '🟣', VNPAY: '🔵', BANKING: '🏦', MOCK: '🧪', CASH: '💵',
 };
@@ -50,7 +49,8 @@ function buildLocalOrder(searchParams: URLSearchParams): OrderDetail {
   return {
     id: 'local',
     orderCode: `LOCAL-${Date.now()}`,
-    movieTitle: searchParams.get('movie') ?? 'Vé xem phìm',
+    // FIX: đọc đúng param 'movieTitle' (SeatBookingPage gửi 'movieTitle', không phải 'movie')
+    movieTitle: searchParams.get('movieTitle') ?? 'Vé xem phim',
     cinemaName: searchParams.get('cinema') ?? undefined,
     roomName:   searchParams.get('room')   ?? undefined,
     showDate:   searchParams.get('date')   ?? undefined,
@@ -63,11 +63,13 @@ function buildLocalOrder(searchParams: URLSearchParams): OrderDetail {
 
 // ── Main Page ──────────────────────────────────────────────────────────────────────────
 export default function PaymentPage() {
+  // FIX: orderId là bookingId (string dạng BK-xxx) từ route /payment/:orderId
   const { orderId } = useParams<{ orderId: string }>();
   const [searchParams] = useSearchParams();
   const navigate    = useNavigate();
   const { darkMode } = useTheme();
 
+  // FIX: local mode khi orderId === 'local' (navigate từ mock flow)
   const isLocalMode = orderId === 'local';
 
   const [order, setOrder]                       = useState<OrderDetail | null>(null);
@@ -86,6 +88,11 @@ export default function PaymentPage() {
       try {
         if (isLocalMode) {
           setOrder(buildLocalOrder(searchParams));
+          // Local mode dùng fallback methods
+          setMethods([
+            { code: 'MOCK', name: 'Thanh toán giả lập (Dev)' },
+            { code: 'CASH', name: 'Tiền mặt tại quầy' },
+          ]);
         } else if (orderId) {
           const [fetchedOrder, fetchedMethods] = await Promise.all([
             getOrder(orderId),
@@ -107,19 +114,22 @@ export default function PaymentPage() {
   const isExpired = countdown === 0 && !!order?.expiresAt;
 
   const handlePay = async () => {
-    if (!selectedMethod || !order) return;
-    // FIX: resetPayment không phải optional — gọi trực tiếp không cần ?.
+    if (!order) return;
+    // FIX: local mode không cần selectedMethod — dùng MOCK mặc định
+    const method = selectedMethod ?? (isLocalMode ? 'MOCK' : null);
+    if (!method) return;
     resetPayment();
 
     if (isLocalMode) {
-      await handlePayment({ bookingId: 0, totalAmount: order.totalAmount });
+      await handlePayment({ bookingId: 'local', totalAmount: order.totalAmount, method });
       return;
     }
 
     try {
-      const result = await payOrder(orderId!, selectedMethod);
+      // FIX: bookingId là string (BK-xxx) — KHÔNG parseInt
+      const result = await payOrder(orderId!, method);
       if (result.success) {
-        await handlePayment({ bookingId: parseInt(orderId!), totalAmount: order.totalAmount });
+        await handlePayment({ bookingId: orderId!, totalAmount: order.totalAmount, method });
         navigate(`/booking-success/${orderId}`);
       }
     } catch (err: unknown) {
@@ -147,6 +157,9 @@ export default function PaymentPage() {
       </div>
     );
   }
+
+  // FIX: button disabled khi không có method VÀ không phải local mode
+  const canPay = isLocalMode ? true : !!selectedMethod;
 
   return (
     <div className={`min-h-screen ${bg}`}>
@@ -205,7 +218,7 @@ export default function PaymentPage() {
         )}
 
         {/* Payment Methods */}
-        {!isLocalMode && methods.length > 0 && (
+        {methods.length > 0 && (
           <div className={`rounded-2xl p-5 space-y-3 ${card}`}>
             <h2 className="font-bold text-lg">Phương thức thanh toán</h2>
             <div className="space-y-2">
@@ -235,7 +248,6 @@ export default function PaymentPage() {
           </div>
         )}
 
-        {/* FIX: paymentStatus là uppercase 'SUCCESS', không phải 'success' */}
         {paymentStatus === 'SUCCESS' && (
           <div className="rounded-xl px-4 py-3 bg-green-500/10 border border-green-500/20 text-green-500 text-sm font-semibold">
             ✅ Thanh toán thành công!
@@ -245,7 +257,7 @@ export default function PaymentPage() {
         {/* Pay Button */}
         <button
           onClick={() => { void handlePay(); }}
-          disabled={!selectedMethod || !!isExpired || isProcessing}
+          disabled={!canPay || !!isExpired || isProcessing}
           className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition text-lg"
         >
           {isProcessing ? 'Đang xử lý...' : `Thanh toán ${order ? order.totalAmount.toLocaleString('vi-VN') + '₫' : ''}`}

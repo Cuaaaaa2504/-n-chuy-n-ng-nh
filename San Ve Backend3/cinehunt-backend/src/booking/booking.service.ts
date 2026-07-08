@@ -51,16 +51,16 @@ export class BookingService {
     });
 
     if (holds.length !== request.holdIds.length) {
-      throw new BadRequestException('M\u1ed9t ho\u1eb7c nhi\u1ec1u hold kh\u00f4ng h\u1ee3p l\u1ec7');
+      throw new BadRequestException('Một hoặc nhiều hold không hợp lệ');
     }
 
     if (holds.some((h) => new Date(h.expiresAt) <= now)) {
-      throw new BadRequestException('C\u00f3 hold \u0111\u00e3 h\u1ebft h\u1ea1n');
+      throw new BadRequestException('Có hold đã hết hạn');
     }
 
     const distinctShowtimeIds = [...new Set(holds.map((h) => h.showtimeSeat.showtimeId))];
     if (distinctShowtimeIds.length !== 1) {
-      throw new BadRequestException('C\u00e1c gh\u1ebf ph\u1ea3i thu\u1ed9c c\u00f9ng m\u1ed9t su\u1ea5t chi\u1ebfu');
+      throw new BadRequestException('Các ghế phải thuộc cùng một suất chiếu');
     }
 
     const showtimeId = distinctShowtimeIds[0];
@@ -73,7 +73,7 @@ export class BookingService {
       : [];
 
     if (products.length !== productIds.length) {
-      throw new BadRequestException('C\u00f3 s\u1ea3n ph\u1ea9m kh\u00f4ng t\u1ed3n t\u1ea1i ho\u1eb7c kh\u00f4ng ho\u1ea1t \u0111\u1ed9ng');
+      throw new BadRequestException('Có sản phẩm không tồn tại hoặc không hoạt động');
     }
 
     const productAmount = requestedProducts.reduce((sum, item) => {
@@ -90,22 +90,24 @@ export class BookingService {
       });
 
       if (!voucher || voucher.status !== 'ACTIVE') {
-        throw new BadRequestException('Voucher kh\u00f4ng h\u1ee3p l\u1ec7 ho\u1eb7c \u0111\u00e3 h\u1ebft h\u1ea1n');
+        throw new BadRequestException('Voucher không hợp lệ hoặc đã hết hạn');
       }
 
       const orderTotal = subtotalAmount + productAmount;
       if (voucher.minOrderAmount && orderTotal < Number(voucher.minOrderAmount)) {
         throw new BadRequestException(
-          `\u0110\u01a1n h\u00e0ng t\u1ed1i thi\u1ec3u ${Number(voucher.minOrderAmount).toLocaleString()}\u0111 \u0111\u1ec3 d\u00f9ng voucher n\u00e0y`,
+          `Đơn hàng tối thiểu ${Number(voucher.minOrderAmount).toLocaleString()}đ để dùng voucher này`,
         );
       }
 
-      if (voucher.discountType === 'PERCENTAGE' || voucher.discountType === 'PERCENT') {
+      // FIX: Đồng bộ với SQL CHECK constraint — chỉ dùng 'PERCENTAGE'
+      if (voucher.discountType === 'PERCENTAGE') {
         discountAmount = (orderTotal * Number(voucher.discountValue)) / 100;
         if (voucher.maxDiscount) {
           discountAmount = Math.min(discountAmount, Number(voucher.maxDiscount));
         }
       } else {
+        // FIXED_AMOUNT
         discountAmount = Math.min(Number(voucher.discountValue), orderTotal);
       }
 
@@ -178,17 +180,17 @@ export class BookingService {
     });
 
     if (!booking) {
-      throw new NotFoundException('Kh\u00f4ng t\u00ecm th\u1ea5y booking');
+      throw new NotFoundException('Không tìm thấy booking');
     }
 
     if (booking.status !== 'PENDING_PAYMENT') {
       throw new BadRequestException(
-        `Booking \u0111ang \u1edf tr\u1ea1ng th\u00e1i ${booking.status}, kh\u00f4ng th\u1ec3 thanh to\u00e1n`,
+        `Booking đang ở trạng thái ${booking.status}, không thể thanh toán`,
       );
     }
 
     if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
-      throw new BadRequestException('Booking \u0111\u00e3 h\u1ebft h\u1ea1n thanh to\u00e1n');
+      throw new BadRequestException('Booking đã hết hạn thanh toán');
     }
 
     return {
@@ -205,7 +207,8 @@ export class BookingService {
         status: 'PENDING_PAYMENT',
         expiresAt: LessThan(now),
       },
-      relations: { bookingDetails: true },
+      // FIX: load nested relation showtimeSeat để lấy showtimeSeatId chính xác
+      relations: { bookingDetails: { showtimeSeat: true } },
     });
 
     if (!expiredBookings.length) {
@@ -235,6 +238,11 @@ export class BookingService {
       );
     }
 
+    // FIX: Xóa (cancel) BookingCombo liên quan để không bị treo
+    if (bookingIds.length) {
+      await this.bookingComboRepo.delete({ bookingId: In(bookingIds) });
+    }
+
     return { expiredCount: expiredBookings.length };
   }
 
@@ -256,11 +264,11 @@ export class BookingService {
     });
 
     if (!booking) {
-      throw new NotFoundException('Kh\u00f4ng t\u00ecm th\u1ea5y booking');
+      throw new NotFoundException('Không tìm thấy booking');
     }
 
     if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
-      throw new BadRequestException('Booking \u0111\u00e3 h\u1ebft h\u1ea1n');
+      throw new BadRequestException('Booking đã hết hạn');
     }
 
     return {
@@ -271,7 +279,7 @@ export class BookingService {
 
   async cancelBooking(bookingId: string, userId: number) {
     if (userId === undefined || userId === null) {
-      throw new BadRequestException('userId kh\u00f4ng h\u1ee3p l\u1ec7 khi h\u1ee7y booking');
+      throw new BadRequestException('userId không hợp lệ khi hủy booking');
     }
 
     const booking = await this.bookingRepo.findOne({
@@ -280,11 +288,11 @@ export class BookingService {
     });
 
     if (!booking) {
-      throw new NotFoundException('Kh\u00f4ng t\u00ecm th\u1ea5y booking');
+      throw new NotFoundException('Không tìm thấy booking');
     }
 
     if (booking.status === 'PAID') {
-      throw new BadRequestException('Kh\u00f4ng th\u1ec3 h\u1ee7y booking \u0111\u00e3 thanh to\u00e1n');
+      throw new BadRequestException('Không thể hủy booking đã thanh toán');
     }
 
     await this.bookingRepo.update({ bookingId }, { status: 'CANCELLED', cancelledAt: new Date() });
@@ -297,7 +305,7 @@ export class BookingService {
       );
     }
 
-    return { message: 'H\u1ee7y booking th\u00e0nh c\u00f4ng', bookingId };
+    return { message: 'Hủy booking thành công', bookingId };
   }
 
   async updateBookingToPaid(bookingId: string) {
@@ -323,7 +331,7 @@ export class BookingService {
     });
 
     if (!booking) {
-      throw new NotFoundException('Kh\u00f4ng t\u00ecm th\u1ea5y booking');
+      throw new NotFoundException('Không tìm thấy booking');
     }
 
     return booking.bookingDetails.map((detail: any) => ({

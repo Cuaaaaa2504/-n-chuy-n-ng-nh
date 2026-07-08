@@ -48,8 +48,7 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
 
 function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
-  // FIX no-useless-escape: dấu chấm trong [...] là literal, không cần escape
-  const m = url.match(/(?:v=|youtu\.be\/)([.\w-]{11})/);
+  const m = url.match(/(?:v=|youtu\.be\/)([.[\w-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
 }
 
@@ -61,14 +60,6 @@ interface SeatMapResponse {
   showDate?:   string | null;
   showTime?:   string | null;
   seats?: SeatDto[];
-  data?: {
-    seats?: SeatDto[];
-    movieTitle?: string | null;
-    cinemaName?: string | null;
-    roomName?:   string | null;
-    showDate?:   string | null;
-    showTime?:   string | null;
-  };
 }
 
 interface ShowtimeInfo {
@@ -92,7 +83,11 @@ interface MovieInfo {
 
 interface HoldResponse {
   holdIds?: number[];
-  data?: { holdIds?: number[] } | number[];
+}
+
+interface CreateBookingResponse {
+  bookingId: string;
+  bookingCode: string;
 }
 
 export default function SeatBookingPage() {
@@ -173,16 +168,16 @@ export default function SeatBookingPage() {
       });
 
       try {
-        const raw = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`);
-        const data: SeatMapResponse = ((raw as unknown) as { data: SeatMapResponse })?.data ?? (raw as unknown as SeatMapResponse);
+        // axiosClient interceptor đã unwrap response.data — dùng trực tiếp
+        const data = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`) as unknown as SeatMapResponse;
 
-        const seatList: SeatDto[] = data.seats ?? data.data?.seats ?? [];
+        const seatList: SeatDto[] = data.seats ?? [];
 
-        const movieTitle = data.movieTitle ?? data.data?.movieTitle ?? null;
-        const cinemaName = data.cinemaName ?? data.data?.cinemaName ?? qCinema ?? null;
-        const roomName   = data.roomName   ?? data.data?.roomName   ?? qRoom   ?? null;
-        const showDate   = data.showDate   ?? data.data?.showDate   ?? qDate   ?? null;
-        const showTime   = data.showTime   ?? data.data?.showTime   ?? qTime   ?? null;
+        const movieTitle = data.movieTitle ?? null;
+        const cinemaName = data.cinemaName ?? qCinema ?? null;
+        const roomName   = data.roomName   ?? qRoom   ?? null;
+        const showDate   = data.showDate   ?? qDate   ?? null;
+        const showTime   = data.showTime   ?? qTime   ?? null;
 
         setShowtimeInfo({ showtimeId: Number(showtimeId), movieTitle, cinemaName, roomName, showDate, showTime });
 
@@ -196,17 +191,16 @@ export default function SeatBookingPage() {
 
         if (movieId && !movieSetRef.current) {
           try {
-            const mRaw = await axiosClient.get(`/movies/${movieId}`);
-            const m = ((mRaw as unknown) as { data: Record<string, unknown> })?.data ?? (mRaw as unknown as Record<string, unknown>);
+            const m = await axiosClient.get(`/movies/${movieId}`) as unknown as Record<string, unknown>;
             movieSetRef.current = true;
             setMovie({
-              movie_id: Number((m as Record<string, unknown>).movie_id ?? movieId),
-              title: String((m as Record<string, unknown>).title ?? movieTitle ?? ''),
-              poster_url: String((m as Record<string, unknown>).poster_url ?? FALLBACK_POSTER),
-              backdrop_url: String((m as Record<string, unknown>).backdrop_url ?? FALLBACK_BACKDROP),
-              trailer_url: (m as Record<string, unknown>).trailer_url as string | undefined,
-              age_rating: (m as Record<string, unknown>).age_rating as string | undefined,
-              duration_minutes: Number((m as Record<string, unknown>).duration_minutes ?? 0),
+              movie_id: Number(m.movie_id ?? movieId),
+              title: String(m.title ?? movieTitle ?? ''),
+              poster_url: String(m.poster_url ?? FALLBACK_POSTER),
+              backdrop_url: String(m.backdrop_url ?? FALLBACK_BACKDROP),
+              trailer_url: m.trailer_url as string | undefined,
+              age_rating: m.age_rating as string | undefined,
+              duration_minutes: Number(m.duration_minutes ?? 0),
             });
           } catch {
             if (!movieSetRef.current) {
@@ -268,15 +262,14 @@ export default function SeatBookingPage() {
     setHolding(true);
     setHoldError(null);
     try {
-      const rawHold = await axiosClient.post(`/seats/hold`, {
+      // FIX: endpoint đúng là /showtime-seats/hold-many (theo ShowtimeSeatsController)
+      const holdData = await axiosClient.post(`/showtime-seats/hold-many`, {
         showtimeId: Number(showtimeId),
         seatIds: Array.from(selectedIds).map(Number),
-      });
-      const holdData = ((rawHold as unknown) as { data?: HoldResponse })?.data ?? (rawHold as unknown as HoldResponse);
-      const ids: number[] =
-        Array.isArray(holdData?.holdIds) ? holdData.holdIds! :
-        Array.isArray((holdData as { data?: number[] })?.data) ? (holdData as { data: number[] }).data :
-        Array.from(selectedIds).map(Number);
+      }) as unknown as HoldResponse;
+      const ids: number[] = Array.isArray(holdData?.holdIds)
+        ? holdData.holdIds!
+        : Array.from(selectedIds).map(Number);
       setHeldIds(ids);
       startCountdown();
     } catch {
@@ -294,6 +287,17 @@ export default function SeatBookingPage() {
     setNavError('');
     try {
       const showtimeId = searchParams.get('showtimeId');
+
+      // FIX: Tạo booking trước, lấy bookingId rồi mới navigate
+      if (showtimeId && heldIds.length > 0) {
+        const bookingData = await axiosClient.post(`/bookings`, {
+          holdIds: heldIds,
+        }) as unknown as CreateBookingResponse;
+        navigate(`/payment/${bookingData.bookingId}`);
+        return;
+      }
+
+      // Mock mode — không có hold thật, navigate local
       const selectedSeats: BookingSeat[] = Array.from(selectedIds).map((sid) => {
         const s = seats.find((seat) => String(seat.id) === sid);
         return {
@@ -303,17 +307,19 @@ export default function SeatBookingPage() {
           seatId: sid, seatCode: `${s?.rowName ?? sid[0]}${s?.seatNumber ?? sid.slice(1)}`,
         };
       });
+      const total = selectedSeats.reduce((sum, s) => sum + s.price, 0);
       const params = new URLSearchParams({
-        seats: JSON.stringify(selectedSeats), showtimeId: showtimeId ?? '',
-        movieId: movieId ?? '', movieTitle: movie?.title ?? '', posterUrl: movie?.poster_url ?? '',
+        movieTitle: movie?.title ?? '',
         cinema: showtimeInfo?.cinemaName ?? searchParams.get('cinema') ?? '',
         room:   showtimeInfo?.roomName   ?? searchParams.get('room')   ?? '',
         date:   showtimeInfo?.showDate   ?? searchParams.get('date')   ?? '',
         time:   showtimeInfo?.showTime   ?? searchParams.get('time')   ?? '',
+        seats:  selectedSeats.map(s => s.seatCode).join(','),
+        total:  String(total),
       });
-      navigate(`/payment?${params.toString()}`);
+      navigate(`/payment/local?${params.toString()}`);
     } catch {
-      setNavError('Có lỗi xảy ra. Vui lòng thử lại.');
+      setNavError('Có lỗi xảy ra khi tạo đơn đặt vé. Vui lòng thử lại.');
     } finally {
       setNavigating(false);
     }

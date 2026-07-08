@@ -1,7 +1,8 @@
 import axios from 'axios';
 
+// NOTE: interceptor response unwrap response.data một lần duy nhất.
+// Tất cả các nơi gọi axiosClient KHÔNG được unwrap thêm lần nào nữa.
 const axiosClient = axios.create({
-  // FIX: bỏ /api trong fallback — backend không có global prefix
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002',
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
@@ -22,7 +23,6 @@ axiosClient.interceptors.response.use(
     console.error('[API ERROR]', { status, message, url: error.config?.url });
 
     if (status === 401 && !error.config?._retry) {
-      // FIX: Thử refresh token trước khi redirect login
       try {
         error.config._retry = true;
         const res = await axios.post(
