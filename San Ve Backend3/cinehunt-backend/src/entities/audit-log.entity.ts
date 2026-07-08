@@ -10,37 +10,40 @@ import { User } from './user.entity';
 
 @Entity('audit_logs')
 export class AuditLog {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
+  @PrimaryGeneratedColumn({ type: 'bigint', name: 'audit_id' })
   auditId: string;
 
-  @Column({ nullable: true, type: 'int' })
+  @Column({ name: 'user_id', nullable: true, type: 'int' })
   userId: number | null;
 
-  @Column({ type: 'varchar', length: 80 })
+  @Column({ name: 'action', type: 'varchar', length: 80 })
   action: string;
 
-  @Column({ type: 'varchar', length: 80 })
+  @Column({ name: 'entity_type', type: 'varchar', length: 80 })
   entityType: string;
 
-  @Column({ type: 'varchar', length: 80, nullable: true })
+  @Column({ name: 'entity_id', type: 'varchar', length: 80, nullable: true })
   entityId: string | null;
 
-  @Column({ type: 'nvarchar', nullable: true })
+  // SQL: old_values NVARCHAR(MAX) — nvarchar without length = MAX
+  @Column({ name: 'old_values', type: 'nvarchar', nullable: true })
   oldValues: string | null;
 
-  @Column({ type: 'nvarchar', nullable: true })
+  // SQL: new_values NVARCHAR(MAX)
+  @Column({ name: 'new_values', type: 'nvarchar', nullable: true })
   newValues: string | null;
 
-  @Column({ type: 'varchar', length: 45, nullable: true })
+  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
   ipAddress: string | null;
 
-  @Column({ type: 'nvarchar', length: 500, nullable: true })
+  // SQL: user_agent NVARCHAR(500) — entity cũ thiếu name: 'user_agent'
+  @Column({ name: 'user_agent', type: 'nvarchar', length: 500, nullable: true })
   userAgent: string | null;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn()
+  @JoinColumn({ name: 'user_id' })
   user: User | null;
 }

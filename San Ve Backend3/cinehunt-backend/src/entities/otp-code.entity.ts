@@ -10,34 +10,37 @@ import { User } from './user.entity';
 
 @Entity('otp_codes')
 export class OtpCode {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
+  @PrimaryGeneratedColumn({ type: 'bigint', name: 'otp_id' })
   otpId: string;
 
-  @Column({ type: 'int' })
+  // SQL: column name is user_id
+  @Column({ name: 'user_id', type: 'int' })
   userId: number;
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ name: 'code', type: 'varchar', length: 10 })
   code: string;
 
-  @Column({ type: 'varchar', length: 30 })
+  // SQL CHECK: ('VERIFY_EMAIL','FORGOT_PASSWORD','RESET_PASSWORD','LOGIN')
+  // Entity cũ thiếu 'CHANGE_PHONE' không có trong DB CHECK, và thiếu 'FORGOT_PASSWORD','LOGIN'
+  @Column({ name: 'purpose', type: 'varchar', length: 30 })
   purpose: string;
 
-  @Column({ type: 'datetime2', precision: 0 })
+  @Column({ name: 'expires_at', type: 'datetime2', precision: 0 })
   expiresAt: Date;
 
-  @Column({ type: 'bit', default: false })
+  @Column({ name: 'is_used', type: 'bit', default: false })
   isUsed: boolean;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'attempts', type: 'int', default: 0 })
   attempts: number;
 
-  @CreateDateColumn({ type: 'datetime2', precision: 0 })
+  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
   createdAt: Date;
 
-  @Column({ type: 'datetime2', precision: 0, nullable: true })
+  @Column({ name: 'used_at', type: 'datetime2', precision: 0, nullable: true })
   usedAt: Date | null;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn()
+  @JoinColumn({ name: 'user_id' })
   user: User;
 }
