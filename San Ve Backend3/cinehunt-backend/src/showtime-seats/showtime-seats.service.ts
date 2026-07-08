@@ -110,11 +110,11 @@ export class ShowtimeSeatsService {
   }
 
   async getHoldDetails(userId: number, holdId: number) {
-    return this.seatHoldService.getHoldDetails(holdId, userId);
+    return this.seatHoldService.getHoldDetails(String(holdId), userId);
   }
 
   async releaseHold(userId: number, holdId: number) {
-    await this.seatHoldService.releaseHold(holdId, userId);
+    await this.seatHoldService.releaseHold(String(holdId), userId);
     return { message: 'Release hold thành công', holdId };
   }
 
