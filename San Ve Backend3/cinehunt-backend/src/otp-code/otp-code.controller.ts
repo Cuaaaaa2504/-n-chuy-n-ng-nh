@@ -1,4 +1,5 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { OtpCodeService } from './otp-code.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
@@ -7,6 +8,8 @@ import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user
 export class OtpCodeController {
   constructor(private readonly otpCodeService: OtpCodeService) {}
 
+  // Strict limit: 3 OTP requests / 60s to prevent OTP spam
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
   @Post('generate')
   @UseGuards(JwtAuthGuard)
   generate(
@@ -16,6 +19,8 @@ export class OtpCodeController {
     return this.otpCodeService.generateOtp(user.userId, purpose);
   }
 
+  // Strict limit: 5 verify attempts / 60s to prevent OTP brute-force
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('verify')
   @UseGuards(JwtAuthGuard)
   verify(

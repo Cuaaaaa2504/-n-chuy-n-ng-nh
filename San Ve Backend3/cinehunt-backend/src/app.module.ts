@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { BookingModule } from './booking/booking.module';
 import { ShowtimeSeatsModule } from './showtime-seats/showtime-seats.module';
 import { MovieModule } from './movie/movie.module';
@@ -24,6 +26,8 @@ import { ProductModule } from './product/product.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    // Global rate limit: 20 requests / 60s per IP
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -58,6 +62,13 @@ import { ProductModule } from './product/product.module';
     ShowtimeModule,
     TicketWatchRequestModule,
     ProductModule,
+  ],
+  providers: [
+    // Apply ThrottlerGuard globally across all routes
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -23,11 +24,15 @@ import { Roles } from './decorators/roles.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Stricter limit: 5 attempts / 60s to prevent brute-force
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
+  // Stricter limit: 5 attempts / 60s to prevent brute-force
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     return this.authService.login(dto, {
@@ -51,12 +56,14 @@ export class AuthController {
     return this.authService.logout(user.userId, refreshToken);
   }
 
+  @SkipThrottle()
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@CurrentUser() user: CurrentUserPayload) {
     return this.authService.getProfile(user.userId);
   }
 
+  @SkipThrottle()
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   async updateMe(
@@ -75,6 +82,7 @@ export class AuthController {
     return this.authService.changePassword(user.userId, body);
   }
 
+  @SkipThrottle()
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -82,6 +90,7 @@ export class AuthController {
     return this.authService.getAllUsers();
   }
 
+  @SkipThrottle()
   @Patch('users/:id/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -92,6 +101,7 @@ export class AuthController {
     return this.authService.setUserStatus(id, status);
   }
 
+  @SkipThrottle()
   @Get('admin-only')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -99,6 +109,7 @@ export class AuthController {
     return { message: 'Bạn đang truy cập API chỉ dành cho ADMIN' };
   }
 
+  @SkipThrottle()
   @Get('staff-or-admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STAFF', 'ADMIN')
