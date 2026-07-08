@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConcessionCombo } from '../entities/concession-combo.entity';
@@ -10,31 +10,58 @@ export class ConcessionComboService {
     private readonly repo: Repository<ConcessionCombo>,
   ) {}
 
-  findAll(): Promise<ConcessionCombo[]> {
-    return this.repo.find({
-      where: { status: 'ACTIVE' },
-      order: { comboId: 'ASC' },
-    });
+  async findAll(): Promise<ConcessionCombo[]> {
+    try {
+      return await this.repo.find({
+        where: { status: 'ACTIVE' },
+        order: { comboId: 'ASC' },
+      });
+    } catch {
+      throw new InternalServerErrorException('Không tải được danh sách combo');
+    }
   }
 
   async findOne(id: number): Promise<ConcessionCombo> {
-    const combo = await this.repo.findOne({ where: { comboId: id } });
-    if (!combo) throw new NotFoundException(`Combo #${id} không tồn tại`);
-    return combo;
+    try {
+      const combo = await this.repo.findOne({ where: { comboId: id } });
+      if (!combo) throw new NotFoundException(`Combo #${id} không tồn tại`);
+      return combo;
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      throw new InternalServerErrorException('Không tải được thông tin combo');
+    }
   }
 
-  create(data: Partial<ConcessionCombo>): Promise<ConcessionCombo> {
-    return this.repo.save(this.repo.create(data));
+  async create(data: Partial<ConcessionCombo>): Promise<ConcessionCombo> {
+    try {
+      return await this.repo.save(this.repo.create(data));
+    } catch (err: any) {
+      // SQL Server unique constraint violation: error number 2627 hoặc 2601
+      if (err?.number === 2627 || err?.number === 2601 || err?.code === '23505') {
+        throw new ConflictException('Combo đã tồn tại');
+      }
+      throw new InternalServerErrorException('Không tạo được combo');
+    }
   }
 
   async update(id: number, data: Partial<ConcessionCombo>): Promise<ConcessionCombo> {
-    await this.findOne(id);
-    await this.repo.update({ comboId: id }, data);
-    return this.findOne(id);
+    try {
+      await this.findOne(id);
+      await this.repo.update({ comboId: id }, data);
+      return this.findOne(id);
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      throw new InternalServerErrorException('Không cập nhật được combo');
+    }
   }
 
   async remove(id: number): Promise<void> {
-    await this.findOne(id);
-    await this.repo.update({ comboId: id }, { status: 'INACTIVE' });
+    try {
+      await this.findOne(id);
+      await this.repo.update({ comboId: id }, { status: 'INACTIVE' });
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      throw new InternalServerErrorException('Không xóa được combo');
+    }
   }
 }
