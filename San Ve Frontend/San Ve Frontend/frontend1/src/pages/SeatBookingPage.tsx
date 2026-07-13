@@ -14,17 +14,6 @@ const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900"
 const MAX_SEATS    = 8;
 const HOLD_SECONDS = 300;
 
-interface BookingSeat {
-  id: string;
-  row: string;
-  number: number;
-  type: string;
-  price: number;
-  status: 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED';
-  seatId: string;
-  seatCode: string;
-}
-
 function generateMockSeats(showtimeId?: string): SeatDto[] {
   void showtimeId;
   const rows  = ['A','B','C','D','E','F','G','H'];
@@ -46,11 +35,14 @@ function generateMockSeats(showtimeId?: string): SeatDto[] {
   return seats;
 }
 
-// FIX: regex cũ bị lỗi cú pháp: [.[\\w-]{11} → sửa thành [\\w-]{11}
 function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
   const m = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=0` : null;
+}
+
+function formatVND(amount: number) {
+  return amount.toLocaleString('vi-VN') + ' ₫';
 }
 
 interface SeatMapResponse {
@@ -80,6 +72,8 @@ interface MovieInfo {
   trailer_url?: string;
   age_rating?: string;
   duration_minutes?: number;
+  genres?: string[];
+  description?: string;
 }
 
 interface HoldResponse {
@@ -92,43 +86,39 @@ interface CreateBookingResponse {
 }
 
 export default function SeatBookingPage() {
-  // FIX: dùng useParams chung — hỗ trợ cả route /movies/:id/seats và /booking/:id
-  const params = useParams<{ id?: string; movieId?: string }>();
+  const params  = useParams<{ id?: string; movieId?: string }>();
   const movieId = params.id ?? params.movieId;
 
-  const [searchParams]              = useSearchParams();
-  const { darkMode }                = useTheme();
+  const [searchParams]  = useSearchParams();
+  const { darkMode }    = useTheme();
+  const navigate        = useNavigate();
 
-  const [movie, setMovie]           = useState<MovieInfo | null>(null);
-  const [seats, setSeats]           = useState<SeatDto[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showtimeInfo, setShowtimeInfo] = useState<ShowtimeInfo | null>(null);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [holdError, setHoldError]   = useState<string | null>(null);
-  const [heldIds, setHeldIds]       = useState<number[]>([]);
-  const [holdCountdown, setHoldCountdown] = useState<number>(HOLD_SECONDS);
-  // FIX #51: thêm state thông báo hết hạn giữ ghế
-  const [holdExpired, setHoldExpired] = useState(false);
-  const [holding, setHolding]       = useState(false);
-  const [navigating, setNavigating] = useState(false);
-  const [navError, setNavError]     = useState<string>('');
-  const [usingMock, setUsingMock]   = useState(false);
-  const timerRef                    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const movieSetRef                 = useRef(false);
+  const [movie, setMovie]                     = useState<MovieInfo | null>(null);
+  const [seats, setSeats]                     = useState<SeatDto[]>([]);
+  const [selectedIds, setSelectedIds]         = useState<Set<string>>(new Set());
+  const [showtimeInfo, setShowtimeInfo]       = useState<ShowtimeInfo | null>(null);
+  const [loading, setLoading]                 = useState(true);
+  const [error, setError]                     = useState<string | null>(null);
+  const [holdError, setHoldError]             = useState<string | null>(null);
+  const [heldIds, setHeldIds]                 = useState<number[]>([]);
+  const [holdCountdown, setHoldCountdown]     = useState<number>(HOLD_SECONDS);
+  const [holdExpired, setHoldExpired]         = useState(false);
+  const [holding, setHolding]                 = useState(false);
+  const [navigating, setNavigating]           = useState(false);
+  const [navError, setNavError]               = useState<string>('');
+  const [usingMock, setUsingMock]             = useState(false);
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const movieSetRef = useRef(false);
 
-  const navigate = useNavigate();
-
+  // ─── Countdown ───────────────────────────────────────────────────────────
   const startCountdown = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setHoldCountdown(HOLD_SECONDS);
-    // FIX #51: reset trạng thái expired khi bắt đầu countdown mới
     setHoldExpired(false);
     timerRef.current = setInterval(() => {
       setHoldCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
-          // FIX #51: khi hết hạn — xóa hold, reset selectedIds, báo cho user
           setHeldIds([]);
           setSelectedIds(new Set());
           setHoldExpired(true);
@@ -143,6 +133,7 @@ export default function SeatBookingPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
+  // ─── Load data ────────────────────────────────────────────────────────────
   useEffect(() => {
     const id = setTimeout(() => {
       movieSetRef.current = false;
@@ -157,11 +148,10 @@ export default function SeatBookingPage() {
       setLoading(true);
       setError(null);
       const showtimeId = searchParams.get('showtimeId');
-
-      const qDate   = searchParams.get('date')   ?? null;
-      const qCinema = searchParams.get('cinema')  ?? null;
-      const qTime   = searchParams.get('time')    ?? null;
-      const qRoom   = searchParams.get('room')    ?? null;
+      const qDate      = searchParams.get('date')   ?? null;
+      const qCinema    = searchParams.get('cinema') ?? null;
+      const qTime      = searchParams.get('time')   ?? null;
+      const qRoom      = searchParams.get('room')   ?? null;
 
       if (!showtimeId) {
         setSeats(generateMockSeats());
@@ -180,10 +170,11 @@ export default function SeatBookingPage() {
       });
 
       try {
-        const data = await axiosClient.get<SeatMapResponse>(`/showtime-seats/${showtimeId}`) as unknown as SeatMapResponse;
+        const data = await axiosClient.get<SeatMapResponse>(
+          `/showtime-seats/${showtimeId}`
+        ) as unknown as SeatMapResponse;
 
-        const seatList: SeatDto[] = data.seats ?? [];
-
+        const seatList   = data.seats ?? [];
         const movieTitle = data.movieTitle ?? null;
         const cinemaName = data.cinemaName ?? qCinema ?? null;
         const roomName   = data.roomName   ?? qRoom   ?? null;
@@ -205,13 +196,15 @@ export default function SeatBookingPage() {
             const m = await axiosClient.get(`/movies/${movieId}`) as unknown as Record<string, unknown>;
             movieSetRef.current = true;
             setMovie({
-              movie_id: Number(m.movie_id ?? movieId),
-              title: String(m.title ?? movieTitle ?? ''),
-              poster_url: String(m.poster_url ?? FALLBACK_POSTER),
-              backdrop_url: String(m.backdrop_url ?? FALLBACK_BACKDROP),
-              trailer_url: m.trailer_url as string | undefined,
-              age_rating: m.age_rating as string | undefined,
-              duration_minutes: Number(m.duration_minutes ?? 0),
+              movie_id:          Number(m.movie_id ?? movieId),
+              title:             String(m.title ?? movieTitle ?? ''),
+              poster_url:        String(m.poster_url ?? FALLBACK_POSTER),
+              backdrop_url:      String(m.backdrop_url ?? FALLBACK_BACKDROP),
+              trailer_url:       m.trailer_url as string | undefined,
+              age_rating:        m.age_rating  as string | undefined,
+              duration_minutes:  Number(m.duration_minutes ?? 0),
+              genres:            Array.isArray(m.genres) ? (m.genres as string[]) : [],
+              description:       m.description as string | undefined,
             });
           } catch {
             if (!movieSetRef.current) {
@@ -234,35 +227,30 @@ export default function SeatBookingPage() {
     return () => clearTimeout(id);
   }, [movieId, searchParams]);
 
+  // ─── Seat toggle ─────────────────────────────────────────────────────────
   const handleSeatToggle = (seatId: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(seatId)) {
-        next.delete(seatId);
-      } else {
-        if (next.size >= MAX_SEATS) return prev;
-        next.add(seatId);
-      }
+      if (next.has(seatId)) { next.delete(seatId); }
+      else { if (next.size >= MAX_SEATS) return prev; next.add(seatId); }
       return next;
     });
   };
 
+  // ─── Hold seats ──────────────────────────────────────────────────────────
   const handleHoldSeats = async (): Promise<number[] | null> => {
     const showtimeId = searchParams.get('showtimeId');
     if (!showtimeId || selectedIds.size === 0) return null;
-
     setHolding(true);
     setHoldError(null);
     try {
       const showtimeSeatIds = seats
         .filter((s) => selectedIds.has(s.id))
         .map((s) => Number(s.id));
-
       const res = await axiosClient.post('/showtime-seats/hold-many', {
         showtimeId: Number(showtimeId),
         showtimeSeatIds,
       }) as unknown as HoldResponse;
-
       const ids = res.holdIds ?? [];
       setHeldIds(ids);
       startCountdown();
@@ -276,19 +264,18 @@ export default function SeatBookingPage() {
     }
   };
 
+  // ─── Proceed to payment ───────────────────────────────────────────────────
   const handleProceed = async () => {
     if (selectedIds.size === 0) return;
     setNavigating(true);
     setNavError('');
-
     const showtimeId = searchParams.get('showtimeId');
 
-    // Local/mock mode: không có showtimeId thật
     if (!showtimeId || usingMock) {
       const selectedSeatObjects = seats.filter((s) => selectedIds.has(s.id));
       const totalAmount = selectedSeatObjects.reduce((sum, s) => sum + s.price, 0);
-      const seatCodes = selectedSeatObjects.map((s) => `${s.rowName}${s.seatNumber}`);
-      const params = new URLSearchParams({
+      const seatCodes   = selectedSeatObjects.map((s) => `${s.rowName}${s.seatNumber}`);
+      const p = new URLSearchParams({
         seats: seatCodes.join(','),
         total: String(totalAmount),
         movieTitle: movie?.title ?? showtimeInfo?.movieTitle ?? 'Vé xem phim',
@@ -297,13 +284,12 @@ export default function SeatBookingPage() {
         ...(showtimeInfo?.showDate   ? { date:   showtimeInfo.showDate }   : {}),
         ...(showtimeInfo?.showTime   ? { time:   showtimeInfo.showTime }   : {}),
       });
-      navigate(`/payment/local?${params.toString()}`);
+      navigate(`/payment/local?${p.toString()}`);
       setNavigating(false);
       return;
     }
 
     try {
-      // Bước 1: Hold ghế
       let holdIds = heldIds;
       if (!holdIds.length) {
         const newHoldIds = await handleHoldSeats();
@@ -315,7 +301,6 @@ export default function SeatBookingPage() {
         holdIds = newHoldIds;
       }
 
-      // Bước 2: Tạo booking
       const bookingData = await axiosClient.post('/bookings', {
         holdIds,
         showtimeId: Number(showtimeId),
@@ -326,8 +311,6 @@ export default function SeatBookingPage() {
         setNavigating(false);
         return;
       }
-
-      // Bước 3: Navigate sang trang thanh toán với bookingId thật
       navigate(`/payment/${bookingData.bookingId}`);
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Có lỗi xảy ra. Vui lòng thử lại.';
@@ -337,57 +320,115 @@ export default function SeatBookingPage() {
     }
   };
 
-  const embedUrl = getYoutubeEmbedUrl(movie?.trailer_url);
-
-  const bg     = darkMode ? 'bg-gray-950 text-white'        : 'bg-gray-50 text-gray-900';
-  const card   = darkMode ? 'bg-gray-900 border-gray-800'   : 'bg-white border-gray-200';
-
-  // FIX #51: tính totalPrice và danh sách ghế đã chọn để truyền đúng vào SelectedSeatsBar
+  // ─── Derived ─────────────────────────────────────────────────────────────
+  const embedUrl            = getYoutubeEmbedUrl(movie?.trailer_url);
   const selectedSeatObjects = seats.filter((s) => selectedIds.has(s.id));
-  const totalPrice = selectedSeatObjects.reduce((sum, s) => sum + s.price, 0);
+  const totalPrice          = selectedSeatObjects.reduce((sum, s) => sum + s.price, 0);
+  const countdownMM         = String(Math.floor(holdCountdown / 60)).padStart(2, '0');
+  const countdownSS         = String(holdCountdown % 60).padStart(2, '0');
+  const countdownUrgent     = holdCountdown < 60 && heldIds.length > 0;
 
+  // ─── Theme tokens ────────────────────────────────────────────────────────
+  const bg        = darkMode ? 'bg-gray-950 text-white'      : 'bg-gray-50 text-gray-900';
+  const card      = darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200';
+  const cardMuted = darkMode ? 'text-gray-400'               : 'text-gray-500';
+  const divider   = darkMode ? 'border-gray-700'             : 'border-gray-200';
+
+  // ─── Loading skeleton ────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${bg}`}>
-        <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
     <div className={`min-h-screen ${bg}`}>
-      {/* Backdrop */}
+
+      {/* ── Backdrop ── */}
       {movie?.backdrop_url && (
-        <div className="relative h-48 md:h-64 overflow-hidden">
-          <img
-            src={movie.backdrop_url}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80" />
+        <div className="relative h-44 md:h-60 overflow-hidden">
+          <img src={movie.backdrop_url} alt="" className="w-full h-full object-cover opacity-40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/90" />
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Movie info */}
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+        {/* ══════════════════════════════════════════════════════════════════
+            SECTION 1 — Thông tin phim + Phòng chiếu + Ngày giờ (tích hợp)
+        ══════════════════════════════════════════════════════════════════ */}
         {(movie || showtimeInfo) && (
-          <div className={`rounded-2xl border p-5 flex gap-4 ${card}`}>
-            {movie?.poster_url && (
-              <img
-                src={movie.poster_url}
-                alt={movie.title}
-                className="w-20 h-28 object-cover rounded-xl flex-shrink-0"
-              />
-            )}
-            <div className="space-y-1">
-              <h1 className="text-xl font-bold">{movie?.title ?? showtimeInfo?.movieTitle ?? ''}</h1>
-              {movie?.age_rating && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white">{movie.age_rating}</span>
+          <div className={`rounded-2xl border ${card} overflow-hidden`}>
+            <div className="flex flex-col md:flex-row gap-0">
+
+              {/* Poster */}
+              {movie?.poster_url && (
+                <div className="flex-shrink-0 md:w-36">
+                  <img
+                    src={movie.poster_url}
+                    alt={movie?.title ?? ''}
+                    className="w-full md:h-full object-cover max-h-52 md:max-h-none"
+                  />
+                </div>
               )}
-              {showtimeInfo?.cinemaName && <p className="text-sm opacity-70">🎬 {showtimeInfo.cinemaName}</p>}
-              {showtimeInfo?.roomName   && <p className="text-sm opacity-70">🚪 {showtimeInfo.roomName}</p>}
-              {showtimeInfo?.showDate   && <p className="text-sm opacity-70">📅 {showtimeInfo.showDate}</p>}
-              {showtimeInfo?.showTime   && <p className="text-sm opacity-70">⏰ {showtimeInfo.showTime}</p>}
+
+              {/* Info chính */}
+              <div className="flex-1 p-5 flex flex-col justify-between gap-4">
+
+                {/* Tên phim + badge */}
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-xl md:text-2xl font-bold leading-tight">
+                      {movie?.title ?? showtimeInfo?.movieTitle ?? ''}
+                    </h1>
+                    {movie?.age_rating && (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-red-500 text-white uppercase tracking-wide">
+                        {movie.age_rating}
+                      </span>
+                    )}
+                  </div>
+                  {movie?.genres && movie.genres.length > 0 && (
+                    <p className={`text-sm ${cardMuted}`}>{movie.genres.join(' • ')}</p>
+                  )}
+                  {movie?.duration_minutes && movie.duration_minutes > 0 ? (
+                    <p className={`text-sm ${cardMuted}`}>⏱ {movie.duration_minutes} phút</p>
+                  ) : null}
+                </div>
+
+                {/* Divider */}
+                <div className={`border-t ${divider}`} />
+
+                {/* Phòng chiếu + Ngày giờ — grid 2 cột */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  {showtimeInfo?.cinemaName && (
+                    <div className="col-span-2 md:col-span-4">
+                      <span className={`block text-xs uppercase tracking-wider font-semibold mb-0.5 ${cardMuted}`}>Rạp chiếu</span>
+                      <span className="font-medium">🎬 {showtimeInfo.cinemaName}</span>
+                    </div>
+                  )}
+                  {showtimeInfo?.roomName && (
+                    <div>
+                      <span className={`block text-xs uppercase tracking-wider font-semibold mb-0.5 ${cardMuted}`}>Phòng</span>
+                      <span className="font-medium">🚪 {showtimeInfo.roomName}</span>
+                    </div>
+                  )}
+                  {showtimeInfo?.showDate && (
+                    <div>
+                      <span className={`block text-xs uppercase tracking-wider font-semibold mb-0.5 ${cardMuted}`}>Ngày chiếu</span>
+                      <span className="font-medium">📅 {showtimeInfo.showDate}</span>
+                    </div>
+                  )}
+                  {showtimeInfo?.showTime && (
+                    <div>
+                      <span className={`block text-xs uppercase tracking-wider font-semibold mb-0.5 ${cardMuted}`}>Giờ chiếu</span>
+                      <span className="font-medium">⏰ {showtimeInfo.showTime}</span>
+                    </div>
+                  )}
+                </div>
+
+              </div>
             </div>
           </div>
         )}
@@ -407,63 +448,160 @@ export default function SeatBookingPage() {
 
         {/* Mock warning */}
         {usingMock && (
-          <div className="rounded-xl px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 text-sm">
+          <div className="rounded-xl px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 text-sm">
             ⚠️ Đang dùng dữ liệu ghế mẫu. Kết quả đặt vé sẽ không được lưu.
           </div>
         )}
-
-        {/* Seat Map */}
         {error && !usingMock && (
           <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
             {error}
           </div>
         )}
 
-        <SeatMap
-          seats={seats}
-          selectedIds={selectedIds}
-          onSeatToggle={handleSeatToggle}
-          maxSeats={MAX_SEATS}
-        />
+        {/* ══════════════════════════════════════════════════════════════════
+            SECTION 2 — SeatMap (trái) + Panel giữ ghế (phải)
+        ══════════════════════════════════════════════════════════════════ */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
 
-        {/* Hold countdown — inline trong page */}
-        {heldIds.length > 0 && (
-          <div className={`text-center text-sm font-mono font-bold ${
-            holdCountdown < 60 ? 'text-red-500' : 'text-yellow-500'
-          }`}>
-            ⏳ Ghế đang được giữ: {String(Math.floor(holdCountdown / 60)).padStart(2,'0')}:{String(holdCountdown % 60).padStart(2,'0')}
+          {/* ── SeatMap ── */}
+          <div className="flex-1 min-w-0">
+            <SeatMap
+              seats={seats}
+              selectedIds={selectedIds}
+              onSeatToggle={handleSeatToggle}
+              maxSeats={MAX_SEATS}
+            />
           </div>
-        )}
 
-        {/* FIX #51: banner thông báo rõ ràng khi giữ ghế hết hạn */}
-        {holdExpired && (
-          <div className="rounded-xl px-4 py-3 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-sm font-medium">
-            ⌛ Thời gian giữ ghế đã hết. Vui lòng chọn lại ghế và tiến hành đặt vé.
-          </div>
-        )}
+          {/* ── Panel giữ ghế ── */}
+          <div className={`w-full lg:w-72 rounded-2xl border ${card} p-5 space-y-4 sticky top-4`}>
 
-        {holdError && (
-          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-            {holdError}
-          </div>
-        )}
+            <h2 className="text-base font-bold">Tóm tắt đặt vé</h2>
 
-        {navError && (
-          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-            {navError}
-          </div>
-        )}
+            {/* Countdown */}
+            {heldIds.length > 0 ? (
+              <div className={`rounded-xl px-4 py-3 text-center font-mono font-bold text-lg border ${
+                countdownUrgent
+                  ? 'bg-red-500/10 border-red-500/30 text-red-500'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+              }`}>
+                <div className="text-xs font-sans font-normal mb-0.5 opacity-70">Thời gian giữ ghế</div>
+                ⏳ {countdownMM}:{countdownSS}
+              </div>
+            ) : (
+              <div className={`rounded-xl px-4 py-3 text-center text-sm border ${
+                darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-500'
+              }`}>
+                <div>Chưa giữ ghế</div>
+                <div className="text-xs mt-0.5 opacity-60">Mặc định {HOLD_SECONDS / 60} phút sau khi nhấn giữ</div>
+              </div>
+            )}
 
-        {/* FIX #51: truyền đúng totalPrice, selectedSeatObjects và holdCountdown vào SelectedSeatsBar */}
-        <SelectedSeatsBar
-          seats={selectedSeatObjects}
-          totalPrice={totalPrice}
-          holdCountdown={heldIds.length > 0 ? holdCountdown : null}
-          onProceed={handleProceed}
-          holding={holding}
-          navigating={navigating}
-        />
+            {/* Ghế đã chọn */}
+            <div className="space-y-1.5">
+              <div className={`text-xs uppercase tracking-wider font-semibold ${cardMuted}`}>
+                Ghế đã chọn ({selectedSeatObjects.length}/{MAX_SEATS})
+              </div>
+              {selectedSeatObjects.length === 0 ? (
+                <p className={`text-sm ${cardMuted}`}>Chưa chọn ghế nào</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedSeatObjects.map((s) => (
+                    <span
+                      key={s.id}
+                      className={`text-xs px-2 py-1 rounded-lg font-medium ${
+                        s.type === 'VIP'
+                          ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                          : 'bg-green-500/20 text-green-500 border border-green-500/30'
+                      }`}
+                    >
+                      {s.rowName}{s.seatNumber}
+                      <span className="ml-1 opacity-60">{s.type === 'VIP' ? 'VIP' : 'STD'}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className={`border-t ${divider}`} />
+
+            {/* Giá */}
+            <div className="flex items-center justify-between">
+              <span className={`text-sm ${cardMuted}`}>Tổng tiền</span>
+              <span className="text-lg font-bold text-amber-500">{formatVND(totalPrice)}</span>
+            </div>
+
+            {/* Lỗi hold */}
+            {holdError && (
+              <div className="rounded-lg px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-xs">
+                {holdError}
+              </div>
+            )}
+            {holdExpired && (
+              <div className="rounded-lg px-3 py-2 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs">
+                ⌛ Thời gian giữ ghế đã hết. Vui lòng chọn lại ghế.
+              </div>
+            )}
+            {navError && (
+              <div className="rounded-lg px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-xs">
+                {navError}
+              </div>
+            )}
+
+            {/* Button giữ ghế */}
+            {!heldIds.length && !usingMock && searchParams.get('showtimeId') && (
+              <button
+                onClick={handleHoldSeats}
+                disabled={holding || selectedIds.size === 0}
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  selectedIds.size === 0 || holding
+                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95 shadow'
+                }`}
+              >
+                {holding ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Đang giữ…
+                  </span>
+                ) : '🔒 Giữ ghế (300s)'}
+              </button>
+            )}
+
+            {/* Button đặt vé */}
+            <button
+              onClick={handleProceed}
+              disabled={navigating || selectedIds.size === 0}
+              className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${
+                selectedIds.size === 0 || navigating
+                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                  : 'bg-amber-500 hover:bg-amber-400 text-gray-950 active:scale-95 shadow-lg shadow-amber-500/20'
+              }`}
+            >
+              {navigating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+                  Đang xử lý…
+                </span>
+              ) : `Đặt vé →`}
+            </button>
+
+          </div>{/* end panel */}
+        </div>{/* end flex row */}
+
       </div>
+
+      {/* ── Bottom bar (mobile) ── */}
+      <SelectedSeatsBar
+        seats={selectedSeatObjects}
+        totalPrice={totalPrice}
+        holdCountdown={heldIds.length > 0 ? holdCountdown : null}
+        onProceed={handleProceed}
+        holding={holding}
+        navigating={navigating}
+      />
+
     </div>
   );
 }
