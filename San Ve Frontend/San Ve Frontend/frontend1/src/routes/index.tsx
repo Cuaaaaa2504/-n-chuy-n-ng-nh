@@ -53,7 +53,11 @@ export default function AppRouter() {
           {/* Protected (yêu cầu đăng nhập) */}
           <Route element={<PrivateRoute />}>
             <Route path="/showtimes/:movieId" element={<ShowtimeSelectPage />} />
-            <Route path="/booking/:movieId" element={<SeatBookingPage />} />
+            {/* FIX: thêm route /movies/:id/seats để SeatBookingPage nhận đúng movieId */}
+            <Route path="/movies/:id/seats" element={<SeatBookingPage />} />
+            <Route path="/booking/:id" element={<SeatBookingPage />} />
+            {/* FIX: tách /payment/local riêng trước /:orderId để không bị match sai */}
+            <Route path="/payment/local" element={<PaymentPage />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />
             <Route path="/my-tickets" element={<MyBookingsPage />} />
             <Route path="/tickets" element={<TicketPage />} />

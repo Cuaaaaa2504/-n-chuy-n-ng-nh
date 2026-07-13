@@ -128,7 +128,6 @@ export default function ShowtimeSelectPage() {
   const [allShowtimes, setAllShowtimes]         = useState<Showtime[]>([]);
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
   const [selectedDate, setSelectedDate]         = useState<string | null>(null);
-  // FIX: xóa selectedCinemaId state (chưa dùng) — filter cinema sẽ implement sau
   const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
 
   const movieIdRef = useRef(movieId);
@@ -208,6 +207,7 @@ export default function ShowtimeSelectPage() {
     return map;
   }, [filtered]);
 
+  // FIX: navigate đúng sang /movies/:id/seats thay vì /movies/:id/seats (path không tồn tại trước đây)
   const handleSelectShowtime = (s: Showtime) => {
     if (isPast(s.startTime)) return;
     const date = s.startTime.split('T')[0];
@@ -294,7 +294,7 @@ export default function ShowtimeSelectPage() {
           </div>
         ) : null}
 
-        {/* Showtimes */}
+        {/* Showtimes grouped by cinema */}
         {loadingShowtimes ? (
           <div className="space-y-4">
             {[1,2].map(i => (
@@ -321,13 +321,17 @@ export default function ShowtimeSelectPage() {
                         key={s.showtimeId}
                         onClick={() => handleSelectShowtime(s)}
                         disabled={past}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                        className={`flex flex-col items-center px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                           past
                             ? 'bg-gray-800 text-gray-600 cursor-not-allowed line-through'
                             : 'bg-amber-500 hover:bg-amber-400 text-gray-950 shadow hover:shadow-md active:scale-95'
                         }`}
                       >
-                        {formatTime(s.startTime)}
+                        <span>{formatTime(s.startTime)}</span>
+                        {/* Hiển thị tên phòng chiếu trên mỗi nút */}
+                        <span className={`text-xs mt-0.5 ${
+                          past ? 'text-gray-600' : 'text-gray-800 opacity-70'
+                        }`}>{s.roomName}</span>
                       </button>
                     );
                   })}

@@ -92,7 +92,10 @@ interface CreateBookingResponse {
 }
 
 export default function SeatBookingPage() {
-  const { id: movieId }             = useParams<{ id: string }>();
+  // FIX: dùng useParams chung — hỗ trợ cả route /movies/:id/seats và /booking/:id
+  const params = useParams<{ id?: string; movieId?: string }>();
+  const movieId = params.id ?? params.movieId;
+
   const [searchParams]              = useSearchParams();
   const { darkMode }                = useTheme();
 
