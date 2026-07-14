@@ -6,7 +6,7 @@ import { cancelBooking, getBookingTickets, getMyBookings } from '../api/bookingA
 import BookingTicketsModal from '../components/BookingTicketsModal';
 import EmptyTickets from '../components/tickets/EmptyTickets';
 import type { Booking, BookingTicket } from '../types/booking';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/useTheme';
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: '⏳ Chờ thanh toán',

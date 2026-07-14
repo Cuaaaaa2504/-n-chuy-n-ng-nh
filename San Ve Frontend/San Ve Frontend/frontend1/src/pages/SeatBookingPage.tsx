@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/useTheme";
 import type { SeatDto } from "../types/seat.types";
+import type { Seat } from "../hooks/useSeatHold";
 import axiosClient from "../api/axiosClient";
 
 const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
@@ -245,7 +246,7 @@ export default function SeatBookingPage() {
     setHoldError(null);
     try {
       const showtimeSeatIds = seats
-        .filter((s) => selectedIds.has(s.id))
+        .filter((s) => selectedIds.has(String(s.id)))
         .map((s) => Number(s.id));
       const res = await axiosClient.post('/showtime-seats/hold-many', {
         showtimeId: Number(showtimeId),
@@ -272,8 +273,8 @@ export default function SeatBookingPage() {
     const showtimeId = searchParams.get('showtimeId');
 
     if (!showtimeId || usingMock) {
-      const selectedSeatObjects = seats.filter((s) => selectedIds.has(s.id));
-      const totalAmount = selectedSeatObjects.reduce((sum, s) => sum + s.price, 0);
+      const selectedSeatObjects = seats.filter((s) => selectedIds.has(String(s.id)));
+      const totalAmount = selectedSeatObjects.reduce((sum, s) => sum + (s.price ?? 0), 0);
       const seatCodes   = selectedSeatObjects.map((s) => `${s.rowName}${s.seatNumber}`);
       const p = new URLSearchParams({
         seats: seatCodes.join(','),
@@ -322,8 +323,17 @@ export default function SeatBookingPage() {
 
   // ─── Derived ─────────────────────────────────────────────────────────────
   const embedUrl            = getYoutubeEmbedUrl(movie?.trailer_url);
-  const selectedSeatObjects = seats.filter((s) => selectedIds.has(s.id));
-  const totalPrice          = selectedSeatObjects.reduce((sum, s) => sum + s.price, 0);
+  const selectedSeatObjects = seats.filter((s) => selectedIds.has(String(s.id)));
+  const totalPrice          = selectedSeatObjects.reduce((sum, s) => sum + (s.price ?? 0), 0);
+  // FIX TS2322: SelectedSeatsBar cần Seat[] (seatId/seatCode/price), không phải SeatDto[]
+  const selectedSeatBarItems: Seat[] = selectedSeatObjects.map((s) => ({
+    seatId:   s.id,
+    seatCode: `${s.rowName}${s.seatNumber}`,
+    price:    s.price ?? 0,
+    status:   s.status === 'BOOKED' ? 'SOLD' : (s.status === 'SELECTED' ? 'AVAILABLE' : s.status),
+  }));
+  // Ghế đang bị giữ (id dạng string) để SeatMap disable
+  const heldSeatKeys = new Set(heldIds.map(String));
   const countdownMM         = String(Math.floor(holdCountdown / 60)).padStart(2, '0');
   const countdownSS         = String(holdCountdown % 60).padStart(2, '0');
   const countdownUrgent     = holdCountdown < 60 && heldIds.length > 0;
@@ -470,6 +480,7 @@ export default function SeatBookingPage() {
               selectedIds={selectedIds}
               onSeatToggle={handleSeatToggle}
               maxSeats={MAX_SEATS}
+              heldIds={heldSeatKeys}
             />
           </div>
 
@@ -594,7 +605,7 @@ export default function SeatBookingPage() {
 
       {/* ── Bottom bar (mobile) ── */}
       <SelectedSeatsBar
-        seats={selectedSeatObjects}
+        seats={selectedSeatBarItems}
         totalPrice={totalPrice}
         holdCountdown={heldIds.length > 0 ? holdCountdown : null}
         onProceed={handleProceed}

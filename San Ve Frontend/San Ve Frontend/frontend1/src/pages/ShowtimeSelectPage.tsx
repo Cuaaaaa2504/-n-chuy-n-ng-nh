@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { mockMovies } from "../data/mockMovies";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/useTheme";
 import EmptyShowtime from "../components/showtime/EmptyShowtime";
 import axiosClient from "../api/axiosClient";
 

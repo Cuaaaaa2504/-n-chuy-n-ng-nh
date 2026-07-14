@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useUsers } from '../../hooks/useUsers';
-import type { User } from '../../types/user';
+import type { User, UserRole } from '../../types/user';
 
-function RoleBadge({ role }: { role?: string }) {
-  if (role === 'admin') {
+function RoleBadge({ role }: { role?: UserRole }) {
+  if (role === 'ADMIN') {
     return (
       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
         Admin
@@ -53,7 +53,7 @@ export default function AdminUsersPage() {
   const { users, total, loading, error, fetchUsers, deleteUser, changeRole } = useUsers();
   const [search, setSearch] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<User | null>(null);
-  const [confirmRole, setConfirmRole] = useState<{ user: User; newRole: 'user' | 'admin' } | null>(null);
+  const [confirmRole, setConfirmRole] = useState<{ user: User; newRole: UserRole } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
@@ -87,7 +87,7 @@ export default function AdminUsersPage() {
     setActionLoading(true);
     try {
       await changeRole(confirmRole.user.id, confirmRole.newRole);
-      showToast(`Đã đổi quyền thành ${confirmRole.newRole === 'admin' ? 'Admin' : 'User'}`, 'success');
+      showToast(`Đã đổi quyền thành ${confirmRole.newRole === 'ADMIN' ? 'Admin' : 'User'}`, 'success');
     } catch {
       showToast('Lỗi khi đổi quyền', 'error');
     } finally {
@@ -184,13 +184,13 @@ export default function AdminUsersPage() {
                           onClick={() =>
                             setConfirmRole({
                               user,
-                              newRole: user.role === 'admin' ? 'user' : 'admin',
+                              newRole: user.role === 'ADMIN' ? 'USER' : 'ADMIN',
                             })
                           }
                           disabled={actionLoading}
                           className="px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 border border-purple-600/30 transition disabled:opacity-50"
                         >
-                          {user.role === 'admin' ? 'Hạ quyền' : 'Cấp Admin'}
+                          {user.role === 'ADMIN' ? 'Hạ quyền' : 'Cấp Admin'}
                         </button>
                         <button
                           onClick={() => setConfirmDelete(user)}
@@ -221,7 +221,7 @@ export default function AdminUsersPage() {
       {/* Confirm Role Modal */}
       {confirmRole && (
         <ConfirmModal
-          message={`Đổi quyền của "${confirmRole.user.fullName}" thành ${confirmRole.newRole === 'admin' ? 'Admin' : 'User'}?`}
+          message={`Đổi quyền của "${confirmRole.user.fullName}" thành ${confirmRole.newRole === 'ADMIN' ? 'Admin' : 'User'}?`}
           onConfirm={handleChangeRole}
           onCancel={() => setConfirmRole(null)}
         />

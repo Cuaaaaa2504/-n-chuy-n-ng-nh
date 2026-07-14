@@ -21,21 +21,11 @@ export interface AuthResponse {
 const authApi = {
   // FIX [M-14]: thêm try/catch để lỗi API được xử lý nhất quán,
   // tránh unhandled rejection bubble lên UI
-  login: async (data: LoginRequest): Promise<AuthResponse> => {
-    try {
-      return await axiosClient.post<AuthResponse>('/auth/login', data) as unknown as AuthResponse;
-    } catch (err: unknown) {
-      throw err;
-    }
-  },
+  login: async (data: LoginRequest): Promise<AuthResponse> =>
+    await axiosClient.post<AuthResponse>('/auth/login', data) as unknown as AuthResponse,
 
-  register: async (data: RegisterRequest): Promise<AuthResponse> => {
-    try {
-      return await axiosClient.post<AuthResponse>('/auth/register', data) as unknown as AuthResponse;
-    } catch (err: unknown) {
-      throw err;
-    }
-  },
+  register: async (data: RegisterRequest): Promise<AuthResponse> =>
+    await axiosClient.post<AuthResponse>('/auth/register', data) as unknown as AuthResponse,
 
   logout: async (): Promise<void> => {
     try {
@@ -45,21 +35,11 @@ const authApi = {
     }
   },
 
-  getMe: async (): Promise<User> => {
-    try {
-      return await axiosClient.get<User>('/auth/me') as unknown as User;
-    } catch (err: unknown) {
-      throw err;
-    }
-  },
+  getMe: async (): Promise<User> =>
+    await axiosClient.get<User>('/auth/me') as unknown as User,
 
-  refreshToken: async (): Promise<{ accessToken: string }> => {
-    try {
-      return await axiosClient.post<{ accessToken: string }>('/auth/refresh') as unknown as { accessToken: string };
-    } catch (err: unknown) {
-      throw err;
-    }
-  },
+  refreshToken: async (): Promise<{ accessToken: string }> =>
+    await axiosClient.post<{ accessToken: string }>('/auth/refresh') as unknown as { accessToken: string },
 };
 
 export default authApi;

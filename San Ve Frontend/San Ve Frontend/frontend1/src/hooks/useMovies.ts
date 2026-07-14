@@ -65,9 +65,13 @@ export const useMovies = (autoFetch = true) => {
   useEffect(() => {
     if (!autoFetch) return;
     let cancelled = false;
-    fetchMovies().catch(() => {
-      if (!cancelled) setError('Không thể tải dữ liệu phim.');
-    });
+    void (async () => {
+      try {
+        await fetchMovies();
+      } catch {
+        if (!cancelled) setError('Không thể tải dữ liệu phim.');
+      }
+    })();
     return () => { cancelled = true; };
   }, [autoFetch, fetchMovies]);
 

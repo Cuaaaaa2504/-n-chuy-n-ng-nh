@@ -1,10 +1,10 @@
 import axiosClient from './axiosClient';
-import type { User } from '../types/user';
+import type { User, UserRole } from '../types/user';
 
 export interface UpdateUserRequest {
   fullName?: string;
   phone?: string;
-  role?: string;
+  role?: UserRole;
 }
 
 export interface UserListResponse {
@@ -37,7 +37,7 @@ const userApi = {
   delete: (id: number) =>
     axiosClient.delete(`/users/${id}`),
 
-  changeRole: (id: number, role: 'user' | 'admin') =>
+  changeRole: (id: number, role: UserRole) =>
     axiosClient.patch<User>(`/users/${id}/role`, { role }) as unknown as Promise<User>,
 
   uploadAvatar: (file: File) => {

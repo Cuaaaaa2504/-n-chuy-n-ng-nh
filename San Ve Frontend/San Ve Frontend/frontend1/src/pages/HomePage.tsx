@@ -2,7 +2,7 @@ import { useState } from 'react';
 import HeroBanner from '../components/HeroBanner';
 import MovieSection from '../components/MovieSection';
 import { mockMovies } from '../data/mockMovies';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/useTheme';
 
 type Tab = 'NOW_SHOWING' | 'COMING_SOON' | 'SPECIAL';
 

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
-import { getOrder, getPaymentMethods, payOrder } from '../api/paymentApi';
+import { useTheme } from '../context/useTheme';
+import { getOrder, getPaymentMethods } from '../api/paymentApi';
 import { usePayment } from '../hooks/usePayment';
 import type { OrderDetail, PaymentMethod, PaymentMethodCode } from '../api/paymentApi';
 
@@ -117,10 +117,20 @@ export default function PaymentPage() {
       return;
     }
 
+    if (!orderId) return;
     try {
-      const result = await payOrder(orderId!, method);
-      if (result.success) {
-        setOrder((prev) => prev ? { ...prev, status: 'PAID' } : prev);
+      // FIX: gọi qua usePayment để isProcessing / paymentStatus được cập nhật
+      const result = await handlePayment({
+        bookingId: orderId,
+        totalAmount: order.totalAmount,
+        method,
+      });
+      if (result.status === 'SUCCESS') {
+        if (result.redirectUrl) {
+          window.location.href = result.redirectUrl;
+          return;
+        }
+        setOrder((prev) => (prev ? { ...prev, status: 'PAID' } : prev));
         navigate('/my-tickets');
       }
     } catch (err: unknown) {

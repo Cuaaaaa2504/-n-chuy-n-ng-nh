@@ -37,7 +37,7 @@ export async function getMovies(params?: {
     return { items, total };
   } catch (err: unknown) {
     const msg = (err as { message?: string })?.message ?? 'Không tải được danh sách phim';
-    throw new Error(msg);
+    throw new Error(msg, { cause: err });
   }
 }
 
@@ -49,7 +49,7 @@ export async function getMovieById(id: number): Promise<Movie> {
     return normalizeMovie(item as Record<string, unknown>);
   } catch (err: unknown) {
     const msg = (err as { message?: string })?.message ?? 'Không tải được thông tin phim';
-    throw new Error(msg);
+    throw new Error(msg, { cause: err });
   }
 }
 
@@ -61,7 +61,7 @@ export async function createMovie(data: Omit<Movie, 'movie_id'>): Promise<Movie>
     return normalizeMovie(item as Record<string, unknown>);
   } catch (err: unknown) {
     const msg = (err as { message?: string })?.message ?? 'Không tạo được phim';
-    throw new Error(msg);
+    throw new Error(msg, { cause: err });
   }
 }
 
@@ -73,7 +73,7 @@ export async function updateMovie(id: number, data: Partial<Omit<Movie, 'movie_i
     return normalizeMovie(item as Record<string, unknown>);
   } catch (err: unknown) {
     const msg = (err as { message?: string })?.message ?? 'Không cập nhật được phim';
-    throw new Error(msg);
+    throw new Error(msg, { cause: err });
   }
 }
 
@@ -83,6 +83,6 @@ export async function deleteMovie(id: number): Promise<void> {
     await axiosClient.delete(`/movies/${id}`);
   } catch (err: unknown) {
     const msg = (err as { message?: string })?.message ?? 'Không xóa được phim';
-    throw new Error(msg);
+    throw new Error(msg, { cause: err });
   }
 }

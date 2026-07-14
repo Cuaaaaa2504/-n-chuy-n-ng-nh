@@ -1,10 +1,15 @@
 // src/types/seat.types.ts
 
-// FIX: thêm 'BOOKED' vào SeatStatus để tránh TS2367 khi so sánh seat.status === 'BOOKED'
 export type SeatStatus = 'AVAILABLE' | 'HELD' | 'SOLD' | 'BLOCKED' | 'SELECTED' | 'BOOKED';
 
+/** Id ghế có thể là number (API) hoặc string (mock "A1") */
+export type SeatId = number | string;
+
+/** Các trạng thái không cho phép chọn */
+export const UNSELECTABLE_STATUSES: SeatStatus[] = ['SOLD', 'HELD', 'BLOCKED', 'BOOKED'];
+
 export interface SeatDto {
-  id: number | string;
+  id: SeatId;
   rowName: string;
   seatNumber: number;
   status: SeatStatus;
@@ -14,15 +19,15 @@ export interface SeatDto {
 
 export interface SeatMapProps {
   seats: SeatDto[];
-  selectedSeats?: number[];
-  onSeatSelect?: (seatId: number) => void;
-  maxSelectable?: number;
-  showLegend?: boolean;
-  // props string-based id dùng trong SeatBookingPage
-  onSeatClick?: (seatId: string) => void;
+  /** Set các id (đã chuẩn hoá về string) đang được chọn */
   selectedIds?: Set<string>;
-  // FIX TS2322: thêm heldIds để SeatBookingPage có thể truyền vào
+  /** Callback khi click ghế — luôn nhận id dạng string */
+  onSeatToggle?: (seatId: string) => void;
+  /** Số ghế tối đa được chọn */
+  maxSeats?: number;
+  /** Set các id đang bị giữ bởi người khác */
   heldIds?: Set<string>;
+  showLegend?: boolean;
 }
 
 export interface SeatItemProps {

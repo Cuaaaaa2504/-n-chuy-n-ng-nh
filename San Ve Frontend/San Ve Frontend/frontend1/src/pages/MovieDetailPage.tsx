@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { mockMovies } from '../data/mockMovies';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/useTheme';
 
 const FALLBACK_POSTER = 'https://picsum.photos/seed/fallbackposter/500/750';
 const FALLBACK_BACKDROP = 'https://picsum.photos/seed/fallbackbackdrop/1600/900';

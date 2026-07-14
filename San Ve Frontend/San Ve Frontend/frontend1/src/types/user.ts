@@ -1,11 +1,13 @@
 // src/types/user.ts
 
+export type UserRole = 'USER' | 'ADMIN';
+
 export interface User {
   id: number;
   fullName: string;
   email: string;
   phone?: string;
-  role?: 'USER' | 'ADMIN';
+  role?: UserRole;
   avatarUrl?: string;
   createdAt?: string;
 }

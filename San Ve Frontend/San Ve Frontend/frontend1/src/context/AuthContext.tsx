@@ -45,14 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   });
-  // FIX [H-03]: loading = true trong lúc khởi tạo initial state từ localStorage
-  // Sử dụng false vì giá trị được khởi tạo đồng bộ từ localStorage ngay trong useState()
-  const [loading, setLoading] = useState<boolean>(false);
-
-  useEffect(() => {
-    // Đảm bảo loading = false sau khi hydrate xong (trường hợp SSR hoặc lazy init)
-    setLoading(false);
-  }, []);
+  // State được hydrate ĐỒNG BỘ từ localStorage ngay trong useState() initializer,
+  // nên không bao giờ có giai đoạn "đang tải" → loading luôn false.
+  // (Nếu sau này hydrate bằng API /auth/me thì đổi lại thành useState + setLoading.)
+  const loading = false;
 
   useEffect(() => {
     const handler = () => {

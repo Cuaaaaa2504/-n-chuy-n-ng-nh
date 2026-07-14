@@ -39,7 +39,7 @@ export async function getMyBookings(params: { page: number; limit: number }) {
     return { items, total };
   } catch (err: unknown) {
     const msg = (err as { message?: string })?.message ?? 'Không tải được danh sách booking';
-    throw new Error(msg);
+    throw new Error(msg, { cause: err });
   }
 }
 
@@ -54,7 +54,7 @@ export async function getBookingTickets(bookingId: string): Promise<BookingTicke
     return (rawItems as Record<string, unknown>[]).map(normalizeTicket);
   } catch (err: unknown) {
     const msg = (err as { message?: string })?.message ?? 'Không tải được vé';
-    throw new Error(msg);
+    throw new Error(msg, { cause: err });
   }
 }
 
@@ -65,6 +65,6 @@ export async function cancelBooking(bookingId: string) {
     return await axiosClient.delete(`/bookings/${bookingId}`);
   } catch (err: unknown) {
     const msg = (err as { message?: string })?.message ?? 'Không hủy được booking';
-    throw new Error(msg);
+    throw new Error(msg, { cause: err });
   }
 }

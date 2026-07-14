@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import userApi, { type UpdateUserRequest } from '../api/userApi';
-import type { User } from '../types/user';
+import type { User, UserRole } from '../types/user';
 
 export function useUsers() {
   const [users, setUsers] = useState<User[]>([]);
@@ -41,7 +41,7 @@ export function useUsers() {
     }
   }, []);
 
-  const changeRole = useCallback(async (id: number, role: 'user' | 'admin') => {
+  const changeRole = useCallback(async (id: number, role: UserRole) => {
     try {
       const updated = await userApi.changeRole(id, role);
       setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));

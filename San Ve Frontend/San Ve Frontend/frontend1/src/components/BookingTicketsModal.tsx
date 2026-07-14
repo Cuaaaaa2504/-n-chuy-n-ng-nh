@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { BookingTicket } from '../types/booking';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/useTheme';
 
 type Props = {
   open: boolean;

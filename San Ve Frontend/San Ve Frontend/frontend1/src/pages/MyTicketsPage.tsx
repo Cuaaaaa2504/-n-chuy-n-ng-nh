@@ -1,7 +1,7 @@
 // src/pages/MyTicketsPage.tsx
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../context/useTheme';
 import axiosClient from '../api/axiosClient';
 
 // ===== Types =====
