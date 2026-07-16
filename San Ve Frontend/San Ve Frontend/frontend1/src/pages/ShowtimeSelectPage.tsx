@@ -76,6 +76,20 @@ const getDayLabel = (dateStr: string) => {
 
 const isPast = (iso: string) => new Date(iso) < new Date();
 
+// ─── Helper normalize field từ backend (snake_case hoặc camelCase) ───────────
+function normalizeShowtime(item: Record<string, unknown>): Showtime {
+  const cinemaRaw = item.cinema as Record<string, unknown> | undefined;
+  const roomRaw   = item.room   as Record<string, unknown> | undefined;
+  return {
+    showtimeId: Number(item.showtimeId ?? item.showtime_id ?? item.id ?? 0),
+    cinemaId:   Number(item.cinemaId   ?? item.cinema_id   ?? cinemaRaw?.id ?? 0),
+    cinemaName: String(item.cinemaName ?? item.cinema_name ?? cinemaRaw?.name ?? 'Unknown'),
+    roomName:   String(item.roomName   ?? item.room_name   ?? roomRaw?.name  ?? 'Unknown'),
+    startTime:  String(item.startTime  ?? item.start_time  ?? ''),
+    endTime:    String(item.endTime    ?? item.end_time    ?? ''),
+  };
+}
+
 export default function ShowtimeSelectPage() {
   const { movieId } = useParams();
   const navigate    = useNavigate();
@@ -125,9 +139,9 @@ export default function ShowtimeSelectPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movieId]);
 
-  const [allShowtimes, setAllShowtimes]         = useState<Showtime[]>([]);
-  const [loadingShowtimes, setLoadingShowtimes] = useState(true);
-  const [selectedDate, setSelectedDate]         = useState<string | null>(null);
+  const [allShowtimes, setAllShowtimes]             = useState<Showtime[]>([]);
+  const [loadingShowtimes, setLoadingShowtimes]     = useState(true);
+  const [selectedDate, setSelectedDate]             = useState<string | null>(null);
   const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
 
   const movieIdRef = useRef(movieId);
@@ -142,13 +156,17 @@ export default function ShowtimeSelectPage() {
       setSelectedDate(null);
 
       try {
-        const raw = await axiosClient.get(`/showtimes?movieId=${movieIdRef.current}`);
+        const raw  = await axiosClient.get(`/showtimes?movieId=${movieIdRef.current}`);
         const data = ((raw as unknown) as { data?: unknown })?.data ?? raw as unknown;
-        const list: Showtime[] = Array.isArray(data)
-          ? (data as Showtime[])
+
+        // ✅ FIX: normalize từng item để xử lý cả camelCase lẫn snake_case
+        const rawList: Record<string, unknown>[] = Array.isArray(data)
+          ? (data as Record<string, unknown>[])
           : Array.isArray((data as Record<string, unknown>)?.data)
-          ? ((data as Record<string, unknown>).data as Showtime[])
+          ? ((data as Record<string, unknown>).data as Record<string, unknown>[])
           : [];
+
+        const list: Showtime[] = rawList.map(normalizeShowtime);
 
         if (cancelled) return;
 
@@ -207,7 +225,6 @@ export default function ShowtimeSelectPage() {
     return map;
   }, [filtered]);
 
-  // FIX: navigate đúng sang /movies/:id/seats thay vì /movies/:id/seats (path không tồn tại trước đây)
   const handleSelectShowtime = (s: Showtime) => {
     if (isPast(s.startTime)) return;
     const date = s.startTime.split('T')[0];
@@ -328,7 +345,6 @@ export default function ShowtimeSelectPage() {
                         }`}
                       >
                         <span>{formatTime(s.startTime)}</span>
-                        {/* Hiển thị tên phòng chiếu trên mỗi nút */}
                         <span className={`text-xs mt-0.5 ${
                           past ? 'text-gray-600' : 'text-gray-800 opacity-70'
                         }`}>{s.roomName}</span>

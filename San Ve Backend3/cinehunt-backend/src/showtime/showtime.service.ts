@@ -19,6 +19,7 @@ export class ShowtimeService {
   async findAll(): Promise<Showtime[]> {
     return this.showtimeRepository.find({
       where: { status: Not('CANCELLED') },
+      relations: ['room', 'room.cinema'],
       order: { startTime: 'ASC' },
     });
   }
@@ -26,14 +27,17 @@ export class ShowtimeService {
   async findOne(id: number): Promise<Showtime> {
     const showtime = await this.showtimeRepository.findOne({
       where: { showtimeId: id },
+      relations: ['room', 'room.cinema'],
     });
     if (!showtime) throw new NotFoundException('Showtime not found');
     return showtime;
   }
 
+  // ✅ FIX CHÍNH: thêm relations để join Room và Cinema
   async findByMovie(movieId: number): Promise<Showtime[]> {
     return this.showtimeRepository.find({
       where: { movieId, status: 'OPEN' },
+      relations: ['room', 'room.cinema'],
       order: { startTime: 'ASC' },
     });
   }
@@ -41,6 +45,7 @@ export class ShowtimeService {
   async findByRoom(roomId: number): Promise<Showtime[]> {
     return this.showtimeRepository.find({
       where: { roomId, status: Not('CANCELLED') },
+      relations: ['room', 'room.cinema'],
       order: { startTime: 'ASC' },
     });
   }
