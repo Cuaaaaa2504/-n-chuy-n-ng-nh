@@ -25,6 +25,19 @@ export class BookingCombo {
   @Column({ name: 'unit_price', type: 'decimal', precision: 12, scale: 2 })
   unitPrice: number;
 
+  // SQL: total_price AS (CONVERT(DECIMAL(12,2), quantity * unit_price)) PERSISTED
+  // Computed column — chỉ đọc, không insert/update
+  @Column({
+    name: 'total_price',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    insert: false,
+    update: false,
+    select: true,
+  })
+  totalPrice: number;
+
   @ManyToOne(() => BookingOrder, (booking) => booking.bookingCombos)
   @JoinColumn({ name: 'booking_id' })
   bookingOrder: BookingOrder;

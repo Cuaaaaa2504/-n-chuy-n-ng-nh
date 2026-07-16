@@ -31,10 +31,10 @@ export class Movie {
   @PrimaryGeneratedColumn({ name: 'movie_id' })
   movieId: number;
 
-  @Column({ name: 'title', length: 250 })
+  @Column({ name: 'title', type: 'nvarchar', length: 250 })
   title: string;
 
-  @Column({ name: 'original_title', length: 250, nullable: true })
+  @Column({ name: 'original_title', type: 'nvarchar', length: 250, nullable: true })
   originalTitle: string | null;
 
   @Column({ name: 'description', type: 'nvarchar', length: 'max', nullable: true })
@@ -52,25 +52,25 @@ export class Movie {
   @Column({ name: 'age_rating', length: 10, nullable: true })
   ageRating: string | null;
 
-  @Column({ name: 'director', length: 150, nullable: true })
+  @Column({ name: 'director', type: 'nvarchar', length: 150, nullable: true })
   director: string | null;
 
-  @Column({ name: 'actors', length: 1000, nullable: true })
+  @Column({ name: 'actors', type: 'nvarchar', length: 1000, nullable: true })
   actors: string | null;
 
-  @Column({ name: 'country', length: 100, nullable: true })
+  @Column({ name: 'country', type: 'nvarchar', length: 100, nullable: true })
   country: string | null;
 
-  @Column({ name: 'language', length: 100, nullable: true })
+  @Column({ name: 'language', type: 'nvarchar', length: 100, nullable: true })
   language: string | null;
 
-  @Column({ name: 'poster_url', length: 500, nullable: true })
+  @Column({ name: 'poster_url', type: 'nvarchar', length: 500, nullable: true })
   posterUrl: string | null;
 
-  @Column({ name: 'banner_url', length: 500, nullable: true })
+  @Column({ name: 'banner_url', type: 'nvarchar', length: 500, nullable: true })
   bannerUrl: string | null;
 
-  @Column({ name: 'trailer_url', length: 500, nullable: true })
+  @Column({ name: 'trailer_url', type: 'nvarchar', length: 500, nullable: true })
   trailerUrl: string | null;
 
   @Column({ name: 'average_rating', type: 'decimal', precision: 3, scale: 2, default: 0 })

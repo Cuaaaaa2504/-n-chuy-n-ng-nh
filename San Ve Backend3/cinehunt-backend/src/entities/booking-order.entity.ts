@@ -13,6 +13,7 @@ import { BookingDetail } from './booking-detail.entity';
 import { Payment } from './payment.entity';
 import { BookingCombo } from './booking-combo.entity';
 import { BookingProduct } from './booking-product.entity';
+import { Voucher } from './voucher.entity';
 
 @Entity('booking_orders')
 export class BookingOrder {
@@ -79,6 +80,12 @@ export class BookingOrder {
   @ManyToOne(() => Showtime)
   @JoinColumn({ name: 'showtime_id' })
   showtime: Showtime;
+
+  // SQL: FK_booking_orders_promotion — promotion_id -> promotions(promotion_id)
+  // Voucher là entity map tới bảng promotions
+  @ManyToOne(() => Voucher, { nullable: true })
+  @JoinColumn({ name: 'promotion_id' })
+  promotion: Voucher | null;
 
   @OneToMany(() => BookingDetail, (bd) => bd.bookingOrder)
   bookingDetails: BookingDetail[];

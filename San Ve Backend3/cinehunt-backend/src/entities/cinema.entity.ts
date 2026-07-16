@@ -13,17 +13,26 @@ export class Cinema {
   @PrimaryGeneratedColumn({ type: 'int', name: 'cinema_id' })
   cinemaId: number;
 
-  @Column({ name: 'cinema_name', type: 'nvarchar', length: 100 })
+  @Column({ name: 'cinema_name', type: 'nvarchar', length: 180 })
   cinemaName: string;
 
-  @Column({ name: 'address', type: 'nvarchar', length: 255, nullable: true })
-  address: string | null;
+  @Column({ name: 'address', type: 'nvarchar', length: 300 })
+  address: string;
 
-  @Column({ name: 'city', type: 'nvarchar', length: 50, nullable: true })
+  @Column({ name: 'city', type: 'nvarchar', length: 100, nullable: true })
   city: string | null;
+
+  @Column({ name: 'district', type: 'nvarchar', length: 100, nullable: true })
+  district: string | null;
 
   @Column({ name: 'phone', type: 'varchar', length: 20, nullable: true })
   phone: string | null;
+
+  @Column({ name: 'latitude', type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude: number | null;
+
+  @Column({ name: 'longitude', type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude: number | null;
 
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;

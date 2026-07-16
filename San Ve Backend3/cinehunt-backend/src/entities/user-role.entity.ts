@@ -1,7 +1,7 @@
 import {
   Entity,
   Column,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
@@ -11,23 +11,22 @@ import { Role } from './role.entity';
 
 @Entity('user_roles')
 export class UserRole {
-  @PrimaryGeneratedColumn({ type: 'int', name: 'user_role_id' })
-  userRoleId: number;
-
-  @Column({ name: 'user_id', type: 'int' })
+  // SQL: PRIMARY KEY (user_id, role_id) — composite key, KHÔNG có cột user_role_id
+  @PrimaryColumn({ name: 'user_id', type: 'int' })
   userId: number;
 
-  @Column({ name: 'role_id', type: 'int' })
+  @PrimaryColumn({ name: 'role_id', type: 'int' })
   roleId: number;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime2', precision: 0 })
-  createdAt: Date;
+  // SQL: assigned_at DATETIME2(0) DEFAULT SYSDATETIME()
+  @CreateDateColumn({ name: 'assigned_at', type: 'datetime2', precision: 0 })
+  assignedAt: Date;
 
   @ManyToOne(() => User, (user) => user.userRoles, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Role)
+  @ManyToOne(() => Role, (role) => role.userRoles, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'role_id' })
   role: Role;
 }

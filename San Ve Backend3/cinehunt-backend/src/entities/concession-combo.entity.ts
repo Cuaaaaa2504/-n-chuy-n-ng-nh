@@ -11,16 +11,16 @@ export class ConcessionCombo {
   @PrimaryGeneratedColumn({ type: 'int', name: 'combo_id' })
   comboId: number;
 
-  @Column({ name: 'name', type: 'nvarchar', length: 100 })
+  @Column({ name: 'combo_name', type: 'nvarchar', length: 150 })
   name: string;
 
-  @Column({ name: 'description', type: 'nvarchar', nullable: true })
+  @Column({ name: 'description', type: 'nvarchar', length: 500, nullable: true })
   description: string | null;
 
-  @Column({ name: 'price', type: 'decimal', precision: 10, scale: 2 })
+  @Column({ name: 'price', type: 'decimal', precision: 12, scale: 2 })
   price: number;
 
-  @Column({ name: 'image_url', type: 'varchar', length: 500, nullable: true })
+  @Column({ name: 'image_url', type: 'nvarchar', length: 500, nullable: true })
   imageUrl: string | null;
 
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })

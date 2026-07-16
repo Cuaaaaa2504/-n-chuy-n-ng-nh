@@ -34,7 +34,7 @@ export class Showtime {
   @Column({ name: 'base_price', type: 'decimal', precision: 12, scale: 2 })
   basePrice: number;
 
-  // SQL CHECK: ('OPEN','CANCELLED','FULL','ENDED')
+  // SQL CHECK: status IN ('OPEN', 'CLOSED', 'CANCELLED')
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'OPEN' })
   status: string;
 
