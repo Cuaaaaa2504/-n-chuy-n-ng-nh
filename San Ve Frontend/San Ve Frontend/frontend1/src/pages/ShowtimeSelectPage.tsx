@@ -223,6 +223,9 @@ export default function ShowtimeSelectPage() {
 
   const handleSelectShowtime = (s: Showtime) => {
     if (isPast(s.startTime)) return;
+    // Không điều hướng nếu thiếu showtimeId — tránh SeatBookingPage rơi vào
+    // nhánh mock (showtimeId null) hoặc gọi backend với id không hợp lệ.
+    if (!s.showtimeId) return;
     const date = s.startTime.split('T')[0];
     const time = formatTime(s.startTime);
     navigate(

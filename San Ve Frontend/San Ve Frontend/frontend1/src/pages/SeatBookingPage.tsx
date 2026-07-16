@@ -8,6 +8,7 @@ import { useTheme } from "../context/useTheme";
 import type { SeatDto } from "../types/seat.types";
 import type { Seat } from "../hooks/useSeatHold";
 import axiosClient from "../api/axiosClient";
+import { normalizeSeat } from "../api/seat.service";
 
 const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
 const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900";
@@ -53,7 +54,9 @@ interface SeatMapResponse {
   roomName?:   string | null;
   showDate?:   string | null;
   showTime?:   string | null;
-  seats?: SeatDto[];
+  // ⚠️ Backend trả field snake/khác tên (showtimeSeatId, seatRow, seatStatus,
+  // seatTypeCode...) nên KHÔNG được coi thẳng là SeatDto — phải normalize.
+  seats?: Record<string, unknown>[];
 }
 
 interface ShowtimeInfo {
@@ -175,7 +178,9 @@ export default function SeatBookingPage() {
           `/showtime-seats/${showtimeId}`
         ) as unknown as SeatMapResponse;
 
-        const seatList   = data.seats ?? [];
+        // ✅ FIX: chuẩn hoá field từ backend (showtimeSeatId→id, seatRow→rowName,
+        // seatStatus→status, seatTypeCode→type) trước khi đưa vào state.
+        const seatList   = (data.seats ?? []).map(normalizeSeat);
         const movieTitle = data.movieTitle ?? null;
         const cinemaName = data.cinemaName ?? qCinema ?? null;
         const roomName   = data.roomName   ?? qRoom   ?? null;
