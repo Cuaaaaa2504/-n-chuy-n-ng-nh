@@ -3,14 +3,27 @@ import axiosClient from './axiosClient';
 import type { Showtime, ShowtimeFormData } from '../types/showtime';
 
 function normalizeShowtime(item: Record<string, unknown>): Showtime {
+  // Backend trả cấu trúc lồng nhau: showtime -> room -> cinema
+  // (relations: ['room', 'room.cinema']). Property theo entity là
+  // room.roomName và room.cinema.cinemaName, KHÔNG phải .name.
+  const room   = item.room   as Record<string, unknown> | undefined;
+  const cinema = (room?.cinema ?? item.cinema) as Record<string, unknown> | undefined;
+
+  const cinemaId = Number(
+    item.cinemaId ?? item.cinema_id ??
+    cinema?.cinemaId ?? cinema?.id ?? cinema?.cinema_id ??
+    room?.cinemaId ?? room?.cinema_id ?? 0,
+  );
+
   return {
-    id: Number(item.id ?? item.showtimeId ?? 0),
+    id: Number(item.id ?? item.showtimeId ?? item.showtime_id ?? 0),
+    cinemaId: cinemaId || undefined,
     movieTitle: (item.movieTitle ?? (item.movie as Record<string, unknown>)?.title ?? '') as string,
-    cinemaName: (item.cinemaName ?? (item.cinema as Record<string, unknown>)?.name ?? '') as string,
-    roomName:   (item.roomName   ?? (item.room   as Record<string, unknown>)?.name ?? '') as string,
+    cinemaName: (item.cinemaName ?? cinema?.cinemaName ?? cinema?.name ?? cinema?.cinema_name ?? '') as string,
+    roomName:   (item.roomName   ?? room?.roomName   ?? room?.name   ?? room?.room_name   ?? '') as string,
     showDate:   (item.showDate   ?? item.date  ?? '') as string,
-    startTime:  (item.startTime  ?? item.start ?? '') as string,
-    endTime:    (item.endTime    ?? item.end   ?? '') as string,
+    startTime:  (item.startTime  ?? item.start_time ?? item.start ?? '') as string,
+    endTime:    (item.endTime    ?? item.end_time   ?? item.end   ?? '') as string,
     status:     (item.status     ?? 'ACTIVE')  as Showtime['status'],
   };
 }

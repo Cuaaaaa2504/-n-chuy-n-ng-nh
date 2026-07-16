@@ -6,6 +6,7 @@ import { mockMovies } from "../data/mockMovies";
 import { useTheme } from "../context/useTheme";
 import EmptyShowtime from "../components/showtime/EmptyShowtime";
 import axiosClient from "../api/axiosClient";
+import { getShowtimesByMovie } from "../api/showtimeApi";
 
 type Cinema = { id: number; name: string; address: string };
 
@@ -76,20 +77,6 @@ const getDayLabel = (dateStr: string) => {
 
 const isPast = (iso: string) => new Date(iso) < new Date();
 
-// ─── Helper normalize field từ backend (snake_case hoặc camelCase) ───────────
-function normalizeShowtime(item: Record<string, unknown>): Showtime {
-  const cinemaRaw = item.cinema as Record<string, unknown> | undefined;
-  const roomRaw   = item.room   as Record<string, unknown> | undefined;
-  return {
-    showtimeId: Number(item.showtimeId ?? item.showtime_id ?? item.id ?? 0),
-    cinemaId:   Number(item.cinemaId   ?? item.cinema_id   ?? cinemaRaw?.id ?? 0),
-    cinemaName: String(item.cinemaName ?? item.cinema_name ?? cinemaRaw?.name ?? 'Unknown'),
-    roomName:   String(item.roomName   ?? item.room_name   ?? roomRaw?.name  ?? 'Unknown'),
-    startTime:  String(item.startTime  ?? item.start_time  ?? ''),
-    endTime:    String(item.endTime    ?? item.end_time    ?? ''),
-  };
-}
-
 export default function ShowtimeSelectPage() {
   const { movieId } = useParams();
   const navigate    = useNavigate();
@@ -156,17 +143,20 @@ export default function ShowtimeSelectPage() {
       setSelectedDate(null);
 
       try {
-        const raw  = await axiosClient.get(`/showtimes?movieId=${movieIdRef.current}`);
-        const data = ((raw as unknown) as { data?: unknown })?.data ?? raw as unknown;
+        // ✅ Dùng lại helper có sẵn: gọi đúng route path-param
+        // GET /showtimes/movie/:movieId, và KHÔNG unwrap response.data
+        // thêm lần nào (axiosClient đã unwrap sẵn qua interceptor).
+        const apiList = await getShowtimesByMovie(Number(movieIdRef.current));
 
-        // ✅ FIX: normalize từng item để xử lý cả camelCase lẫn snake_case
-        const rawList: Record<string, unknown>[] = Array.isArray(data)
-          ? (data as Record<string, unknown>[])
-          : Array.isArray((data as Record<string, unknown>)?.data)
-          ? ((data as Record<string, unknown>).data as Record<string, unknown>[])
-          : [];
-
-        const list: Showtime[] = rawList.map(normalizeShowtime);
+        // Map về shape nội bộ của trang (showtimeId, cinemaId, ...)
+        const list: Showtime[] = apiList.map((s) => ({
+          showtimeId: s.id,
+          cinemaId:   s.cinemaId ?? 0,
+          cinemaName: s.cinemaName || 'Unknown',
+          roomName:   s.roomName  || 'Unknown',
+          startTime:  s.startTime,
+          endTime:    s.endTime,
+        }));
 
         if (cancelled) return;
 
@@ -216,13 +206,19 @@ export default function ShowtimeSelectPage() {
     );
   }, [allShowtimes, selectedDate]);
 
+  // ✅ Group theo cinemaId (ổn định) thay vì cinemaName — tránh gộp nhầm
+  // khi 2 rạp trùng tên hoặc khi tên = 'Unknown'. cinemaName chỉ dùng để hiển thị.
   const groupedByCinema = useMemo(() => {
-    const map: Record<string, Showtime[]> = {};
+    const map = new Map<number, { cinemaName: string; showtimes: Showtime[] }>();
     filtered.forEach((s) => {
-      if (!map[s.cinemaName]) map[s.cinemaName] = [];
-      map[s.cinemaName].push(s);
+      const group = map.get(s.cinemaId);
+      if (group) {
+        group.showtimes.push(s);
+      } else {
+        map.set(s.cinemaId, { cinemaName: s.cinemaName, showtimes: [s] });
+      }
     });
-    return map;
+    return Array.from(map.entries());
   }, [filtered]);
 
   const handleSelectShowtime = (s: Showtime) => {
@@ -318,7 +314,7 @@ export default function ShowtimeSelectPage() {
               <div key={i} className="rounded-2xl p-4 bg-gray-800 animate-pulse h-32" />
             ))}
           </div>
-        ) : Object.keys(groupedByCinema).length === 0 ? (
+        ) : groupedByCinema.length === 0 ? (
           <EmptyShowtime />
         ) : (
           <div className="space-y-6">
@@ -327,8 +323,8 @@ export default function ShowtimeSelectPage() {
                 ℹ️ Đang hiển thị suất chiếu mẫu.
               </div>
             )}
-            {Object.entries(groupedByCinema).map(([cinemaName, showtimes]) => (
-              <div key={cinemaName} className={`rounded-2xl p-4 md:p-6 ${card}`}>
+            {groupedByCinema.map(([cinemaId, { cinemaName, showtimes }]) => (
+              <div key={cinemaId} className={`rounded-2xl p-4 md:p-6 ${card}`}>
                 <h3 className="font-semibold text-base mb-1">{cinemaName}</h3>
                 <div className="flex flex-wrap gap-2 mt-3">
                   {showtimes.map((s) => {
