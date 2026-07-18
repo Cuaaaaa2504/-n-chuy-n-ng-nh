@@ -253,8 +253,9 @@ export default function SeatBookingPage() {
       const showtimeSeatIds = seats
         .filter((s) => selectedIds.has(String(s.id)))
         .map((s) => Number(s.id));
+      // HoldManySeatsDto chỉ nhận { showtimeSeatIds, holdMinutes? }.
+      // ValidationPipe (whitelist + forbidNonWhitelisted) sẽ trả 400 nếu gửi thừa showtimeId.
       const res = await axiosClient.post('/showtime-seats/hold-many', {
-        showtimeId: Number(showtimeId),
         showtimeSeatIds,
       }) as unknown as HoldResponse;
       const ids = res.holdIds ?? [];
@@ -307,9 +308,10 @@ export default function SeatBookingPage() {
         holdIds = newHoldIds;
       }
 
+      // CreateBookingRequest chỉ nhận { holdIds, voucherCode?, promotionId?, idempotencyKey?, products? }
+      // -> KHÔNG gửi showtimeId, backend tự suy ra từ holdIds.
       const bookingData = await axiosClient.post('/bookings', {
         holdIds,
-        showtimeId: Number(showtimeId),
       }) as unknown as CreateBookingResponse;
 
       if (!bookingData?.bookingId) {
