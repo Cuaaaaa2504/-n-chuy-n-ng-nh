@@ -9,6 +9,7 @@ import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
 import { SeatHold } from '../entities/seat-hold.entity';
+import { Ticket } from '../entities/ticket.entity';
 import { BookingService } from '../booking/booking.service';
 import { PaymentRepository } from './payment.repository';
 import { CreatePaymentDto, PaymentResponse } from './dto';
@@ -133,43 +134,50 @@ export class PaymentService {
         })
         .execute();
 
+      // FIX BUG-06: tạo/đọc ticket bằng queryRunner.manager thay vì paymentRepository.
+      // paymentRepository dùng Repository riêng -> nằm NGOÀI transaction: nếu
+      // commitTransaction() thất bại, ticket đã insert vẫn tồn tại trong DB trong khi
+      // booking bị rollback về PENDING_PAYMENT -> dữ liệu không nhất quán.
+      // Dùng queryRunner.manager để ticket cùng sống/chết với transaction.
       const tickets: any[] = [];
 
       for (const detail of bookingDetails) {
-        const existing = await this.paymentRepository.findTicketByDetailId(
-          String(detail.bookingDetailId),
-        );
+        const seatLabel = detail.showtimeSeat?.seat
+          ? `${detail.showtimeSeat.seat.seatRow}${detail.showtimeSeat.seat.seatNumber}`
+          : null;
+
+        const existing = await queryRunner.manager.findOne(Ticket, {
+          where: { bookingDetailId: String(detail.bookingDetailId) },
+        });
 
         if (existing) {
           tickets.push({
             ticketId: existing.ticketId,
             ticketCode: existing.ticketCode,
             qrCode: existing.qrCode,
-            seatLabel: detail.showtimeSeat?.seat
-              ? `${detail.showtimeSeat.seat.seatRow}${detail.showtimeSeat.seat.seatNumber}`
-              : null,
+            seatLabel,
             price: Number(detail.seatPrice),
           });
           continue;
         }
 
-        const newTicket = await this.paymentRepository.createTicket({
-          bookingDetailId: String(detail.bookingDetailId),
-          ticketCode: this.paymentRepository.generateTicketCode(),
-          qrCode: this.paymentRepository.generateQrCode(),
-          ticketStatus: 'VALID',
-          issuedAt: new Date(),
-          checkedInAt: null,
-          checkedInBy: null,
-        });
+        const newTicket = await queryRunner.manager.save(
+          queryRunner.manager.create(Ticket, {
+            bookingDetailId: String(detail.bookingDetailId),
+            ticketCode: this.paymentRepository.generateTicketCode(),
+            qrCode: this.paymentRepository.generateQrCode(),
+            ticketStatus: 'VALID',
+            issuedAt: new Date(),
+            checkedInAt: null,
+            checkedInBy: null,
+          }),
+        );
 
         tickets.push({
           ticketId: newTicket.ticketId,
           ticketCode: newTicket.ticketCode,
           qrCode: newTicket.qrCode,
-          seatLabel: detail.showtimeSeat?.seat
-            ? `${detail.showtimeSeat.seat.seatRow}${detail.showtimeSeat.seat.seatNumber}`
-            : null,
+          seatLabel,
           price: Number(detail.seatPrice),
         });
       }

@@ -42,6 +42,8 @@ export interface SeatMapResponse {
 
 interface HoldSeatsResponse {
   success: boolean;
+  /** Danh sách seat_hold_id do backend trả về — dùng làm input cho bookSeats() */
+  holdIds?: number[];
   expiresAt?: string;
   message?: string;
 }
@@ -76,31 +78,40 @@ export const seatService = {
   },
 
   /**
-   * Hold nhiều ghế cùng lúc
-   * FIX: gọi POST /showtime-seats/hold-many (không phải /hold)
-   * vì backend /hold chỉ nhận 1 ghế (HoldSeatDto), còn /hold-many nhận array (HoldManySeatsDto)
+   * Hold nhiều ghế cùng lúc — POST /showtime-seats/hold-many
+   * Body hợp lệ duy nhất: { showtimeSeatIds: number[], holdMinutes?: number }
    */
   holdSeats: async (
-    showtimeId: string | number,
     seatIds: number[],
+    holdMinutes?: number,
   ): Promise<HoldSeatsResponse> => {
+    // FIX BUG-01: KHÔNG gửi `showtimeId`.
+    // Backend dùng ValidationPipe({ forbidNonWhitelisted: true }) và HoldManySeatsDto
+    // chỉ khai báo { showtimeSeatIds, holdMinutes? } -> field thừa sẽ gây HTTP 400.
     return axiosClient.post<unknown, HoldSeatsResponse>(
       `/showtime-seats/hold-many`,
-      { showtimeSeatIds: seatIds, showtimeId },
+      holdMinutes != null
+        ? { showtimeSeatIds: seatIds, holdMinutes }
+        : { showtimeSeatIds: seatIds },
     );
   },
 
   /**
-   * Đặt vé (tạo booking)
-   * Route: POST /bookings (không phải /showtime-seats/book)
+   * Đặt vé (tạo booking) — POST /bookings
+   * Nhận holdIds lấy từ kết quả holdSeats(); backend tự suy ra showtimeId.
    */
   bookSeats: async (
-    showtimeId: string | number,
-    seatIds: number[],
+    holdIds: number[],
+    options?: { voucherCode?: string; promotionId?: number; idempotencyKey?: string },
   ): Promise<BookSeatsResponse> => {
-    return axiosClient.post<unknown, BookSeatsResponse>(
-      `/bookings`,
-      { showtimeId, showtimeSeatIds: seatIds },
-    );
+    // FIX BUG-03: CreateBookingRequest chỉ nhận { holdIds, voucherCode?, promotionId?,
+    // idempotencyKey?, products? }. Gửi showtimeId/showtimeSeatIds -> 400 forbidNonWhitelisted.
+    // Payload này giờ khớp 100% với luồng trong SeatBookingPage.tsx.
+    const body: Record<string, unknown> = { holdIds };
+    if (options?.voucherCode)    body.voucherCode    = options.voucherCode;
+    if (options?.promotionId)    body.promotionId    = options.promotionId;
+    if (options?.idempotencyKey) body.idempotencyKey = options.idempotencyKey;
+
+    return axiosClient.post<unknown, BookSeatsResponse>(`/bookings`, body);
   },
 };

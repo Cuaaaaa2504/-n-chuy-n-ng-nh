@@ -93,11 +93,69 @@ export async function payOrder(
   const paymentId = String(created.paymentId ?? created.payment_id ?? '');
   if (!paymentId) throw new Error('Không lấy được paymentId từ backend');
 
-  await axiosClient.post(`/payments/${paymentId}/success`);
+  // FIX BUG-04: chỉ auto-confirm với các phương thức thanh toán nội bộ (MOCK/CASH).
+  // MOMO/VNPAY/BANKING phải để cổng thanh toán callback về backend, FE tự gọi
+  // /success sẽ đánh dấu SUCCESS cho giao dịch chưa thực sự thanh toán.
+  if (!AUTO_CONFIRM_METHODS.includes(method)) {
+    return {
+      success: true,
+      paymentId,
+      redirectUrl: (created.redirectUrl ?? created.payUrl) as string | undefined,
+    };
+  }
+
+  await confirmPayment(paymentId, bookingId);
 
   return {
     success: true,
     paymentId,
     redirectUrl: undefined,
   };
+}
+
+/** Các phương thức backend tự xử lý ngay, không qua cổng thanh toán ngoài. */
+const AUTO_CONFIRM_METHODS: PaymentMethodCode[] = ['MOCK', 'CASH'];
+
+/**
+ * FIX BUG-04: gọi /payments/:id/success một cách idempotent.
+ * Nếu payment đã ở trạng thái SUCCESS (user bấm lại / retry mạng), backend ném
+ * BadRequestException "chỉ PENDING mới được xử lý" — đây KHÔNG phải lỗi với người
+ * dùng, vé đã được tạo rồi. Ta xác minh lại trạng thái thật rồi mới quyết định.
+ */
+async function confirmPayment(paymentId: string, bookingId: string): Promise<void> {
+  try {
+    await axiosClient.post(`/payments/${paymentId}/success`);
+  } catch (err) {
+    const e = err as { status?: number; message?: string };
+    const alreadyProcessed =
+      e.status === 400 && /PENDING/i.test(e.message ?? '');
+
+    if (!alreadyProcessed) {
+      throw new Error(e.message || 'Xác nhận thanh toán thất bại');
+    }
+    // Payment không còn PENDING: có thể đã SUCCESS (ok) hoặc FAILED (không ok).
+    // Không nuốt lỗi mù quáng — kiểm tra lại trạng thái thực tế.
+    const status = await getPaymentStatus(bookingId);
+    if (status !== 'SUCCESS') {
+      throw new Error(
+        `Thanh toán không thành công (trạng thái: ${status ?? 'không xác định'})`,
+      );
+    }
+  }
+}
+
+/**
+ * Đọc lại trạng thái payment để xác minh sau khi retry.
+ * Backend chỉ expose GET /payments/booking/:bookingId (trả payment mới nhất),
+ * không có GET /payments/:id — nên tra theo bookingId.
+ */
+async function getPaymentStatus(bookingId: string): Promise<string | null> {
+  try {
+    const p = (await axiosClient.get(
+      `/payments/booking/${bookingId}`,
+    )) as unknown as Record<string, unknown>;
+    return (p.paymentStatus ?? p.payment_status ?? null) as string | null;
+  } catch {
+    return null;
+  }
 }

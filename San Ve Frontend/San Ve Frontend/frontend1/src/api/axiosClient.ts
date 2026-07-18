@@ -1,4 +1,10 @@
 import axios from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+
+// FIX BUG-07: `_retry` không tồn tại trong InternalAxiosRequestConfig.
+// Khai báo type mở rộng thay vì truy cập field "lậu" trên object -> build production
+// với `strict: true` không còn báo lỗi TS2339.
+type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 // NOTE: interceptor response unwrap response.data một lần duy nhất.
 // Tất cả các nơi gọi axiosClient KHÔNG được unwrap thêm lần nào nữa.
@@ -16,15 +22,16 @@ axiosClient.interceptors.request.use((config) => {
 
 axiosClient.interceptors.response.use(
   (response) => response.data,
-  async (error) => {
-    const status = error.response?.status as number | undefined;
+  async (error: AxiosError<{ message?: string }>) => {
+    const status = error.response?.status;
+    const originalRequest = error.config as RetryableRequestConfig | undefined;
     const message: string =
       error.response?.data?.message || error.message || 'Có lỗi xảy ra';
-    console.error('[API ERROR]', { status, message, url: error.config?.url });
+    console.error('[API ERROR]', { status, message, url: originalRequest?.url });
 
-    if (status === 401 && !error.config?._retry) {
+    if (status === 401 && originalRequest && !originalRequest._retry) {
       try {
-        error.config._retry = true;
+        originalRequest._retry = true;
         const res = await axios.post(
           (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002') + '/auth/refresh',
           {},
@@ -33,8 +40,8 @@ axiosClient.interceptors.response.use(
         const newToken = res.data?.accessToken;
         if (newToken) {
           localStorage.setItem('accessToken', newToken);
-          error.config.headers.Authorization = 'Bearer ' + newToken;
-          return axiosClient(error.config);
+          originalRequest.headers.Authorization = 'Bearer ' + newToken;
+          return axiosClient(originalRequest);
         }
       } catch {
         // refresh thất bại → clear và redirect

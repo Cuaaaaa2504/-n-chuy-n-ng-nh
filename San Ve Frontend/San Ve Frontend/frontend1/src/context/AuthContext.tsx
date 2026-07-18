@@ -45,25 +45,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   });
-  // State được hydrate ĐỒNG BỘ từ localStorage ngay trong useState() initializer,
-  // nên không bao giờ có giai đoạn "đang tải" → loading luôn false.
-  // (Nếu sau này hydrate bằng API /auth/me thì đổi lại thành useState + setLoading.)
-  const loading = false;
+  // FIX BUG-08: dùng useState thay vì hằng số `const loading = false`.
+  // Hiện tại state được hydrate ĐỒNG BỘ từ localStorage trong useState() initializer
+  // nên giá trị khởi tạo vẫn là false — hành vi không đổi. Nhưng khi thêm bước
+  // verify bằng GET /auth/me sau này, chỉ cần setLoading(true/false) là chạy đúng,
+  // không còn nguy cơ quên đổi kiểu và mất loading spinner một cách âm thầm.
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const handler = () => {
-      const nextToken = localStorage.getItem('accessToken');
-      const nextUserRaw = localStorage.getItem('user');
-      setToken(nextToken);
-      if (!nextUserRaw) {
-        setUser(null);
-        return;
-      }
+      setLoading(true);
       try {
-        setUser(JSON.parse(nextUserRaw) as User);
-      } catch {
-        localStorage.removeItem('user');
-        setUser(null);
+        const nextToken = localStorage.getItem('accessToken');
+        const nextUserRaw = localStorage.getItem('user');
+        setToken(nextToken);
+        if (!nextUserRaw) {
+          setUser(null);
+          return;
+        }
+        try {
+          setUser(JSON.parse(nextUserRaw) as User);
+        } catch {
+          localStorage.removeItem('user');
+          setUser(null);
+        }
+      } finally {
+        setLoading(false);
       }
     };
     window.addEventListener('auth-changed', handler);

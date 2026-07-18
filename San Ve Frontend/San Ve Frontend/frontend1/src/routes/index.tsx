@@ -23,7 +23,10 @@ import ShowtimeSelectPage from '../pages/ShowtimeSelectPage';
 import SeatBookingPage from '../pages/SeatBookingPage';
 import PaymentPage from '../pages/PaymentPage';
 import MyBookingsPage from '../pages/MyBookingsPage';
-import TicketPage from '../pages/TicketPage';
+// FIX BUG-02: MyTicketsPage là trang vé đầy đủ (QR, trạng thái, countdown, tab
+// holding/paid qua ?tab=). Trước đây file này không được đăng ký route nào nên
+// người dùng không bao giờ vào được. TicketPage cũ là stub -> đã bỏ khỏi router.
+import MyTicketsPage from '../pages/MyTicketsPage';
 import TicketDetailPage from '../pages/TicketDetailPage';
 import ProfilePage from '../pages/ProfilePage';
 
@@ -59,8 +62,11 @@ export default function AppRouter() {
             {/* FIX: tách /payment/local riêng trước /:orderId để không bị match sai */}
             <Route path="/payment/local" element={<PaymentPage />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />
-            <Route path="/my-tickets" element={<MyBookingsPage />} />
-            <Route path="/tickets" element={<TicketPage />} />
+            {/* Navbar link tới /my-tickets?tab=holding | ?tab=paid -> MyTicketsPage */}
+            <Route path="/my-tickets" element={<MyTicketsPage />} />
+            <Route path="/tickets" element={<MyTicketsPage />} />
+            {/* Danh sách đơn đặt vé (MyBookingsPage) tách sang route riêng */}
+            <Route path="/my-bookings" element={<MyBookingsPage />} />
             <Route path="/tickets/:ticketId" element={<TicketDetailPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
