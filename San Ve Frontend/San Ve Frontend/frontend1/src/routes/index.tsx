@@ -22,6 +22,8 @@ import ForbiddenPage from '../pages/ForbiddenPage';
 import ShowtimeSelectPage from '../pages/ShowtimeSelectPage';
 import SeatBookingPage from '../pages/SeatBookingPage';
 import PaymentPage from '../pages/PaymentPage';
+// Bước chọn combo bắp nước, chèn giữa SeatBookingPage và PaymentPage
+import ComboPage from '../pages/ComboPage';
 import MyBookingsPage from '../pages/MyBookingsPage';
 // FIX BUG-02: MyTicketsPage là trang vé đầy đủ (QR, trạng thái, countdown, tab
 // holding/paid qua ?tab=). Trước đây file này không được đăng ký route nào nên
@@ -59,6 +61,8 @@ export default function AppRouter() {
             {/* FIX: thêm route /movies/:id/seats để SeatBookingPage nhận đúng movieId */}
             <Route path="/movies/:id/seats" element={<SeatBookingPage />} />
             <Route path="/booking/:id" element={<SeatBookingPage />} />
+            {/* Bước 2 của luồng đặt vé: giữ ghế -> /combo -> tạo booking -> /payment/:id */}
+            <Route path="/combo" element={<ComboPage />} />
             {/* FIX: tách /payment/local riêng trước /:orderId để không bị match sai */}
             <Route path="/payment/local" element={<PaymentPage />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />

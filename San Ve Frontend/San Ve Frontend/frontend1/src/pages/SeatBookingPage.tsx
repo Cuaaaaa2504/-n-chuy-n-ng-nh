@@ -80,13 +80,21 @@ interface MovieInfo {
   description?: string;
 }
 
-interface HoldResponse {
-  holdIds?: number[];
-}
-
-interface CreateBookingResponse {
-  bookingId: string;
-  bookingCode: string;
+/**
+ * ⚠️ NGUYÊN NHÂN GỐC CỦA BUG "Không thể giữ ghế":
+ * POST /showtime-seats/hold-many trả về MỘT MẢNG HoldResponseDto[], KHÔNG phải
+ * object { holdIds }. Code cũ đọc `res.holdIds` -> luôn undefined -> heldIds = []
+ * -> nút "Đặt vé" tưởng chưa hold và gọi hold lần 2 -> ghế đã ở trạng thái HELD
+ * -> backend ném "Các ghế không còn trống" -> hiện lỗi.
+ */
+interface HoldItem {
+  holdId: string;          // BIGINT -> backend trả string
+  holdToken: string;
+  expiresAt: string;
+  status: string;
+  showtimeSeatId: number;
+  seatLabel: string;
+  price: number;
 }
 
 export default function SeatBookingPage() {
@@ -111,26 +119,42 @@ export default function SeatBookingPage() {
   const [navigating, setNavigating]           = useState(false);
   const [navError, setNavError]               = useState<string>('');
   const [usingMock, setUsingMock]             = useState(false);
+  const [holdExpiresAt, setHoldExpiresAt]     = useState<string | null>(null);
   const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const movieSetRef = useRef(false);
+  // FIX: ref phản chiếu heldIds — đọc được giá trị MỚI NHẤT ngay trong cùng tick,
+  // không phải chờ React re-render. Chặn hoàn toàn việc hold lần 2 do state async.
+  const heldIdsRef = useRef<number[]>([]);
+  // Chặn double-submit khi user bấm "Đặt vé" liên tục / bấm cả 2 nút cùng lúc.
+  const inFlightRef = useRef(false);
 
   // ─── Countdown ───────────────────────────────────────────────────────────
-  const startCountdown = () => {
+  // FIX: đếm theo mốc expiresAt THẬT từ backend thay vì cứng 300s.
+  // Trước đây FE và DB lệch nhau -> countdown còn thời gian nhưng hold đã hết hạn.
+  const startCountdown = (expiresAt?: string) => {
     if (timerRef.current) clearInterval(timerRef.current);
-    setHoldCountdown(HOLD_SECONDS);
+
+    const deadline = expiresAt
+      ? new Date(expiresAt).getTime()
+      : Date.now() + HOLD_SECONDS * 1000;
+
+    setHoldExpiresAt(expiresAt ?? null);
     setHoldExpired(false);
-    timerRef.current = setInterval(() => {
-      setHoldCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          setHeldIds([]);
-          setSelectedIds(new Set());
-          setHoldExpired(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+
+    const tick = () => {
+      const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      setHoldCountdown(left);
+      if (left <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        heldIdsRef.current = [];
+        setHeldIds([]);
+        setSelectedIds(new Set());
+        setHoldExpired(true);
+      }
+    };
+
+    tick();
+    timerRef.current = setInterval(tick, 1000);
   };
 
   useEffect(() => {
@@ -142,7 +166,9 @@ export default function SeatBookingPage() {
     const id = setTimeout(() => {
       movieSetRef.current = false;
       setSelectedIds(new Set());
+      heldIdsRef.current = [];
       setHeldIds([]);
+      setHoldExpiresAt(null);
       setHoldCountdown(HOLD_SECONDS);
       setHoldExpired(false);
       if (timerRef.current) clearInterval(timerRef.current);
@@ -247,26 +273,47 @@ export default function SeatBookingPage() {
   const handleHoldSeats = async (): Promise<number[] | null> => {
     const showtimeId = searchParams.get('showtimeId');
     if (!showtimeId || selectedIds.size === 0) return null;
+
+    // FIX: nếu đã hold rồi thì trả về luôn, TUYỆT ĐỐI không gọi hold-many lần 2.
+    // Đọc từ ref nên không dính stale state.
+    if (heldIdsRef.current.length > 0) return heldIdsRef.current;
+    if (inFlightRef.current) return null;
+
+    inFlightRef.current = true;
     setHolding(true);
     setHoldError(null);
     try {
       const showtimeSeatIds = seats
         .filter((s) => selectedIds.has(String(s.id)))
         .map((s) => Number(s.id));
+
       // HoldManySeatsDto chỉ nhận { showtimeSeatIds, holdMinutes? }.
       // ValidationPipe (whitelist + forbidNonWhitelisted) sẽ trả 400 nếu gửi thừa showtimeId.
       const res = await axiosClient.post('/showtime-seats/hold-many', {
         showtimeSeatIds,
-      }) as unknown as HoldResponse;
-      const ids = res.holdIds ?? [];
+      }) as unknown as HoldItem[];
+
+      // FIX: backend trả MẢNG HoldResponseDto[] -> map lấy holdId (string) sang number.
+      const list = Array.isArray(res) ? res : [];
+      const ids = list
+        .map((h) => Number(h.holdId))
+        .filter((n) => Number.isFinite(n) && n > 0);
+
+      if (!ids.length) {
+        setHoldError('Backend không trả về mã giữ ghế. Vui lòng thử lại.');
+        return null;
+      }
+
+      heldIdsRef.current = ids;
       setHeldIds(ids);
-      startCountdown();
+      startCountdown(list[0]?.expiresAt);
       return ids;
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Không thể giữ ghế';
       setHoldError(msg);
       return null;
     } finally {
+      inFlightRef.current = false;
       setHolding(false);
     }
   };
@@ -274,6 +321,7 @@ export default function SeatBookingPage() {
   // ─── Proceed to payment ───────────────────────────────────────────────────
   const handleProceed = async () => {
     if (selectedIds.size === 0) return;
+    if (navigating) return; // chặn double-click
     setNavigating(true);
     setNavError('');
     const showtimeId = searchParams.get('showtimeId');
@@ -296,30 +344,51 @@ export default function SeatBookingPage() {
       return;
     }
 
+    if (holdExpired) {
+      setNavError('Thời gian giữ ghế đã hết. Vui lòng chọn lại ghế.');
+      setNavigating(false);
+      return;
+    }
+
     try {
-      let holdIds = heldIds;
+      // FIX: ưu tiên ref (giá trị mới nhất) thay vì state heldIds (bất đồng bộ).
+      // Chỉ hold khi THỰC SỰ chưa hold — không còn cảnh gọi hold-many lần 2.
+      let holdIds = heldIdsRef.current.length ? heldIdsRef.current : heldIds;
+
       if (!holdIds.length) {
         const newHoldIds = await handleHoldSeats();
         if (!newHoldIds || !newHoldIds.length) {
-          setNavError('Không thể giữ ghế. Vui lòng thử lại.');
+          // handleHoldSeats đã set holdError với thông báo cụ thể từ backend —
+          // không ghi đè bằng thông báo chung chung nữa.
+          setNavError(holdError ?? 'Không thể giữ ghế. Vui lòng thử lại.');
           setNavigating(false);
           return;
         }
         holdIds = newHoldIds;
       }
 
-      // CreateBookingRequest chỉ nhận { holdIds, voucherCode?, promotionId?, idempotencyKey?, products? }
-      // -> KHÔNG gửi showtimeId, backend tự suy ra từ holdIds.
-      const bookingData = await axiosClient.post('/bookings', {
-        holdIds,
-      }) as unknown as CreateBookingResponse;
-
-      if (!bookingData?.bookingId) {
-        setNavError('Không tạo được đơn hàng. Vui lòng thử lại.');
-        setNavigating(false);
-        return;
-      }
-      navigate(`/payment/${bookingData.bookingId}`);
+      // FIX LỖI 2 — luồng đúng: Chọn ghế → Giữ ghế → Đặt vé → COMBO → tạo booking → thanh toán.
+      // Booking KHÔNG còn được tạo ở đây nữa; ComboPage sẽ gọi POST /bookings kèm
+      // { holdIds, products } để bắp nước nằm cùng một đơn hàng với vé.
+      navigate('/combo', {
+        state: {
+          holdIds,
+          holdExpiresAt,
+          showtimeId: Number(showtimeId),
+          movieTitle: movie?.title ?? showtimeInfo?.movieTitle ?? 'Vé xem phim',
+          posterUrl:  movie?.poster_url ?? null,
+          cinemaName: showtimeInfo?.cinemaName ?? null,
+          roomName:   showtimeInfo?.roomName   ?? null,
+          showDate:   showtimeInfo?.showDate   ?? null,
+          showTime:   showtimeInfo?.showTime   ?? null,
+          seatCodes:  seats
+            .filter((s) => selectedIds.has(String(s.id)))
+            .map((s) => `${s.rowName}${s.seatNumber}`),
+          seatTotal:  seats
+            .filter((s) => selectedIds.has(String(s.id)))
+            .reduce((sum, s) => sum + (s.price ?? 0), 0),
+        },
+      });
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Có lỗi xảy ra. Vui lòng thử lại.';
       setNavError(msg);
