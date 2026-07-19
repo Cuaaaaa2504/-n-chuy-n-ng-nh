@@ -42,8 +42,8 @@ export interface SeatMapResponse {
 
 interface HoldSeatsResponse {
   success: boolean;
-  /** Danh sách seat_hold_id do backend trả về — dùng làm input cho bookSeats() */
-  holdIds?: number[];
+  /** Danh sách seat_hold_id (BIGINT -> string) do backend trả về */
+  holdIds?: string[];
   expiresAt?: string;
   message?: string;
 }
@@ -101,7 +101,7 @@ export const seatService = {
    * Nhận holdIds lấy từ kết quả holdSeats(); backend tự suy ra showtimeId.
    */
   bookSeats: async (
-    holdIds: number[],
+    holdIds: string[],
     options?: { voucherCode?: string; promotionId?: number; idempotencyKey?: string },
   ): Promise<BookSeatsResponse> => {
     // FIX BUG-03: CreateBookingRequest chỉ nhận { holdIds, voucherCode?, promotionId?,

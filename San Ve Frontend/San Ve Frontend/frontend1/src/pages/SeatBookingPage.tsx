@@ -112,7 +112,7 @@ export default function SeatBookingPage() {
   const [loading, setLoading]                 = useState(true);
   const [error, setError]                     = useState<string | null>(null);
   const [holdError, setHoldError]             = useState<string | null>(null);
-  const [heldIds, setHeldIds]                 = useState<number[]>([]);
+  const [heldIds, setHeldIds]                 = useState<string[]>([]);
   const [holdCountdown, setHoldCountdown]     = useState<number>(HOLD_SECONDS);
   const [holdExpired, setHoldExpired]         = useState(false);
   const [holding, setHolding]                 = useState(false);
@@ -124,7 +124,7 @@ export default function SeatBookingPage() {
   const movieSetRef = useRef(false);
   // FIX: ref phản chiếu heldIds — đọc được giá trị MỚI NHẤT ngay trong cùng tick,
   // không phải chờ React re-render. Chặn hoàn toàn việc hold lần 2 do state async.
-  const heldIdsRef = useRef<number[]>([]);
+  const heldIdsRef = useRef<string[]>([]);
   // Chặn double-submit khi user bấm "Đặt vé" liên tục / bấm cả 2 nút cùng lúc.
   const inFlightRef = useRef(false);
 
@@ -270,7 +270,7 @@ export default function SeatBookingPage() {
   };
 
   // ─── Hold seats ──────────────────────────────────────────────────────────
-  const handleHoldSeats = async (): Promise<number[] | null> => {
+  const handleHoldSeats = async (): Promise<string[] | null> => {
     const showtimeId = searchParams.get('showtimeId');
     if (!showtimeId || selectedIds.size === 0) return null;
 
@@ -295,9 +295,10 @@ export default function SeatBookingPage() {
 
       // FIX: backend trả MẢNG HoldResponseDto[] -> map lấy holdId (string) sang number.
       const list = Array.isArray(res) ? res : [];
+      // FIX [BUG-03]: holdId là BIGINT -> giữ nguyên string, KHÔNG Number().
       const ids = list
-        .map((h) => Number(h.holdId))
-        .filter((n) => Number.isFinite(n) && n > 0);
+        .map((h) => String(h.holdId ?? '').trim())
+        .filter((id) => /^\d+$/.test(id));
 
       if (!ids.length) {
         setHoldError('Backend không trả về mã giữ ghế. Vui lòng thử lại.');

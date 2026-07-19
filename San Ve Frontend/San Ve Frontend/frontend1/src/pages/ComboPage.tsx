@@ -41,7 +41,8 @@ interface CreateBookingResponse {
 
 /** State được SeatBookingPage đẩy sang qua navigate('/combo', { state }) */
 interface ComboNavState {
-  holdIds: number[];
+  // FIX [BUG-03]: hold_id là BIGINT ở DB -> giữ nguyên dạng string, KHÔNG ép về number.
+  holdIds: string[];
   holdExpiresAt?: string | null;
   showtimeId?: number;
   movieTitle?: string;
@@ -67,7 +68,11 @@ export default function ComboPage() {
 
   const navState = (location.state ?? null) as ComboNavState | null;
 
-  const [holdIds, setHoldIds]     = useState<number[]>(navState?.holdIds ?? []);
+  // FIX [BUG-03]: holdIds là string[] (BIGINT). Ép sang number có thể mất chính xác
+  // khi id vượt Number.MAX_SAFE_INTEGER (2^53-1) -> backend không tìm thấy hold -> 400/500.
+  const [holdIds, setHoldIds]     = useState<string[]>(
+    (navState?.holdIds ?? []).map((id) => String(id)),
+  );
   const [expiresAt, setExpiresAt] = useState<string | null>(navState?.holdExpiresAt ?? null);
   const [seatCodes, setSeatCodes] = useState<string[]>(navState?.seatCodes ?? []);
   const [seatTotal, setSeatTotal] = useState<number>(navState?.seatTotal ?? 0);
@@ -107,7 +112,12 @@ export default function ComboPage() {
           return;
         }
 
-        setHoldIds(active.map((h) => Number(h.holdId)).filter(Number.isFinite));
+        // FIX [BUG-03]: giữ nguyên chuỗi, chỉ lọc bỏ giá trị rỗng/không phải số.
+        setHoldIds(
+          active
+            .map((h) => String(h.holdId ?? '').trim())
+            .filter((id) => /^\d+$/.test(id)),
+        );
         setExpiresAt(active[0].expiresAt);
         setSeatCodes(active.map((h) => h.seatLabel ?? '').filter(Boolean));
         setSeatTotal(active.reduce((sum, h) => sum + Number(h.price ?? 0), 0));
@@ -233,8 +243,23 @@ export default function ComboPage() {
 
       navigate(`/payment/${booking.bookingId}`, { replace: true });
     } catch (err: unknown) {
-      const msg =
-        (err as { message?: string })?.message ?? 'Có lỗi xảy ra. Vui lòng thử lại.';
+      // FIX [BUG-04]: đọc message theo đúng thứ tự ưu tiên.
+      // axiosClient đã reject { status, message, raw }, nhưng nếu lỗi đến từ nơi khác
+      // (axios thô, network error) thì message thật nằm ở err.response.data.message.
+      const e = err as {
+        message?: string;
+        response?: { data?: { message?: string | string[] } };
+        raw?: { response?: { data?: { message?: string | string[] } } };
+      };
+      const raw =
+        e?.response?.data?.message ??
+        e?.raw?.response?.data?.message ??
+        e?.message;
+      const msg = Array.isArray(raw)
+        ? raw.join(', ')
+        : raw ?? 'Có lỗi xảy ra. Vui lòng thử lại.';
+
+      console.error('[POST /bookings] thất bại:', err);
       setSubmitError(msg);
     } finally {
       submittingRef.current = false;
