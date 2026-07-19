@@ -21,6 +21,7 @@ import { OtpCodeModule } from './otp-code/otp-code.module';
 import { ShowtimeModule } from './showtime/showtime.module';
 import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-request.module';
 import { ProductModule } from './product/product.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { ProductModule } from './product/product.module';
     ShowtimeModule,
     TicketWatchRequestModule,
     ProductModule,
+    AdminModule,
   ],
   providers: [
     // Apply ThrottlerGuard globally across all routes

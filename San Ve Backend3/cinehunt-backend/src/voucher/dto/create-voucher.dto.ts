@@ -16,7 +16,13 @@ export class CreateVoucherDto {
   @MaxLength(50)
   code: string;
 
-  @IsIn(['PERCENT', 'FIXED'])
+  // FIX: promotions.promotion_name là NOT NULL — thiếu field này thì INSERT luôn fail
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(150)
+  promotionName: string;
+
+  @IsIn(['PERCENT', 'PERCENTAGE', 'FIXED'])
   discountType: string;
 
   @IsNumber()
@@ -47,4 +53,13 @@ export class CreateVoucherDto {
   @Min(1)
   @Type(() => Number)
   usageLimit?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @IsOptional()
+  @IsIn(['ACTIVE', 'INACTIVE'])
+  status?: string;
 }

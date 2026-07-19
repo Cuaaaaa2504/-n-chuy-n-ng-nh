@@ -7,7 +7,7 @@ interface Booking {
   bookingCode: string;
   customerName: string;
   movieTitle: string;
-  showtime: string;
+  showtime: string | null;
   seats: string[];
   totalAmount: number;
   paymentStatus: 'PAID' | 'PENDING' | 'FAILED' | 'REFUNDED';

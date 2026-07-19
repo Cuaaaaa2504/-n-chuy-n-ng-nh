@@ -500,4 +500,229 @@ export class BookingService {
 
     return { success: true };
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ADMIN
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Trạng thái booking hợp lệ (SQL CHECK trên booking_orders.status) */
+  static readonly ADMIN_ALLOWED_STATUS = [
+    'PENDING_PAYMENT',
+    'CONFIRMED',
+    'PAID',
+    'CANCELLED',
+    'EXPIRED',
+    'REFUNDED',
+  ];
+
+  /**
+   * FIX [Critical]: AdminBookingsPage cần xem TOÀN BỘ đơn đặt vé.
+   * Trước đây chỉ có GET /bookings/my (lọc theo userId) nên trang admin
+   * phải dùng mock data.
+   */
+  async adminFindAll(filters: {
+    bookingCode?: string;
+    customerName?: string;
+    movieTitle?: string;
+    paymentStatus?: string;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(1, Number(filters.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(filters.limit) || 20));
+
+    const qb = this.bookingRepo
+      .createQueryBuilder('booking')
+      .leftJoinAndSelect('booking.user', 'user')
+      .leftJoinAndSelect('booking.showtime', 'showtime')
+      .leftJoinAndSelect('showtime.movie', 'movie')
+      .leftJoinAndSelect('showtime.room', 'room')
+      .leftJoinAndSelect('room.cinema', 'cinema')
+      .leftJoinAndSelect('booking.bookingDetails', 'detail')
+      .leftJoinAndSelect('detail.showtimeSeat', 'showtimeSeat')
+      .leftJoinAndSelect('showtimeSeat.seat', 'seat')
+      .orderBy('booking.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (filters.bookingCode?.trim()) {
+      qb.andWhere('booking.bookingCode LIKE :code', {
+        code: `%${filters.bookingCode.trim()}%`,
+      });
+    }
+    if (filters.customerName?.trim()) {
+      qb.andWhere('user.fullName LIKE :name', {
+        name: `%${filters.customerName.trim()}%`,
+      });
+    }
+    if (filters.movieTitle?.trim()) {
+      qb.andWhere('movie.title LIKE :title', {
+        title: `%${filters.movieTitle.trim()}%`,
+      });
+    }
+    if (filters.status?.trim()) {
+      qb.andWhere('booking.status = :status', { status: filters.status.trim() });
+    }
+    // Frontend gửi paymentStatus (PAID/PENDING/FAILED/REFUNDED) — map ngược về booking.status
+    if (filters.paymentStatus?.trim()) {
+      const mapped = this.mapPaymentStatusToBookingStatus(filters.paymentStatus.trim());
+      if (mapped.length) {
+        qb.andWhere('booking.status IN (:...statuses)', { statuses: mapped });
+      }
+    }
+    if (filters.fromDate) {
+      qb.andWhere('booking.createdAt >= :fromDate', {
+        fromDate: new Date(filters.fromDate),
+      });
+    }
+    if (filters.toDate) {
+      qb.andWhere('booking.createdAt <= :toDate', {
+        toDate: new Date(filters.toDate),
+      });
+    }
+
+    const [rows, total] = await qb.getManyAndCount();
+
+    return {
+      data: rows.map((b) => this.toAdminBookingRow(b)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /** Admin chủ động cập nhật trạng thái đơn hàng */
+  async adminUpdateStatus(bookingId: string, status: string) {
+    const normalized = String(status ?? '').trim().toUpperCase();
+    if (!BookingService.ADMIN_ALLOWED_STATUS.includes(normalized)) {
+      throw new BadRequestException(
+        `Trạng thái không hợp lệ. Chỉ chấp nhận: ${BookingService.ADMIN_ALLOWED_STATUS.join(', ')}`,
+      );
+    }
+
+    const booking = await this.bookingRepo.findOne({
+      where: { bookingId },
+      relations: { bookingDetails: true },
+    });
+    if (!booking) throw new NotFoundException('Không tìm thấy booking');
+    if (booking.status === normalized) return booking;
+
+    const now = new Date();
+    const showtimeSeatIds = (booking.bookingDetails ?? []).map(
+      (d: any) => d.showtimeSeatId,
+    );
+
+    await this.dataSource.transaction(async (manager) => {
+      const patch: Partial<BookingOrder> = { status: normalized };
+      if (normalized === 'PAID' || normalized === 'CONFIRMED') patch.paidAt = now;
+      if (['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(normalized))
+        patch.cancelledAt = now;
+
+      await manager.update(BookingOrder, { bookingId }, patch);
+
+      // Giải phóng ghế nếu đơn bị huỷ/hết hạn/hoàn tiền
+      if (['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(normalized)) {
+        await manager.update(
+          BookingDetail,
+          { bookingId, status: 'ACTIVE' },
+          { status: 'CANCELLED' },
+        );
+        if (showtimeSeatIds.length) {
+          await manager.update(
+            ShowtimeSeat,
+            { showtimeSeatId: In(showtimeSeatIds) },
+            { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
+          );
+          await manager.update(
+            SeatHold,
+            {
+              showtimeSeatId: In(showtimeSeatIds),
+              status: In(['ACTIVE', 'CONVERTED']),
+            },
+            { status: 'RELEASED', releasedAt: now },
+          );
+        }
+      }
+
+      // Đánh dấu ghế đã bán khi xác nhận thanh toán
+      if (['PAID', 'CONFIRMED'].includes(normalized) && showtimeSeatIds.length) {
+        await manager.update(
+          ShowtimeSeat,
+          { showtimeSeatId: In(showtimeSeatIds) },
+          { status: 'SOLD', holdExpiresAt: null },
+        );
+      }
+    });
+
+    this.logger.log(
+      `Admin đổi trạng thái booking #${bookingId}: ${booking.status} -> ${normalized}`,
+    );
+
+    return this.bookingRepo.findOne({ where: { bookingId } });
+  }
+
+  /** Admin xem chi tiết bất kỳ booking nào (không giới hạn userId) */
+  async adminGetBookingDetail(bookingId: string) {
+    const booking = await this.bookingRepo.findOne({
+      where: { bookingId },
+      relations: {
+        user: true,
+        bookingDetails: { showtimeSeat: { seat: true } as any },
+        showtime: { movie: true, room: { cinema: true } as any } as any,
+        bookingCombos: { combo: true } as any,
+      } as any,
+    });
+    if (!booking) throw new NotFoundException('Không tìm thấy booking');
+    return booking;
+  }
+
+  private mapPaymentStatusToBookingStatus(paymentStatus: string): string[] {
+    switch (paymentStatus.toUpperCase()) {
+      case 'PAID':
+        return ['PAID', 'CONFIRMED'];
+      case 'PENDING':
+        return ['PENDING_PAYMENT'];
+      case 'FAILED':
+        return ['CANCELLED', 'EXPIRED', 'FAILED'];
+      case 'REFUNDED':
+        return ['REFUNDED'];
+      default:
+        return [];
+    }
+  }
+
+  private mapBookingStatusToPaymentStatus(status: string): string {
+    if (['PAID', 'CONFIRMED'].includes(status)) return 'PAID';
+    if (status === 'PENDING_PAYMENT') return 'PENDING';
+    if (status === 'REFUNDED') return 'REFUNDED';
+    return 'FAILED';
+  }
+
+  /** Map booking entity -> shape mà AdminBookingsPage / BookingTable đang dùng */
+  private toAdminBookingRow(booking: any) {
+    const showtime = booking.showtime;
+    const seats = (booking.bookingDetails ?? [])
+      .map((d: any) => d?.showtimeSeat?.seat?.seatLabel)
+      .filter(Boolean);
+
+    return {
+      bookingId: Number(booking.bookingId),
+      bookingCode: booking.bookingCode,
+      customerName: booking.user?.fullName ?? 'Khách vãng lai',
+      customerEmail: booking.user?.email ?? null,
+      movieTitle: showtime?.movie?.title ?? '—',
+      cinemaName: showtime?.room?.cinema?.cinemaName ?? null,
+      roomName: showtime?.room?.roomName ?? null,
+      showtime: showtime?.startTime ?? null,
+      seats,
+      totalAmount: Number(booking.totalAmount ?? 0),
+      status: booking.status,
+      paymentStatus: this.mapBookingStatusToPaymentStatus(booking.status),
+      createdAt: booking.createdAt,
+    };
+  }
 }

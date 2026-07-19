@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Refund } from '../entities/refund.entity';
@@ -63,5 +68,92 @@ export class RefundService {
       if (err instanceof NotFoundException) throw err;
       throw new InternalServerErrorException('Không cập nhật được trạng thái hoàn tiền');
     }
+  }
+
+  // ── ADMIN ───────────────────────────────────────────────────────────────
+  // FIX: trước đây không có endpoint nào cho admin xem/duyệt yêu cầu hoàn tiền.
+
+  /** Danh sách tất cả yêu cầu hoàn tiền + filter + phân trang */
+  async adminFindAll(filters: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  } = {}) {
+    const page = Math.max(1, Number(filters.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(filters.limit) || 20));
+
+    const qb = this.repo
+      .createQueryBuilder('refund')
+      .leftJoinAndSelect('refund.booking', 'booking')
+      .leftJoinAndSelect('booking.user', 'user')
+      .orderBy('refund.requestedAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (filters.status?.trim()) {
+      qb.andWhere('refund.refundStatus = :status', {
+        status: filters.status.trim().toUpperCase(),
+      });
+    }
+
+    const [rows, total] = await qb.getManyAndCount();
+
+    return {
+      data: rows.map((r: any) => ({
+        refundId: String(r.refundId),
+        bookingId: String(r.bookingId),
+        bookingCode: r.booking?.bookingCode ?? null,
+        customerName: r.booking?.user?.fullName ?? null,
+        customerEmail: r.booking?.user?.email ?? null,
+        paymentId: String(r.paymentId),
+        refundAmount: Number(r.refundAmount ?? 0),
+        reason: r.reason,
+        refundStatus: r.refundStatus,
+        requestedAt: r.requestedAt,
+        completedAt: r.completedAt,
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /** Admin duyệt yêu cầu hoàn tiền */
+  async approve(id: string, providerRef?: string): Promise<Refund> {
+    const refund = await this.findOne(id);
+    if (refund.refundStatus !== 'PENDING') {
+      throw new BadRequestException(
+        `Yêu cầu hoàn tiền #${id} đã được xử lý (trạng thái: ${refund.refundStatus})`,
+      );
+    }
+    await this.repo.update(
+      { refundId: id },
+      {
+        refundStatus: 'SUCCESS',
+        completedAt: new Date(),
+        ...(providerRef ? { providerRef } : {}),
+      },
+    );
+    return this.findOne(id);
+  }
+
+  /** Admin từ chối yêu cầu hoàn tiền */
+  async reject(id: string, reason?: string): Promise<Refund> {
+    const refund = await this.findOne(id);
+    if (refund.refundStatus !== 'PENDING') {
+      throw new BadRequestException(
+        `Yêu cầu hoàn tiền #${id} đã được xử lý (trạng thái: ${refund.refundStatus})`,
+      );
+    }
+    await this.repo.update(
+      { refundId: id },
+      {
+        refundStatus: 'FAILED',
+        completedAt: new Date(),
+        ...(reason ? { reason } : {}),
+      },
+    );
+    return this.findOne(id);
   }
 }

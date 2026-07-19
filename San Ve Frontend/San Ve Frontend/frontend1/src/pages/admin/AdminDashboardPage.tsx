@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import axiosClient from '../../api/axiosClient';
+import { statsApi } from '../../api/adminApi';
 
 interface DashboardStats {
   totalMovies: number;
@@ -39,6 +39,12 @@ const QUICK_LINKS = [
   { to: '/admin/showtimes', label: '🕐 Quản lý Suất chiếu', desc: 'Tạo và quản lý lịch chiếu' },
   { to: '/admin/bookings', label: '🎟️ Quản lý Đặt vé', desc: 'Xem và xử lý đơn đặt vé' },
   { to: '/admin/users', label: '👥 Quản lý Người dùng', desc: 'Quản lý tài khoản người dùng' },
+  { to: '/admin/vouchers', label: '🎫 Voucher', desc: 'Tạo, sửa, bật/tắt mã giảm giá' },
+  { to: '/admin/cinemas', label: '🏛️ Rạp & Phòng chiếu', desc: 'Quản lý rạp và phòng chiếu' },
+  { to: '/admin/products', label: '🍿 Sản phẩm & Combo', desc: 'Quản lý bắp nước và combo' },
+  { to: '/admin/refunds', label: '💸 Hoàn tiền', desc: 'Duyệt / từ chối yêu cầu hoàn tiền' },
+  { to: '/admin/reports', label: '📊 Báo cáo doanh thu', desc: 'Doanh thu theo ngày / phim / rạp' },
+  { to: '/admin/audit-logs', label: '📋 Nhật ký hệ thống', desc: 'Lịch sử thao tác trong hệ thống' },
 ];
 
 export default function AdminDashboardPage() {
@@ -50,9 +56,8 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await axiosClient.get('/admin/stats') as Record<string, unknown>;
-      const data = (res as Record<string, unknown>)?.data ?? res;
-      setStats(data as DashboardStats);
+      const res = await statsApi.getStats();
+      setStats(res as DashboardStats);
     } catch {
       setError('Không thể tải thống kê. Hiển thị dữ liệu mẫu.');
       setStats({

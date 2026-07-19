@@ -8,7 +8,7 @@
 //
 // ⚠️ Backend resolve `products[].productId` theo bảng `concession_combos`
 // (BookingService dùng Repository<ConcessionCombo>, khớp `comboId`), nên trang này
-// đọc từ GET /api/concession-combos chứ KHÔNG phải GET /products.
+// đọc từ GET /concession-combos chứ KHÔNG phải GET /products.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -142,7 +142,7 @@ export default function ComboPage() {
       setLoading(true);
       try {
         const data = (await axiosClient.get(
-          '/api/concession-combos',
+          '/concession-combos',
         )) as unknown as Record<string, unknown>[];
 
         if (cancelled) return;

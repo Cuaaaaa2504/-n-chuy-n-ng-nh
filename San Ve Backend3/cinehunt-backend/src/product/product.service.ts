@@ -17,6 +17,11 @@ export class ProductService {
     });
   }
 
+  /** Admin cần thấy cả sản phẩm đã ẩn để bật lại */
+  adminFindAll(): Promise<Product[]> {
+    return this.repo.find({ order: { productName: 'ASC' } as any });
+  }
+
   async findById(id: number): Promise<Product> {
     const product = await this.repo.findOne({
       where: { productId: id } as any,

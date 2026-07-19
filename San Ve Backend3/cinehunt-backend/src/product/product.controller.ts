@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Param,
   Body,
@@ -24,6 +25,14 @@ export class ProductController {
     return this.productService.findAll();
   }
 
+  /** Admin: xem cả sản phẩm đã ẩn (status = INACTIVE) */
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  adminFindAll() {
+    return this.productService.adminFindAll();
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.productService.findById(id);
@@ -40,6 +49,17 @@ export class ProductController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: Partial<Product>,
+  ) {
+    return this.productService.update(id, body);
+  }
+
+  // FIX: báo cáo yêu cầu PATCH /products/:id — trước đây chỉ có PUT
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  patch(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: Partial<Product>,
   ) {

@@ -98,11 +98,25 @@ export class VoucherService {
   }
 
   async create(dto: { code: string; [key: string]: any }): Promise<Voucher> {
+    const code = String(dto.code ?? '').trim().toUpperCase();
+    if (!code) throw new BadRequestException('Thiếu mã voucher');
+
     const existing = await this.voucherRepo.findOne({
-      where: { promotionCode: dto.code.toUpperCase() },
+      where: { promotionCode: code },
     });
     if (existing) throw new BadRequestException('Mã voucher đã tồn tại');
-    const data: any = { promotionCode: dto.code.toUpperCase(), ...dto };
+
+    // FIX: trước đây `...dto` giữ lại field `code` (không phải cột DB) và
+    // thiếu promotion_name (NOT NULL) -> INSERT luôn fail.
+    const { code: _ignored, promotionName, ...rest } = dto;
+    const data: any = {
+      ...rest,
+      promotionCode: code,
+      promotionName: promotionName ?? code,
+      status: dto.status ?? 'ACTIVE',
+      usedCount: 0,
+    };
+
     const voucher = this.voucherRepo.create(data as unknown as Voucher);
     return this.voucherRepo.save(voucher);
   }
@@ -125,8 +139,27 @@ export class VoucherService {
     return this.update(id, { status: 'INACTIVE' } as any);
   }
 
-  async remove(id: number): Promise<void> {
-    await this.findOne(id);
+  /** FIX: bật/tắt trạng thái active của voucher (PATCH /vouchers/:id/toggle) */
+  async toggleStatus(id: number): Promise<Voucher> {
+    const voucher = await this.findOne(id);
+    const next = voucher.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    return this.update(id, { status: next } as any);
+  }
+
+  async remove(id: number): Promise<{ success: boolean; message: string }> {
+    const voucher = await this.findOne(id);
+
+    // Voucher đã được dùng thì không xoá cứng (FK booking_orders.promotion_id),
+    // chỉ vô hiệu hoá để giữ toàn vẹn dữ liệu đơn hàng cũ.
+    if (voucher.usedCount > 0) {
+      await this.update(id, { status: 'INACTIVE' } as any);
+      return {
+        success: true,
+        message: `Voucher #${id} đã được sử dụng ${voucher.usedCount} lần — đã vô hiệu hoá thay vì xoá`,
+      };
+    }
+
     await this.voucherRepo.delete({ promotionId: id });
+    return { success: true, message: `Đã xoá voucher #${id}` };
   }
 }

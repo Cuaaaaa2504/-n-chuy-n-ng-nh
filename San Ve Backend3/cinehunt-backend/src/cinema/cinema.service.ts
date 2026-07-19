@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cinema } from '../entities/cinema.entity';
@@ -45,5 +49,53 @@ export class CinemaService {
     await this.findCinemaById(id);
     await this.cinemaRepo.update({ cinemaId: id }, { status: 'INACTIVE' });
     return { message: `Cinema #${id} đã bị vô hiệu hóa` };
+  }
+
+  // ── Rooms (phòng chiếu) ──────────────────────────────────────────────────
+  // FIX: trước đây chỉ có GET /cinemas/:id/rooms, thiếu hoàn toàn CRUD phòng chiếu.
+
+  /** Admin xem toàn bộ phòng của rạp (kể cả phòng INACTIVE) */
+  async adminFindRoomsByCinema(cinemaId: number) {
+    await this.findCinemaById(cinemaId);
+    return this.roomRepo.find({
+      where: { cinemaId },
+      order: { roomName: 'ASC' },
+    });
+  }
+
+  async findRoomById(cinemaId: number, roomId: number) {
+    const room = await this.roomRepo.findOne({ where: { roomId } });
+    if (!room) throw new NotFoundException(`Room #${roomId} không tồn tại`);
+    if (room.cinemaId !== cinemaId) {
+      throw new BadRequestException(
+        `Room #${roomId} không thuộc rạp #${cinemaId}`,
+      );
+    }
+    return room;
+  }
+
+  async createRoom(cinemaId: number, data: Partial<Room>) {
+    await this.findCinemaById(cinemaId);
+    const room = this.roomRepo.create({
+      ...data,
+      cinemaId,
+      status: data.status ?? 'ACTIVE',
+    });
+    return this.roomRepo.save(room);
+  }
+
+  async updateRoom(cinemaId: number, roomId: number, data: Partial<Room>) {
+    await this.findRoomById(cinemaId, roomId);
+    // Không cho phép đổi phòng sang rạp khác qua endpoint này
+    const { cinemaId: _ignored, roomId: _ignored2, ...patch } = data as any;
+    await this.roomRepo.update({ roomId }, patch);
+    return this.findRoomById(cinemaId, roomId);
+  }
+
+  /** Soft delete: phòng còn ràng buộc FK với showtimes/seats nên không xoá cứng */
+  async deleteRoom(cinemaId: number, roomId: number) {
+    await this.findRoomById(cinemaId, roomId);
+    await this.roomRepo.update({ roomId }, { status: 'INACTIVE' });
+    return { success: true, message: `Room #${roomId} đã bị vô hiệu hoá` };
   }
 }

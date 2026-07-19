@@ -38,6 +38,13 @@ import AdminMoviesPage from '../pages/admin/AdminMoviesPage';
 import AdminShowtimesPage from '../pages/admin/AdminShowtimesPage';
 import AdminBookingsPage from '../pages/admin/AdminBookingsPage';
 import AdminUsersPage from '../pages/admin/AdminUsersPage';
+// 6 trang admin bổ sung theo báo cáo thiếu sót
+import AdminVouchersPage from '../pages/admin/AdminVouchersPage';
+import AdminCinemasPage from '../pages/admin/AdminCinemasPage';
+import AdminProductsPage from '../pages/admin/AdminProductsPage';
+import AdminRefundsPage from '../pages/admin/AdminRefundsPage';
+import AdminRevenueReportPage from '../pages/admin/AdminRevenueReportPage';
+import AdminAuditLogPage from '../pages/admin/AdminAuditLogPage';
 
 export default function AppRouter() {
   return (
@@ -88,6 +95,12 @@ export default function AppRouter() {
             <Route path="showtimes" element={<AdminShowtimesPage />} />
             <Route path="bookings" element={<AdminBookingsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
+            <Route path="vouchers" element={<AdminVouchersPage />} />
+            <Route path="cinemas" element={<AdminCinemasPage />} />
+            <Route path="products" element={<AdminProductsPage />} />
+            <Route path="refunds" element={<AdminRefundsPage />} />
+            <Route path="reports" element={<AdminRevenueReportPage />} />
+            <Route path="audit-logs" element={<AdminAuditLogPage />} />
           </Route>
         </Route>
 

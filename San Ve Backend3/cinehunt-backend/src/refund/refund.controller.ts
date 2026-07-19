@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -16,9 +17,53 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('refunds')
 @ApiBearerAuth()
-@Controller('api/refunds')
+// FIX: bỏ prefix 'api/' cho đồng bộ với các module khác (app không có global prefix)
+@Controller('refunds')
 export class RefundController {
   constructor(private readonly service: RefundService) {}
+
+  // ── ADMIN ───────────────────────────────────────────────────────────────
+  // Khai báo TRƯỚC @Get(':id') để 'admin' không bị match thành :id
+
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Danh sách tất cả yêu cầu hoàn tiền (Admin)' })
+  adminFindAll(
+    @Query('status') status?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.service.adminFindAll({
+      status,
+      page: Number(page),
+      limit: Number(limit),
+    });
+  }
+
+  @Patch('admin/:id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Duyệt yêu cầu hoàn tiền (Admin)' })
+  approve(
+    @Param('id') id: string,
+    @Body('providerRef') providerRef?: string,
+  ): Promise<Refund> {
+    return this.service.approve(id, providerRef);
+  }
+
+  @Patch('admin/:id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Từ chối yêu cầu hoàn tiền (Admin)' })
+  reject(
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+  ): Promise<Refund> {
+    return this.service.reject(id, reason);
+  }
+
+  // ── Chung ───────────────────────────────────────────────────────────────
 
   @Get('booking/:bookingId')
   @ApiOperation({ summary: 'Xem refunds theo booking' })

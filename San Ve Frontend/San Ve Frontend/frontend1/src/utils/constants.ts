@@ -69,6 +69,13 @@ export const ROUTES = {
   ADMIN_BOOKINGS:    '/admin/bookings',
   ADMIN_SHOWTIMES:   '/admin/showtimes',
   ADMIN_MOVIES:      '/admin/movies',
+  ADMIN_USERS:       '/admin/users',
+  ADMIN_VOUCHERS:    '/admin/vouchers',
+  ADMIN_CINEMAS:     '/admin/cinemas',
+  ADMIN_PRODUCTS:    '/admin/products',
+  ADMIN_REFUNDS:     '/admin/refunds',
+  ADMIN_REPORTS:     '/admin/reports',
+  ADMIN_AUDIT_LOGS:  '/admin/audit-logs',
 } as const;
 
 // ── Pagination ─────────────────────────────────────────────────────────────

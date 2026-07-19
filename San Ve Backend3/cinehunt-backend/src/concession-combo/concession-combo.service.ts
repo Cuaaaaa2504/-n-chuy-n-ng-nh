@@ -21,6 +21,11 @@ export class ConcessionComboService {
     }
   }
 
+  /** Admin cần thấy cả combo đã ẩn */
+  adminFindAll(): Promise<ConcessionCombo[]> {
+    return this.repo.find({ order: { comboId: 'ASC' } });
+  }
+
   async findOne(id: number): Promise<ConcessionCombo> {
     try {
       const combo = await this.repo.findOne({ where: { comboId: id } });

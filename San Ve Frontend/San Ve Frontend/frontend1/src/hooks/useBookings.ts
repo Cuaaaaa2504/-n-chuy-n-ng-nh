@@ -1,75 +1,49 @@
 // src/hooks/useBookings.ts
+// Hook lấy danh sách đơn đặt vé cho trang admin.
+// Trước đây trả về mock data hardcode -> nay gọi thật GET /bookings/admin/all
 import { useState, useCallback } from 'react';
+import { adminBookingApi } from '../api/adminApi';
+import type { AdminBooking, AdminBookingFilters } from '../types/admin';
 
-interface Booking {
-  bookingId: number;
-  bookingCode: string;
-  customerName: string;
-  movieTitle: string;
-  showtime: string;
-  seats: string[];
-  totalAmount: number;
-  paymentStatus: 'PAID' | 'PENDING' | 'FAILED' | 'REFUNDED';
-}
-
-interface Filters {
-  bookingCode?: string;
-  customerName?: string;
-  movieTitle?: string;
-  paymentStatus?: string;
-}
+export type Booking = AdminBooking;
+export type Filters = AdminBookingFilters;
 
 export const useBookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchBookings = useCallback(async (filters: Filters = {}) => {
     setLoading(true);
     setError(null);
     try {
-      // Mock data — replace with actual API call
-      const mockData: Booking[] = [
-        {
-          bookingId: 1001,
-          bookingCode: 'BK20260624001',
-          customerName: 'Nguyen Van A',
-          movieTitle: 'Avengers Endgame',
-          showtime: '2026-06-25 19:30',
-          seats: ['A1', 'A2'],
-          totalAmount: 180000,
-          paymentStatus: 'PAID',
-        },
-        {
-          bookingId: 1002,
-          bookingCode: 'BK20260624002',
-          customerName: 'Tran Thi B',
-          movieTitle: 'Avatar 2',
-          showtime: '2026-06-26 20:00',
-          seats: ['B3', 'B4', 'B5'],
-          totalAmount: 270000,
-          paymentStatus: 'PENDING',
-        },
-      ];
-
-      // Basic client-side filtering
-      let result = mockData;
-      if (filters.bookingCode)
-        result = result.filter(b => b.bookingCode.includes(filters.bookingCode!));
-      if (filters.customerName)
-        result = result.filter(b => b.customerName.toLowerCase().includes(filters.customerName!.toLowerCase()));
-      if (filters.movieTitle)
-        result = result.filter(b => b.movieTitle.toLowerCase().includes(filters.movieTitle!.toLowerCase()));
-      if (filters.paymentStatus)
-        result = result.filter(b => b.paymentStatus === filters.paymentStatus);
-
-      setBookings(result);
-    } catch {
-      setError('Không thể tải dữ liệu. Vui lòng thử lại.');
+      const res = await adminBookingApi.getAll(filters);
+      // Backend trả { data, total, page, limit }; phòng trường hợp trả mảng thuần
+      const rows = Array.isArray(res) ? res : (res?.data ?? []);
+      setBookings(rows);
+      setTotal(Array.isArray(res) ? rows.length : (res?.total ?? rows.length));
+    } catch (err) {
+      const msg =
+        (err as { message?: string })?.message ?? 'Không thể tải dữ liệu. Vui lòng thử lại.';
+      setError(msg);
+      setBookings([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  return { bookings, loading, error, fetchBookings };
+  /** Admin cập nhật trạng thái đơn, sau đó cập nhật lại state cục bộ */
+  const updateStatus = useCallback(async (bookingId: number | string, status: string) => {
+    const updated = await adminBookingApi.updateStatus(String(bookingId), status);
+    setBookings((prev) =>
+      prev.map((b) =>
+        String(b.bookingId) === String(bookingId) ? { ...b, ...(updated ?? {}) } : b,
+      ),
+    );
+    return updated;
+  }, []);
+
+  return { bookings, total, loading, error, fetchBookings, updateStatus };
 };

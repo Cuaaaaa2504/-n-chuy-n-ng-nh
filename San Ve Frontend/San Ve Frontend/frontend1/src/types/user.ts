@@ -1,6 +1,7 @@
 // src/types/user.ts
 
-export type UserRole = 'USER' | 'ADMIN';
+// DB lưu 'CUSTOMER' | 'STAFF' | 'ADMIN'; giữ 'USER' để tương thích code cũ
+export type UserRole = 'USER' | 'CUSTOMER' | 'STAFF' | 'ADMIN';
 
 export interface User {
   id: number;

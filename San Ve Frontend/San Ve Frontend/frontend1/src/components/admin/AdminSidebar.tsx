@@ -6,6 +6,12 @@ const LINKS = [
   { to: '/admin/showtimes', label: '🕐 Suất chiếu' },
   { to: '/admin/bookings', label: '🎫 Đặt vé' },
   { to: '/admin/users', label: '👥 Người dùng' },
+  { to: '/admin/vouchers', label: '🎟️ Voucher' },
+  { to: '/admin/cinemas', label: '🏛️ Rạp & Phòng chiếu' },
+  { to: '/admin/products', label: '🍿 Sản phẩm & Combo' },
+  { to: '/admin/refunds', label: '💸 Hoàn tiền' },
+  { to: '/admin/reports', label: '📊 Báo cáo doanh thu' },
+  { to: '/admin/audit-logs', label: '📋 Nhật ký hệ thống' },
 ];
 
 export default function AdminSidebar() {
