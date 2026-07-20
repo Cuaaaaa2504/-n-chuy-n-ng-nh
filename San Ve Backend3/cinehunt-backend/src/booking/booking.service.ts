@@ -11,7 +11,7 @@ import { DataSource, In, LessThan, Repository } from 'typeorm';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
-import { SeatHold } from '../entities/seat-hold.entity';
+import { SeatHold, SeatHoldStatus } from '../entities/seat-hold.entity';
 import { Voucher } from '../entities/voucher.entity';
 import { ConcessionCombo } from '../entities/concession-combo.entity';
 import { BookingCombo } from '../entities/booking-combo.entity';
@@ -66,7 +66,7 @@ export class BookingService {
       where: {
         holdId: In(holdIds),
         userId,
-        status: 'ACTIVE',
+        status: SeatHoldStatus.ACTIVE,
       },
       relations: { showtimeSeat: true },
     });
@@ -273,13 +273,17 @@ export class BookingService {
           );
         }
 
-        await manager.update(SeatHold, { holdId: In(holdIds) }, { status: 'CONVERTED' });
+        await manager.update(
+          SeatHold,
+          { holdId: In(holdIds) },
+          { status: SeatHoldStatus.CONVERTED },
+        );
 
         // Đánh dấu ghế đã bán để sơ đồ ghế hiển thị đúng.
         await manager.update(
           ShowtimeSeat,
           { showtimeSeatId: In(showtimeSeatIds) },
-          { status: 'BOOKED' },
+          { status: 'SOLD' },
         );
 
         // FIX [H-02]: tăng usedCount của voucher sau khi booking thành công
@@ -392,8 +396,8 @@ export class BookingService {
 
         await manager.update(
           SeatHold,
-          { showtimeSeatId: In(allSeatIds), status: 'ACTIVE' },
-          { status: 'EXPIRED', releasedAt: now },
+          { showtimeSeatId: In(allSeatIds), status: SeatHoldStatus.ACTIVE },
+          { status: SeatHoldStatus.EXPIRED, releasedAt: now },
         );
       }
 
@@ -492,8 +496,11 @@ export class BookingService {
         // Release SeatHold tương ứng khi cancel booking
         await manager.update(
           SeatHold,
-          { showtimeSeatId: In(showtimeSeatIds), status: In(['ACTIVE', 'CONVERTED']) },
-          { status: 'RELEASED', releasedAt: now },
+          {
+            showtimeSeatId: In(showtimeSeatIds),
+            status: In([SeatHoldStatus.ACTIVE, SeatHoldStatus.CONVERTED]),
+          },
+          { status: SeatHoldStatus.RELEASED, releasedAt: now },
         );
       }
     });

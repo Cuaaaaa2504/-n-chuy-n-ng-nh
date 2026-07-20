@@ -1,10 +1,14 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsIn, IsOptional, IsString, Matches } from 'class-validator';
 
 export class CreatePaymentDto {
-  @IsUUID()
-  bookingId: string; // bookingId là UUID (string), không phải number
+  @IsString()
+  @Matches(/^\d+$/, {
+    message: 'bookingId phải là số nguyên dương dạng chuỗi',
+  })
+  bookingId: string;
 
   @IsString()
+  @IsIn(['MOMO', 'VNPAY', 'BANKING', 'CASH', 'MOCK'])
   paymentMethod: string;
 
   @IsOptional()

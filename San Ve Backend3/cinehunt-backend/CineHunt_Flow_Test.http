@@ -1,0 +1,74 @@
+@baseUrl = http://localhost:3000/api
+@accessToken = PASTE_ACCESS_TOKEN_HERE
+@showtimeId = 1
+@showtimeSeatId1 = 1
+@showtimeSeatId2 = 2
+@holdId1 = 1
+@holdId2 = 2
+@bookingId = 1
+@paymentId = 1
+
+### 1. Xem sơ đồ ghế
+GET {{baseUrl}}/showtime-seats/{{showtimeId}}
+
+### 2. Giữ nhiều ghế
+POST {{baseUrl}}/showtime-seats/hold-many
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "showtimeSeatIds": [
+    {{showtimeSeatId1}},
+    {{showtimeSeatId2}}
+  ],
+  "holdMinutes": 10
+}
+
+### 3. Xem các hold của tôi
+GET {{baseUrl}}/showtime-seats/my-holds/list
+Authorization: Bearer {{accessToken}}
+
+### 4. Tạo booking
+POST {{baseUrl}}/bookings
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "holdIds": [
+    "{{holdId1}}",
+    "{{holdId2}}"
+  ],
+  "products": [],
+  "voucherCode": null
+}
+
+### 5. Xem booking
+GET {{baseUrl}}/bookings/{{bookingId}}
+Authorization: Bearer {{accessToken}}
+
+### 6. Tạo payment giả lập
+POST {{baseUrl}}/payments
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "bookingId": "{{bookingId}}",
+  "paymentMethod": "MOCK",
+  "provider": "CINEHUNT_MOCK"
+}
+
+### 7. Xác nhận payment thành công
+POST {{baseUrl}}/payments/{{paymentId}}/success
+Authorization: Bearer {{accessToken}}
+
+### 8. Xem payment theo booking
+GET {{baseUrl}}/payments/booking/{{bookingId}}
+Authorization: Bearer {{accessToken}}
+
+### 9. Xem vé đã phát hành
+GET {{baseUrl}}/bookings/{{bookingId}}/tickets
+Authorization: Bearer {{accessToken}}
+
+### 10. Mô phỏng payment thất bại
+POST {{baseUrl}}/payments/{{paymentId}}/failed
+Authorization: Bearer {{accessToken}}

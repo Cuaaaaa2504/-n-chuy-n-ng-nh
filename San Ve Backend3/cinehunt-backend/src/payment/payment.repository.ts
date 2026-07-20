@@ -52,7 +52,11 @@ export class PaymentRepository {
   async updatePaymentFailed(paymentId: string, reason: string): Promise<void> {
     await this.paymentRepo.update(
       { paymentId },
-      { paymentStatus: 'FAILED', providerResponse: reason },
+      {
+        paymentStatus: 'FAILED',
+        failedReason: reason,
+        providerResponse: reason,
+      },
     );
   }
 

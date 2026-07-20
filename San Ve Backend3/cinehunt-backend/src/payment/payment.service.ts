@@ -3,12 +3,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { Payment } from '../entities/payment.entity';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
-import { SeatHold } from '../entities/seat-hold.entity';
+import {
+  SeatHold,
+  SeatHoldStatus,
+} from '../entities/seat-hold.entity';
 import { Ticket } from '../entities/ticket.entity';
 import { BookingService } from '../booking/booking.service';
 import { PaymentRepository } from './payment.repository';
@@ -45,6 +48,7 @@ export class PaymentService {
       transactionCode,
       paymentStatus: 'PENDING',
       providerResponse: null,
+      failedReason: null,
       paidAt: null,
     });
 
@@ -87,12 +91,19 @@ export class PaymentService {
       if (booking.status !== 'PENDING_PAYMENT') {
         throw new BadRequestException('Booking không ở trạng thái chờ thanh toán');
       }
+
       if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
         throw new BadRequestException('Booking đã hết hạn');
       }
 
+      if (Number(payment.amount) !== Number(booking.totalAmount)) {
+        throw new BadRequestException(
+          'Số tiền payment không khớp tổng tiền booking',
+        );
+      }
+
       const bookingDetails = await queryRunner.manager.find(BookingDetail, {
-        where: { bookingId: booking.bookingId },
+        where: { bookingId: booking.bookingId, status: 'ACTIVE' },
         relations: ['showtimeSeat', 'showtimeSeat.seat'],
       });
 
@@ -103,6 +114,7 @@ export class PaymentService {
       // Update payment thành SUCCESS
       await queryRunner.manager.update(Payment, { paymentId }, {
         paymentStatus: 'SUCCESS',
+        failedReason: null,
         paidAt: new Date(),
       });
 
@@ -116,23 +128,21 @@ export class PaymentService {
         .where('showtime_seat_id IN (:...ids)', { ids: seatIds })
         .execute();
 
-      // FIX: updateBookingToPaid cũng trong cùng transaction (queryRunner)
+      // Booking và vé cùng nằm trong transaction; lỗi ở bước tạo vé sẽ rollback.
       await queryRunner.manager.update(
         BookingOrder,
         { bookingId: booking.bookingId },
-        { status: 'PAID', paidAt: new Date(), issuedAt: new Date() },
+        { status: 'ISSUED', paidAt: new Date(), issuedAt: new Date() },
       );
 
-      // Giải phóng seat_holds liên quan
-      await queryRunner.manager
-        .createQueryBuilder()
-        .update(SeatHold)
-        .set({ status: 'CONFIRMED', releasedAt: new Date() })
-        .where('showtime_seat_id IN (:...ids) AND status = :status', {
-          ids: seatIds,
-          status: 'ACTIVE',
-        })
-        .execute();
+      await queryRunner.manager.update(
+        SeatHold,
+        {
+          showtimeSeatId: In(seatIds),
+          status: In([SeatHoldStatus.ACTIVE, SeatHoldStatus.CONVERTED]),
+        },
+        { status: SeatHoldStatus.CONFIRMED, releasedAt: new Date() },
+      );
 
       // FIX BUG-06: tạo/đọc ticket bằng queryRunner.manager thay vì paymentRepository.
       // paymentRepository dùng Repository riêng -> nằm NGOÀI transaction: nếu
@@ -203,6 +213,15 @@ export class PaymentService {
 
     if (!payment) throw new NotFoundException('Không tìm thấy payment');
 
+    if (payment.paymentStatus === 'FAILED') {
+      return {
+        success: true,
+        idempotent: true,
+        paymentId,
+        status: 'FAILED',
+      };
+    }
+
     if (payment.paymentStatus !== 'PENDING') {
       throw new BadRequestException(
         `Payment status là ${payment.paymentStatus}, chỉ PENDING mới được hủy`,
@@ -216,11 +235,11 @@ export class PaymentService {
 
     await this.paymentRepository.updatePaymentFailed(paymentId, 'Payment failed by system');
 
-    if (booking) {
+    if (booking?.status === 'PENDING_PAYMENT') {
       await this.bookingService.cancelBooking(payment.bookingId, booking.userId);
     }
 
-    return { success: true, paymentId, status: 'FAILED' };
+    return { success: true, idempotent: false, paymentId, status: 'FAILED' };
   }
 
   async getPaymentByBookingId(bookingId: string) {
@@ -235,6 +254,7 @@ export class PaymentService {
       paymentMethod: payment.paymentMethod,
       paymentStatus: payment.paymentStatus,
       transactionCode: payment.transactionCode,
+      failedReason: payment.failedReason,
       paidAt: payment.paidAt,
       createdAt: payment.createdAt,
     };

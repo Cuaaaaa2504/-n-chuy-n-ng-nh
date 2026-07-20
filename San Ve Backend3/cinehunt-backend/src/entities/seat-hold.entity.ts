@@ -9,6 +9,15 @@ import {
 import { User } from './user.entity';
 import { ShowtimeSeat } from './showtime-seat.entity';
 
+export enum SeatHoldStatus {
+  ACTIVE = 'ACTIVE',
+  CONVERTED = 'CONVERTED',
+  CONFIRMED = 'CONFIRMED',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+  RELEASED = 'RELEASED',
+}
+
 @Entity('seat_holds')
 export class SeatHold {
   // FIX [M-11]: holdId BIGINT → typed string để tránh mất an toàn số học
@@ -25,8 +34,13 @@ export class SeatHold {
   @Column({ name: 'hold_token', type: 'uniqueidentifier', default: () => 'NEWID()' })
   holdToken: string;
 
-  @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
-  status: string;
+  @Column({
+    name: 'status',
+    type: 'varchar',
+    length: 20,
+    default: SeatHoldStatus.ACTIVE,
+  })
+  status: SeatHoldStatus;
 
   @Column({ name: 'expires_at', type: 'datetime2', precision: 0 })
   expiresAt: Date;
