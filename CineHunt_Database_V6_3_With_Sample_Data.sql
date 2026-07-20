@@ -1871,6 +1871,106 @@ BEGIN
 END;
 GO
 
+-- ADMIN
+/* TẠO TÀI KHOẢN ADMIN NAMCUA */
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM dbo.roles
+    WHERE role_code = 'ADMIN'
+)
+BEGIN
+    THROW 50001, N'Không tìm thấy quyền ADMIN trong bảng roles.', 1;
+END;
+
+-- Nếu chưa có tài khoản thì tạo mới
+IF NOT EXISTS (
+    SELECT 1
+    FROM dbo.users
+    WHERE email = 'namcua@cinehunt.local'
+)
+BEGIN
+    INSERT INTO dbo.users (
+        full_name,
+        email,
+        phone,
+        password_hash,
+        email_verified,
+        role,
+        status
+    )
+    VALUES (
+        N'namcua',
+        'namcua@cinehunt.local',
+        NULL,
+        '$2b$12$I/kU6DQ4k57CEl9.0Jj/tuJcLcp53BjL8XmC.XNihJvWJ9SNiTgKC',
+        1,
+        'ADMIN',
+        'ACTIVE'
+    );
+END
+ELSE
+BEGIN
+    -- Nếu đã tồn tại thì cập nhật thành ADMIN
+    UPDATE dbo.users
+    SET
+        full_name = N'namcua',
+        role = 'ADMIN',
+        status = 'ACTIVE',
+        email_verified = 1,
+        updated_at = SYSDATETIME()
+    WHERE email = 'namcua@cinehunt.local';
+END;
+
+-- Đồng bộ quyền ADMIN vào bảng user_roles
+INSERT INTO dbo.user_roles (
+    user_id,
+    role_id
+)
+SELECT
+    u.user_id,
+    r.role_id
+FROM dbo.users AS u
+CROSS JOIN dbo.roles AS r
+WHERE u.email = 'namcua@cinehunt.local'
+  AND r.role_code = 'ADMIN'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM dbo.user_roles AS ur
+      WHERE ur.user_id = u.user_id
+        AND ur.role_id = r.role_id
+  );
+
+-- Kiểm tra kết quả
+SELECT
+    u.user_id,
+    u.full_name,
+    u.email,
+    u.role AS backend_role,
+    u.status,
+    r.role_id,
+    r.role_code
+FROM dbo.users AS u
+LEFT JOIN dbo.user_roles AS ur
+    ON ur.user_id = u.user_id
+LEFT JOIN dbo.roles AS r
+    ON r.role_id = ur.role_id
+WHERE u.email = 'namcua@cinehunt.local';
+
+/* Kiểm tra nhanh user_id = 1 đã có quyền ADMIN trong cả hai mô hình phân quyền. */
+SELECT
+    u.user_id,
+    u.full_name,
+    u.email,
+    u.role AS backend_role,
+    r.role_id,
+    r.role_code
+FROM dbo.users u
+LEFT JOIN dbo.user_roles ur ON ur.user_id = u.user_id
+LEFT JOIN dbo.roles r ON r.role_id = ur.role_id
+WHERE u.user_id = 1;
+GO
+
 INSERT INTO dbo.seat_types(type_code, type_name, price_multiplier)
 VALUES
 ('NORMAL', N'Ghế thường', 1.00),
