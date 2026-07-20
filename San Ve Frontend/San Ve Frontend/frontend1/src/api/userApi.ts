@@ -43,16 +43,23 @@ const userApi = {
   uploadAvatar: (file: File) => {
     const form = new FormData();
     form.append('file', file);
+    // LƯU Ý: axiosClient đặt default 'Content-Type: application/json'. Với axios v1,
+    // nếu không ghi đè ở đây thì transformRequest sẽ serialize FormData thành JSON
+    // và multer ở backend sẽ không nhận được file. Giữ nguyên override này.
+    // (boundary vẫn được browser tự bổ sung ở tầng XHR adapter.)
+    // Field name 'file' phải khớp FileInterceptor('file') ở users.controller.ts.
     return axiosClient.post<{ avatarUrl: string }>('/users/me/avatar', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }) as unknown as Promise<{ avatarUrl: string }>;
   },
 
+  // FIX: backend định nghĩa POST /users/me/change-password.
+  // Trước đây gọi PATCH /users/me/password -> 404 / 405 Method Not Allowed.
   changePassword: (data: ChangePasswordRequest) =>
-    axiosClient.patch('/users/me/password', data),
+    axiosClient.post('/users/me/change-password', data),
 
   changeEmail: (data: ChangeEmailRequest) =>
-    axiosClient.patch<{ email: string }>('/users/me/email', data) as unknown as Promise<{ email: string }>,
+    axiosClient.patch<{ email: string; message: string }>('/users/me/email', data) as unknown as Promise<{ email: string; message: string }>,
 };
 
 export default userApi;

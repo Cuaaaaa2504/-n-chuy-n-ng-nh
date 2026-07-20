@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -44,12 +45,15 @@ export class UsersService {
 
   async updateProfile(
     userId: number,
-    dto: { fullName?: string; avatarUrl?: string },
+    dto: { fullName?: string; phone?: string; avatarUrl?: string },
   ) {
     try {
       const user = await this.userRepo.findOne({ where: { userId } });
       if (!user) throw new NotFoundException('Không tìm thấy user');
       if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
+      // FIX: UpdateProfileDto có field `phone` nhưng service bỏ qua -> user sửa
+      // số điện thoại thì API trả 200 mà DB không đổi gì.
+      if (dto.phone !== undefined) user.phone = dto.phone?.trim() || null;
       if (dto.avatarUrl !== undefined) user.avatarUrl = dto.avatarUrl ?? null;
       await this.userRepo.save(user);
       return this.toProfile(user);
@@ -74,6 +78,48 @@ export class UsersService {
     } catch (err) {
       if (err instanceof NotFoundException || err instanceof BadRequestException) throw err;
       throw new InternalServerErrorException('Không đổi được mật khẩu');
+    }
+  }
+
+  /**
+   * FIX: PATCH /users/me/email — trước đây backend không có method này,
+   * frontend gọi vào là 404.
+   * Luồng: xác minh mật khẩu hiện tại -> kiểm tra email mới chưa ai dùng -> cập nhật.
+   */
+  async changeEmail(
+    userId: number,
+    dto: { newEmail: string; currentPassword: string },
+  ) {
+    try {
+      const user = await this.findById(userId);
+      const newEmail = dto.newEmail.trim().toLowerCase();
+
+      const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+      if (!valid) throw new BadRequestException('Mật khẩu hiện tại không đúng');
+
+      if (newEmail === user.email.trim().toLowerCase()) {
+        throw new BadRequestException('Email mới trùng với email hiện tại');
+      }
+
+      const existed = await this.userRepo.findOne({ where: { email: newEmail } });
+      if (existed && existed.userId !== userId) {
+        throw new ConflictException('Email này đã được sử dụng bởi tài khoản khác');
+      }
+
+      user.email = newEmail;
+      // Email mới chưa được xác minh lại -> reset cờ emailVerified
+      user.emailVerified = false;
+      await this.userRepo.save(user);
+
+      return { email: user.email, message: 'Đổi email thành công' };
+    } catch (err) {
+      if (
+        err instanceof NotFoundException ||
+        err instanceof BadRequestException ||
+        err instanceof ConflictException
+      )
+        throw err;
+      throw new InternalServerErrorException('Không đổi được email');
     }
   }
 

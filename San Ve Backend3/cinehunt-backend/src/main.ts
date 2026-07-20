@@ -1,10 +1,22 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // FIX: cần NestExpressApplication để dùng được app.useStaticAssets()
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // FIX: avatar được lưu vào uploads/avatars nhưng thư mục này chưa từng
+  // được serve ra ngoài -> ảnh upload xong vẫn không hiển thị được (404).
+  const uploadsDir = join(process.cwd(), 'uploads');
+  if (!existsSync(join(uploadsDir, 'avatars'))) {
+    mkdirSync(join(uploadsDir, 'avatars'), { recursive: true });
+  }
+  app.useStaticAssets(uploadsDir, { prefix: '/uploads' });
 
   // FIX: CORS origin đọc từ biến môi trường thay vì hardcode
   const allowedOrigins = process.env.CORS_ORIGINS

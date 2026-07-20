@@ -18,6 +18,18 @@ export enum SeatHoldStatus {
   RELEASED = 'RELEASED',
 }
 
+/**
+ * Trạng thái phải khớp với CK_seat_holds_status trong SQL.
+ */
+export const SEAT_HOLD_STATUS = [
+  'ACTIVE',
+  'CONFIRMED',
+  'EXPIRED',
+  'CANCELLED',
+] as const;
+
+export type SeatHoldStatus = (typeof SEAT_HOLD_STATUS)[number];
+
 @Entity('seat_holds')
 export class SeatHold {
   // FIX [M-11]: holdId BIGINT → typed string để tránh mất an toàn số học

@@ -648,9 +648,9 @@ export class BookingService {
             SeatHold,
             {
               showtimeSeatId: In(showtimeSeatIds),
-              status: In(['ACTIVE', 'CONVERTED']),
+              status: In(['ACTIVE', 'CONFIRMED']),
             },
-            { status: 'RELEASED', releasedAt: now },
+            { status: 'CANCELLED', releasedAt: now },
           );
         }
       }
