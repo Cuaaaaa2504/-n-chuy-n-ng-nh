@@ -38,9 +38,16 @@ function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
   const expiresAt: string | undefined =
     typeof rawExpiresAt === 'string' ? rawExpiresAt : undefined;
 
+  // FIX [bookingId must be a UUID]: `id` PHẢI là khoá chính booking_id (BIGINT,
+  // ví dụ "1042") — KHÔNG bao giờ là bookingCode "BK-1784554863343-ZPJ6".
+  // bookingCode chỉ dùng để hiển thị và nằm ở trường `orderCode`.
+  const resolvedId = String(raw.bookingId ?? raw.booking_id ?? raw.id ?? '').trim();
+  if (resolvedId && !/^\d+$/.test(resolvedId)) {
+    throw new Error('Dữ liệu đơn hàng không hợp lệ: máy chủ không trả về bookingId dạng số');
+  }
+
   return {
-    // FIX: bookingId là string (BK-xxx) — giữ nguyên string, không parseInt
-    id: String(raw.bookingId ?? raw.booking_id ?? raw.id ?? ''),
+    id: resolvedId,
     orderCode: (raw.bookingCode ?? raw.booking_code ?? raw.orderCode) as string | undefined,
     movieTitle: (raw.movieTitle ?? movie?.title ?? 'Vé xem phim') as string,
     cinemaName: raw.cinemaName as string | undefined,
@@ -64,7 +71,9 @@ export async function getOrder(bookingId: string): Promise<OrderDetail> {
 
 export async function getPaymentMethods(): Promise<PaymentMethod[]> {
   try {
-    const payload = await axiosClient.get('/payment-methods') as unknown;
+    // FIX: backend expose GET /payments/methods (xem PaymentController), không phải
+    // /payment-methods — request cũ luôn 404 rồi im lặng rơi vào danh sách fallback.
+    const payload = await axiosClient.get('/payments/methods') as unknown;
     const list = Array.isArray(payload) ? payload : ((payload as Record<string, unknown>).data as unknown[] ?? []);
     return list as PaymentMethod[];
   } catch {
@@ -84,7 +93,16 @@ export async function payOrder(
 ): Promise<{ redirectUrl?: string; success: boolean; paymentId?: string }> {
   if (!bookingId) throw new Error('Thiếu mã đặt vé');
 
-  // FIX: bookingId là string (BK-xxx) — gửi nguyên string, không Number()
+  // FIX [bookingId must be a UUID]: chặn ngay tại client nếu lỡ truyền bookingCode
+  // (BK-xxx) thay vì booking_id. Trước đây chuỗi này đi thẳng xuống backend và bị
+  // ValidationPipe trả về 400 "bookingId must be a UUID" — thông báo hoàn toàn
+  // vô nghĩa với người dùng lẫn lập trình viên.
+  if (!/^\d+$/.test(bookingId)) {
+    throw new Error(
+      `Mã đơn hàng không hợp lệ (${bookingId}). Vui lòng quay lại và đặt vé lại.`,
+    );
+  }
+
   const created = await axiosClient.post(`/payments`, {
     bookingId,
     paymentMethod: method,

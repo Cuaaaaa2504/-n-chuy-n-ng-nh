@@ -31,9 +31,14 @@ export class PaymentService {
       userId,
     );
 
-    const existingPending = await this.paymentRepository.findPendingByBookingId(
-      String(dto.bookingId),
-    );
+    // FIX [bookingId must be a UUID]: dto.bookingId có thể là bookingCode (BK-xxx).
+    // Từ đây trở đi chỉ dùng ID số đã được BookingService phân giải, nếu không
+    // findPendingByBookingId sẽ so sánh nhầm chuỗi với cột BIGINT -> luôn miss
+    // (tạo trùng payment PENDING) hoặc ném lỗi convert ở tầng driver.
+    const bookingId = String(booking.bookingId);
+
+    const existingPending =
+      await this.paymentRepository.findPendingByBookingId(bookingId);
     if (existingPending) {
       throw new BadRequestException('Booking đã có payment đang chờ xử lý');
     }
@@ -41,7 +46,7 @@ export class PaymentService {
     const transactionCode = this.paymentRepository.generatePaymentCode();
 
     const payment = await this.paymentRepository.createPayment({
-      bookingId: String(booking.bookingId),
+      bookingId,
       paymentMethod: dto.paymentMethod,
       provider: dto.provider ?? null,
       amount: booking.finalAmount,
@@ -243,7 +248,17 @@ export class PaymentService {
   }
 
   async getPaymentByBookingId(bookingId: string) {
-    const payment = await this.paymentRepository.findLatestByBookingId(bookingId);
+    // FIX: payments.booking_id là BIGINT. Nếu client gửi bookingCode (BK-xxx) vào
+    // đây, TypeORM sẽ sinh câu SQL so sánh varchar với bigint -> lỗi convert (500).
+    // Chặn sớm bằng 400 có thông báo rõ ràng.
+    const ref = String(bookingId ?? '').trim();
+    if (!/^\d+$/.test(ref)) {
+      throw new BadRequestException(
+        'bookingId phải là ID số của đơn đặt vé (không phải mã BK-xxx)',
+      );
+    }
+
+    const payment = await this.paymentRepository.findLatestByBookingId(ref);
 
     if (!payment) throw new NotFoundException('Không tìm thấy payment của booking');
 

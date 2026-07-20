@@ -118,10 +118,21 @@ export default function PaymentPage() {
     }
 
     if (!orderId) return;
+
+    // FIX [bookingId must be a UUID]: KHÔNG dùng `orderId` lấy từ URL để gọi
+    // /payments. URL có thể chứa bookingCode (BK-xxx) tuỳ theo trang điều hướng
+    // sang (MyBookings / MyTickets / ComboPage). `order.id` là booking_id thật đã
+    // được backend trả về qua GET /bookings/:id và đã được normalizeBooking xác thực.
+    const realBookingId = order.id;
+    if (!realBookingId || !/^\d+$/.test(realBookingId)) {
+      setFetchError('Không xác định được mã đơn hàng. Vui lòng tải lại trang.');
+      return;
+    }
+
     try {
       // FIX: gọi qua usePayment để isProcessing / paymentStatus được cập nhật
       const result = await handlePayment({
-        bookingId: orderId,
+        bookingId: realBookingId,
         totalAmount: order.totalAmount,
         method,
       });

@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, LessThan, Repository } from 'typeorm';
+import { DataSource, FindOptionsWhere, In, LessThan, Repository } from 'typeorm';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
@@ -41,6 +41,32 @@ export class BookingService {
     private readonly bookingComboRepo: Repository<BookingCombo>,
     private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * FIX [bookingId must be a UUID]
+   *
+   * `booking_id` là BIGINT IDENTITY còn `booking_code` là chuỗi BK-xxx. Nếu truyền
+   * thẳng "BK-1784554863343-ZPJ6" vào `where: { bookingId }` thì mssql sẽ ném lỗi
+   * convert varchar -> bigint (HTTP 500 khó debug). Helper này nhận vào một tham
+   * chiếu booking bất kỳ (id số hoặc mã BK-xxx) và trả về điều kiện `where` đúng cột.
+   */
+  private buildBookingRef(ref: string | number): FindOptionsWhere<BookingOrder> {
+    const value = String(ref ?? '').trim();
+
+    if (!value) {
+      throw new BadRequestException('Thiếu mã đơn đặt vé (bookingId)');
+    }
+
+    if (/^\d+$/.test(value)) {
+      return { bookingId: value };
+    }
+
+    if (/^BK-/i.test(value)) {
+      return { bookingCode: value.toUpperCase() };
+    }
+
+    throw new BadRequestException(`Mã đơn đặt vé không hợp lệ: ${value}`);
+  }
 
   async createBooking(userId: number, request: CreateBookingRequest): Promise<BookingResponse> {
     const now = new Date();
@@ -323,9 +349,9 @@ export class BookingService {
     }
   }
 
-  async validateBookingForPayment(bookingId: string, userId: number) {
+  async validateBookingForPayment(bookingRef: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
-      where: { bookingId, userId },
+      where: { ...this.buildBookingRef(bookingRef), userId },
     });
 
     if (!booking) {
@@ -344,6 +370,9 @@ export class BookingService {
 
     return {
       ...booking,
+      // Luôn trả về ID số đã phân giải để tầng gọi (PaymentService) không vô tình
+      // dùng lại chuỗi BK-xxx do client gửi lên.
+      bookingId: String(booking.bookingId),
       finalAmount: Number(booking.totalAmount),
     };
   }
@@ -417,9 +446,9 @@ export class BookingService {
   }
 
   /** Lấy chi tiết booking kèm thông tin vé — dùng cho GET :id/tickets */
-  async getBookingTickets(bookingId: string, userId: number) {
+  async getBookingTickets(bookingRef: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
-      where: { bookingId, userId },
+      where: { ...this.buildBookingRef(bookingRef), userId },
       relations: {
         bookingDetails: { showtimeSeat: { seat: true } as any },
         showtime: { movie: true, room: { cinema: true } as any } as any,
@@ -434,9 +463,9 @@ export class BookingService {
     return booking;
   }
 
-  async getBookingDetail(bookingId: string, userId: number) {
+  async getBookingDetail(bookingRef: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
-      where: { bookingId, userId },
+      where: { ...this.buildBookingRef(bookingRef), userId },
       relations: {
         bookingDetails: { showtimeSeat: { seat: true } as any },
         showtime: { movie: true, room: { cinema: true } as any } as any,
@@ -451,11 +480,11 @@ export class BookingService {
     return booking;
   }
 
-  async cancelBooking(bookingId: string, userId: number) {
+  async cancelBooking(bookingRef: string, userId: number) {
     const now = new Date();
 
     const booking = await this.bookingRepo.findOne({
-      where: { bookingId, userId },
+      where: { ...this.buildBookingRef(bookingRef), userId },
       relations: { bookingDetails: true },
     });
 
@@ -468,6 +497,9 @@ export class BookingService {
     }
 
     const showtimeSeatIds = booking.bookingDetails.map((d: any) => d.showtimeSeatId);
+
+    // ID số đã phân giải — dùng cho mọi UPDATE bên dưới (tham số vào có thể là BK-xxx).
+    const bookingId = String(booking.bookingId);
 
     // FIX [C-01]: bỜ cancelBooking trong transaction — nếu một bước fail,
     // toàn bộ rollback tránh trường hợp booking CANCELLED nhưng ghế vẫn HELD

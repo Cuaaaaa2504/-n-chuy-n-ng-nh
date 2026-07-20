@@ -2,10 +2,15 @@ import axiosClient from './axiosClient';
 import type { Booking, BookingTicket } from '../types/booking';
 
 function normalizeBooking(item: Record<string, unknown>): Booking {
+  // FIX [bookingId must be a UUID]: `id` trước đây fallback sang `orderCode`
+  // (mã hiển thị BK-xxx). MyBookingsPage dựng link /payment/${booking.id}, nên khi
+  // fallback này chạy thì trang thanh toán nhận được BK-xxx và POST /payments bị
+  // ValidationPipe chặn. `id` chỉ được phép là booking_id (BIGINT) — mã hiển thị
+  // đưa hết về `orderCode`.
   return {
     ...(item as unknown as Booking),
-    id: String(item.id ?? item.bookingId ?? item.orderCode ?? ''),
-    orderCode: item.orderCode as string | undefined,
+    id: String(item.bookingId ?? item.booking_id ?? item.id ?? ''),
+    orderCode: (item.orderCode ?? item.bookingCode ?? item.booking_code) as string | undefined,
     movieTitle: (item.movieTitle ?? (item.movie as Record<string, unknown>)?.title ?? 'Booking xem phim') as string,
     totalAmount: Number(item.totalAmount ?? item.amount ?? 0),
   };
