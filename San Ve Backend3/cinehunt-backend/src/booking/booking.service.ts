@@ -532,7 +532,7 @@ export class BookingService {
             showtimeSeatId: In(showtimeSeatIds),
             status: In([SeatHoldStatus.ACTIVE, SeatHoldStatus.CONVERTED]),
           },
-          { status: SeatHoldStatus.RELEASED, releasedAt: now },
+          { status: SeatHoldStatus.CANCELLED, releasedAt: now },
         );
       }
     });
@@ -680,9 +680,9 @@ export class BookingService {
             SeatHold,
             {
               showtimeSeatId: In(showtimeSeatIds),
-              status: In(['ACTIVE', 'CONFIRMED']),
+              status: In([SeatHoldStatus.ACTIVE, SeatHoldStatus.CONFIRMED, SeatHoldStatus.CONVERTED]),
             },
-            { status: 'CANCELLED', releasedAt: now },
+            { status: SeatHoldStatus.CANCELLED, releasedAt: now },
           );
         }
       }

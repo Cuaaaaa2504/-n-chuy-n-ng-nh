@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
-import { SeatHold } from '../../entities/seat-hold.entity';
+import { SeatHold, SeatHoldStatus } from '../../entities/seat-hold.entity';
 import { ShowtimeSeat } from '../../entities/showtime-seat.entity';
 import { HoldSeatDto, HoldSeatsDto, HoldResponseDto } from './dto';
 
@@ -55,7 +55,7 @@ export class SeatHoldService {
         userId,
         showtimeSeatId,
         expiresAt,
-        status: 'ACTIVE',
+        status: SeatHoldStatus.ACTIVE,
       });
 
       let savedHold: SeatHold;
@@ -151,7 +151,7 @@ export class SeatHoldService {
           userId,
           showtimeSeatId: showtimeSeat.showtimeSeatId,
           expiresAt,
-          status: 'ACTIVE',
+          status: SeatHoldStatus.ACTIVE,
         });
 
         let savedHold: SeatHold;
@@ -195,7 +195,7 @@ export class SeatHoldService {
 
   async getUserHolds(userId: number) {
     const holds = await this.seatHoldRepository.find({
-      where: { userId, status: 'ACTIVE' },
+      where: { userId, status: SeatHoldStatus.ACTIVE },
       relations: [
         'showtimeSeat',
         'showtimeSeat.seat',
@@ -270,7 +270,7 @@ export class SeatHoldService {
 
     try {
       const hold = await queryRunner.manager.findOne(SeatHold, {
-        where: { holdId, userId, status: 'ACTIVE' },
+        where: { holdId, userId, status: SeatHoldStatus.ACTIVE },
       });
 
       if (!hold) throw new NotFoundException('Không tìm thấy hold hợp lệ');
@@ -278,7 +278,7 @@ export class SeatHoldService {
       await queryRunner.manager.update(
         SeatHold,
         { holdId },
-        { status: 'CANCELLED', releasedAt: new Date() },
+        { status: SeatHoldStatus.CANCELLED, releasedAt: new Date() },
       );
 
       await queryRunner.manager.update(

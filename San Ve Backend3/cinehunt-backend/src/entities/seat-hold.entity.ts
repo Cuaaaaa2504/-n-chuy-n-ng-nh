@@ -9,26 +9,26 @@ import {
 import { User } from './user.entity';
 import { ShowtimeSeat } from './showtime-seat.entity';
 
+/**
+ * Trạng thái của bản ghi seat_holds.
+ * FIX: trước đây file này khai báo TRÙNG tên `enum SeatHoldStatus` và
+ * `type SeatHoldStatus` -> TS2567. Nay chỉ giữ DUY NHẤT enum làm nguồn sự thật.
+ *
+ * Danh sách phải khớp với CK_seat_holds_status trong SQL:
+ *   CHECK (status IN ('ACTIVE', 'CONFIRMED', 'CONVERTED', 'EXPIRED', 'CANCELLED'))
+ * Vì vậy giá trị 'RELEASED' (không có trong DB) đã bị loại bỏ.
+ */
 export enum SeatHoldStatus {
   ACTIVE = 'ACTIVE',
-  CONVERTED = 'CONVERTED',
   CONFIRMED = 'CONFIRMED',
+  CONVERTED = 'CONVERTED',
   EXPIRED = 'EXPIRED',
   CANCELLED = 'CANCELLED',
-  RELEASED = 'RELEASED',
 }
 
-/**
- * Trạng thái phải khớp với CK_seat_holds_status trong SQL.
- */
-export const SEAT_HOLD_STATUS = [
-  'ACTIVE',
-  'CONFIRMED',
-  'EXPIRED',
-  'CANCELLED',
-] as const;
-
-export type SeatHoldStatus = (typeof SEAT_HOLD_STATUS)[number];
+/** Mảng giá trị hợp lệ, dùng cho validation (class-validator @IsIn, ...). */
+export const SEAT_HOLD_STATUS: readonly SeatHoldStatus[] =
+  Object.values(SeatHoldStatus);
 
 @Entity('seat_holds')
 export class SeatHold {
