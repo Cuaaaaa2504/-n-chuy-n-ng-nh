@@ -8,6 +8,10 @@ import {
 import { Showtime } from './showtime.entity';
 import { Seat } from './seat.entity';
 
+/** FIX: khớp 1-1 với SQL CHECK `CK_showtime_seats_status`. */
+export const SHOWTIME_SEAT_STATUS = ['AVAILABLE', 'HELD', 'SOLD', 'BLOCKED'] as const;
+export type ShowtimeSeatStatus = (typeof SHOWTIME_SEAT_STATUS)[number];
+
 @Entity('showtime_seats')
 export class ShowtimeSeat {
   @PrimaryGeneratedColumn({ type: 'int', name: 'showtime_seat_id' })
@@ -24,7 +28,7 @@ export class ShowtimeSeat {
 
   // SQL CHECK: ('AVAILABLE','HELD','SOLD','BLOCKED')
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'AVAILABLE' })
-  status: string;
+  status: ShowtimeSeatStatus;
 
   @Column({ name: 'held_by_user_id', type: 'int', nullable: true })
   heldByUserId: number | null;

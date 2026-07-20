@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, startTransition } from 'react';
 import { useAuth } from '../context/AuthContext';
 import type { User as AuthUser } from '../context/AuthContext';
 import userApi from '../api/userApi';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 // FIX TS2339: mở rộng User local để có avatarUrl
 type User = AuthUser & { avatarUrl?: string };
@@ -151,7 +152,7 @@ export default function ProfilePage() {
             <div className="flex items-center gap-6">
               <div className="relative">
                 {avatarPreview ? (
-                  <img src={avatarPreview} alt="Avatar" className="w-24 h-24 rounded-full object-cover ring-2 ring-amber-400" />
+                  <img src={resolveAssetUrl(avatarPreview)} alt="Avatar" className="w-24 h-24 rounded-full object-cover ring-2 ring-amber-400" />
                 ) : (
                   <div className="w-24 h-24 rounded-full bg-amber-500 flex items-center justify-center text-3xl font-bold text-gray-900 ring-2 ring-amber-400">
                     {initials}

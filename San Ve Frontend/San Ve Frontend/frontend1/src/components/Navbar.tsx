@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/useTheme';
 import { useAuth } from '../context/AuthContext';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 export default function Navbar() {
   const { darkMode, toggleDarkMode } = useTheme();
@@ -73,7 +74,7 @@ export default function Navbar() {
               >
                 {user?.avatarUrl ? (
                   <img
-                    src={user.avatarUrl}
+                    src={resolveAssetUrl(user.avatarUrl)}
                     alt={user.fullName}
                     className="w-9 h-9 rounded-full object-cover border-2 border-white/60"
                   />
