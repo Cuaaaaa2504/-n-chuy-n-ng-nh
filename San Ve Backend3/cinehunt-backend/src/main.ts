@@ -1,3 +1,7 @@
+// PHẢI là import ĐẦU TIÊN: nạp .env vào process.env trước khi AppModule (và
+// các controller kèm decorator @Throttle) được import. ConfigModule cũng nạp
+// .env nhưng chỉ ở thời điểm DI khởi tạo — quá muộn cho decorator.
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';

@@ -23,13 +23,40 @@ import { ShowtimeModule } from './showtime/showtime.module';
 import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-request.module';
 import { ProductModule } from './product/product.module';
 import { AdminModule } from './admin/admin.module';
+import {
+  THROTTLE_TTL,
+  THROTTLE_LIMIT,
+} from './common/constants/throttle.constants';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    // Global rate limit: 20 requests / 60s per IP
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
+    // FIX [#3]: Không hardcode ttl/limit nữa. Dùng forRootAsync + ConfigService
+    // giống cách TypeOrmModule đang làm, để prod / staging / dev chỉ cần đổi
+    // biến môi trường THROTTLE_TTL, THROTTLE_LIMIT trong .env là xong,
+    // không phải sửa code rồi redeploy.
+    //
+    // Đây là "lưới an toàn" mặc định cho toàn app (mức nới rộng: 100 req/60s).
+    // Các route nhạy cảm tự override chặt hơn bằng @Throttle() tại controller.
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          // parseInt bắt buộc: process.env luôn trả về string
+          ttl: parseInt(
+            configService.get<string>('THROTTLE_TTL') ?? String(THROTTLE_TTL),
+            10,
+          ),
+          limit: parseInt(
+            configService.get<string>('THROTTLE_LIMIT') ??
+              String(THROTTLE_LIMIT),
+            10,
+          ),
+        },
+      ],
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -68,7 +95,18 @@ import { AdminModule } from './admin/admin.module';
     AdminModule,
   ],
   providers: [
-    // Apply ThrottlerGuard globally across all routes
+    // FIX [#1]: GIỮ guard toàn cục nhưng đổi hẳn ý đồ thiết kế.
+    //
+    // Trước đây: global limit rất chặt (20 req/60s) -> phải rải @SkipThrottle()
+    // khắp controller để "gỡ" ra => thiết kế ngược, dễ bỏ sót.
+    //
+    // Bây giờ: global limit là lưới an toàn nới rộng (100 req/60s, cấu hình
+    // qua .env) chống spam/DoS cho MỌI module — kể cả module viết sau này mà
+    // lập trình viên quên đặt throttle. Route nào cần chặt hơn thì override
+    // bằng @Throttle() ngay tại route đó (opt-in siết chặt), thay vì opt-out
+    // bằng @SkipThrottle().
+    //
+    // => Toàn bộ @SkipThrottle() trong auth.controller.ts đã được gỡ bỏ.
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

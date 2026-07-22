@@ -3,13 +3,17 @@ import { Throttle } from '@nestjs/throttler';
 import { OtpCodeService } from './otp-code.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import {
+  OTP_VERIFY_THROTTLE,
+  SENSITIVE_THROTTLE,
+} from '../common/constants/throttle.constants';
 
 @Controller('otp')
 export class OtpCodeController {
   constructor(private readonly otpCodeService: OtpCodeService) {}
 
-  // Strict limit: 3 OTP requests / 60s to prevent OTP spam
-  @Throttle({ default: { ttl: 60000, limit: 3 } })
+  // Siết chặt: 3 lần / 60s — chống spam gửi OTP (tốn SMS/email + DoS).
+  @Throttle(SENSITIVE_THROTTLE)
   @Post('generate')
   @UseGuards(JwtAuthGuard)
   generate(
@@ -19,8 +23,8 @@ export class OtpCodeController {
     return this.otpCodeService.generateOtp(user.userId, purpose);
   }
 
-  // Strict limit: 5 verify attempts / 60s to prevent OTP brute-force
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  // Siết chặt: 5 lần / 60s — chống brute-force dò mã OTP 6 số.
+  @Throttle(OTP_VERIFY_THROTTLE)
   @Post('verify')
   @UseGuards(JwtAuthGuard)
   verify(
