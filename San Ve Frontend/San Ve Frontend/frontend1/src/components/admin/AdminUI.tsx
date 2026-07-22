@@ -99,6 +99,63 @@ export function Td({ children, className = '' }: { children: ReactNode; classNam
   return <td className={`px-5 py-4 ${className}`}>{children}</td>;
 }
 
+// ── Phân trang (FIX BUG-06) ────────────────────────────────────────────────
+export function Pagination({
+  page,
+  limit,
+  total,
+  onChange,
+  disabled = false,
+}: {
+  page: number;
+  limit: number;
+  total: number;
+  onChange: (page: number) => void;
+  disabled?: boolean;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  if (total === 0) return null;
+
+  const from = (page - 1) * limit + 1;
+  const to = Math.min(page * limit, total);
+
+  const btn =
+    'px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-700 text-gray-300 hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed';
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+      <p className="text-xs text-gray-500">
+        Hiển thị {from}–{to} trên tổng {total.toLocaleString('vi-VN')}
+      </p>
+      <div className="flex items-center gap-2">
+        <button className={btn} onClick={() => onChange(1)} disabled={disabled || page <= 1}>
+          « Đầu
+        </button>
+        <button className={btn} onClick={() => onChange(page - 1)} disabled={disabled || page <= 1}>
+          ‹ Trước
+        </button>
+        <span className="text-xs text-gray-400 px-2">
+          Trang {page} / {totalPages}
+        </span>
+        <button
+          className={btn}
+          onClick={() => onChange(page + 1)}
+          disabled={disabled || page >= totalPages}
+        >
+          Sau ›
+        </button>
+        <button
+          className={btn}
+          onClick={() => onChange(totalPages)}
+          disabled={disabled || page >= totalPages}
+        >
+          Cuối »
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Nút ────────────────────────────────────────────────────────────────────
 const BTN_VARIANTS: Record<string, string> = {
   primary: 'bg-blue-600 hover:bg-blue-700 text-white',

@@ -1,91 +1,157 @@
 // src/pages/admin/AdminShowtimesPage.tsx
+//
+// FIX BUG-01: bỏ toàn bộ class cũ không tồn tại (admin-page, page-header,
+//   btn btn-primary, loading-state, error-state, empty-state, modal-overlay,
+//   modal-content) — dùng Tailwind + component dùng chung trong AdminUI,
+//   thống nhất với các trang admin còn lại (WARN-02).
+//
+// FIX BUG-04: xoá MOVIE_ID_MAP / ROOM_ID_MAP hardcode. Showtime trả về từ API
+//   giờ đã có sẵn movieId / roomId thật nên không cần "dò ngược" theo tên nữa.
 import React, { useState } from 'react';
 import ShowtimeTable from '../../components/admin/ShowtimeTable';
 import ShowtimeForm from '../../components/admin/ShowtimeForm';
 import ConfirmCancelModal from '../../components/admin/ConfirmCancelModal';
+import {
+  Btn,
+  EmptyState,
+  ErrorBanner,
+  Loading,
+  Modal,
+  PageHeader,
+  Toast,
+  useToast,
+} from '../../components/admin/AdminUI';
 import { useShowtimes } from '../../hooks/useShowtimes';
-import type { Showtime, ShowtimeFormData } from '../../hooks/useShowtimes';
+import { toLocalTime } from '../../api/showtimeApi';
+import type { Showtime, ShowtimeFormData } from '../../types/showtime';
 
-// Derive ShowtimeFormData from an existing Showtime for the edit form.
-// movieId/roomId are reverse-mapped from display names.
-const MOVIE_ID_MAP: Record<string, string> = { 'Avengers Endgame': '1', 'Avatar 2': '2', 'Spider-Man': '3' };
-const ROOM_ID_MAP:  Record<string, string>  = { 'Room 1': '1', 'Room 2': '2', 'Room 3': '3' };
-
+/** Showtime (dữ liệu thật) -> ShowtimeFormData, không còn map tên cứng */
 const toFormData = (s: Showtime): ShowtimeFormData => ({
-  movieId:   MOVIE_ID_MAP[s.movieTitle] ?? '',
-  roomId:    ROOM_ID_MAP[s.roomName]    ?? '',
-  showDate:  s.showDate,
-  startTime: s.startTime,
-  endTime:   s.endTime,
+  movieId: String(s.movieId ?? ''),
+  roomId: String(s.roomId ?? ''),
+  showDate: s.showDate,
+  startTime: toLocalTime(s.startTime),
+  endTime: toLocalTime(s.endTime),
+  basePrice: String(s.basePrice ?? ''),
 });
 
 const AdminShowtimesPage: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingShowtime, setEditingShowtime] = useState<Showtime | null>(null);
   const [cancelingShowtime, setCancelingShowtime] = useState<Showtime | null>(null);
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const { showtimes, loading, error, addShowtime, updateShowtime, cancelShowtime } = useShowtimes();
+  const {
+    showtimes,
+    movies,
+    rooms,
+    loading,
+    error,
+    fetchShowtimes,
+    addShowtime,
+    updateShowtime,
+    cancelShowtime,
+  } = useShowtimes();
+  const { toast, showToast } = useToast();
 
-  const handleAddShowtime = () => { setEditingShowtime(null); setIsFormOpen(true); };
-
-  // Parameter type matches ShowtimeTable's local Showtime (no movieId/roomId)
-  const handleEditShowtime   = (s: Showtime) => { setEditingShowtime(s);   setIsFormOpen(true); };
-  const handleCancelShowtime = (s: Showtime) => { setCancelingShowtime(s); setIsCancelModalOpen(true); };
-
-  // onSubmit receives ShowtimeFormData — matches ShowtimeForm's Props exactly
-  const handleFormSubmit = async (data: ShowtimeFormData) => {
-    const success = editingShowtime
-      ? await updateShowtime(editingShowtime.id, data)
-      : await addShowtime(data);
-    if (success) { setIsFormOpen(false); setEditingShowtime(null); }
+  const closeForm = () => {
+    setIsFormOpen(false);
+    setEditingShowtime(null);
   };
 
-  const handleConfirmCancel = async () => {
-    if (cancelingShowtime) {
-      const success = await cancelShowtime(cancelingShowtime.id);
-      if (success) { setIsCancelModalOpen(false); setCancelingShowtime(null); }
+  const handleFormSubmit = async (data: ShowtimeFormData) => {
+    setSubmitting(true);
+    try {
+      const ok = editingShowtime
+        ? await updateShowtime(editingShowtime.id, data)
+        : await addShowtime(data);
+      if (ok) {
+        showToast(editingShowtime ? 'Đã cập nhật suất chiếu' : 'Đã thêm suất chiếu mới');
+        closeForm();
+      } else {
+        showToast('Lưu suất chiếu thất bại', 'error');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="loading-state">Đang tải dữ liệu...</div>;
-  if (error)   return <div className="error-state">Không thể tải dữ liệu. Vui lòng thử lại.</div>;
+  const handleConfirmCancel = async () => {
+    if (!cancelingShowtime) return;
+    setSubmitting(true);
+    try {
+      const ok = await cancelShowtime(cancelingShowtime.id);
+      showToast(ok ? 'Đã hủy suất chiếu' : 'Hủy suất chiếu thất bại', ok ? 'success' : 'error');
+      if (ok) setCancelingShowtime(null);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div className="admin-page">
-      <div className="page-header">
-        <h2>Quản lý Suất Chiếu</h2>
-        <button className="btn btn-primary" onClick={handleAddShowtime}>+ Thêm suất chiếu</button>
-      </div>
+    <div>
+      <Toast toast={toast} />
 
-      {showtimes.length === 0
-        ? <div className="empty-state">Chưa có suất chiếu nào.</div>
-        : (
-          <ShowtimeTable
-            showtimes={showtimes}
-            onEdit={handleEditShowtime}
-            onCancel={handleCancelShowtime}
-          />
-        )
-      }
+      <PageHeader
+        title="Quản lý Suất Chiếu"
+        subtitle={`Tổng: ${showtimes.length} suất chiếu`}
+        actions={
+          <>
+            <Btn variant="ghost" onClick={() => void fetchShowtimes()} disabled={loading}>
+              🔄 Làm mới
+            </Btn>
+            <Btn
+              variant="primary"
+              onClick={() => {
+                setEditingShowtime(null);
+                setIsFormOpen(true);
+              }}
+            >
+              + Thêm suất chiếu
+            </Btn>
+          </>
+        }
+      />
 
-      {isFormOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <ShowtimeForm
-              showtime={editingShowtime ? toFormData(editingShowtime) : null}
-              onSubmit={handleFormSubmit}
-              onCancel={() => { setIsFormOpen(false); setEditingShowtime(null); }}
-            />
-          </div>
-        </div>
+      <ErrorBanner message={error} />
+
+      {loading ? (
+        <Loading label="Đang tải suất chiếu..." />
+      ) : showtimes.length === 0 ? (
+        <EmptyState icon="🕐" label="Chưa có suất chiếu nào." />
+      ) : (
+        <ShowtimeTable
+          showtimes={showtimes}
+          onEdit={(s) => {
+            setEditingShowtime(s);
+            setIsFormOpen(true);
+          }}
+          onCancel={(s) => setCancelingShowtime(s)}
+        />
       )}
 
-      {isCancelModalOpen && (
+      {isFormOpen && (
+        <Modal
+          title={editingShowtime ? 'Sửa suất chiếu' : 'Thêm suất chiếu mới'}
+          onClose={closeForm}
+        >
+          <ShowtimeForm
+            showtime={editingShowtime ? toFormData(editingShowtime) : null}
+            movies={movies}
+            rooms={rooms}
+            submitting={submitting}
+            onSubmit={(data) => void handleFormSubmit(data)}
+            onCancel={closeForm}
+          />
+        </Modal>
+      )}
+
+      {cancelingShowtime && (
         <ConfirmCancelModal
           showtime={cancelingShowtime}
-          onConfirm={handleConfirmCancel}
-          onCancel={() => { setIsCancelModalOpen(false); setCancelingShowtime(null); }}
+          submitting={submitting}
+          onConfirm={() => void handleConfirmCancel()}
+          onCancel={() => setCancelingShowtime(null)}
         />
       )}
     </div>

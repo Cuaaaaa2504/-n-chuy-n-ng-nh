@@ -1,76 +1,77 @@
 // src/components/admin/BookingTable.tsx
+// FIX BUG-02/WARN-02: table-container / admin-table / mobile-cards / card-* / booking-code
+// đều là class không tồn tại. Viết lại bằng Tailwind, dùng TableShell/Th/Td của AdminUI.
 import React from 'react';
 import BookingStatusBadge from './BookingStatusBadge';
-
-interface Booking {
-  bookingId: number;
-  bookingCode: string;
-  customerName: string;
-  movieTitle: string;
-  showtime: string | null;
-  seats: string[];
-  totalAmount: number;
-  paymentStatus: 'PAID' | 'PENDING' | 'FAILED' | 'REFUNDED';
-}
+import { TableShell, Td, Th, formatDateTime, formatVnd } from './AdminUI';
+import type { AdminBooking } from '../../types/admin';
 
 interface Props {
-  bookings: Booking[];
+  bookings: AdminBooking[];
 }
 
-const BookingTable: React.FC<Props> = ({ bookings }) => {
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-
-  return (
-    <div className="table-container">
-      {/* Desktop Table */}
-      <table className="admin-table desktop-table">
-        <thead>
-          <tr>
-            <th>Mã đơn</th>
-            <th>Khách hàng</th>
-            <th>Phim</th>
-            <th>Suất chiếu</th>
-            <th>Ghế</th>
-            <th>Tổng tiền</th>
-            <th>Thanh toán</th>
-          </tr>
-        </thead>
-        <tbody>
-          {bookings.map((booking) => (
-            <tr key={booking.bookingId}>
-              <td className="booking-code">{booking.bookingCode}</td>
-              <td>{booking.customerName}</td>
-              <td>{booking.movieTitle}</td>
-              <td>{booking.showtime}</td>
-              <td>{booking.seats.join(', ')}</td>
-              <td>{formatCurrency(booking.totalAmount)}</td>
-              <td><BookingStatusBadge status={booking.paymentStatus} /></td>
+const BookingTable: React.FC<Props> = ({ bookings }) => (
+  <>
+    {/* Desktop */}
+    <div className="hidden md:block">
+      <TableShell>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase tracking-wider">
+              <Th>Mã đơn</Th>
+              <Th>Khách hàng</Th>
+              <Th>Phim</Th>
+              <Th>Suất chiếu</Th>
+              <Th>Ghế</Th>
+              <Th>Tổng tiền</Th>
+              <Th>Thanh toán</Th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Mobile Cards */}
-      <div className="mobile-cards">
-        {bookings.map((booking) => (
-          <div key={booking.bookingId} className="card-item booking-card">
-            <div className="card-header">
-              <span className="card-id">{booking.bookingCode}</span>
-              <BookingStatusBadge status={booking.paymentStatus} />
-            </div>
-            <div className="card-body">
-              <div className="card-row"><span className="card-label">Khách hàng:</span><span className="card-value">{booking.customerName}</span></div>
-              <div className="card-row"><span className="card-label">Phim:</span><span className="card-value">{booking.movieTitle}</span></div>
-              <div className="card-row"><span className="card-label">Suất chiếu:</span><span className="card-value">{booking.showtime}</span></div>
-              <div className="card-row"><span className="card-label">Ghế:</span><span className="card-value">{booking.seats.join(', ')}</span></div>
-              <div className="card-row"><span className="card-label">Tổng tiền:</span><span className="card-value amount">{formatCurrency(booking.totalAmount)}</span></div>
-            </div>
-          </div>
-        ))}
-      </div>
+          </thead>
+          <tbody className="divide-y divide-gray-800">
+            {bookings.map((b) => (
+              <tr key={b.bookingId} className="hover:bg-gray-800/50 transition">
+                <Td className="font-mono text-blue-300 whitespace-nowrap">{b.bookingCode}</Td>
+                <Td className="text-white">{b.customerName}</Td>
+                <Td className="text-gray-300">{b.movieTitle}</Td>
+                <Td className="text-gray-400 whitespace-nowrap">{formatDateTime(b.showtime)}</Td>
+                <Td className="text-gray-300">{(b.seats ?? []).join(', ') || '—'}</Td>
+                <Td className="text-yellow-400 whitespace-nowrap">{formatVnd(b.totalAmount)}</Td>
+                <Td>
+                  <BookingStatusBadge status={b.paymentStatus} />
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableShell>
     </div>
-  );
-};
+
+    {/* Mobile */}
+    <div className="md:hidden space-y-3">
+      {bookings.map((b) => (
+        <div key={b.bookingId} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-mono text-blue-300 text-sm">{b.bookingCode}</span>
+            <BookingStatusBadge status={b.paymentStatus} />
+          </div>
+          <dl className="space-y-1.5 text-sm">
+            {[
+              ['Khách hàng', b.customerName],
+              ['Phim', b.movieTitle],
+              ['Suất chiếu', formatDateTime(b.showtime)],
+              ['Ghế', (b.seats ?? []).join(', ') || '—'],
+              ['Tổng tiền', formatVnd(b.totalAmount)],
+            ].map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-3">
+                <dt className="text-gray-500">{label}</dt>
+                <dd className="text-gray-200 text-right">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))}
+    </div>
+  </>
+);
 
 export default BookingTable;

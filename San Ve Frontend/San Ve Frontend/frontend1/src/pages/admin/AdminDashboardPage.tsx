@@ -58,16 +58,15 @@ export default function AdminDashboardPage() {
     try {
       const res = await statsApi.getStats();
       setStats(res as DashboardStats);
-    } catch {
-      setError('Không thể tải thống kê. Hiển thị dữ liệu mẫu.');
-      setStats({
-        totalMovies: 24,
-        totalShowtimes: 138,
-        totalBookings: 1_042,
-        totalPaidBookings: 876,
-        totalRevenue: 87_600_000,
-        totalUsers: 521,
-      });
+    } catch (err) {
+      // FIX BUG-05: KHÔNG fallback sang số liệu mẫu nữa.
+      // Số giả trông "hợp lý" trên dashboard rất dễ bị hiểu nhầm là dữ liệu thật
+      // khi demo với khách hàng. Thà không hiển thị gì còn hơn hiển thị sai.
+      setError(
+        (err as { message?: string })?.message ||
+          'Không thể tải thống kê từ máy chủ.',
+      );
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -99,8 +98,14 @@ export default function AdminDashboardPage() {
       </div>
 
       {error && (
-        <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 px-4 py-3 text-sm">
-          ⚠️ {error}
+        <div className="rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-4 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <span>⚠️ {error}</span>
+          <button
+            onClick={() => { void fetchStats(); }}
+            className="self-start sm:self-auto px-3 py-1.5 rounded-lg border border-red-500/40 hover:bg-red-500/10 text-xs font-semibold transition"
+          >
+            Thử lại
+          </button>
         </div>
       )}
 
@@ -118,7 +123,12 @@ export default function AdminDashboardPage() {
           <StatCard icon="💰" label="Doanh thu"        value={`${fmt(stats.totalRevenue)} ₫`} color="text-yellow-400" />
           <StatCard icon="👥" label="Người dùng"       value={fmt(stats.totalUsers)}        color="text-purple-400" />
         </div>
-      ) : null}
+      ) : (
+        <div className="text-center py-16 text-gray-500 border border-dashed border-gray-800 rounded-2xl">
+          <p className="text-4xl mb-3">📊</p>
+          <p>Chưa có số liệu thống kê để hiển thị.</p>
+        </div>
+      )}
 
       <div>
         <h2 className="text-xl font-bold mb-4">Truy cập nhanh</h2>

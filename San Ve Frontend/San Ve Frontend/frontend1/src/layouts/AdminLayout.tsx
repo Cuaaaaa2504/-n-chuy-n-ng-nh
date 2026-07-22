@@ -1,16 +1,16 @@
-import { useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AdminSidebar from '../components/admin/AdminSidebar';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
-  const { user, isLoggedIn, logout } = useAuth();
+  const { user, logout } = useAuth();
 
-  // Nếu bị logout từ tab khác / token hết hạn → về login
-  useEffect(() => {
-    if (!isLoggedIn) navigate('/login', { replace: true });
-  }, [isLoggedIn, navigate]);
+  // FIX WARN-01: đã bỏ useEffect tự redirect về /login khi !isLoggedIn.
+  // AdminRouteGuard (cấp cao hơn) đã xử lý việc này ĐÚNG hơn: nó đợi
+  // AuthContext.loading = false rồi mới quyết định. Layout redirect song song
+  // có thể chạy trong lúc token đang được verify -> admin bị đá ra login khi
+  // refresh trang dù session vẫn hợp lệ. Một nơi quyết định là đủ.
 
   const handleLogout = () => {
     logout();

@@ -1,47 +1,88 @@
 // src/components/admin/ShowtimeForm.tsx
-import React, { useState } from 'react';
-import type { ShowtimeFormData } from '../../hooks/useShowtimes';
+// FIX BUG-01/WARN-02: chuyển sang Tailwind, dùng chung Field/inputClass/Btn của AdminUI.
+// FIX BUG-04: dropdown Phim / Phòng đổ từ dữ liệu thật (props movies, rooms),
+//             không còn 3 option hardcode 'Avengers Endgame' / 'Room 1'.
+import React, { useMemo, useState } from 'react';
+import { Btn, Field, inputClass } from './AdminUI';
+import type { MovieOption, RoomOption, ShowtimeFormData } from '../../types/showtime';
 
 interface Props {
   showtime?: ShowtimeFormData | null;
+  movies: MovieOption[];
+  rooms: RoomOption[];
   onSubmit: (data: ShowtimeFormData) => void;
   onCancel: () => void;
+  submitting?: boolean;
 }
 
-const ShowtimeForm: React.FC<Props> = ({ showtime, onSubmit, onCancel }) => {
-  const [formData, setFormData] = useState<ShowtimeFormData>({
-    movieId:   showtime?.movieId   || '',
-    roomId:    showtime?.roomId    || '',
-    showDate:  showtime?.showDate  || '',
-    startTime: showtime?.startTime || '',
-    endTime:   showtime?.endTime   || '',
-  });
-  const [errors, setErrors] = useState<Partial<ShowtimeFormData>>({});
+type FormErrors = Partial<Record<keyof ShowtimeFormData, string>>;
+
+const EMPTY: ShowtimeFormData = {
+  movieId: '',
+  roomId: '',
+  showDate: '',
+  startTime: '',
+  endTime: '',
+  basePrice: '',
+};
+
+const ShowtimeForm: React.FC<Props> = ({
+  showtime,
+  movies,
+  rooms,
+  onSubmit,
+  onCancel,
+  submitting = false,
+}) => {
+  const [formData, setFormData] = useState<ShowtimeFormData>({ ...EMPTY, ...showtime });
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  // Nhóm phòng theo rạp để admin không bị rối khi có nhiều rạp
+  const roomsByCinema = useMemo(() => {
+    const map = new Map<string, RoomOption[]>();
+    rooms.forEach((r) => {
+      const key = r.cinemaName || 'Khác';
+      map.set(key, [...(map.get(key) ?? []), r]);
+    });
+    return [...map.entries()];
+  }, [rooms]);
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<ShowtimeFormData> = {};
-    if (!formData.movieId)   newErrors.movieId   = 'Vui lòng chọn phim';
-    if (!formData.roomId)    newErrors.roomId    = 'Vui lòng chọn phòng';
-    if (!formData.showDate)  newErrors.showDate  = 'Vui lòng chọn ngày chiếu';
-    if (!formData.startTime) newErrors.startTime = 'Vui lòng chọn giờ bắt đầu';
-    if (!formData.endTime)   newErrors.endTime   = 'Vui lòng chọn giờ kết thúc';
+    const next: FormErrors = {};
+    if (!formData.movieId) next.movieId = 'Vui lòng chọn phim';
+    if (!formData.roomId) next.roomId = 'Vui lòng chọn phòng';
+    if (!formData.showDate) next.showDate = 'Vui lòng chọn ngày chiếu';
+    if (!formData.startTime) next.startTime = 'Vui lòng chọn giờ bắt đầu';
+    if (!formData.endTime) next.endTime = 'Vui lòng chọn giờ kết thúc';
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    // FIX: basePrice là cột NOT NULL ở backend — trước đây form không hề có ô này
+    // nên mọi request tạo suất chiếu đều bị ValidationPipe từ chối.
+    if (formData.basePrice === '' || Number.isNaN(Number(formData.basePrice))) {
+      next.basePrice = 'Vui lòng nhập giá vé cơ bản';
+    } else if (Number(formData.basePrice) <= 0) {
+      next.basePrice = 'Giá vé phải lớn hơn 0';
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     if (formData.showDate && new Date(formData.showDate) < today) {
-      newErrors.showDate = 'Ngày chiếu phải >= hiện tại';
+      next.showDate = 'Ngày chiếu phải từ hôm nay trở đi';
     }
     if (formData.startTime && formData.endTime && formData.endTime <= formData.startTime) {
-      newErrors.endTime = 'Giờ kết thúc phải lớn hơn giờ bắt đầu';
+      next.endTime = 'Giờ kết thúc phải lớn hơn giờ bắt đầu';
     }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name as keyof ShowtimeFormData]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
 
@@ -50,54 +91,119 @@ const ShowtimeForm: React.FC<Props> = ({ showtime, onSubmit, onCancel }) => {
     if (validateForm()) onSubmit(formData);
   };
 
+  const err = (field: keyof ShowtimeFormData) =>
+    errors[field] ? (
+      <span className="block text-xs text-red-400 mt-1">{errors[field]}</span>
+    ) : null;
+
+  const ring = (field: keyof ShowtimeFormData) =>
+    errors[field] ? ' border-red-500 focus:ring-red-500' : '';
+
   return (
-    <form className="showtime-form" onSubmit={handleSubmit}>
-      <h3>{showtime ? 'Sửa suất chiếu' : 'Thêm suất chiếu mới'}</h3>
-
-      <div className="form-group">
-        <label htmlFor="movieId">Phim</label>
-        <select id="movieId" name="movieId" value={formData.movieId} onChange={handleChange} className={errors.movieId ? 'error' : ''}>
-          <option value="">Chọn phim</option>
-          <option value="1">Avengers Endgame</option>
-          <option value="2">Avatar 2</option>
-          <option value="3">Spider-Man</option>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Field label="Phim">
+        <select
+          name="movieId"
+          value={formData.movieId}
+          onChange={handleChange}
+          className={inputClass + ring('movieId')}
+        >
+          <option value="">— Chọn phim —</option>
+          {movies.map((m) => (
+            <option key={m.id} value={String(m.id)}>
+              {m.title}
+            </option>
+          ))}
         </select>
-        {errors.movieId && <span className="error-message">{errors.movieId}</span>}
-      </div>
+        {movies.length === 0 && (
+          <span className="block text-xs text-yellow-400 mt-1">
+            Chưa tải được danh sách phim. Kiểm tra kết nối tới backend.
+          </span>
+        )}
+        {err('movieId')}
+      </Field>
 
-      <div className="form-group">
-        <label htmlFor="roomId">Phòng</label>
-        <select id="roomId" name="roomId" value={formData.roomId} onChange={handleChange} className={errors.roomId ? 'error' : ''}>
-          <option value="">Chọn phòng</option>
-          <option value="1">Room 1</option>
-          <option value="2">Room 2</option>
-          <option value="3">Room 3</option>
+      <Field label="Phòng chiếu">
+        <select
+          name="roomId"
+          value={formData.roomId}
+          onChange={handleChange}
+          className={inputClass + ring('roomId')}
+        >
+          <option value="">— Chọn phòng —</option>
+          {roomsByCinema.map(([cinemaName, list]) => (
+            <optgroup key={cinemaName} label={cinemaName}>
+              {list.map((r) => (
+                <option key={r.id} value={String(r.id)}>
+                  {r.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
         </select>
-        {errors.roomId && <span className="error-message">{errors.roomId}</span>}
+        {rooms.length === 0 && (
+          <span className="block text-xs text-yellow-400 mt-1">
+            Chưa tải được danh sách phòng chiếu.
+          </span>
+        )}
+        {err('roomId')}
+      </Field>
+
+      <Field label="Ngày chiếu">
+        <input
+          type="date"
+          name="showDate"
+          value={formData.showDate}
+          onChange={handleChange}
+          className={inputClass + ring('showDate')}
+        />
+        {err('showDate')}
+      </Field>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Giờ bắt đầu">
+          <input
+            type="time"
+            name="startTime"
+            value={formData.startTime}
+            onChange={handleChange}
+            className={inputClass + ring('startTime')}
+          />
+          {err('startTime')}
+        </Field>
+        <Field label="Giờ kết thúc">
+          <input
+            type="time"
+            name="endTime"
+            value={formData.endTime}
+            onChange={handleChange}
+            className={inputClass + ring('endTime')}
+          />
+          {err('endTime')}
+        </Field>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="showDate">Ngày chiếu</label>
-        <input type="date" id="showDate" name="showDate" value={formData.showDate} onChange={handleChange} className={errors.showDate ? 'error' : ''} />
-        {errors.showDate && <span className="error-message">{errors.showDate}</span>}
-      </div>
+      <Field label="Giá vé cơ bản (₫)">
+        <input
+          type="number"
+          name="basePrice"
+          min={0}
+          step={1000}
+          placeholder="75000"
+          value={formData.basePrice}
+          onChange={handleChange}
+          className={inputClass + ring('basePrice')}
+        />
+        {err('basePrice')}
+      </Field>
 
-      <div className="form-row">
-        <div className="form-group">
-          <label htmlFor="startTime">Giờ bắt đầu</label>
-          <input type="time" id="startTime" name="startTime" value={formData.startTime} onChange={handleChange} className={errors.startTime ? 'error' : ''} />
-          {errors.startTime && <span className="error-message">{errors.startTime}</span>}
-        </div>
-        <div className="form-group">
-          <label htmlFor="endTime">Giờ kết thúc</label>
-          <input type="time" id="endTime" name="endTime" value={formData.endTime} onChange={handleChange} className={errors.endTime ? 'error' : ''} />
-          {errors.endTime && <span className="error-message">{errors.endTime}</span>}
-        </div>
-      </div>
-
-      <div className="form-actions">
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>Hủy</button>
-        <button type="submit" className="btn btn-primary">{showtime ? 'Cập nhật' : 'Thêm mới'}</button>
+      <div className="flex justify-end gap-3 pt-2">
+        <Btn variant="ghost" onClick={onCancel}>
+          Hủy
+        </Btn>
+        <Btn type="submit" variant="primary" disabled={submitting}>
+          {submitting ? 'Đang lưu...' : showtime ? 'Cập nhật' : 'Thêm mới'}
+        </Btn>
       </div>
     </form>
   );
