@@ -1,9 +1,24 @@
+// FIX (báo cáo bỏ sót): trang này tra cứu phim bằng `mockMovies.find(...)`, tức
+// chỉ 4 phim giả cứng ID 1-4 mới xem được. Ngay khi HomePage/MoviesPage chuyển
+// sang API thật, mọi link phim đều dẫn tới "Không tìm thấy phim".
+// Nay gọi `getMovieById()` — helper có sẵn, đã normalize camelCase -> snake_case.
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { mockMovies } from '../data/mockMovies';
+import { getMovieById } from '../api/movieApi';
+import type { Movie } from '../types/movie';
 import { useTheme } from '../context/useTheme';
 
 const FALLBACK_POSTER = 'https://picsum.photos/seed/fallbackposter/500/750';
 const FALLBACK_BACKDROP = 'https://picsum.photos/seed/fallbackbackdrop/1600/900';
+
+// FIX: trước đây mọi status khác NOW_SHOWING đều bị hiển thị là "Sắp chiếu",
+// kể cả phim đã kết thúc (ENDED) hoặc bị ẩn (HIDDEN).
+const STATUS_LABEL: Record<string, string> = {
+  NOW_SHOWING: 'Đang chiếu',
+  COMING_SOON: 'Sắp chiếu',
+  ENDED: 'Đã kết thúc',
+  HIDDEN: 'Đã ẩn',
+};
 
 function getYoutubeEmbedUrl(url?: string) {
   if (!url) return null;
@@ -23,13 +38,54 @@ export default function MovieDetailPage() {
   const navigate = useNavigate();
   const { darkMode } = useTheme();
 
-  const movie = mockMovies.find((m) => String(m.movie_id) === id);
+  const [movie, setMovie] = useState<Movie | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!movie) {
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const m = await getMovieById(Number(id));
+        if (!cancelled) setMovie(m);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError((err as { message?: string })?.message || 'Không tải được thông tin phim');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-20">
+        <div className="flex flex-col md:flex-row gap-8 animate-pulse">
+          <div className="w-48 md:w-64 aspect-[2/3] rounded-2xl bg-gray-800/40" />
+          <div className="flex-1 space-y-4 py-2">
+            <div className="h-10 bg-gray-800/40 rounded w-2/3" />
+            <div className="h-4 bg-gray-800/40 rounded w-1/3" />
+            <div className="h-24 bg-gray-800/40 rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !movie) {
     return (
       <div className="flex-1 flex items-center justify-center px-4 py-20">
         <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Không tìm thấy phim</h1>
+          <p className="text-4xl mb-3">🎬</p>
+          <h1 className="text-3xl font-bold mb-3">Không tìm thấy phim</h1>
+          {error && (
+            <p className={`text-sm mb-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{error}</p>
+          )}
           <Link to="/" className="inline-block bg-red-500 text-white px-5 py-2 rounded-lg">
             Quay về trang chủ
           </Link>
@@ -81,7 +137,7 @@ export default function MovieDetailPage() {
                 <span className="bg-red-500 text-white text-sm px-3 py-1 rounded-full font-semibold">{movie.age_rating}</span>
                 <span className="bg-white/10 text-white text-sm px-3 py-1 rounded-full border border-white/10">{movie.duration_minutes} phút</span>
                 <span className="bg-white/10 text-white text-sm px-3 py-1 rounded-full border border-white/10">
-                  {movie.status === 'NOW_SHOWING' ? 'Đang chiếu' : 'Sắp chiếu'}
+                  {STATUS_LABEL[movie.status] ?? movie.status}
                 </span>
               </div>
               <h1 className="text-3xl md:text-5xl font-extrabold mb-4 text-white">{movie.title}</h1>
@@ -130,7 +186,7 @@ export default function MovieDetailPage() {
               <p><span className="font-semibold">Tên phim:</span> {movie.title}</p>
               <p><span className="font-semibold">Thời lượng:</span> {movie.duration_minutes} phút</p>
               <p><span className="font-semibold">Phân loại:</span> {movie.age_rating}</p>
-              <p><span className="font-semibold">Trạng thái:</span> {movie.status === 'NOW_SHOWING' ? 'Đang chiếu' : 'Sắp chiếu'}</p>
+              <p><span className="font-semibold">Trạng thái:</span> {STATUS_LABEL[movie.status] ?? movie.status}</p>
               <p><span className="font-semibold">Thể loại:</span> {movie.genres.join(', ')}</p>
             </div>
           </div>

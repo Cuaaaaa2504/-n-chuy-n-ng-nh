@@ -22,12 +22,12 @@ export interface Movie {
 
   release_date?: string;
 
-  /**
-   * CHỈ dùng ở frontend (mock data trang chủ). Bảng `movies` và `CreateMovieDto`
-   * đều KHÔNG có cột này, nên `toMoviePayload()` luôn loại bỏ nó trước khi gửi.
-   * Muốn "phim nổi bật" hoạt động thật thì phải thêm cột ở DB + DTO trước.
-   */
-  featured?: boolean;
+  // FIX Lỗi 6: đã XOÁ field `featured`.
+  // Bảng `movies`, entity `Movie` và `CreateMovieDto` đều không có cột này
+  // (`grep -c featured` trên file SQL trả về 0). Giữ nó lại chỉ tạo ra rủi ro:
+  // bất kỳ component nào filter/sort theo `featured` cũng luôn nhận undefined
+  // với dữ liệu thật từ API. HomePage nay chọn banner theo `status` — tiêu chí
+  // có thật trong DB. Muốn có "phim nổi bật" thì phải thêm cột ở DB + DTO trước.
 }
 
 /**

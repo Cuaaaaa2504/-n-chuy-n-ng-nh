@@ -12,6 +12,8 @@ import AdminRouteGuard from './AdminRouteGuard';
 // Public pages
 import HomePage from '../pages/HomePage';
 import MoviesPage from '../pages/MoviesPage';
+// FIX Lỗi 4: trang lịch chiếu tổng hợp dùng GET /showtimes
+import SchedulePage from '../pages/SchedulePage';
 import MovieDetailPage from '../pages/MovieDetailPage';
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
@@ -57,6 +59,7 @@ export default function AppRouter() {
           {/* Public */}
           <Route path="/" element={<HomePage />} />
           <Route path="/movies" element={<MoviesPage />} />
+          <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/movies/:id" element={<MovieDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />

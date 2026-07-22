@@ -1,16 +1,26 @@
 // src/pages/ShowtimeSelectPage.tsx
+//
+// FIX Lỗi 2: bỏ `mockMovies` — trang không còn tra cứu phim trong mảng giả trước
+//   rồi mới gọi API. Luồng nay đúng chiều: API là nguồn duy nhất.
+//
+// FIX Lỗi 3: bỏ hoàn toàn `buildMockShowtimes()` và mảng `cinemas` hardcode.
+//   Trước đây khi API trả [] (phim chưa có suất chiếu) trang tự dựng suất chiếu
+//   giả với showtimeId đếm từ 1 — người dùng bấm "Mua vé" là gặp lỗi vì id đó
+//   không tồn tại trong DB. Nay không có suất chiếu thì hiển thị EmptyShowtime.
+//
+// FIX Lỗi 5: bỏ đoạn tự unwrap `raw?.data ?? res` + map key snake_case từ
+//   response camelCase (khiến poster/age rating/trailer luôn undefined).
+//   Dùng `getMovieById()` — đã normalize sẵn trong movieApi.ts.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { mockMovies } from "../data/mockMovies";
-import { useTheme } from "../context/useTheme";
-import EmptyShowtime from "../components/showtime/EmptyShowtime";
-import axiosClient from "../api/axiosClient";
-import { getShowtimesByMovie } from "../api/showtimeApi";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useTheme } from '../context/useTheme';
+import EmptyShowtime from '../components/showtime/EmptyShowtime';
+import { getMovieById } from '../api/movieApi';
+import { getShowtimesByMovie } from '../api/showtimeApi';
+import type { Movie } from '../types/movie';
 
-type Cinema = { id: number; name: string; address: string };
-
-type Showtime = {
+type UiShowtime = {
   showtimeId: number;
   cinemaId: number;
   cinemaName: string;
@@ -19,174 +29,121 @@ type Showtime = {
   endTime: string;
 };
 
-type MockMovie = typeof mockMovies[number];
-
-const cinemas: Cinema[] = [
-  { id: 1, name: "CMC Cinema Hà Nội",  address: "123 Nguyễn Trãi, Hà Nội" },
-  { id: 2, name: "CMC Cinema Đà Nẵng", address: "45 Trần Phú, Đà Nẵng" },
-  { id: 3, name: "CMC Cinema HCM",     address: "99 Lý Tự Trọng, TP.HCM" },
-];
-
-function buildMockShowtimes(movieId: string | undefined): Showtime[] {
-  if (!movieId) return [];
-  const result: Showtime[] = [];
-  let id = 1;
-  cinemas.forEach((cinema) => {
-    [0, 1, 2].forEach((dayOffset) => {
-      const hoursToAdd = dayOffset === 0 ? [2, 4, 6, 8] : [9, 12.5, 16, 20.25];
-      hoursToAdd.forEach((hoursFromNow) => {
-        let start: Date;
-        if (dayOffset === 0) {
-          start = new Date(Date.now() + hoursFromNow * 60 * 60 * 1000);
-        } else {
-          start = new Date();
-          start.setHours(0, 0, 0, 0);
-          start.setDate(start.getDate() + dayOffset);
-          start.setHours(Math.floor(hoursFromNow), (hoursFromNow % 1) * 60);
-        }
-        const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
-        result.push({
-          showtimeId: id++,
-          cinemaId: cinema.id,
-          cinemaName: cinema.name,
-          roomName: `Phòng ${id % 4 + 1}`,
-          startTime: start.toISOString(),
-          endTime: end.toISOString(),
-        });
-      });
-    });
-  });
-  return result;
-}
-
 const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
 const formatDate = (dateStr: string) =>
-  new Date(dateStr).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+  new Date(dateStr).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
 
 const getDayLabel = (dateStr: string) => {
-  const date     = new Date(dateStr);
-  const today    = new Date(); today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  const date = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
   date.setHours(0, 0, 0, 0);
-  if (date.getTime() === today.getTime())    return "Hôm nay";
-  if (date.getTime() === tomorrow.getTime()) return "Ngày mai";
-  return date.toLocaleDateString("vi-VN", { weekday: "short" });
+  if (date.getTime() === today.getTime()) return 'Hôm nay';
+  if (date.getTime() === tomorrow.getTime()) return 'Ngày mai';
+  return date.toLocaleDateString('vi-VN', { weekday: 'short' });
 };
 
 const isPast = (iso: string) => new Date(iso) < new Date();
 
 export default function ShowtimeSelectPage() {
   const { movieId } = useParams();
-  const navigate    = useNavigate();
+  const navigate = useNavigate();
   const { darkMode } = useTheme();
 
-  const mockMovie = mockMovies.find((m) => String(m.movie_id) === movieId);
-  const [movie, setMovie] = useState<MockMovie | null>(mockMovie ?? null);
-  const [loadingMovie, setLoadingMovie] = useState(!mockMovie);
+  // ── Thông tin phim ───────────────────────────────────────────────────────
+  const [movie, setMovie] = useState<Movie | null>(null);
+  const [loadingMovie, setLoadingMovie] = useState(true);
 
   useEffect(() => {
-    if (mockMovie) {
-      const t = setTimeout(() => {
-        setMovie(mockMovie);
+    let cancelled = false;
+    void (async () => {
+      if (!movieId) {
         setLoadingMovie(false);
-      }, 0);
-      return () => clearTimeout(t);
-    }
-    if (!movieId) {
-      const t = setTimeout(() => setLoadingMovie(false), 0);
-      return () => clearTimeout(t);
-    }
-    let cancelled = false;
-    axiosClient.get(`/movies/${movieId}`)
-      .then((res) => {
-        if (cancelled) return;
-        const raw = (res as unknown) as { data?: Record<string, unknown> };
-        const m = (raw?.data ?? res) as Record<string, unknown>;
-        const fetched: MockMovie = {
-          movie_id: Number(m.movie_id ?? movieId),
-          title: String(m.title ?? ''),
-          poster_url: String(m.poster_url ?? ''),
-          backdrop_url: String(m.backdrop_url ?? ''),
-          trailer_url: String(m.trailer_url ?? ''),
-          age_rating: String(m.age_rating ?? ''),
-          duration_minutes: Number(m.duration_minutes ?? 0),
-          genres: Array.isArray(m.genres) ? (m.genres as string[]) : [],
-          description: String(m.description ?? ''),
-          release_date: String(m.release_date ?? ''),
-          status: (m.status as MockMovie['status']) ?? 'NOW_SHOWING',
-          featured: Boolean(m.featured ?? false),
-        };
-        setMovie(fetched);
-      })
-      .catch(() => { /* không có trong API cũng không crash */ })
-      .finally(() => { if (!cancelled) setLoadingMovie(false); });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+        return;
+      }
+      setLoadingMovie(true);
+      try {
+        const m = await getMovieById(Number(movieId));
+        if (!cancelled) setMovie(m);
+      } catch {
+        if (!cancelled) setMovie(null);
+      } finally {
+        if (!cancelled) setLoadingMovie(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [movieId]);
 
-  const [allShowtimes, setAllShowtimes]             = useState<Showtime[]>([]);
-  const [loadingShowtimes, setLoadingShowtimes]     = useState(true);
-  const [selectedDate, setSelectedDate]             = useState<string | null>(null);
-  const [usingMockShowtimes, setUsingMockShowtimes] = useState(false);
+  // ── Suất chiếu ───────────────────────────────────────────────────────────
+  const [allShowtimes, setAllShowtimes] = useState<UiShowtime[]>([]);
+  const [loadingShowtimes, setLoadingShowtimes] = useState(true);
+  const [showtimeError, setShowtimeError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const movieIdRef = useRef(movieId);
-  useLayoutEffect(() => {
-    movieIdRef.current = movieId;
-  });
+  const loadShowtimes = useMemo(
+    () => async (signal: { cancelled: boolean }) => {
+      if (!movieId) {
+        setLoadingShowtimes(false);
+        return;
+      }
+      setLoadingShowtimes(true);
+      setShowtimeError(null);
+      try {
+        const apiList = await getShowtimesByMovie(Number(movieId));
+        if (signal.cancelled) return;
+        setAllShowtimes(
+          apiList
+            // Suất chiếu đã huỷ không được bán vé
+            .filter((s) => s.status !== 'CANCELLED' && s.id > 0)
+            .map((s) => ({
+              showtimeId: s.id,
+              cinemaId: s.cinemaId ?? 0,
+              cinemaName: s.cinemaName || 'Chưa rõ rạp',
+              roomName: s.roomName || 'Chưa rõ phòng',
+              startTime: s.startTime,
+              endTime: s.endTime,
+            })),
+        );
+      } catch (err) {
+        if (signal.cancelled) return;
+        // FIX Lỗi 3: lỗi mạng thì báo lỗi thật, KHÔNG dựng suất chiếu giả
+        setShowtimeError(
+          (err as { message?: string })?.message || 'Không tải được lịch chiếu. Vui lòng thử lại.',
+        );
+        setAllShowtimes([]);
+      } finally {
+        if (!signal.cancelled) setLoadingShowtimes(false);
+      }
+    },
+    [movieId],
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoadingShowtimes(true);
+    const signal = { cancelled: false };
+    void (async () => {
       setSelectedDate(null);
-
-      try {
-        // ✅ Dùng lại helper có sẵn: gọi đúng route path-param
-        // GET /showtimes/movie/:movieId, và KHÔNG unwrap response.data
-        // thêm lần nào (axiosClient đã unwrap sẵn qua interceptor).
-        const apiList = await getShowtimesByMovie(Number(movieIdRef.current));
-
-        // Map về shape nội bộ của trang (showtimeId, cinemaId, ...)
-        const list: Showtime[] = apiList.map((s) => ({
-          showtimeId: s.id,
-          cinemaId:   s.cinemaId ?? 0,
-          cinemaName: s.cinemaName || 'Unknown',
-          roomName:   s.roomName  || 'Unknown',
-          startTime:  s.startTime,
-          endTime:    s.endTime,
-        }));
-
-        if (cancelled) return;
-
-        if (list.length > 0) {
-          setAllShowtimes(list);
-          setUsingMockShowtimes(false);
-        } else {
-          setAllShowtimes(buildMockShowtimes(movieIdRef.current));
-          setUsingMockShowtimes(true);
-        }
-      } catch {
-        if (cancelled) return;
-        await new Promise<void>((resolve) => setTimeout(resolve, 400));
-        if (cancelled) return;
-        setAllShowtimes(buildMockShowtimes(movieIdRef.current));
-        setUsingMockShowtimes(true);
-      } finally {
-        if (!cancelled) setLoadingShowtimes(false);
-      }
+      await loadShowtimes(signal);
+    })();
+    return () => {
+      signal.cancelled = true;
     };
-    void load();
-    return () => { cancelled = true; };
-  }, [movieId]);
+  }, [loadShowtimes]);
 
   const availableDates = useMemo(() => {
-    const set = new Set(allShowtimes.map((s) => s.startTime.split("T")[0]));
+    const set = new Set(allShowtimes.map((s) => s.startTime.split('T')[0]));
     return Array.from(set).sort();
   }, [allShowtimes]);
 
   const didSetDefault = useRef(false);
+  useEffect(() => {
+    didSetDefault.current = false;
+  }, [movieId]);
 
   useEffect(() => {
     if (availableDates.length > 0 && !selectedDate && !didSetDefault.current) {
@@ -196,56 +153,45 @@ export default function ShowtimeSelectPage() {
     }
   }, [availableDates, selectedDate]);
 
-  useEffect(() => {
-    didSetDefault.current = false;
-  }, [movieId]);
+  const filtered = useMemo(
+    () =>
+      allShowtimes.filter((s) => (selectedDate ? s.startTime.startsWith(selectedDate) : true)),
+    [allShowtimes, selectedDate],
+  );
 
-  const filtered = useMemo(() => {
-    return allShowtimes.filter((s) =>
-      selectedDate ? s.startTime.startsWith(selectedDate) : true
-    );
-  }, [allShowtimes, selectedDate]);
-
-  // ✅ Group theo cinemaId (ổn định) thay vì cinemaName — tránh gộp nhầm
-  // khi 2 rạp trùng tên hoặc khi tên = 'Unknown'. cinemaName chỉ dùng để hiển thị.
+  // Group theo cinemaId (ổn định) thay vì cinemaName — tránh gộp nhầm khi trùng tên
   const groupedByCinema = useMemo(() => {
-    const map = new Map<number, { cinemaName: string; showtimes: Showtime[] }>();
+    const map = new Map<number, { cinemaName: string; showtimes: UiShowtime[] }>();
     filtered.forEach((s) => {
       const group = map.get(s.cinemaId);
-      if (group) {
-        group.showtimes.push(s);
-      } else {
-        map.set(s.cinemaId, { cinemaName: s.cinemaName, showtimes: [s] });
-      }
+      if (group) group.showtimes.push(s);
+      else map.set(s.cinemaId, { cinemaName: s.cinemaName, showtimes: [s] });
     });
+    map.forEach((g) => g.showtimes.sort((a, b) => a.startTime.localeCompare(b.startTime)));
     return Array.from(map.entries());
   }, [filtered]);
 
-  const handleSelectShowtime = (s: Showtime) => {
-    if (isPast(s.startTime)) return;
-    // Không điều hướng nếu thiếu showtimeId — tránh SeatBookingPage rơi vào
-    // nhánh mock (showtimeId null) hoặc gọi backend với id không hợp lệ.
-    if (!s.showtimeId) return;
+  const handleSelectShowtime = (s: UiShowtime) => {
+    if (isPast(s.startTime) || !s.showtimeId) return;
     const date = s.startTime.split('T')[0];
     const time = formatTime(s.startTime);
     navigate(
       `/movies/${movieId}/seats` +
-      `?showtimeId=${s.showtimeId}` +
-      `&cinema=${encodeURIComponent(s.cinemaName)}` +
-      `&room=${encodeURIComponent(s.roomName)}` +
-      `&date=${encodeURIComponent(date)}` +
-      `&time=${encodeURIComponent(time)}`
+        `?showtimeId=${s.showtimeId}` +
+        `&cinema=${encodeURIComponent(s.cinemaName)}` +
+        `&room=${encodeURIComponent(s.roomName)}` +
+        `&date=${encodeURIComponent(date)}` +
+        `&time=${encodeURIComponent(time)}`,
     );
   };
 
-  const bg     = darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900';
-  const card   = darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow';
-  const muted  = darkMode ? 'text-gray-400' : 'text-gray-500';
+  const bg = darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900';
+  const card = darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow';
+  const muted = darkMode ? 'text-gray-400' : 'text-gray-500';
   const accent = 'text-amber-400';
 
   return (
     <div className={`min-h-screen ${bg}`}>
-      {/* Backdrop */}
       {movie?.backdrop_url && (
         <div className="relative w-full h-48 md:h-72 overflow-hidden">
           <img src={movie.backdrop_url} alt="" className="w-full h-full object-cover opacity-25" />
@@ -254,7 +200,7 @@ export default function ShowtimeSelectPage() {
       )}
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Movie info */}
+        {/* Thông tin phim */}
         {loadingMovie ? (
           <div className="flex gap-4 animate-pulse">
             <div className="w-24 h-36 rounded-xl bg-gray-800" />
@@ -265,32 +211,42 @@ export default function ShowtimeSelectPage() {
           </div>
         ) : movie ? (
           <div className="flex gap-4 items-start">
-            <img src={movie.poster_url} alt={movie.title} className="w-24 rounded-xl shadow-lg flex-shrink-0" />
+            {movie.poster_url && (
+              <img
+                src={movie.poster_url}
+                alt={movie.title}
+                className="w-24 rounded-xl shadow-lg flex-shrink-0"
+              />
+            )}
             <div>
               <h1 className={`text-2xl font-bold ${accent}`}>{movie.title}</h1>
               {movie.age_rating && (
-                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-red-600 text-white font-semibold">{movie.age_rating}</span>
+                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-red-600 text-white font-semibold">
+                  {movie.age_rating}
+                </span>
               )}
               {movie.duration_minutes > 0 && (
                 <p className={`text-sm mt-1 ${muted}`}>{movie.duration_minutes} phút</p>
               )}
-              {movie.genres?.length > 0 && (
+              {movie.genres.length > 0 && (
                 <p className={`text-xs mt-1 ${muted}`}>{movie.genres.join(' • ')}</p>
               )}
             </div>
           </div>
         ) : null}
 
-        {/* Date selector */}
+        {/* Chọn ngày */}
         {loadingShowtimes ? (
           <div className="flex gap-2">
-            {[1,2,3,4].map(i => (
+            {[1, 2, 3, 4].map((i) => (
               <div key={i} className="w-16 h-14 rounded-xl bg-gray-800 animate-pulse" />
             ))}
           </div>
         ) : availableDates.length > 0 ? (
           <div>
-            <h2 className="text-sm font-semibold mb-3 text-gray-400 uppercase tracking-wider">Chọn ngày</h2>
+            <h2 className="text-sm font-semibold mb-3 text-gray-400 uppercase tracking-wider">
+              Chọn ngày
+            </h2>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {availableDates.map((date) => (
                 <button
@@ -299,7 +255,9 @@ export default function ShowtimeSelectPage() {
                   className={`flex-shrink-0 px-3 py-2 rounded-xl text-center transition-all ${
                     selectedDate === date
                       ? 'bg-amber-500 text-gray-950 font-semibold shadow-lg'
-                      : darkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      : darkMode
+                        ? 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
                 >
                   <div className="text-xs">{getDayLabel(date)}</div>
@@ -310,22 +268,31 @@ export default function ShowtimeSelectPage() {
           </div>
         ) : null}
 
-        {/* Showtimes grouped by cinema */}
+        {/* Danh sách suất chiếu theo rạp */}
         {loadingShowtimes ? (
           <div className="space-y-4">
-            {[1,2].map(i => (
+            {[1, 2].map((i) => (
               <div key={i} className="rounded-2xl p-4 bg-gray-800 animate-pulse h-32" />
             ))}
+          </div>
+        ) : showtimeError ? (
+          <div className="rounded-2xl px-4 py-6 bg-red-500/10 border border-red-500/25 text-center">
+            <p className="text-2xl mb-2">⚠️</p>
+            <p className="text-red-400 text-sm mb-4">{showtimeError}</p>
+            <button
+              onClick={() => {
+                const signal = { cancelled: false };
+                void loadShowtimes(signal);
+              }}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-gray-950 text-sm font-semibold transition"
+            >
+              Thử lại
+            </button>
           </div>
         ) : groupedByCinema.length === 0 ? (
           <EmptyShowtime />
         ) : (
           <div className="space-y-6">
-            {usingMockShowtimes && (
-              <div className="rounded-xl px-4 py-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm">
-                ℹ️ Đang hiển thị suất chiếu mẫu.
-              </div>
-            )}
             {groupedByCinema.map(([cinemaId, { cinemaName, showtimes }]) => (
               <div key={cinemaId} className={`rounded-2xl p-4 md:p-6 ${card}`}>
                 <h3 className="font-semibold text-base mb-1">{cinemaName}</h3>
@@ -344,9 +311,11 @@ export default function ShowtimeSelectPage() {
                         }`}
                       >
                         <span>{formatTime(s.startTime)}</span>
-                        <span className={`text-xs mt-0.5 ${
-                          past ? 'text-gray-600' : 'text-gray-800 opacity-70'
-                        }`}>{s.roomName}</span>
+                        <span
+                          className={`text-xs mt-0.5 ${past ? 'text-gray-600' : 'text-gray-800 opacity-70'}`}
+                        >
+                          {s.roomName}
+                        </span>
                       </button>
                     );
                   })}

@@ -266,7 +266,8 @@ export default function Navbar() {
           🎬 CMC Cinema
         </Link>
         <div className="flex gap-7 text-sm font-semibold uppercase tracking-wide">
-          <Link to="/" className="hover:text-blue-500 transition">Lịch chiếu</Link>
+          {/* FIX Lỗi 4: trước đây trỏ về "/" (trang chủ), không có trang lịch chiếu */}
+          <Link to="/schedule" className="hover:text-blue-500 transition">Lịch chiếu</Link>
           <Link to="/movies" className="hover:text-blue-500 transition">Phim</Link>
           <Link to="/cinemas" className="hover:text-blue-500 transition">Rạp</Link>
           <Link to="/price" className="hover:text-blue-500 transition">Giá vé</Link>

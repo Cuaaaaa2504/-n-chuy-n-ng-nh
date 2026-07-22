@@ -7,7 +7,7 @@
 //
 // FIX BUG-04: xoá MOVIE_ID_MAP / ROOM_ID_MAP hardcode. Showtime trả về từ API
 //   giờ đã có sẵn movieId / roomId thật nên không cần "dò ngược" theo tên nữa.
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import ShowtimeTable from '../../components/admin/ShowtimeTable';
 import ShowtimeForm from '../../components/admin/ShowtimeForm';
 import ConfirmCancelModal from '../../components/admin/ConfirmCancelModal';
@@ -15,10 +15,12 @@ import {
   Btn,
   EmptyState,
   ErrorBanner,
+  Field,
   Loading,
   Modal,
   PageHeader,
   Toast,
+  inputClass,
   useToast,
 } from '../../components/admin/AdminUI';
 import { useShowtimes } from '../../hooks/useShowtimes';
@@ -41,6 +43,11 @@ const AdminShowtimesPage: React.FC = () => {
   const [cancelingShowtime, setCancelingShowtime] = useState<Showtime | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // FIX Lỗi 7: bảng phẳng không có filter -> càng nhiều suất chiếu càng khó dùng
+  const [filterDate, setFilterDate] = useState('');
+  const [filterMovieId, setFilterMovieId] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
   const {
     showtimes,
     movies,
@@ -53,6 +60,30 @@ const AdminShowtimesPage: React.FC = () => {
     cancelShowtime,
   } = useShowtimes();
   const { toast, showToast } = useToast();
+
+  const visibleShowtimes = useMemo(
+    () =>
+      showtimes.filter((s) => {
+        if (filterDate && s.showDate !== filterDate) return false;
+        if (filterMovieId && String(s.movieId) !== filterMovieId) return false;
+        if (filterStatus && s.status !== filterStatus) return false;
+        return true;
+      }),
+    [showtimes, filterDate, filterMovieId, filterStatus],
+  );
+
+  const hasFilter = Boolean(filterDate || filterMovieId || filterStatus);
+  const clearFilters = () => {
+    setFilterDate('');
+    setFilterMovieId('');
+    setFilterStatus('');
+  };
+
+  /** Chỉ liệt kê phim thực sự có suất chiếu — dropdown gọn hơn nhiều */
+  const moviesWithShowtimes = useMemo(() => {
+    const ids = new Set(showtimes.map((s) => s.movieId));
+    return movies.filter((m) => ids.has(m.id));
+  }, [movies, showtimes]);
 
   const closeForm = () => {
     setIsFormOpen(false);
@@ -94,7 +125,11 @@ const AdminShowtimesPage: React.FC = () => {
 
       <PageHeader
         title="Quản lý Suất Chiếu"
-        subtitle={`Tổng: ${showtimes.length} suất chiếu`}
+        subtitle={
+          hasFilter
+            ? `Hiển thị ${visibleShowtimes.length} / ${showtimes.length} suất chiếu`
+            : `Tổng: ${showtimes.length} suất chiếu`
+        }
         actions={
           <>
             <Btn variant="ghost" onClick={() => void fetchShowtimes()} disabled={loading}>
@@ -115,13 +150,62 @@ const AdminShowtimesPage: React.FC = () => {
 
       <ErrorBanner message={error} />
 
+      {/* Bộ lọc (FIX Lỗi 7) */}
+      {!loading && showtimes.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label="Ngày chiếu">
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Phim">
+              <select
+                value={filterMovieId}
+                onChange={(e) => setFilterMovieId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Tất cả phim</option>
+                {moviesWithShowtimes.map((m) => (
+                  <option key={m.id} value={String(m.id)}>
+                    {m.title}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Trạng thái">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="OPEN">Đang mở bán</option>
+                <option value="CLOSED">Đã đóng</option>
+                <option value="CANCELLED">Đã hủy</option>
+              </select>
+            </Field>
+          </div>
+          <div className="flex justify-end mt-4">
+            <Btn variant="ghost" onClick={clearFilters} disabled={!hasFilter}>
+              Xóa bộ lọc
+            </Btn>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <Loading label="Đang tải suất chiếu..." />
       ) : showtimes.length === 0 ? (
         <EmptyState icon="🕐" label="Chưa có suất chiếu nào." />
+      ) : visibleShowtimes.length === 0 ? (
+        <EmptyState icon="🔍" label="Không có suất chiếu nào khớp bộ lọc." />
       ) : (
         <ShowtimeTable
-          showtimes={showtimes}
+          showtimes={visibleShowtimes}
           onEdit={(s) => {
             setEditingShowtime(s);
             setIsFormOpen(true);
