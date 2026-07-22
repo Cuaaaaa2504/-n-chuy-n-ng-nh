@@ -6,8 +6,9 @@
  * Hàm này ghép thêm base URL của backend, đồng thời bỏ qua các URL đã đầy đủ
  * (http/https) và URL tạm của trình duyệt (blob:/data:) dùng cho preview.
  */
-const API_BASE_URL: string =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+// FIX Lỗi 1: dùng chung API_BASE_URL từ config/env.ts thay vì hardcode lại
+// port 3002 (sai) ở đây.
+import { API_BASE_URL } from '../config/env';
 
 export function resolveAssetUrl(path?: string | null): string {
   if (!path) return '';

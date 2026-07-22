@@ -145,15 +145,37 @@ export async function cancelShowtime(id: number): Promise<void> {
  * Dữ liệu cho các <select> của form (thay cho MOVIE_ID_MAP / ROOM_ID_MAP cứng)
  * ──────────────────────────────────────────────────────────────────────────*/
 
-/** GET /movies — lấy danh sách phim thật để đổ vào dropdown */
+/**
+ * GET /movies — lấy danh sách phim thật để đổ vào dropdown.
+ *
+ * FIX Lỗi 1 (nguyên nhân thứ 2): `MovieQueryDto` giới hạn `@Max(50)` cho `limit`,
+ * và backend bật `forbidNonWhitelisted` -> gửi `limit: 500` bị trả về
+ * 400 Bad Request. Vì `getMovieOptions()` có `.catch(() => [])` nên lỗi bị nuốt
+ * im lặng và dropdown vẫn trống KỂ CẢ khi port đã đúng. Nay phân trang 50/lần.
+ */
 export async function getMovieOptions(): Promise<MovieOption[]> {
-  const payload = (await axiosClient.get('/movies', {
-    params: { page: 1, limit: 500 },
-  })) as unknown;
-  return unwrapList(payload).map((m) => ({
-    id: Number(m.movieId ?? m.movie_id ?? m.id ?? 0),
-    title: String(m.title ?? ''),
-  }));
+  const LIMIT = 50;
+  const MAX_PAGES = 20; // chặn trên an toàn: tối đa 1000 phim
+  const out: MovieOption[] = [];
+
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const payload = (await axiosClient.get('/movies', {
+      params: { page, limit: LIMIT },
+    })) as unknown;
+
+    const rows = unwrapList(payload);
+    out.push(
+      ...rows.map((m) => ({
+        id: Number(m.movieId ?? m.movie_id ?? m.id ?? 0),
+        title: String(m.title ?? ''),
+      })),
+    );
+
+    const total = Number((payload as Record<string, unknown>)?.total ?? 0);
+    if (rows.length < LIMIT || (total > 0 && out.length >= total)) break;
+  }
+
+  return out;
 }
 
 /** GET /cinemas + GET /cinemas/:id/rooms/all — lấy phòng chiếu thật của từng rạp */

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { API_BASE_URL } from '../config/env';
 
 // FIX BUG-07: `_retry` không tồn tại trong InternalAxiosRequestConfig.
 // Khai báo type mở rộng thay vì truy cập field "lậu" trên object -> build production
@@ -9,7 +10,9 @@ type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 // NOTE: interceptor response unwrap response.data một lần duy nhất.
 // Tất cả các nơi gọi axiosClient KHÔNG được unwrap thêm lần nào nữa.
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002',
+  // FIX Lỗi 1: fallback cũ là port 3002 nhưng backend chạy ở 3000 -> mọi request
+  // đều thất bại. Giá trị lấy từ config/env.ts (nguồn duy nhất).
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -33,7 +36,7 @@ axiosClient.interceptors.response.use(
       try {
         originalRequest._retry = true;
         const res = await axios.post(
-          (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002') + '/auth/refresh',
+          API_BASE_URL + '/auth/refresh',
           {},
           { withCredentials: true },
         );

@@ -1,5 +1,3 @@
-// FIX TS2353: thêm release_date vào Movie interface vì ShowtimeSelectPage
-// build object MockMovie (extends Movie) có field release_date từ server API
 export interface Movie {
   movie_id: number;
   title: string;
@@ -9,9 +7,49 @@ export interface Movie {
   backdrop_url?: string;
   description?: string;
   trailer_url?: string;
-  status: "NOW_SHOWING" | "COMING_SOON" | "ENDED";
+  status: 'NOW_SHOWING' | 'COMING_SOON' | 'ENDED' | 'HIDDEN';
+
+  /** Tên thể loại — chỉ dùng để HIỂN THỊ. Backend không nhận field này. */
   genres: string[];
-  featured?: boolean;
-  // FIX TS2353: server có thể trả về release_date
+
+  /**
+   * FIX Lỗi 2 & 3 (tầng 2): backend `CreateMovieDto` yêu cầu `genreIds: number[]`
+   * (ID số nguyên của thể loại có sẵn trong bảng `genres`), không phải mảng tên.
+   * Gửi tên -> `resolveGenres()` ném BadRequestException 'Một hoặc nhiều thể
+   * loại không tồn tại'. Nay form thao tác trên ID và `genres` chỉ để render.
+   */
+  genre_ids?: number[];
+
   release_date?: string;
+
+  /**
+   * CHỈ dùng ở frontend (mock data trang chủ). Bảng `movies` và `CreateMovieDto`
+   * đều KHÔNG có cột này, nên `toMoviePayload()` luôn loại bỏ nó trước khi gửi.
+   * Muốn "phim nổi bật" hoạt động thật thì phải thêm cột ở DB + DTO trước.
+   */
+  featured?: boolean;
+}
+
+/**
+ * Giá trị hợp lệ của `age_rating`.
+ * FIX: khớp CHECK constraint `CK_movies_age_rating` trong SQL V6.3
+ * — ('P','K','T13','T16','T18','C'). Form cũ đưa ra C13/C16/C18, không giá trị
+ * nào tồn tại trong constraint -> INSERT bị DB từ chối.
+ */
+export const AGE_RATINGS = ['P', 'K', 'T13', 'T16', 'T18', 'C'] as const;
+export type AgeRating = (typeof AGE_RATINGS)[number];
+
+export const AGE_RATING_LABEL: Record<string, string> = {
+  P: 'P — Mọi lứa tuổi',
+  K: 'K — Dưới 13 tuổi (có người lớn đi kèm)',
+  T13: 'T13 — Từ 13 tuổi',
+  T16: 'T16 — Từ 16 tuổi',
+  T18: 'T18 — Từ 18 tuổi',
+  C: 'C — Không được phổ biến',
+};
+
+/** Một thể loại phim lấy từ GET /genres */
+export interface Genre {
+  id: number;
+  name: string;
 }

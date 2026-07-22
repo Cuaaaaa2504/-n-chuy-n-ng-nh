@@ -1,19 +1,21 @@
 // src/pages/admin/AdminMoviesPage.tsx
 import React, { useState } from 'react';
 import { useMovies } from '../../hooks/useMovies';
-import type { Movie } from '../../types/movie';
+import type { Genre, Movie } from '../../types/movie';
+import { AGE_RATINGS, AGE_RATING_LABEL } from '../../types/movie';
 import { MOVIE_STATUS_LABEL, MOVIE_STATUS_COLOR } from '../../utils/constants';
 
 // ── Simple inline form modal ──────────────────────────────────────────────
 interface MovieFormProps {
   movie: Movie | null;
+  genres: Genre[];
   onSubmit: (data: Omit<Movie, 'movie_id'>) => Promise<void>;
   onClose: () => void;
 }
 
 const EMPTY_FORM: Omit<Movie, 'movie_id'> = {
   title: '', duration_minutes: 90, age_rating: 'P',
-  poster_url: '', status: 'NOW_SHOWING', genres: [],
+  poster_url: '', status: 'NOW_SHOWING', genres: [], genre_ids: [],
 };
 
 // ── Validate helpers ──────────────────────────────────────────────────────
@@ -62,7 +64,7 @@ function validateForm(form: Omit<Movie, 'movie_id'>): FormErrors {
   return errors;
 }
 
-function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
+function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormProps) {
   const [form, setForm] = useState<Omit<Movie, 'movie_id'>>(
     movie ? { ...movie } : { ...EMPTY_FORM }
   );
@@ -121,7 +123,11 @@ function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
                 onChange={e => set('age_rating', e.target.value)}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
               >
-                {['P', 'C13', 'C16', 'C18'].map(r => <option key={r} value={r}>{r}</option>)}
+                {/* FIX: C13/C16/C18 vi phạm CHECK constraint CK_movies_age_rating
+                    ('P','K','T13','T16','T18','C') -> DB từ chối INSERT/UPDATE */}
+                {AGE_RATINGS.map(r => (
+                  <option key={r} value={r}>{AGE_RATING_LABEL[r] ?? r}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -152,15 +158,42 @@ function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
             </select>
           </div>
 
-          {/* Thể loại */}
+          {/* Thể loại — FIX: backend nhận genreIds (number[]), không nhận tên.
+              Nhập text tự do luôn dẫn tới 'Một hoặc nhiều thể loại không tồn tại'. */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Thể loại (cách nhau bởi dấu phẩy)</label>
-            <input
-              value={form.genres.join(', ')}
-              onChange={e => set('genres', e.target.value.split(',').map((g: string) => g.trim()).filter(Boolean))}
-              placeholder="Hành động, Phiêu lưu"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
-            />
+            <label className="block text-sm text-gray-400 mb-1">Thể loại</label>
+            {allGenres.length === 0 ? (
+              <p className="text-yellow-400 text-xs bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2">
+                Chưa tải được danh sách thể loại từ máy chủ. Bạn vẫn có thể lưu phim mà không gán thể loại.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {allGenres.map(g => {
+                  const active = (form.genre_ids ?? []).includes(g.id);
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() =>
+                        set(
+                          'genre_ids',
+                          active
+                            ? (form.genre_ids ?? []).filter(id => id !== g.id)
+                            : [...(form.genre_ids ?? []), g.id],
+                        )
+                      }
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                        active
+                          ? 'bg-blue-600/30 text-blue-200 border-blue-500/50'
+                          : 'bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500'
+                      }`}
+                    >
+                      {g.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Mô tả */}
@@ -186,15 +219,11 @@ function MovieForm({ movie, onSubmit, onClose }: MovieFormProps) {
             {errors.trailer_url && <p className="text-red-400 text-xs mt-1">{errors.trailer_url}</p>}
           </div>
 
-          {/* Featured */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox" id="featured" checked={form.featured ?? false}
-              onChange={e => set('featured', e.target.checked)}
-              className="accent-blue-500"
-            />
-            <label htmlFor="featured" className="text-sm text-gray-300">Phim nổi bật (hiển thị trang chủ)</label>
-          </div>
+          {/* FIX: đã bỏ checkbox "Phim nổi bật".
+              Cột `featured` KHÔNG tồn tại trong bảng `movies` lẫn CreateMovieDto.
+              Vì backend bật forbidNonWhitelisted, chỉ cần gửi kèm field này là cả
+              request bị trả 400 — mà kể cả có gửi được thì giá trị cũng không
+              lưu được ở đâu. Muốn có tính năng này cần thêm cột ở DB trước. */}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
@@ -242,7 +271,7 @@ function ConfirmDeleteModal({
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 const AdminMoviesPage: React.FC = () => {
-  const { movies, loading, error, addMovie, editMovie, removeMovie } = useMovies();
+  const { movies, genres, loading, error, setError, addMovie, editMovie, removeMovie } = useMovies();
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState<Movie['status'] | ''>('');
   const [formOpen, setFormOpen]         = useState(false);
@@ -277,12 +306,25 @@ const AdminMoviesPage: React.FC = () => {
       Đang tải dữ liệu...
     </div>
   );
-  if (error) return (
-    <div className="flex items-center justify-center h-64 text-red-400">{error}</div>
-  );
 
   return (
     <div>
+      {/* FIX: trước đây `if (error) return <div>...` thay thế TOÀN BỘ trang.
+          Khi thêm/sửa phim thất bại, modal bị unmount kèm luôn dữ liệu vừa nhập
+          và admin chỉ thấy một dòng chữ đỏ giữa màn hình trắng. Nay lỗi hiện
+          dạng banner, form vẫn còn nguyên để sửa lại và gửi tiếp. */}
+      {error && (
+        <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-xl px-4 py-3 mb-4 text-sm flex items-start justify-between gap-3">
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-200 text-lg leading-none shrink-0"
+            aria-label="Đóng"
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-extrabold">Quản lý phim</h2>
@@ -334,7 +376,6 @@ const AdminMoviesPage: React.FC = () => {
                 <th className="px-4 py-3">Thời lượng</th>
                 <th className="px-4 py-3">Giới hạn tuổi</th>
                 <th className="px-4 py-3">Trạng thái</th>
-                <th className="px-4 py-3">Nổi bật</th>
                 <th className="px-4 py-3 text-right">Thao tác</th>
               </tr>
             </thead>
@@ -355,9 +396,6 @@ const AdminMoviesPage: React.FC = () => {
                     <span className={`font-semibold ${MOVIE_STATUS_COLOR[m.status] ?? 'text-gray-400'}`}>
                       {MOVIE_STATUS_LABEL[m.status] ?? m.status}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {m.featured ? <span className="text-yellow-400">⭐</span> : <span className="text-gray-600">—</span>}
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <button
@@ -384,6 +422,7 @@ const AdminMoviesPage: React.FC = () => {
       {formOpen && (
         <MovieForm
           movie={editTarget}
+          genres={genres}
           onSubmit={handleFormSubmit}
           onClose={handleClose}
         />

@@ -7,6 +7,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { BookingModule } from './booking/booking.module';
 import { ShowtimeSeatsModule } from './showtime-seats/showtime-seats.module';
 import { MovieModule } from './movie/movie.module';
+import { GenreModule } from './genre/genre.module';
 import { CinemaModule } from './cinema/cinema.module';
 import { ConcessionComboModule } from './concession-combo/concession-combo.module';
 import { PaymentModule } from './payment/payment.module';
@@ -49,6 +50,7 @@ import { AdminModule } from './admin/admin.module';
     BookingModule,
     ShowtimeSeatsModule,
     MovieModule,
+    GenreModule,
     CinemaModule,
     ConcessionComboModule,
     PaymentModule,
