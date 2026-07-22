@@ -83,6 +83,18 @@ export class ShowtimeSeatsController {
 
   // ─────────── ROUTE ĐỘNG (luôn ở CUỐI CÙNG) ───────────
 
+  /**
+   * FIX BUG-05: bổ sung JwtAuthGuard.
+   * Trước đây endpoint này public -> bất kỳ ai chưa đăng nhập cũng đọc được
+   * trạng thái từng ghế, giá vé và thông tin phòng chiếu. Luồng đặt vé phía
+   * frontend vốn đã nằm sau PrivateRoute nên việc yêu cầu đăng nhập không làm
+   * mất chức năng nào.
+   *
+   * Nếu sau này cần cho phép xem sơ đồ ghế trước khi đăng nhập (preview), hãy
+   * bỏ guard ở ĐÂY và thay bằng một endpoint public riêng chỉ trả về số ghế
+   * trống — không kèm heldByUserId.
+   */
+  @UseGuards(JwtAuthGuard)
   @Get(':showtimeId')
   getSeatMap(@Param('showtimeId', ParseIntPipe) showtimeId: number) {
     return this.showtimeSeatsService.getSeatMap(showtimeId);

@@ -99,8 +99,12 @@ export default function ShowtimeSelectPage() {
         if (signal.cancelled) return;
         setAllShowtimes(
           apiList
-            // Suất chiếu đã huỷ không được bán vé
-            .filter((s) => s.status !== 'CANCELLED' && s.id > 0)
+            // Suất chiếu đã huỷ không được bán vé.
+            // FIX BUG-06: lọc luôn suất đã qua giờ bắt đầu. Trước đây chúng vẫn
+            // nằm trong danh sách, chỉ bị disable + gạch ngang -> với phim chiếu
+            // nhiều ngày thì giao diện đầy nút chết, user phải tự đoán nút nào
+            // còn bấm được. Ngày nào hết suất thì cũng không còn hiện ở thanh chọn ngày.
+            .filter((s) => s.status !== 'CANCELLED' && s.id > 0 && !isPast(s.startTime))
             .map((s) => ({
               showtimeId: s.id,
               cinemaId: s.cinemaId ?? 0,

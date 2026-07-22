@@ -8,7 +8,10 @@ import { useTheme } from "../context/useTheme";
 import type { SeatDto } from "../types/seat.types";
 import type { Seat } from "../hooks/useSeatHold";
 import axiosClient from "../api/axiosClient";
-import { normalizeSeat } from "../api/seat.service";
+// FIX BUG-08: dùng wrapper seatService thay vì tự gọi axiosClient — logic hold
+// và lấy seatmap chỉ còn tồn tại ở MỘT nơi (src/api/seat.service.ts).
+import { seatService } from "../api/seat.service";
+import type { HoldItem } from "../api/seat.service";
 
 const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
 const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900";
@@ -47,17 +50,9 @@ function formatVND(amount: number) {
   return amount.toLocaleString('vi-VN') + ' ₫';
 }
 
-interface SeatMapResponse {
-  showtimeId?: number;
-  movieTitle?: string | null;
-  cinemaName?: string | null;
-  roomName?:   string | null;
-  showDate?:   string | null;
-  showTime?:   string | null;
-  // ⚠️ Backend trả field snake/khác tên (showtimeSeatId, seatRow, seatStatus,
-  // seatTypeCode...) nên KHÔNG được coi thẳng là SeatDto — phải normalize.
-  seats?: Record<string, unknown>[];
-}
+// FIX BUG-03/BUG-08: interface SeatMapResponse cục bộ đã bị xoá.
+// Kiểu chuẩn nay nằm ở `api/seat.service.ts` và khớp 1-1 với DTO của backend
+// (`showtime-seats/dto/seat-map-response.dto.ts`) — không còn 2 định nghĩa lệch nhau.
 
 interface ShowtimeInfo {
   showtimeId: number;
@@ -87,14 +82,46 @@ interface MovieInfo {
  * -> nút "Đặt vé" tưởng chưa hold và gọi hold lần 2 -> ghế đã ở trạng thái HELD
  * -> backend ném "Các ghế không còn trống" -> hiện lỗi.
  */
-interface HoldItem {
-  holdId: string;          // BIGINT -> backend trả string
-  holdToken: string;
-  expiresAt: string;
-  status: string;
-  showtimeSeatId: number;
-  seatLabel: string;
-  price: number;
+// FIX BUG-08: HoldItem nay được export từ `api/seat.service.ts` — trước đây
+// interface này bị khai báo trùng ở cả 2 file, đổi một bên là lệch bên kia.
+
+/**
+ * FIX BUG-04: trước đây có 3 nhánh rơi vào generateMockSeats() mà KHÔNG log gì cả
+ * -> dev nhìn banner vàng "đang dùng ghế mẫu" nhưng không biết vì mất mạng, vì
+ * suất chiếu chưa sinh ghế, hay vì URL thiếu showtimeId. Debug trên staging gần
+ * như bất khả thi.
+ *
+ * Mọi nhánh fallback nay đều đi qua đây và in ra lý do cụ thể.
+ */
+type MockReason =
+  | 'NO_SHOWTIME_ID'
+  | 'SEATS_NOT_GENERATED'
+  | 'EMPTY_SEAT_LIST'
+  | 'API_ERROR';
+
+const MOCK_REASON_TEXT: Record<MockReason, string> = {
+  NO_SHOWTIME_ID:
+    'URL không có tham số ?showtimeId — trang được mở trực tiếp, không đi qua màn chọn suất chiếu.',
+  SEATS_NOT_GENERATED:
+    'Suất chiếu tồn tại nhưng CHƯA được sinh ghế (bảng showtime_seats rỗng). ' +
+    'Admin cần gọi POST /showtimes/admin/:id/generate-seats để vá dữ liệu cũ.',
+  EMPTY_SEAT_LIST: 'Backend trả về danh sách ghế rỗng.',
+  API_ERROR: 'Gọi GET /showtime-seats/:showtimeId thất bại.',
+};
+
+/** Thông báo hiển thị cho người dùng cuối, tương ứng từng lý do */
+const MOCK_REASON_USER_TEXT: Record<MockReason, string> = {
+  NO_SHOWTIME_ID: 'Chưa chọn suất chiếu. Vui lòng quay lại và chọn suất chiếu.',
+  SEATS_NOT_GENERATED: 'Suất chiếu này chưa có sơ đồ ghế. Vui lòng liên hệ quản trị viên.',
+  EMPTY_SEAT_LIST: 'Suất chiếu này chưa có sơ đồ ghế.',
+  API_ERROR: 'Không tải được sơ đồ ghế từ máy chủ.',
+};
+
+function logMockFallback(reason: MockReason, detail?: unknown) {
+  console.warn(
+    `[SeatBookingPage] Fallback sang ghế mẫu — ${reason}: ${MOCK_REASON_TEXT[reason]}`,
+    detail ?? '',
+  );
 }
 
 export default function SeatBookingPage() {
@@ -119,6 +146,8 @@ export default function SeatBookingPage() {
   const [navigating, setNavigating]           = useState(false);
   const [navError, setNavError]               = useState<string>('');
   const [usingMock, setUsingMock]             = useState(false);
+  // FIX BUG-04: lưu lý do rơi vào mock để hiện đúng thông báo cho người dùng
+  const [mockReason, setMockReason]           = useState<MockReason | null>(null);
   const [holdExpiresAt, setHoldExpiresAt]     = useState<string | null>(null);
   const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const movieSetRef = useRef(false);
@@ -184,8 +213,10 @@ export default function SeatBookingPage() {
       const qRoom      = searchParams.get('room')   ?? null;
 
       if (!showtimeId) {
+        logMockFallback('NO_SHOWTIME_ID');
         setSeats(generateMockSeats());
         setUsingMock(true);
+        setMockReason('NO_SHOWTIME_ID');
         setLoading(false);
         return;
       }
@@ -200,27 +231,42 @@ export default function SeatBookingPage() {
       });
 
       try {
-        const data = await axiosClient.get<SeatMapResponse>(
-          `/showtime-seats/${showtimeId}`
-        ) as unknown as SeatMapResponse;
+        // FIX BUG-08: gọi qua wrapper thay vì axiosClient trực tiếp.
+        // Wrapper đã lo việc normalize ghế + suy ra seatsGenerated.
+        const data = await seatService.getSeatMap(showtimeId);
 
-        // ✅ FIX: chuẩn hoá field từ backend (showtimeSeatId→id, seatRow→rowName,
-        // seatStatus→status, seatTypeCode→type) trước khi đưa vào state.
-        const seatList   = (data.seats ?? []).map(normalizeSeat);
+        const seatList   = data.seats;
         const movieTitle = data.movieTitle ?? null;
         const cinemaName = data.cinemaName ?? qCinema ?? null;
         const roomName   = data.roomName   ?? qRoom   ?? null;
-        const showDate   = data.showDate   ?? qDate   ?? null;
-        const showTime   = data.showTime   ?? qTime   ?? null;
+        // FIX: backend trả `startTime` dạng ISO chứ không có showDate/showTime.
+        // Code cũ đọc `data.showDate` -> luôn undefined, âm thầm rơi về query param.
+        const startIso = data.startTime ? new Date(data.startTime) : null;
+        const validStart = startIso && !Number.isNaN(startIso.getTime()) ? startIso : null;
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const showDate = validStart
+          ? `${validStart.getFullYear()}-${pad(validStart.getMonth() + 1)}-${pad(validStart.getDate())}`
+          : (qDate ?? null);
+        const showTime = validStart
+          ? `${pad(validStart.getHours())}:${pad(validStart.getMinutes())}`
+          : (qTime ?? null);
 
         setShowtimeInfo({ showtimeId: Number(showtimeId), movieTitle, cinemaName, roomName, showDate, showTime });
 
         if (seatList.length === 0) {
+          // FIX BUG-02 + BUG-04: nhờ cờ `seatsGenerated` từ backend, ta phân biệt
+          // được "suất chiếu chưa sinh ghế" với "danh sách rỗng vì lý do khác".
+          const reason: MockReason = data.seatsGenerated
+            ? 'EMPTY_SEAT_LIST'
+            : 'SEATS_NOT_GENERATED';
+          logMockFallback(reason, { showtimeId, totalSeats: data.totalSeats });
           setSeats(generateMockSeats(showtimeId));
           setUsingMock(true);
+          setMockReason(reason);
         } else {
           setSeats(seatList);
           setUsingMock(false);
+          setMockReason(null);
         }
 
         if (movieId && !movieSetRef.current) {
@@ -247,9 +293,11 @@ export default function SeatBookingPage() {
         }
       } catch (err: unknown) {
         const msg = (err as { message?: string })?.message ?? 'Không tải được sơ đồ ghế';
+        logMockFallback('API_ERROR', err);
         setError(msg);
         setSeats(generateMockSeats(showtimeId));
         setUsingMock(true);
+        setMockReason('API_ERROR');
       } finally {
         setLoading(false);
       }
@@ -287,14 +335,9 @@ export default function SeatBookingPage() {
         .filter((s) => selectedIds.has(String(s.id)))
         .map((s) => Number(s.id));
 
-      // HoldManySeatsDto chỉ nhận { showtimeSeatIds, holdMinutes? }.
-      // ValidationPipe (whitelist + forbidNonWhitelisted) sẽ trả 400 nếu gửi thừa showtimeId.
-      const res = await axiosClient.post('/showtime-seats/hold-many', {
-        showtimeSeatIds,
-      }) as unknown as HoldItem[];
-
-      // FIX: backend trả MẢNG HoldResponseDto[] -> map lấy holdId (string) sang number.
-      const list = Array.isArray(res) ? res : [];
+      // FIX BUG-08: gọi seatService.holdSeats() thay vì lặp lại lời gọi axios.
+      // Wrapper tự bảo đảm body đúng { showtimeSeatIds } và luôn trả về mảng.
+      const list: HoldItem[] = await seatService.holdSeats(showtimeSeatIds);
       // FIX [BUG-03]: holdId là BIGINT -> giữ nguyên string, KHÔNG Number().
       const ids = list
         .map((h) => String(h.holdId ?? '').trim())
@@ -534,9 +577,15 @@ export default function SeatBookingPage() {
         )}
 
         {/* Mock warning */}
+        {/* FIX BUG-04: banner nay nêu rõ NGUYÊN NHÂN thay vì một dòng chung chung */}
         {usingMock && (
           <div className="rounded-xl px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 text-sm">
-            ⚠️ Đang dùng dữ liệu ghế mẫu. Kết quả đặt vé sẽ không được lưu.
+            <p className="font-semibold">
+              ⚠️ Đang dùng dữ liệu ghế mẫu — kết quả đặt vé sẽ KHÔNG được lưu.
+            </p>
+            {mockReason && (
+              <p className="mt-1 text-yellow-500/80">{MOCK_REASON_USER_TEXT[mockReason]}</p>
+            )}
           </div>
         )}
         {error && !usingMock && (
