@@ -2821,3 +2821,200 @@ GO
 
 PRINT N'CineHunt Patch V6.4 (bugfix Thanh toán + bổ sung phim) đã chạy xong.';
 GO
+/* ============================================================================
+   CINEHUNT DATABASE - PATCH V6.5
+   Bổ sung: Cơ sở rạp (cinemas), Phòng chiếu (rooms), Ghế (seats)
+   Mục tiêu: mô phỏng mô hình chuỗi rạp nhiều cơ sở, nhiều loại phòng
+             (Standard / VIP / IMAX / 4DX) như CGV, Beta Cinemas.
+
+   YÊU CẦU: Database CineHuntDB đã được tạo từ file
+   CineHunt_Database_V6_3_With_Sample_Data.sql (đã có bảng cinemas, rooms,
+   seats, seat_types với dữ liệu seed NORMAL/VIP/COUPLE).
+
+   Script này AN TOÀN chạy lại nhiều lần (idempotent):
+   - Rạp mới chỉ thêm nếu chưa tồn tại (theo cinema_name).
+   - Phòng mới chỉ thêm nếu chưa tồn tại (theo cinema_id + room_name).
+   - Ghế được sinh tự động ngay sau khi phòng đó được tạo mới.
+   ============================================================================ */
+
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+GO
+
+USE CineHuntDB;
+GO
+
+/* ============================================================================
+   1. THÊM CƠ SỞ RẠP MỚI (nhiều thành phố, giống mô hình chuỗi rạp)
+   ============================================================================ */
+
+INSERT INTO dbo.cinemas(cinema_name, address, city, district, phone, latitude, longitude, status)
+SELECT v.cinema_name, v.address, v.city, v.district, v.phone, v.latitude, v.longitude, 'ACTIVE'
+FROM (VALUES
+    (N'CineHunt Vincom Bà Triệu',   N'191 Bà Triệu',            N'Hà Nội',            N'Hai Bà Trưng', '02439746688', 21.0107000, 105.8482000),
+    (N'CineHunt Aeon Long Biên',    N'27 Cổ Linh',               N'Hà Nội',            N'Long Biên',    '02436421234', 21.0466000, 105.8935000),
+    (N'CineHunt Landmark 81',       N'720A Điện Biên Phủ',       N'TP. Hồ Chí Minh',   N'Bình Thạnh',   '02836221234', 10.7945000, 106.7219000),
+    (N'CineHunt Vincom Đồng Khởi',  N'72 Lê Thánh Tôn',          N'TP. Hồ Chí Minh',   N'Quận 1',       '02838271234', 10.7772000, 106.7030000),
+    (N'CineHunt Vincom Đà Nẵng',    N'910A Ngô Quyền',           N'Đà Nẵng',           N'Sơn Trà',      '02363771234', 16.0678000, 108.2359000),
+    (N'CineHunt Sun World Bà Nà',   N'Suối Mơ, Hòa Ninh',        N'Đà Nẵng',           N'Hòa Vang',     '02363791234', 15.9977000, 107.9928000)
+) AS v(cinema_name, address, city, district, phone, latitude, longitude)
+WHERE NOT EXISTS (
+    SELECT 1 FROM dbo.cinemas c WHERE c.cinema_name = v.cinema_name
+);
+GO
+
+/* ============================================================================
+   2. KẾ HOẠCH PHÒNG CHIẾU CHO TỪNG CƠ SỞ
+   Mỗi cơ sở có 2-4 phòng: Standard (thường, 2 hàng ghế cuối là VIP),
+   VIP (toàn VIP, hàng cuối là ghế đôi - Sweetbox), IMAX, 4DX.
+   ============================================================================ */
+
+DECLARE @RoomPlan TABLE (
+    seq            INT IDENTITY(1,1),
+    cinema_name    NVARCHAR(180),
+    room_name      NVARCHAR(100),
+    room_type      VARCHAR(30),
+    num_rows       INT,          -- số hàng ghế (A, B, C...)
+    seats_per_row  INT,          -- số ghế mỗi hàng
+    vip_rows       INT,          -- số hàng cuối là ghế VIP
+    has_couple_row BIT           -- hàng cuối cùng là ghế đôi (Sweetbox)?
+);
+
+INSERT INTO @RoomPlan(cinema_name, room_name, room_type, num_rows, seats_per_row, vip_rows, has_couple_row)
+VALUES
+-- CineHunt Vincom Bà Triệu
+(N'CineHunt Vincom Bà Triệu', N'Phòng 1',    'STANDARD', 8, 10, 2, 0),
+(N'CineHunt Vincom Bà Triệu', N'Phòng 2',    'STANDARD', 8, 10, 2, 0),
+(N'CineHunt Vincom Bà Triệu', N'Phòng VIP',  'VIP',      6, 8,  6, 1),
+(N'CineHunt Vincom Bà Triệu', N'Phòng IMAX', 'IMAX',    10, 14, 2, 0),
+
+-- CineHunt Aeon Long Biên
+(N'CineHunt Aeon Long Biên', N'Phòng 1',   'STANDARD', 8, 10, 2, 0),
+(N'CineHunt Aeon Long Biên', N'Phòng 2',   'STANDARD', 8, 10, 2, 0),
+(N'CineHunt Aeon Long Biên', N'Phòng VIP', 'VIP',      6, 8,  6, 1),
+
+-- CineHunt Landmark 81
+(N'CineHunt Landmark 81', N'Phòng 1',    'STANDARD', 8, 10, 2, 0),
+(N'CineHunt Landmark 81', N'Phòng 2',    'STANDARD', 8, 10, 2, 0),
+(N'CineHunt Landmark 81', N'Phòng VIP',  'VIP',      6, 8,  6, 1),
+(N'CineHunt Landmark 81', N'Phòng 4DX',  '4DX',      6, 8,  0, 0),
+
+-- CineHunt Vincom Đồng Khởi
+(N'CineHunt Vincom Đồng Khởi', N'Phòng 1',   'STANDARD', 8, 10, 2, 0),
+(N'CineHunt Vincom Đồng Khởi', N'Phòng VIP', 'VIP',      6, 8,  6, 1),
+
+-- CineHunt Vincom Đà Nẵng
+(N'CineHunt Vincom Đà Nẵng', N'Phòng 1',   'STANDARD', 8, 10, 2, 0),
+(N'CineHunt Vincom Đà Nẵng', N'Phòng VIP', 'VIP',      6, 8,  6, 1),
+
+-- CineHunt Sun World Bà Nà
+(N'CineHunt Sun World Bà Nà', N'Phòng 1', 'STANDARD', 6, 8, 2, 0);
+
+/* ============================================================================
+   3. SINH PHÒNG CHIẾU + GHẾ TỰ ĐỘNG THEO KẾ HOẠCH TRÊN
+   ============================================================================ */
+
+DECLARE @NormalSeatTypeId INT = (SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'NORMAL');
+DECLARE @VipSeatTypeId    INT = (SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'VIP');
+DECLARE @CoupleSeatTypeId INT = (SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'COUPLE');
+
+DECLARE @cinema_name     NVARCHAR(180),
+        @room_name       NVARCHAR(100),
+        @room_type       VARCHAR(30),
+        @num_rows        INT,
+        @seats_per_row   INT,
+        @vip_rows        INT,
+        @has_couple_row  BIT,
+        @cinema_id       INT,
+        @room_id         INT,
+        @total_seats     INT;
+
+DECLARE room_cursor CURSOR LOCAL FAST_FORWARD FOR
+    SELECT cinema_name, room_name, room_type, num_rows, seats_per_row, vip_rows, has_couple_row
+    FROM @RoomPlan
+    ORDER BY seq;
+
+OPEN room_cursor;
+FETCH NEXT FROM room_cursor
+INTO @cinema_name, @room_name, @room_type, @num_rows, @seats_per_row, @vip_rows, @has_couple_row;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @cinema_id = NULL;
+    SET @room_id = NULL;
+
+    SELECT @cinema_id = cinema_id FROM dbo.cinemas WHERE cinema_name = @cinema_name;
+
+    IF @cinema_id IS NOT NULL
+       AND NOT EXISTS (
+            SELECT 1 FROM dbo.rooms WHERE cinema_id = @cinema_id AND room_name = @room_name
+       )
+    BEGIN
+        SET @total_seats = @num_rows * @seats_per_row;
+
+        INSERT INTO dbo.rooms(cinema_id, room_name, room_type, total_seats, status)
+        VALUES (@cinema_id, @room_name, @room_type, @total_seats, 'ACTIVE');
+
+        SET @room_id = SCOPE_IDENTITY();
+
+        ;WITH RowLetters AS (
+            SELECT n AS rn, CHAR(64 + n) AS row_letter
+            FROM (
+                SELECT TOP (@num_rows) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
+                FROM sys.all_objects
+            ) t
+        ),
+        SeatNumbers AS (
+            SELECT TOP (@seats_per_row) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n
+            FROM sys.all_objects
+        )
+        INSERT INTO dbo.seats(room_id, seat_type_id, seat_row, seat_number, seat_label, status)
+        SELECT
+            @room_id,
+            CASE
+                WHEN @has_couple_row = 1 AND rl.rn = @num_rows THEN @CoupleSeatTypeId
+                WHEN rl.rn > (@num_rows - @vip_rows) THEN @VipSeatTypeId
+                ELSE @NormalSeatTypeId
+            END,
+            rl.row_letter,
+            sn.n,
+            CONCAT(rl.row_letter, sn.n),
+            'ACTIVE'
+        FROM RowLetters rl
+        CROSS JOIN SeatNumbers sn;
+    END
+
+    FETCH NEXT FROM room_cursor
+    INTO @cinema_name, @room_name, @room_type, @num_rows, @seats_per_row, @vip_rows, @has_couple_row;
+END
+
+CLOSE room_cursor;
+DEALLOCATE room_cursor;
+GO
+
+PRINT N'CineHunt Patch V6.5 — Đã bổ sung cơ sở rạp, phòng chiếu và ghế theo mô hình chuỗi rạp.';
+GO
+
+/* ============================================================================
+   4. KIỂM TRA NHANH SAU KHI PATCH
+   ============================================================================ */
+
+SELECT
+    c.cinema_name,
+    c.city,
+    c.district,
+    r.room_name,
+    r.room_type,
+    r.total_seats,
+    COUNT(s.seat_id) AS actual_seat_count
+FROM dbo.cinemas c
+JOIN dbo.rooms r ON r.cinema_id = c.cinema_id
+LEFT JOIN dbo.seats s ON s.room_id = r.room_id
+GROUP BY c.cinema_name, c.city, c.district, r.room_name, r.room_type, r.total_seats
+ORDER BY c.city, c.cinema_name, r.room_name;
+GO
+
+SELECT 'cinemas' AS table_name, COUNT(*) AS row_count FROM dbo.cinemas
+UNION ALL SELECT 'rooms', COUNT(*) FROM dbo.rooms
+UNION ALL SELECT 'seats', COUNT(*) FROM dbo.seats;
+GO
