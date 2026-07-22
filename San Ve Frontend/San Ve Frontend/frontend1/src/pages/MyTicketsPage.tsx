@@ -5,7 +5,13 @@ import { useTheme } from '../context/useTheme';
 import axiosClient from '../api/axiosClient';
 
 // ===== Types =====
-type TicketStatus = 'PENDING_PAYMENT' | 'PAID' | 'EXPIRED' | 'CANCELLED';
+type TicketStatus =
+  | 'PENDING_PAYMENT'
+  | 'PAID'
+  | 'ISSUED'
+  | 'CONFIRMED'
+  | 'EXPIRED'
+  | 'CANCELLED';
 
 interface TicketItem {
   bookingId: string;
@@ -23,7 +29,10 @@ interface TicketItem {
 }
 
 const HOLDING_STATUSES: TicketStatus[] = ['PENDING_PAYMENT'];
-const PAID_STATUSES: TicketStatus[]    = ['PAID'];
+// FIX BUG-01 (phía FE): sau khi backend đổi sang 'PAID', các booking CŨ trong DB
+// vẫn đang mang status 'ISSUED'. Chấp nhận cả 'ISSUED'/'CONFIRMED' để vé cũ
+// không bị "mất tích" ở tab Đã mua.
+const PAID_STATUSES: TicketStatus[]    = ['PAID', 'ISSUED', 'CONFIRMED'];
 
 // ===== Countdown nhỏ =====
 function MiniCountdown({ expiresAt }: { expiresAt: string }) {
@@ -55,8 +64,8 @@ function MiniCountdown({ expiresAt }: { expiresAt: string }) {
 // ===== Ticket Card =====
 function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolean }) {
   const navigate = useNavigate();
-  const isPaid    = ticket.status === 'PAID';
-  const isHolding = ticket.status === 'PENDING_PAYMENT';
+  const isPaid    = PAID_STATUSES.includes(ticket.status);
+  const isHolding = HOLDING_STATUSES.includes(ticket.status);
 
   const card = darkMode
     ? 'bg-gray-900 border border-gray-800'
@@ -191,17 +200,37 @@ export default function MyTicketsPage() {
         const seatCodes = details.map((d) => {
           const ss = d.showtimeSeat as Record<string, unknown> | undefined;
           const seat = ss?.seat as Record<string, unknown> | undefined;
-          return seat ? `${seat.rowName ?? ''}${seat.seatNumber ?? ''}` : '';
+          if (!seat) return '';
+          // Entity backend là `seatRow` (cột seat_row); giữ `rowName` làm fallback.
+          const row = (seat.seatRow ?? seat.rowName ?? '') as string;
+          const num = (seat.seatNumber ?? '') as string | number;
+          return `${row}${num}`;
         }).filter(Boolean);
+
+        // FIX BUG-03: dữ liệu phim/rạp/phòng/giờ nằm trong nested showtime object.
+        const showtime = b.showtime as Record<string, unknown> | undefined;
+        const movie    = showtime?.movie as Record<string, unknown> | undefined;
+        const room     = showtime?.room  as Record<string, unknown> | undefined;
+        const cinema   = room?.cinema    as Record<string, unknown> | undefined;
+
+        // Showtime chỉ có `startTime` (datetime) — tách ra ngày & giờ.
+        const startRaw = (showtime?.startTime ?? showtime?.showTime) as string | undefined;
+        const start    = startRaw ? new Date(startRaw) : null;
+        const validStart = start && !Number.isNaN(start.getTime()) ? start : null;
 
         return {
           bookingId:   String(b.bookingId ?? b.id ?? ''),
           bookingCode: String(b.bookingCode ?? ''),
-          movieTitle:  String(b.movieTitle ?? (b.showtime as Record<string,unknown>)?.movie as string ?? 'Vé xem phim'),
-          cinemaName:  b.cinemaName as string | undefined,
-          roomName:    b.roomName   as string | undefined,
-          showDate:    b.showDate   as string | undefined,
-          showTime:    b.showTime   as string | undefined,
+          // Thiếu `.title` ở đây chính là nguyên nhân hiện "[object Object]".
+          movieTitle:  String(b.movieTitle ?? movie?.title ?? 'Vé xem phim'),
+          cinemaName:  (b.cinemaName ?? cinema?.cinemaName) as string | undefined,
+          roomName:    (b.roomName   ?? room?.roomName)     as string | undefined,
+          showDate:    (b.showDate as string | undefined)
+                        ?? validStart?.toLocaleDateString('vi-VN'),
+          showTime:    (b.showTime as string | undefined)
+                        ?? validStart?.toLocaleTimeString('vi-VN', {
+                             hour: '2-digit', minute: '2-digit',
+                           }),
           seatCodes,
           totalAmount: Number(b.totalAmount ?? 0),
           status:      (b.status ?? 'PENDING_PAYMENT') as TicketStatus,

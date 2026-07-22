@@ -8,21 +8,33 @@ import EmptyTickets from '../components/tickets/EmptyTickets';
 import type { Booking, BookingTicket } from '../types/booking';
 import { useTheme } from '../context/useTheme';
 
+// FIX BUG-05: bổ sung ISSUED / CONFIRMED / REFUNDED.
+// 'ISSUED' là status của các booking cũ (trước khi sửa BUG-01 ở payment.service.ts),
+// trước đây rơi vào fallback nên hiện nhãn tiếng Anh trần và mất nút "Xem QR vé".
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: '⏳ Chờ thanh toán',
   PAID:            '✅ Đã thanh toán',
+  ISSUED:          '🎟 Đã xuất vé',
+  CONFIRMED:       '✅ Đã xác nhận',
   FAILED:          '❌ Thất bại',
   EXPIRED:         '⌛ Hết hạn',
   CANCELLED:       '🚫 Đã hủy',
+  REFUNDED:        '💸 Đã hoàn tiền',
 };
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING_PAYMENT: 'text-yellow-500',
   PAID:            'text-green-500',
+  ISSUED:          'text-green-500',
+  CONFIRMED:       'text-green-500',
   FAILED:          'text-red-500',
   EXPIRED:         'text-gray-400',
   CANCELLED:       'text-gray-400',
+  REFUNDED:        'text-blue-400',
 };
+
+// Các trạng thái được coi là "đã mua" -> có vé để xem QR.
+const PAID_STATUSES = ['PAID', 'ISSUED', 'CONFIRMED'];
 
 // ── Ticket row card ────────────────────────────────────────────────────────
 function BookingCard({
@@ -67,7 +79,7 @@ function BookingCard({
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2 mt-4">
-        {booking.status === 'PAID' && (
+        {PAID_STATUSES.includes(booking.status) && (
           <button
             onClick={() => onViewTickets(booking)}
             className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"

@@ -113,7 +113,9 @@ export default function PaymentPage() {
 
     if (isLocalMode) {
       setOrder((prev) => prev ? { ...prev, status: 'PAID' } : prev);
-      navigate('/my-tickets');
+      // FIX BUG-04: thêm ?tab=paid, nếu không MyTicketsPage mở mặc định tab
+      // "Vé đang giữ" (rỗng) -> người dùng tưởng thanh toán thất bại.
+      navigate('/my-tickets?tab=paid');
       return;
     }
 
@@ -142,7 +144,8 @@ export default function PaymentPage() {
           return;
         }
         setOrder((prev) => (prev ? { ...prev, status: 'PAID' } : prev));
-        navigate('/my-tickets');
+        // FIX BUG-04: chuyển thẳng sang tab "Vé đã mua" sau khi thanh toán OK.
+        navigate('/my-tickets?tab=paid');
       }
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Thanh toán thất bại';

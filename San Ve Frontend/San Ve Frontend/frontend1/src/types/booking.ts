@@ -1,9 +1,12 @@
 export type BookingStatus =
   | 'PENDING_PAYMENT'
   | 'PAID'
+  | 'ISSUED'      // booking cũ (trước fix BUG-01) vẫn còn status này trong DB
+  | 'CONFIRMED'
   | 'FAILED'
   | 'EXPIRED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'REFUNDED';
 
 export interface Booking {
   id: string;

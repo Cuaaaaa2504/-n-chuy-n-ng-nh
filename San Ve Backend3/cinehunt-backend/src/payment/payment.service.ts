@@ -134,10 +134,15 @@ export class PaymentService {
         .execute();
 
       // Booking và vé cùng nằm trong transaction; lỗi ở bước tạo vé sẽ rollback.
+      // FIX BUG-01: status phải là 'PAID' (không phải 'ISSUED').
+      // Toàn bộ frontend (MyTicketsPage.PAID_STATUSES, MyBookingsPage, nút "Xem QR vé")
+      // và admin.service.PAID_STATUSES đều chỉ nhận dạng 'PAID'/'CONFIRMED'.
+      // Đặt 'ISSUED' khiến vé không bao giờ hiện ở tab "Vé đã mua".
+      // issuedAt vẫn được set để ghi nhận thời điểm xuất vé.
       await queryRunner.manager.update(
         BookingOrder,
         { bookingId: booking.bookingId },
-        { status: 'ISSUED', paidAt: new Date(), issuedAt: new Date() },
+        { status: 'PAID', paidAt: new Date(), issuedAt: new Date() },
       );
 
       await queryRunner.manager.update(

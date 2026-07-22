@@ -439,8 +439,17 @@ export class BookingService {
   }
 
   async getMyBookings(userId: number) {
+    // FIX BUG-02: trước đây chỉ SELECT bảng booking_orders thuần, không join
+    // showtime / movie / room / cinema / bookingDetails / seat => frontend nhận
+    // movieTitle, cinemaName, roomName, showDate, showTime, seatCodes = undefined.
+    // Load đầy đủ relations giống getBookingDetail để thẻ vé hiển thị đủ thông tin.
     return this.bookingRepo.find({
       where: { userId },
+      relations: {
+        bookingDetails: { showtimeSeat: { seat: true } as any },
+        showtime: { movie: true, room: { cinema: true } as any } as any,
+        bookingCombos: { combo: true } as any,
+      } as any,
       order: { createdAt: 'DESC' },
     });
   }

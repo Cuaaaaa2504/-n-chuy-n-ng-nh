@@ -7,11 +7,30 @@ function normalizeBooking(item: Record<string, unknown>): Booking {
   // fallback này chạy thì trang thanh toán nhận được BK-xxx và POST /payments bị
   // ValidationPipe chặn. `id` chỉ được phép là booking_id (BIGINT) — mã hiển thị
   // đưa hết về `orderCode`.
+  // FIX BUG-02 (phía FE): backend trả booking kèm relations lồng nhau
+  // showtime -> movie / room -> cinema. normalizeBooking trước đây chỉ đọc
+  // `item.movie` (không tồn tại) nên movieTitle luôn rơi về giá trị mặc định,
+  // còn cinemaName / roomName / showDate / showTime thì undefined.
+  const showtime = item.showtime as Record<string, unknown> | undefined;
+  const movie    = (item.movie ?? showtime?.movie) as Record<string, unknown> | undefined;
+  const room     = showtime?.room as Record<string, unknown> | undefined;
+  const cinema   = room?.cinema as Record<string, unknown> | undefined;
+
+  const startRaw = (showtime?.startTime ?? showtime?.start_time) as string | undefined;
+  const start    = startRaw ? new Date(startRaw) : null;
+  const validStart = start && !Number.isNaN(start.getTime()) ? start : null;
+
   return {
     ...(item as unknown as Booking),
     id: String(item.bookingId ?? item.booking_id ?? item.id ?? ''),
     orderCode: (item.orderCode ?? item.bookingCode ?? item.booking_code) as string | undefined,
-    movieTitle: (item.movieTitle ?? (item.movie as Record<string, unknown>)?.title ?? 'Booking xem phim') as string,
+    movieTitle: (item.movieTitle ?? movie?.title ?? 'Booking xem phim') as string,
+    cinemaName: (item.cinemaName ?? cinema?.cinemaName) as string | undefined,
+    roomName: (item.roomName ?? room?.roomName) as string | undefined,
+    showDate: ((item.showDate as string | undefined)
+      ?? validStart?.toLocaleDateString('vi-VN')) as string | undefined,
+    showTime: ((item.showTime as string | undefined)
+      ?? validStart?.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })) as string | undefined,
     totalAmount: Number(item.totalAmount ?? item.amount ?? 0),
   };
 }
