@@ -1,5 +1,0 @@
-GET /movies
-GET /movies?search=mai
-GET /movies?genre=hanh dong
-GET /movies?status=NOW_SHOWING
-GET /movies?search=mai&genre=tam ly&page=1&limit=10

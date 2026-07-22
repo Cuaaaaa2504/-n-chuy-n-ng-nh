@@ -1,2 +1,0 @@
-GET /auth/me
-Authorization: Bearer YOUR_ACCESS_TOKEN
