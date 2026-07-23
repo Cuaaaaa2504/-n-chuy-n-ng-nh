@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { UsersModule } from '../users/users.module';
 
 // GHI CHÚ [#4] — KHÔNG cần import ThrottlerModule ở đây.
 //
@@ -29,6 +30,10 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, RefreshToken]),
+    // FIX [mục 2.1]: GET /auth/me nay uỷ quyền cho UsersService để chỉ còn MỘT
+    // implementation của "hồ sơ người dùng". UsersModule KHÔNG import AuthModule
+    // nên không tạo circular dependency.
+    UsersModule,
     // FIX [M-01]: Đổi JwtModule.register({}) rỗng sang registerAsync để inject
     // JWT_SECRET và JWT_EXPIRES_IN từ ConfigService — tránh lỗi "secretOrPrivateKey must have a value"
     JwtModule.registerAsync({

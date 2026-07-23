@@ -12,6 +12,7 @@ import { Room } from '../entities/room.entity';
 import { Seat } from '../entities/seat.entity';
 import { CreateShowtimeDto } from './dto/create-showtime.dto';
 import { UpdateShowtimeDto } from './dto/update-showtime.dto';
+import { assertNotStale } from '../common/utils/optimistic-lock.util';
 
 @Injectable()
 export class ShowtimeService {
@@ -260,6 +261,9 @@ export class ShowtimeService {
 
   async update(id: number, dto: UpdateShowtimeDto): Promise<Showtime> {
     const existing = await this.findOne(id);
+
+    // FIX [mục 6.2]: chặn ghi đè mù khi hai admin cùng sửa một suất chiếu.
+    assertNotStale(existing.updatedAt, dto.expectedUpdatedAt, 'Suất chiếu này');
 
     const nextMovieId = dto.movieId ?? existing.movieId;
     const nextRoomId = dto.roomId ?? existing.roomId;

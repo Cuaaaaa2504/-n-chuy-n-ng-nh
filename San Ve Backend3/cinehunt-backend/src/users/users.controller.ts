@@ -14,6 +14,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
@@ -30,6 +31,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import { SENSITIVE_THROTTLE } from '../common/constants/throttle.constants';
 
 /** Thư mục lưu avatar — trùng với thư mục được serve static ở main.ts */
 const AVATAR_DIR = join(process.cwd(), 'uploads', 'avatars');
@@ -47,6 +49,13 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // ── Profile của chính mình ─────────────────────────────────────────────
+  /**
+   * FIX [mục 2.1]: GET /users/me và GET /auth/me trước đây chạy HAI hàm khác
+   * nhau (UsersService.getProfile vs AuthService.getProfile) và trả về hai
+   * shape khác nhau. Nay AuthController uỷ quyền về đúng hàm dưới đây, nên hai
+   * route trả kết quả GIỐNG HỆT nhau — giữ cả hai chỉ còn là alias vô hại,
+   * không còn nguy cơ lệch dữ liệu khi debug.
+   */
   @Get('me')
   getMyProfile(@CurrentUser() user: CurrentUserPayload) {
     return this.usersService.getProfile(user.userId);
@@ -60,17 +69,23 @@ export class UsersController {
     return this.usersService.updateProfile(user.userId, dto);
   }
 
+  /**
+   * FIX [mục 1.2 + 2.2 — 3 route cho 1 chức năng đổi mật khẩu]
+   *
+   * Trước đây tồn tại đồng thời:
+   *   - POST  /auth/me/change-password   (có @Throttle(SENSITIVE_THROTTLE))
+   *   - POST  /users/me/change-password  (KHÔNG có throttle)  ← frontend gọi
+   *   - PATCH /users/me/password         (KHÔNG có throttle)
+   *
+   * Đây chính là lỗ hổng mô tả ở mục 1.2: rate-limit chỉ được gắn vào route
+   * KHÔNG ai dùng, còn 2 route thật thì để trần. Kẻ tấn công cầm access token
+   * bị lộ có thể brute-force `currentPassword` không giới hạn qua 2 route kia.
+   *
+   * Nay chỉ còn DUY NHẤT route này, và throttle được chuyển về đúng chỗ.
+   */
+  @Throttle(SENSITIVE_THROTTLE)
   @Post('me/change-password')
   changeMyPassword(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() dto: ChangePasswordDto,
-  ) {
-    return this.usersService.changePassword(user.userId, dto);
-  }
-
-  // FIX: frontend userApi.changePassword gọi PATCH /users/me/password
-  @Patch('me/password')
-  changeMyPasswordAlias(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: ChangePasswordDto,
   ) {

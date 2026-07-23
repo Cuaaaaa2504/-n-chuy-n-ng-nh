@@ -125,7 +125,11 @@ export default function PaymentPage() {
     // /payments. URL có thể chứa bookingCode (BK-xxx) tuỳ theo trang điều hướng
     // sang (MyBookings / MyTickets / ComboPage). `order.id` là booking_id thật đã
     // được backend trả về qua GET /bookings/:id và đã được normalizeBooking xác thực.
-    const realBookingId = order.id;
+    // FIX [lỗi biên dịch có sẵn]: `order.id` có kiểu `string | number` nên
+    // truyền thẳng vào RegExp.test() (nhận `string`) làm tsc báo TS2345.
+    // Ép về chuỗi trước khi kiểm tra thay vì nới lỏng type — chính cái regex
+    // này là thứ chặn bookingCode 'BK-xxx' lọt xuống POST /payments.
+    const realBookingId = String(order.id ?? '');
     if (!realBookingId || !/^\d+$/.test(realBookingId)) {
       setFetchError('Không xác định được mã đơn hàng. Vui lòng tải lại trang.');
       return;

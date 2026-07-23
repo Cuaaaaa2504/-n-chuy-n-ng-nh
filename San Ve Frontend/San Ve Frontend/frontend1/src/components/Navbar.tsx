@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/useTheme';
 import { useAuth } from '../context/AuthContext';
 import { resolveAssetUrl } from '../utils/assetUrl';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const { darkMode, toggleDarkMode } = useTheme();
@@ -60,6 +61,11 @@ export default function Navbar() {
           >
             {darkMode ? '☀️' : '🌙'}
           </button>
+          {/* FIX [mục 3.1 + 3.2]: chuông thông báo + badge chưa đọc.
+              Navbar trước đây không có icon nào cho notifications, nên cả 4
+              endpoint phía user của module này chưa từng được gọi. */}
+          {isLoggedIn && <NotificationBell darkMode={darkMode} />}
+
           <span className="opacity-30">|</span>
 
           {isLoggedIn ? (
@@ -197,10 +203,15 @@ export default function Navbar() {
                     </div>
 
                     {/* Các mục còn lại */}
+                    {/* FIX [báo cáo bỏ sót]: 3 link này trước đây trỏ tới
+                        /booking-history, /vouchers, /settings — KHÔNG route nào
+                        trong số đó được đăng ký ở routes/index.tsx, nên bấm vào
+                        là rơi thẳng vào NotFoundPage. Đã trỏ về các trang có
+                        thật; mục "Cài đặt" gộp vào /profile vì chưa có trang
+                        settings riêng. */}
                     {[
-                      { to: '/booking-history', icon: '📜', label: 'Lịch sử mua vé' },
-                      { to: '/vouchers',        icon: '🎁', label: 'Voucher' },
-                      { to: '/settings',        icon: '⚙️', label: 'Cài đặt' },
+                      { to: '/my-bookings', icon: '📜', label: 'Lịch sử mua vé' },
+                      { to: '/profile',     icon: '⚙️', label: 'Cài đặt tài khoản' },
                     ].map((item) => (
                       <Link
                         key={item.to}
@@ -269,9 +280,18 @@ export default function Navbar() {
           {/* FIX Lỗi 4: trước đây trỏ về "/" (trang chủ), không có trang lịch chiếu */}
           <Link to="/schedule" className="hover:text-blue-500 transition">Lịch chiếu</Link>
           <Link to="/movies" className="hover:text-blue-500 transition">Phim</Link>
-          <Link to="/cinemas" className="hover:text-blue-500 transition">Rạp</Link>
-          <Link to="/price" className="hover:text-blue-500 transition">Giá vé</Link>
-          <Link to="/news" className="hover:text-blue-500 transition">Tin tức &amp; Ưu đãi</Link>
+          {/* FIX [báo cáo bỏ sót]: đã gỡ 3 link "Rạp" (/cinemas), "Giá vé"
+              (/price) và "Tin tức & Ưu đãi" (/news). Không route nào trong số
+              đó được đăng ký ở routes/index.tsx, nên chúng luôn rơi vào
+              NotFoundPage — menu chính của trang chủ có 3/5 mục dẫn tới 404.
+              Gỡ link là lựa chọn trung thực hơn giữ lại; khi nào có trang thật
+              thì thêm lại. */}
+          {/* FIX [mục 7.2]: lối vào màn hình soát vé cho nhân viên tại rạp. */}
+          {isLoggedIn && (user?.role === 'STAFF' || user?.role === 'ADMIN') && (
+            <Link to="/staff/checkin" className="hover:text-green-400 transition text-green-400">
+              ✅ Soát vé
+            </Link>
+          )}
           {isLoggedIn && user?.role === 'ADMIN' && (
             <Link to="/admin" className="hover:text-red-400 transition text-red-400">
               ⚙️ Admin

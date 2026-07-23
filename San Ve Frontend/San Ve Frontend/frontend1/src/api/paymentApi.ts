@@ -1,4 +1,5 @@
 import axiosClient from './axiosClient';
+import { normalizeBookingCore } from './bookingNormalizer';
 
 // Chỉ dùng các method có trong SQL CHECK constraint:
 // ('MOMO', 'VNPAY', 'BANKING', 'CASH', 'MOCK')
@@ -24,41 +25,18 @@ export interface OrderDetail {
   expiresAt?: string;
 }
 
+// FIX [mục 9.1]: bản normalize riêng của file này đã bị gỡ.
+//
+// Nó không chỉ trùng lặp mà còn SAI: đọc `raw.cinemaName` / `raw.showDate` như
+// thể backend trả phẳng (thực tế nằm trong showtime -> room -> cinema), và dựng
+// mã ghế bằng `seat.rowName` trong khi entity dùng `seatRow`. Hệ quả là cùng
+// một booking hiển thị đầy đủ ở MyBookingsPage nhưng thiếu tên rạp / phòng /
+// giờ chiếu ở PaymentPage — đúng kiểu lệch dữ liệu mà báo cáo cảnh báo.
+//
+// `strictNumericId` giữ nguyên ràng buộc quan trọng của luồng thanh toán:
+// bookingId phải là số, không được là bookingCode 'BK-xxx'.
 function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
-  const details = (raw.bookingDetails ?? []) as Record<string, unknown>[];
-  const seatCodes = details.map((d) => {
-    const seat = (d.showtimeSeat as Record<string, unknown>)?.seat as Record<string, unknown> | undefined;
-    return seat ? `${seat.rowName ?? ''}${seat.seatNumber ?? ''}` : '';
-  }).filter(Boolean);
-
-  const showtime = (raw.showtime ?? details[0]?.showtimeSeat) as Record<string, unknown> | undefined;
-  const movie = showtime?.movie as Record<string, unknown> | undefined;
-
-  const rawExpiresAt = raw.expiresAt ?? raw.expires_at;
-  const expiresAt: string | undefined =
-    typeof rawExpiresAt === 'string' ? rawExpiresAt : undefined;
-
-  // FIX [bookingId must be a UUID]: `id` PHẢI là khoá chính booking_id (BIGINT,
-  // ví dụ "1042") — KHÔNG bao giờ là bookingCode "BK-1784554863343-ZPJ6".
-  // bookingCode chỉ dùng để hiển thị và nằm ở trường `orderCode`.
-  const resolvedId = String(raw.bookingId ?? raw.booking_id ?? raw.id ?? '').trim();
-  if (resolvedId && !/^\d+$/.test(resolvedId)) {
-    throw new Error('Dữ liệu đơn hàng không hợp lệ: máy chủ không trả về bookingId dạng số');
-  }
-
-  return {
-    id: resolvedId,
-    orderCode: (raw.bookingCode ?? raw.booking_code ?? raw.orderCode) as string | undefined,
-    movieTitle: (raw.movieTitle ?? movie?.title ?? 'Vé xem phim') as string,
-    cinemaName: raw.cinemaName as string | undefined,
-    roomName: raw.roomName as string | undefined,
-    showDate: raw.showDate as string | undefined,
-    showTime: raw.showTime as string | undefined,
-    seatCodes,
-    totalAmount: Number(raw.totalAmount ?? raw.total_amount ?? raw.amount ?? 0),
-    status: (raw.status ?? 'PENDING_PAYMENT') as string,
-    expiresAt,
-  };
+  return normalizeBookingCore(raw, { strictNumericId: true });
 }
 
 /** Lấy thông tin booking theo id — gọi GET /bookings/:id */
@@ -149,7 +127,9 @@ async function confirmPayment(paymentId: string, bookingId: string): Promise<voi
       e.status === 400 && /PENDING/i.test(e.message ?? '');
 
     if (!alreadyProcessed) {
-      throw new Error(e.message || 'Xác nhận thanh toán thất bại');
+      // `cause` giữ lại lỗi gốc để log/debug không mất ngữ cảnh (rule
+      // preserve-caught-error) — 2 chỗ dưới đây vốn đã lint-error từ trước.
+      throw new Error(e.message || 'Xác nhận thanh toán thất bại', { cause: err });
     }
     // Payment không còn PENDING: có thể đã SUCCESS (ok) hoặc FAILED (không ok).
     // Không nuốt lỗi mù quáng — kiểm tra lại trạng thái thực tế.
@@ -157,6 +137,7 @@ async function confirmPayment(paymentId: string, bookingId: string): Promise<voi
     if (status !== 'SUCCESS') {
       throw new Error(
         `Thanh toán không thành công (trạng thái: ${status ?? 'không xác định'})`,
+        { cause: err },
       );
     }
   }

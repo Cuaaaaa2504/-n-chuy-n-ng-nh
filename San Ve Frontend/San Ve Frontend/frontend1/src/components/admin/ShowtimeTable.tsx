@@ -11,6 +11,15 @@ interface Props {
   showtimes: Showtime[];
   onEdit: (showtime: Showtime) => void;
   onCancel: (showtime: Showtime) => void;
+  /**
+   * FIX [mục 6.3]: trigger POST /showtimes/admin/:id/generate-seats.
+   * Endpoint đã tồn tại từ lâu nhưng không có nút nào gọi tới, nên suất chiếu
+   * bị thiếu sơ đồ ghế (dữ liệu tạo trước khi có auto-seed) không thể vá được
+   * từ giao diện.
+   */
+  onGenerateSeats: (showtime: Showtime) => void;
+  /** id đang chạy sinh ghế — để disable nút và hiện trạng thái */
+  generatingId?: number | null;
 }
 
 // Khớp CHECK constraint của backend: OPEN | CLOSED | CANCELLED
@@ -30,7 +39,13 @@ const isLocked = (status: ShowtimeStatus) => status === 'CANCELLED' || status ==
 const formatDay = (value: string) =>
   value ? new Date(`${value}T00:00:00`).toLocaleDateString('vi-VN') : '—';
 
-const ShowtimeTable: React.FC<Props> = ({ showtimes, onEdit, onCancel }) => (
+const ShowtimeTable: React.FC<Props> = ({
+  showtimes,
+  onEdit,
+  onCancel,
+  onGenerateSeats,
+  generatingId,
+}) => (
   <>
     {/* Desktop */}
     <div className="hidden md:block">
@@ -68,6 +83,13 @@ const ShowtimeTable: React.FC<Props> = ({ showtimes, onEdit, onCancel }) => (
                   <div className="flex gap-2">
                     <Btn variant="primary" onClick={() => onEdit(s)} disabled={isLocked(s.status)}>
                       Sửa
+                    </Btn>
+                    <Btn
+                      variant="purple"
+                      onClick={() => onGenerateSeats(s)}
+                      disabled={generatingId === s.id}
+                    >
+                      {generatingId === s.id ? '⏳' : '🪑 Sinh ghế'}
                     </Btn>
                     <Btn variant="danger" onClick={() => onCancel(s)} disabled={isLocked(s.status)}>
                       Hủy
@@ -107,6 +129,14 @@ const ShowtimeTable: React.FC<Props> = ({ showtimes, onEdit, onCancel }) => (
           <div className="flex gap-2 mt-4">
             <Btn variant="primary" className="flex-1" onClick={() => onEdit(s)} disabled={isLocked(s.status)}>
               Sửa
+            </Btn>
+            <Btn
+              variant="purple"
+              className="flex-1"
+              onClick={() => onGenerateSeats(s)}
+              disabled={generatingId === s.id}
+            >
+              {generatingId === s.id ? '⏳' : '🪑 Sinh ghế'}
             </Btn>
             <Btn variant="danger" className="flex-1" onClick={() => onCancel(s)} disabled={isLocked(s.status)}>
               Hủy

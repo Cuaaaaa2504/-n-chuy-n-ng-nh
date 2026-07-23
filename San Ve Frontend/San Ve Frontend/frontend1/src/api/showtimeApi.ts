@@ -76,6 +76,8 @@ function normalizeShowtime(item: Record<string, unknown>): Showtime {
     showDate: toLocalDate(startTime),
     basePrice: Number(item.basePrice ?? item.base_price ?? 0),
     status: (item.status ?? 'OPEN') as Showtime['status'],
+    // FIX [mục 6.2]: giữ lại mốc updatedAt để gửi ngược lên khi PATCH.
+    updatedAt: (item.updatedAt ?? item.updated_at) as string | undefined,
   };
 }
 
@@ -127,10 +129,50 @@ export async function createShowtime(data: ShowtimeFormData): Promise<Showtime> 
  * PATCH /showtimes/admin/:id
  * FIX: trước đây gọi PUT /showtimes/:id -> 404/405. Backend dùng PATCH + prefix admin.
  */
-export async function updateShowtime(id: number, data: ShowtimeFormData): Promise<Showtime> {
-  const res = (await axiosClient.patch(`/showtimes/admin/${id}`, toPayload(data))) as unknown;
+export async function updateShowtime(
+  id: number,
+  data: ShowtimeFormData,
+  /**
+   * FIX [mục 6.2]: mốc updatedAt của bản ghi mà form ĐANG hiển thị.
+   * Nếu trong lúc form mở có admin khác lưu thay đổi, backend trả 409 kèm
+   * thời điểm sửa, thay vì âm thầm ghi đè công sức của người kia.
+   */
+  expectedUpdatedAt?: string,
+): Promise<Showtime> {
+  const payload = { ...toPayload(data), ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}) };
+  const res = (await axiosClient.patch(`/showtimes/admin/${id}`, payload)) as unknown;
   const item = (res as Record<string, unknown>)?.data ?? res;
   return normalizeShowtime(item as Record<string, unknown>);
+}
+
+/**
+ * FIX [mục 6.2]: GET /showtimes/:id — lấy bản MỚI NHẤT của một suất chiếu.
+ *
+ * Form sửa suất chiếu trong admin đang đổ dữ liệu từ danh sách đã cache. Nếu
+ * một admin khác vừa đổi giờ chiếu, form sẽ mở ra với dữ liệu cũ và khi bấm lưu
+ * sẽ ghi đè thay đổi mới nhất — race condition mất dữ liệu âm thầm.
+ * Gọi hàm này ngay trước khi mở form để luôn sửa trên bản mới nhất.
+ */
+export async function getShowtimeById(id: number): Promise<Showtime> {
+  const res = (await axiosClient.get(`/showtimes/${id}`)) as unknown;
+  return normalizeShowtime(res as Record<string, unknown>);
+}
+
+/**
+ * FIX [mục 6.3]: POST /showtimes/admin/:id/generate-seats
+ *
+ * `SeatBookingPage` đã có sẵn logic phát hiện suất chiếu chưa có sơ đồ ghế và
+ * hiện cảnh báo vàng, kèm comment ghi rõ "Admin cần gọi endpoint này để vá dữ
+ * liệu cũ". Nhưng admin không có nút nào để gọi — tính năng sửa dữ liệu tồn tại
+ * ở backend mà hoàn toàn không trigger được từ UI, nên suất chiếu lỗi ghế sẽ
+ * không bao giờ tự khắc phục được.
+ *
+ * Endpoint này idempotent (chỉ thêm ghế còn thiếu) nên bấm nhiều lần vô hại.
+ */
+export async function generateSeats(id: number): Promise<{ created?: number } & Record<string, unknown>> {
+  return (await axiosClient.post(
+    `/showtimes/admin/${id}/generate-seats`,
+  )) as unknown as { created?: number } & Record<string, unknown>;
 }
 
 /**

@@ -24,7 +24,7 @@ import {
   useToast,
 } from '../../components/admin/AdminUI';
 import { useShowtimes } from '../../hooks/useShowtimes';
-import { toLocalTime } from '../../api/showtimeApi';
+import { generateSeats, getShowtimeById, toLocalTime } from '../../api/showtimeApi';
 import type { Showtime, ShowtimeFormData } from '../../types/showtime';
 
 /** Showtime (dữ liệu thật) -> ShowtimeFormData, không còn map tên cứng */
@@ -61,6 +61,35 @@ const AdminShowtimesPage: React.FC = () => {
   } = useShowtimes();
   const { toast, showToast } = useToast();
 
+  // FIX [mục 6.3]: state cho thao tác sinh ghế bù.
+  const [generatingId, setGeneratingId] = useState<number | null>(null);
+
+  /**
+   * Vá dữ liệu cũ: suất chiếu tạo TRƯỚC khi backend có auto-seed vẫn đang có
+   * bảng showtime_seats rỗng. SeatBookingPage phát hiện được và hiện cảnh báo
+   * "Suất chiếu này chưa có sơ đồ ghế", nhưng trước đây admin không có nút nào
+   * để sửa. Endpoint idempotent nên bấm lại nhiều lần không gây hại.
+   */
+  const handleGenerateSeats = async (showtimeId: number) => {
+    setGeneratingId(showtimeId);
+    try {
+      const res = await generateSeats(showtimeId);
+      const created = Number(res?.created ?? 0);
+      showToast(
+        created > 0
+          ? `Đã sinh ${created} ghế cho suất chiếu #${showtimeId}`
+          : `Suất chiếu #${showtimeId} đã có đủ ghế, không cần sinh thêm`,
+      );
+    } catch (err) {
+      showToast(
+        (err as { message?: string })?.message ?? 'Sinh ghế thất bại',
+        'error',
+      );
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
   const visibleShowtimes = useMemo(
     () =>
       showtimes.filter((s) => {
@@ -94,7 +123,7 @@ const AdminShowtimesPage: React.FC = () => {
     setSubmitting(true);
     try {
       const ok = editingShowtime
-        ? await updateShowtime(editingShowtime.id, data)
+        ? await updateShowtime(editingShowtime.id, data, editingShowtime.updatedAt)
         : await addShowtime(data);
       if (ok) {
         showToast(editingShowtime ? 'Đã cập nhật suất chiếu' : 'Đã thêm suất chiếu mới');
@@ -207,10 +236,19 @@ const AdminShowtimesPage: React.FC = () => {
         <ShowtimeTable
           showtimes={visibleShowtimes}
           onEdit={(s) => {
+            // FIX [mục 6.2]: mở form trên bản MỚI NHẤT từ server, không phải
+            // bản đã cache trong danh sách. Nếu fetch lỗi thì vẫn mở bằng dữ
+            // liệu cache — thà sửa được còn hơn chặn admin làm việc; lớp bảo
+            // vệ thật là expectedUpdatedAt gửi kèm lúc lưu.
             setEditingShowtime(s);
             setIsFormOpen(true);
+            void getShowtimeById(s.id)
+              .then((fresh) => setEditingShowtime(fresh))
+              .catch(() => { /* giữ nguyên bản cache */ });
           }}
           onCancel={(s) => setCancelingShowtime(s)}
+          onGenerateSeats={(s) => void handleGenerateSeats(s.id)}
+          generatingId={generatingId}
         />
       )}
 

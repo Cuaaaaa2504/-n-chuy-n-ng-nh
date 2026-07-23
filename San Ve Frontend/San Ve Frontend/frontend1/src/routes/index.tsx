@@ -8,6 +8,8 @@ import AdminLayout from '../layouts/AdminLayout';
 // Guards
 import PrivateRoute from './PrivateRoute';
 import AdminRouteGuard from './AdminRouteGuard';
+// FIX [mục 7.2]: guard riêng cho nhân viên rạp (STAFF hoặc ADMIN)
+import StaffRouteGuard from './StaffRouteGuard';
 
 // Public pages
 import HomePage from '../pages/HomePage';
@@ -33,6 +35,9 @@ import MyBookingsPage from '../pages/MyBookingsPage';
 import MyTicketsPage from '../pages/MyTicketsPage';
 import TicketDetailPage from '../pages/TicketDetailPage';
 import ProfilePage from '../pages/ProfilePage';
+// FIX [mục 7.2]: màn hình soát vé tại rạp — trước đây POST /tickets/:code/checkin
+// không có bất kỳ UI nào gọi tới.
+import StaffCheckinPage from '../pages/StaffCheckinPage';
 
 // Admin pages
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage';
@@ -47,6 +52,9 @@ import AdminProductsPage from '../pages/admin/AdminProductsPage';
 import AdminRefundsPage from '../pages/admin/AdminRefundsPage';
 import AdminRevenueReportPage from '../pages/admin/AdminRevenueReportPage';
 import AdminAuditLogPage from '../pages/admin/AdminAuditLogPage';
+// FIX [mục 3.5]: form gửi thông báo — POST /notifications/admin/push trước đây
+// không có form nào trong dashboard.
+import AdminNotificationsPage from '../pages/admin/AdminNotificationsPage';
 
 export default function AppRouter() {
   return (
@@ -85,6 +93,11 @@ export default function AppRouter() {
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
 
+          {/* ── Nhân viên rạp (STAFF/ADMIN) ── */}
+          <Route element={<StaffRouteGuard />}>
+            <Route path="/staff/checkin" element={<StaffCheckinPage />} />
+          </Route>
+
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />
 
@@ -103,6 +116,7 @@ export default function AppRouter() {
             <Route path="products" element={<AdminProductsPage />} />
             <Route path="refunds" element={<AdminRefundsPage />} />
             <Route path="reports" element={<AdminRevenueReportPage />} />
+            <Route path="notifications" element={<AdminNotificationsPage />} />
             <Route path="audit-logs" element={<AdminAuditLogPage />} />
           </Route>
         </Route>

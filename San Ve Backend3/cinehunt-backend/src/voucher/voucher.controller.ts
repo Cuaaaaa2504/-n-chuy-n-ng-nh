@@ -7,7 +7,6 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -60,16 +59,10 @@ export class VoucherController {
     return this.voucherService.update(id, dto as any);
   }
 
-  // Alias PUT cho client dùng PUT thay vì PATCH
-  @Put(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  replace(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateVoucherDto,
-  ) {
-    return this.voucherService.update(id, dto as any);
-  }
+  // FIX [mục 4.3]: đã xoá alias `PUT /vouchers/:id`.
+  // Nó gọi đúng `voucherService.update()` như PATCH ở trên, không thêm giá trị
+  // gì ngoài việc tạo ra hai đường vào cho cùng một hành động. Frontend
+  // (adminApi.voucherApi.update) chỉ dùng PATCH.
 
   // FIX: thiếu endpoint bật/tắt trạng thái active
   @Patch(':id/toggle')
@@ -79,12 +72,15 @@ export class VoucherController {
     return this.voucherService.toggleStatus(id);
   }
 
-  @Patch(':id/deactivate')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  deactivate(@Param('id', ParseIntPipe) id: number) {
-    return this.voucherService.deactivate(id);
-  }
+  // FIX [mục 4.4]: đã xoá `PATCH /vouchers/:id/deactivate`.
+  // Báo cáo cho rằng thiếu trạng thái "deactivated" vĩnh viễn, nhưng nhìn vào
+  // `voucherService.deactivate()` thì nó chỉ set `status = 'INACTIVE'` — CHÍNH
+  // XÁC cùng một cột, cùng một giá trị mà `/toggle` đang set. Không hề có
+  // trạng thái thứ ba nào trong DB (voucher.status chỉ có ACTIVE/INACTIVE).
+  //
+  // Nói cách khác đây là hai tên gọi cho một hành động, không phải hai vòng đời
+  // khác nhau. Giữ lại chỉ khiến admin tưởng /deactivate là "khoá vĩnh viễn"
+  // trong khi thực tế vẫn bật lại được bằng /toggle. Đã gộp về /toggle.
 
   // FIX: thiếu endpoint xoá voucher
   @Delete(':id')

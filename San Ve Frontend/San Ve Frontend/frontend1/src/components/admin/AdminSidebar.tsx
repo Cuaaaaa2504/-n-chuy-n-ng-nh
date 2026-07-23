@@ -11,6 +11,8 @@ const LINKS = [
   { to: '/admin/products', label: '🍿 Sản phẩm & Combo' },
   { to: '/admin/refunds', label: '💸 Hoàn tiền' },
   { to: '/admin/reports', label: '📊 Báo cáo doanh thu' },
+  // FIX [mục 3.5]: lối vào form gửi thông báo cho admin
+  { to: '/admin/notifications', label: '🔔 Gửi thông báo' },
   { to: '/admin/audit-logs', label: '📋 Nhật ký hệ thống' },
 ];
 

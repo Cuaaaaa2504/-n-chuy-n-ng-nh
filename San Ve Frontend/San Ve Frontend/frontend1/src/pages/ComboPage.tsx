@@ -14,6 +14,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/useTheme';
 import axiosClient from '../api/axiosClient';
+import { validateVoucher } from '../api/voucherApi';
+import type { VoucherPreview } from '../api/voucherApi';
 
 // ===== Types =====
 interface ComboItem {
@@ -85,6 +87,13 @@ export default function ComboPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+
+  // FIX [mục 4.1]: state cho ô nhập mã giảm giá — trước đây trang này hoàn toàn
+  // không có khái niệm voucher.
+  const [voucherInput, setVoucherInput]     = useState('');
+  const [voucher, setVoucher]               = useState<VoucherPreview | null>(null);
+  const [voucherError, setVoucherError]     = useState<string | null>(null);
+  const [checkingVoucher, setCheckingVoucher] = useState(false);
 
   // Chặn double-submit: user bấm "Thanh toán" 2 lần sẽ tạo 2 booking trên cùng holdIds,
   // lần 2 chắc chắn fail (hold đã CONVERTED) và làm người dùng hoang mang.
@@ -193,7 +202,11 @@ export default function ComboPage() {
       combos.reduce((sum, c) => sum + c.price * (qty[c.comboId] ?? 0), 0),
     [combos, qty],
   );
-  const grandTotal = seatTotal + comboTotal;
+  // Tổng TRƯỚC giảm giá — đây chính là con số backend dùng làm `orderAmount`
+  // khi kiểm tra minOrderAmount và khi tính giảm giá phần trăm.
+  const orderAmount = seatTotal + comboTotal;
+  const discount    = Math.min(voucher?.discountAmount ?? 0, orderAmount);
+  const grandTotal  = Math.max(0, orderAmount - discount);
 
   const changeQty = (comboId: number, delta: number) => {
     setQty((prev) => {
@@ -203,7 +216,51 @@ export default function ComboPage() {
       else copy[comboId] = next;
       return copy;
     });
+
+    // FIX [mục 4.1]: PHẢI gỡ mã đã áp dụng khi giỏ hàng đổi.
+    // `discountAmount` được backend tính theo orderAmount tại thời điểm bấm
+    // "Áp dụng". Nếu user thêm/bớt combo sau đó mà vẫn giữ con số cũ, tổng tiền
+    // hiển thị sẽ lệch với tổng tiền backend tính lúc POST /bookings — user
+    // thấy một giá, bị trừ một giá khác.
+    //
+    // Xử lý ngay trong handler thay vì dùng useEffect theo dõi orderAmount:
+    // setState đồng bộ trong thân effect vi phạm rule react-hooks của dự án và
+    // gây cascading render không cần thiết.
+    if (voucher) {
+      setVoucher(null);
+      setVoucherError('Giỏ hàng đã thay đổi — vui lòng áp dụng lại mã giảm giá.');
+    }
   };
+
+  // ─── Voucher ────────────────────────────────────────────────────────────
+  //
+  // Mã đã áp dụng phải bị GỠ khi giỏ hàng thay đổi: số tiền giảm được tính
+  // theo orderAmount tại thời điểm bấm "Áp dụng". Nếu user thêm/bớt combo sau
+  // đó mà vẫn giữ nguyên con số cũ thì tổng tiền hiển thị sẽ lệch với tổng tiền
+  // backend tính lúc tạo booking -> user thấy một giá, bị trừ một giá khác.
+  const applyVoucher = useCallback(async () => {
+    if (checkingVoucher) return;
+    setCheckingVoucher(true);
+    setVoucherError(null);
+    try {
+      const result = await validateVoucher(voucherInput, orderAmount);
+      if (result.ok) {
+        setVoucher(result.data);
+        setVoucherError(null);
+      } else {
+        setVoucher(null);
+        setVoucherError(result.message);
+      }
+    } finally {
+      setCheckingVoucher(false);
+    }
+  }, [voucherInput, orderAmount, checkingVoucher]);
+
+  const clearVoucher = useCallback(() => {
+    setVoucher(null);
+    setVoucherInput('');
+    setVoucherError(null);
+  }, []);
 
   // ─── Tạo booking rồi sang thanh toán ────────────────────────────────────
   const createBookingAndPay = useCallback(async () => {
@@ -230,6 +287,16 @@ export default function ComboPage() {
       // forbidNonWhitelisted đang bật -> tuyệt đối không gửi field thừa.
       const body: Record<string, unknown> = { holdIds };
       if (products.length) body.products = products;
+
+      // FIX [mục 4.1 — LỖI CỐT LÕI]: dòng dưới đây trước đây KHÔNG TỒN TẠI.
+      // Comment ngay phía trên đã ghi rõ schema có `voucherCode?`, backend đã
+      // implement đầy đủ logic giảm giá, nhưng field này chưa bao giờ được gửi
+      // đi -> tính năng voucher chết từ đầu đến cuối.
+      //
+      // Chỉ gửi mã ĐÃ validate thành công (`voucher.code`) chứ không gửi thẳng
+      // `voucherInput`: nếu user gõ dở dang rồi bấm thanh toán luôn, gửi chuỗi
+      // rác lên sẽ khiến backend ném 400 và chặn cả đơn hàng.
+      if (voucher?.code) body.voucherCode = voucher.code;
 
       const booking = (await axiosClient.post(
         '/bookings',
@@ -265,7 +332,7 @@ export default function ComboPage() {
       submittingRef.current = false;
       setSubmitting(false);
     }
-  }, [holdIds, qty, expired, navigate]);
+  }, [holdIds, qty, expired, navigate, voucher]);
 
   // ─── Theme tokens ───────────────────────────────────────────────────────
   const bg        = darkMode ? 'bg-gray-950 text-white'      : 'bg-gray-50 text-gray-900';
@@ -436,6 +503,64 @@ export default function ComboPage() {
 
             <div className={`border-t ${divider}`} />
 
+            {/* ── FIX [mục 4.1]: ô nhập mã giảm giá ── */}
+            <div className="space-y-2">
+              <div className={`text-xs uppercase tracking-wider font-semibold ${cardMuted}`}>
+                Mã giảm giá
+              </div>
+
+              {voucher ? (
+                <div className="flex items-center justify-between gap-2 rounded-xl px-3 py-2 bg-green-500/10 border border-green-500/30">
+                  <div className="min-w-0">
+                    <p className="font-mono font-bold text-green-500 text-sm truncate">
+                      {voucher.code}
+                    </p>
+                    <p className="text-xs text-green-500/80">
+                      Giảm {formatVND(discount)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={clearVoucher}
+                    className="text-xs font-semibold text-red-400 hover:underline shrink-0"
+                  >
+                    Gỡ
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    value={voucherInput}
+                    onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void applyVoucher(); }}
+                    placeholder="Nhập mã…"
+                    disabled={checkingVoucher || submitting}
+                    className={`flex-1 min-w-0 px-3 py-2 rounded-xl text-sm font-mono uppercase border outline-none focus:ring-2 focus:ring-amber-500/50 ${
+                      darkMode
+                        ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                    }`}
+                  />
+                  <button
+                    onClick={() => void applyVoucher()}
+                    disabled={checkingVoucher || submitting || !voucherInput.trim()}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition ${
+                      checkingVoucher || !voucherInput.trim()
+                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                        : 'bg-amber-500 hover:bg-amber-400 text-gray-950 active:scale-95'
+                    }`}
+                  >
+                    {checkingVoucher ? '…' : 'Áp dụng'}
+                  </button>
+                </div>
+              )}
+
+              {voucherError && (
+                <p className="text-xs text-red-500">{voucherError}</p>
+              )}
+            </div>
+
+            <div className={`border-t ${divider}`} />
+
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className={cardMuted}>Tiền vé</span>
@@ -445,6 +570,12 @@ export default function ComboPage() {
                 <span className={cardMuted}>Bắp nước</span>
                 <span className="font-medium">{formatVND(comboTotal)}</span>
               </div>
+              {discount > 0 && (
+                <div className="flex items-center justify-between text-green-500">
+                  <span>Giảm giá</span>
+                  <span className="font-medium">− {formatVND(discount)}</span>
+                </div>
+              )}
               <div className={`border-t ${divider} pt-2 flex items-center justify-between`}>
                 <span className="font-semibold">Tổng cộng</span>
                 <span className="text-lg font-bold text-amber-500">{formatVND(grandTotal)}</span>

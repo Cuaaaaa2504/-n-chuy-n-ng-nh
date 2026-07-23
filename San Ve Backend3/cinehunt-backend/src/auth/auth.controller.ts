@@ -2,9 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Param,
-  ParseIntPipe,
-  Patch,
   Post,
   Req,
   UseGuards,
@@ -12,22 +9,45 @@ import {
 import { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
-import { RolesGuard } from './guards/roles.guard';
 import { CurrentUser, CurrentUserPayload } from './decorators/current-user.decorator';
-import { Roles } from './decorators/roles.decorator';
 import {
   AUTH_THROTTLE,
   REFRESH_THROTTLE,
-  SENSITIVE_THROTTLE,
 } from '../common/constants/throttle.constants';
 
+/**
+ * FIX [Dọn dẹp endpoint trùng lặp — mục 1.1 → 1.6 của báo cáo]
+ *
+ * Controller này TRƯỚC ĐÂY còn 6 route trùng/thừa, nay đã bị gỡ bỏ:
+ *
+ *  | Route đã xoá                    | Route thay thế (duy nhất)          |
+ *  |---------------------------------|------------------------------------|
+ *  | PATCH /auth/me                  | PATCH /users/me                    |
+ *  | POST  /auth/me/change-password  | POST  /users/me/change-password    |
+ *  | GET   /auth/users               | GET   /users                       |
+ *  | PATCH /auth/users/:id/status    | PATCH /users/:id/status            |
+ *  | GET   /auth/admin-only          | (endpoint test — xoá hẳn)          |
+ *  | GET   /auth/staff-or-admin      | (endpoint test — xoá hẳn)          |
+ *
+ * Lý do: mỗi chức năng chỉ nên có MỘT đường vào. Khi tồn tại 2–3 route cho cùng
+ * một hành động, guard/validation/throttle rất dễ lệch nhau giữa các route và
+ * kẻ tấn công sẽ chọn đúng route yếu nhất để đi (xem mục 1.2 của báo cáo).
+ *
+ * `AuthController` từ nay chỉ giữ đúng phạm vi của nó: đăng ký, đăng nhập,
+ * refresh, logout và đọc phiên hiện tại. Mọi thao tác trên *tài nguyên user*
+ * đều nằm ở `UsersController`.
+ */
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
 
   // Siết chặt: 5 lần / 60s — chống spam tạo tài khoản ảo.
   @Throttle(AUTH_THROTTLE)
@@ -66,61 +86,20 @@ export class AuthController {
     return this.authService.logout(user.userId, refreshToken);
   }
 
+  /**
+   * FIX [mục 2.1 — hai `getProfile` khác shape]:
+   * `AuthService.getProfile()` (toSafeUser) và `UsersService.getProfile()`
+   * (toProfile) trả về hai object KHÁC NHAU — `toProfile` có thêm field `id`
+   * mà frontend đang đọc. Trước đây GET /auth/me dùng bản của AuthService còn
+   * PATCH /users/me lại trả bản của UsersService, nên cùng một user sẽ có shape
+   * khác nhau tuỳ endpoint.
+   *
+   * Nay GET /auth/me uỷ quyền thẳng cho UsersService -> chỉ còn MỘT nguồn sự
+   * thật cho hồ sơ người dùng.
+   */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@CurrentUser() user: CurrentUserPayload) {
-    return this.authService.getProfile(user.userId);
-  }
-
-  @Patch('me')
-  @UseGuards(JwtAuthGuard)
-  async updateMe(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() body: { fullName?: string; phone?: string; avatarUrl?: string },
-  ) {
-    return this.authService.updateProfile(user.userId, body);
-  }
-
-  // FIX [#2]: đổi mật khẩu là endpoint NHẠY CẢM (attacker cầm token bị lộ có
-  // thể dò `currentPassword`). Siết còn 3 lần / 60s — chặt hơn cả login.
-  @Throttle(SENSITIVE_THROTTLE)
-  @Post('me/change-password')
-  @UseGuards(JwtAuthGuard)
-  async changePassword(
-    @CurrentUser() user: CurrentUserPayload,
-    @Body() body: { currentPassword: string; newPassword: string },
-  ) {
-    return this.authService.changePassword(user.userId, body);
-  }
-
-  @Get('users')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  async getAllUsers() {
-    return this.authService.getAllUsers();
-  }
-
-  @Patch('users/:id/status')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  async setUserStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('status') status: 'ACTIVE' | 'BANNED' | 'DELETED',
-  ) {
-    return this.authService.setUserStatus(id, status);
-  }
-
-  @Get('admin-only')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  async adminOnly() {
-    return { message: 'Bạn đang truy cập API chỉ dành cho ADMIN' };
-  }
-
-  @Get('staff-or-admin')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('STAFF', 'ADMIN')
-  async staffOrAdmin() {
-    return { message: 'Bạn đang truy cập API dành cho STAFF hoặc ADMIN' };
+    return this.usersService.getProfile(user.userId);
   }
 }

@@ -1,8 +1,12 @@
 // src/pages/MyTicketsPage.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../context/useTheme';
 import axiosClient from '../api/axiosClient';
+import BookingTicketsModal from '../components/BookingTicketsModal';
+import { getBookingTickets } from '../api/bookingApi';
+import { normalizeBookingCore } from '../api/bookingNormalizer';
+import type { BookingTicket } from '../types/booking';
 
 // ===== Types =====
 type TicketStatus =
@@ -62,7 +66,15 @@ function MiniCountdown({ expiresAt }: { expiresAt: string }) {
 }
 
 // ===== Ticket Card =====
-function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolean }) {
+function TicketCard({
+  ticket,
+  darkMode,
+  onViewTickets,
+}: {
+  ticket: TicketItem;
+  darkMode: boolean;
+  onViewTickets: (t: TicketItem) => void;
+}) {
   const navigate = useNavigate();
   const isPaid    = PAID_STATUSES.includes(ticket.status);
   const isHolding = HOLDING_STATUSES.includes(ticket.status);
@@ -130,9 +142,22 @@ function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolea
             Thanh toán
           </button>
         )}
+        {/* FIX [mục 7.1 — lỗi thật, báo cáo chẩn đoán nhầm nguyên nhân]
+            Link cũ: <Link to={`/ticket/${ticket.bookingId}`}>
+            Hỏng vì HAI lý do cùng lúc:
+              1. Route đăng ký ở routes/index.tsx là "/tickets/:ticketId"
+                 (SỐ NHIỀU). "/ticket/..." không khớp route nào -> rơi vào
+                 NotFoundPage.
+              2. Kể cả sửa thành "/tickets/", tham số truyền vào vẫn là
+                 bookingId, trong khi TicketDetailPage gọi GET /tickets/:code
+                 với mã VÉ. Một booking nhiều ghế = nhiều vé, không có ánh xạ
+                 1-1 nào từ bookingId sang mã vé cả.
+            Vì vậy nút này chuyển sang mở modal danh sách vé của đơn
+            (GET /bookings/:id/tickets) — đúng quan hệ 1 đơn ↔ N vé, và dùng
+            lại đúng luồng mà MyBookingsPage đã chạy tốt. */}
         {isPaid && (
-          <Link
-            to={`/ticket/${ticket.bookingId}`}
+          <button
+            onClick={() => onViewTickets(ticket)}
             className={`text-xs font-semibold px-4 py-2 rounded-xl border transition ${
               darkMode
                 ? 'border-gray-700 hover:bg-gray-800 text-gray-300'
@@ -140,7 +165,7 @@ function TicketCard({ ticket, darkMode }: { ticket: TicketItem; darkMode: boolea
             }`}
           >
             Xem vé
-          </Link>
+          </button>
         )}
       </div>
     </div>
@@ -176,6 +201,26 @@ export default function MyTicketsPage() {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
 
+  // FIX [mục 7.1]: modal QR vé cho nút "Xem vé" — thay cho link /ticket/:id hỏng.
+  const [selected, setSelected]           = useState<TicketItem | null>(null);
+  const [ticketRows, setTicketRows]       = useState<BookingTicket[]>([]);
+  const [ticketLoading, setTicketLoading] = useState(false);
+  const [ticketError, setTicketError]     = useState('');
+
+  const openTickets = useCallback(async (t: TicketItem) => {
+    setSelected(t);
+    setTicketRows([]);
+    setTicketError('');
+    setTicketLoading(true);
+    try {
+      setTicketRows(await getBookingTickets(t.bookingId));
+    } catch (err: unknown) {
+      setTicketError((err as { message?: string }).message || 'Không tải được QR vé');
+    } finally {
+      setTicketLoading(false);
+    }
+  }, []);
+
   const switchTab = (tab: 'holding' | 'paid') => {
     setSearchParams({ tab });
   };
@@ -195,47 +240,32 @@ export default function MyTicketsPage() {
         ? (res as Record<string, unknown>).data as Record<string, unknown>[]
         : [];
 
+      // FIX [mục 9.1 — bản normalize THỨ BA, báo cáo bỏ sót]
+      //
+      // Báo cáo chỉ ra 2 hàm `normalizeBooking` (bookingApi + paymentApi).
+      // Thực tế có 3: khối map viết tay ở đây là bản thứ ba, lặp lại y hệt
+      // logic đọc quan hệ lồng nhau showtime -> movie / room -> cinema, tách
+      // ngày/giờ từ startTime, và dựng mã ghế từ seatRow + seatNumber.
+      //
+      // Cả ba đã được gộp về `bookingNormalizer.ts`. Riêng bản ở đây từng có
+      // 2 comment FIX ghi lại đúng những lỗi mà 2 bản kia vẫn còn (thiếu
+      // `.title` gây "[object Object]", và fallback `seatRow`/`rowName`) —
+      // bằng chứng rõ nhất cho việc sửa một chỗ mà quên hai chỗ còn lại.
       const mapped: TicketItem[] = list.map((b) => {
-        const details = (b.bookingDetails ?? []) as Record<string, unknown>[];
-        const seatCodes = details.map((d) => {
-          const ss = d.showtimeSeat as Record<string, unknown> | undefined;
-          const seat = ss?.seat as Record<string, unknown> | undefined;
-          if (!seat) return '';
-          // Entity backend là `seatRow` (cột seat_row); giữ `rowName` làm fallback.
-          const row = (seat.seatRow ?? seat.rowName ?? '') as string;
-          const num = (seat.seatNumber ?? '') as string | number;
-          return `${row}${num}`;
-        }).filter(Boolean);
-
-        // FIX BUG-03: dữ liệu phim/rạp/phòng/giờ nằm trong nested showtime object.
-        const showtime = b.showtime as Record<string, unknown> | undefined;
-        const movie    = showtime?.movie as Record<string, unknown> | undefined;
-        const room     = showtime?.room  as Record<string, unknown> | undefined;
-        const cinema   = room?.cinema    as Record<string, unknown> | undefined;
-
-        // Showtime chỉ có `startTime` (datetime) — tách ra ngày & giờ.
-        const startRaw = (showtime?.startTime ?? showtime?.showTime) as string | undefined;
-        const start    = startRaw ? new Date(startRaw) : null;
-        const validStart = start && !Number.isNaN(start.getTime()) ? start : null;
-
+        const core = normalizeBookingCore(b);
         return {
-          bookingId:   String(b.bookingId ?? b.id ?? ''),
-          bookingCode: String(b.bookingCode ?? ''),
-          // Thiếu `.title` ở đây chính là nguyên nhân hiện "[object Object]".
-          movieTitle:  String(b.movieTitle ?? movie?.title ?? 'Vé xem phim'),
-          cinemaName:  (b.cinemaName ?? cinema?.cinemaName) as string | undefined,
-          roomName:    (b.roomName   ?? room?.roomName)     as string | undefined,
-          showDate:    (b.showDate as string | undefined)
-                        ?? validStart?.toLocaleDateString('vi-VN'),
-          showTime:    (b.showTime as string | undefined)
-                        ?? validStart?.toLocaleTimeString('vi-VN', {
-                             hour: '2-digit', minute: '2-digit',
-                           }),
-          seatCodes,
-          totalAmount: Number(b.totalAmount ?? 0),
-          status:      (b.status ?? 'PENDING_PAYMENT') as TicketStatus,
-          expiresAt:   b.expiresAt  as string | undefined,
-          paidAt:      b.paidAt     as string | undefined,
+          bookingId:   core.id,
+          bookingCode: core.orderCode ?? '',
+          movieTitle:  core.movieTitle,
+          cinemaName:  core.cinemaName,
+          roomName:    core.roomName,
+          showDate:    core.showDate,
+          showTime:    core.showTime,
+          seatCodes:   core.seatCodes,
+          totalAmount: core.totalAmount,
+          status:      core.status as TicketStatus,
+          expiresAt:   core.expiresAt,
+          paidAt:      core.paidAt,
         };
       });
 
@@ -376,10 +406,26 @@ export default function MyTicketsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {displayed.map((ticket) => (
-            <TicketCard key={ticket.bookingId} ticket={ticket} darkMode={darkMode} />
+            <TicketCard
+              key={ticket.bookingId}
+              ticket={ticket}
+              darkMode={darkMode}
+              onViewTickets={openTickets}
+            />
           ))}
         </div>
       )}
+
+      {/* FIX [mục 7.1]: dùng lại đúng modal mà MyBookingsPage đang chạy tốt,
+          thay vì điều hướng sang một route không tồn tại. */}
+      <BookingTicketsModal
+        open={Boolean(selected)}
+        loading={ticketLoading}
+        error={ticketError}
+        tickets={ticketRows}
+        onClose={() => setSelected(null)}
+        onRetry={() => selected && void openTickets(selected)}
+      />
     </div>
   );
 }

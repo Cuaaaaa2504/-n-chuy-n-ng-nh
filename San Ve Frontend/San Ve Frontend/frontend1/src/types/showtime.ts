@@ -31,6 +31,13 @@ export interface Showtime {
 
   basePrice: number;
   status: ShowtimeStatus;
+
+  /**
+   * FIX [mục 6.2]: mốc sửa đổi cuối cùng do server trả về.
+   * Được gửi ngược lên khi PATCH để server phát hiện xung đột (optimistic
+   * locking). Không có nghĩa gì với người dùng, chỉ dùng nội bộ.
+   */
+  updatedAt?: string;
 }
 
 /**
@@ -54,6 +61,8 @@ export interface ShowtimePayload {
   startTime: string; // ISO
   endTime: string;   // ISO
   basePrice: number;
+  /** FIX [mục 6.2]: chỉ gửi khi PATCH, bỏ trống khi POST tạo mới */
+  expectedUpdatedAt?: string;
 }
 
 /** Option cho các <select> trong ShowtimeForm */

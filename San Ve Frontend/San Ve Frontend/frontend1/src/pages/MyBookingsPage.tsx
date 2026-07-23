@@ -3,6 +3,12 @@
 import { useEffect, useReducer, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cancelBooking, getBookingTickets, getMyBookings } from '../api/bookingApi';
+import {
+  getRefundsByBooking,
+  requestRefund,
+  REFUND_STATUS_LABEL,
+} from '../api/refundApi';
+import type { Refund } from '../api/refundApi';
 import BookingTicketsModal from '../components/BookingTicketsModal';
 import EmptyTickets from '../components/tickets/EmptyTickets';
 import type { Booking, BookingTicket } from '../types/booking';
@@ -36,18 +42,42 @@ const STATUS_COLOR: Record<string, string> = {
 // Các trạng thái được coi là "đã mua" -> có vé để xem QR.
 const PAID_STATUSES = ['PAID', 'ISSUED', 'CONFIRMED'];
 
+/**
+ * FIX [mục 5.1]: các trạng thái mà tiền đã thực sự vào hệ thống -> user có
+ * quyền yêu cầu hoàn tiền.
+ *
+ * ⚠️ Lưu ý nghiệp vụ quan trọng (báo cáo mô tả sai chỗ này):
+ * báo cáo nói "user hủy booking đã thanh toán nhưng không được hoàn tiền".
+ * Thực tế `BookingService.cancelBooking()` chỉ cho phép huỷ khi status thuộc
+ * ['PENDING_PAYMENT', 'CONFIRMED'] — đơn đã PAID KHÔNG huỷ được, nút "Hủy đơn"
+ * cũng chỉ hiện với PENDING_PAYMENT. Nên kịch bản "huỷ vé đã trả tiền rồi mất
+ * tiền" không xảy ra được.
+ *
+ * Vấn đề THẬT là: user đã trả tiền thì không có đường nào để đòi lại cả. Vì
+ * vậy ở đây ta thêm luồng đúng: gửi YÊU CẦU hoàn tiền (trạng thái PENDING),
+ * admin duyệt ở AdminRefundsPage. Không tự ý huỷ đơn hộ user.
+ */
+const REFUNDABLE_STATUSES = ['PAID', 'ISSUED', 'CONFIRMED', 'CANCELLED'];
+
 // ── Ticket row card ────────────────────────────────────────────────────────
 function BookingCard({
   booking,
   darkMode,
+  refund,
   onViewTickets,
   onCancel,
+  onRequestRefund,
 }: {
   booking: Booking;
   darkMode: boolean;
+  /** FIX [mục 5.2]: trạng thái hoàn tiền của đơn, nếu có */
+  refund?: Refund;
   onViewTickets: (b: Booking) => void;
   onCancel: (id: string) => void;
+  onRequestRefund: (b: Booking) => void;
 }) {
+  const canRequestRefund =
+    REFUNDABLE_STATUSES.includes(booking.status) && !refund;
   return (
     <article
       className={`rounded-2xl p-5 border shadow-sm transition ${
@@ -71,6 +101,25 @@ function BookingCard({
           <p className={`text-sm font-semibold mt-1 ${STATUS_COLOR[booking.status] || 'text-gray-400'}`}>
             {STATUS_LABEL[booking.status] || booking.status}
           </p>
+
+          {/* FIX [mục 5.2]: trước đây trang này chỉ hiện status của BOOKING.
+              Sau khi gửi yêu cầu hoàn tiền, user không có cách nào biết tiền đã
+              về hay chưa vì `GET /refunds/booking/:bookingId` không được gọi. */}
+          {refund && (
+            <p
+              className={`text-sm font-semibold mt-1 ${
+                refund.refundStatus === 'SUCCESS'
+                  ? 'text-blue-400'
+                  : refund.refundStatus === 'FAILED'
+                    ? 'text-red-500'
+                    : 'text-yellow-500'
+              }`}
+            >
+              {REFUND_STATUS_LABEL[refund.refundStatus]}
+              {' · '}
+              {refund.refundAmount.toLocaleString('vi-VN')}₫
+            </p>
+          )}
         </div>
         <p className="font-bold text-blue-500 whitespace-nowrap text-base">
           {booking.totalAmount.toLocaleString('vi-VN')}₫
@@ -102,6 +151,16 @@ function BookingCard({
               🚫 Hủy đơn
             </button>
           </>
+        )}
+
+        {/* FIX [mục 5.1]: đường vào duy nhất tới POST /refunds */}
+        {canRequestRefund && (
+          <button
+            onClick={() => onRequestRefund(booking)}
+            className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
+          >
+            💸 Yêu cầu hoàn tiền
+          </button>
         )}
       </div>
     </article>
@@ -144,6 +203,13 @@ export default function MyBookingsPage() {
   const [ticketLoading, setTicketLoading]     = useState(false);
   const [ticketError, setTicketError]         = useState('');
 
+  // FIX [mục 5.1 + 5.2]: map bookingId -> refund mới nhất của đơn đó.
+  const [refunds, setRefunds]                 = useState<Record<string, Refund>>({});
+  const [refundTarget, setRefundTarget]       = useState<Booking | null>(null);
+  const [refundReason, setRefundReason]       = useState('');
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+  const [refundError, setRefundError]         = useState('');
+
   const LIMIT      = 5;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
@@ -178,6 +244,51 @@ export default function MyBookingsPage() {
       });
     return () => { cancelled = true; };
   }, [page]);
+
+  /**
+   * FIX [mục 5.2]: nạp trạng thái hoàn tiền cho các đơn thuộc diện có thể hoàn.
+   *
+   * Chỉ gọi cho những đơn thực sự liên quan (đã trả tiền / đã huỷ) thay vì gọi
+   * cho toàn bộ danh sách — trang này phân trang 5 đơn/lần nên số request nhỏ,
+   * nhưng không có lý do gì hỏi refund cho một đơn còn đang chờ thanh toán.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const targets = bookings.filter((b) => REFUNDABLE_STATUSES.includes(b.status));
+    if (!targets.length) return;
+
+    void Promise.all(
+      targets.map(async (b) => [b.id, await getRefundsByBooking(b.id)] as const),
+    ).then((pairs) => {
+      if (cancelled) return;
+      setRefunds((prev) => {
+        const next = { ...prev };
+        for (const [id, list] of pairs) {
+          // API đã sort requestedAt DESC -> phần tử đầu là yêu cầu mới nhất.
+          if (list.length) next[id] = list[0];
+        }
+        return next;
+      });
+    });
+
+    return () => { cancelled = true; };
+  }, [bookings]);
+
+  async function submitRefund() {
+    if (!refundTarget || refundSubmitting) return;
+    setRefundSubmitting(true);
+    setRefundError('');
+    try {
+      const created = await requestRefund(refundTarget.id, refundReason);
+      setRefunds((prev) => ({ ...prev, [refundTarget.id]: created }));
+      setRefundTarget(null);
+      setRefundReason('');
+    } catch (err: unknown) {
+      setRefundError((err as { message?: string }).message || 'Không gửi được yêu cầu');
+    } finally {
+      setRefundSubmitting(false);
+    }
+  }
 
   async function openTickets(booking: Booking) {
     setSelectedBooking(booking);
@@ -225,8 +336,14 @@ export default function MyBookingsPage() {
             key={booking.id}
             booking={booking}
             darkMode={darkMode}
+            refund={refunds[booking.id]}
             onViewTickets={openTickets}
             onCancel={handleCancel}
+            onRequestRefund={(b) => {
+              setRefundReason('');
+              setRefundError('');
+              setRefundTarget(b);
+            }}
           />
         ))}
       </div>
@@ -250,6 +367,58 @@ export default function MyBookingsPage() {
           >
             Trang sau →
           </button>
+        </div>
+      )}
+
+      {/* ── FIX [mục 5.1]: modal nhập lý do hoàn tiền ── */}
+      {refundTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div
+            className={`w-full max-w-md rounded-2xl border p-6 space-y-4 ${
+              darkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'
+            }`}
+          >
+            <h2 className="text-lg font-bold">Yêu cầu hoàn tiền</h2>
+            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Đơn <span className="font-semibold">{refundTarget.movieTitle}</span> —{' '}
+              {refundTarget.totalAmount.toLocaleString('vi-VN')}₫.
+              <br />
+              Yêu cầu sẽ được gửi tới quản trị viên để duyệt. Số tiền hoàn do hệ
+              thống tự tra từ giao dịch thanh toán gốc.
+            </p>
+
+            <textarea
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Lý do (không bắt buộc) — VD: suất chiếu bị đổi giờ"
+              className={`w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 focus:ring-amber-500/50 ${
+                darkMode
+                  ? 'bg-gray-800 border-gray-700 placeholder-gray-500'
+                  : 'bg-white border-gray-300 placeholder-gray-400'
+              }`}
+            />
+
+            {refundError && <p className="text-sm text-red-500">{refundError}</p>}
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setRefundTarget(null)}
+                disabled={refundSubmitting}
+                className="px-4 py-2 rounded-lg text-sm font-semibold border"
+              >
+                Đóng
+              </button>
+              <button
+                onClick={() => void submitRefund()}
+                disabled={refundSubmitting}
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50"
+              >
+                {refundSubmitting ? 'Đang gửi…' : 'Gửi yêu cầu'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

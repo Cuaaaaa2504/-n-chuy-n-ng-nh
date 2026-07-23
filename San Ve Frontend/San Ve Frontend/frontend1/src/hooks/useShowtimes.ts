@@ -90,13 +90,23 @@ export const useShowtimes = () => {
   );
 
   const updateShowtime = useCallback(
-    async (id: number, data: ShowtimeFormData): Promise<boolean> => {
+    async (
+      id: number,
+      data: ShowtimeFormData,
+      // FIX [mục 6.2]: mốc updatedAt của bản ghi form đang sửa.
+      expectedUpdatedAt?: string,
+    ): Promise<boolean> => {
       setError(null);
       try {
-        await apiUpdateShowtime(id, data);
+        await apiUpdateShowtime(id, data, expectedUpdatedAt);
         await fetchShowtimes();
         return true;
       } catch (err) {
+        // 409 = có người khác vừa sửa. Tải lại danh sách để admin thấy ngay bản
+        // mới nhất, thay vì để họ bấm lưu lại lần nữa trên dữ liệu vẫn cũ.
+        if ((err as { status?: number })?.status === 409) {
+          await fetchShowtimes();
+        }
         setError(errMsg(err, 'Không thể cập nhật suất chiếu. Vui lòng thử lại.'));
         return false;
       }

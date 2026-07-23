@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cinema } from '../entities/cinema.entity';
 import { Room } from '../entities/room.entity';
+import { assertNotStale } from '../common/utils/optimistic-lock.util';
 
 @Injectable()
 export class CinemaService {
@@ -39,9 +40,17 @@ export class CinemaService {
     return this.cinemaRepo.save(cinema);
   }
 
-  async updateCinema(id: number, data: Partial<Cinema>) {
-    await this.findCinemaById(id);
-    await this.cinemaRepo.update({ cinemaId: id }, data);
+  async updateCinema(
+    id: number,
+    data: Partial<Cinema> & { expectedUpdatedAt?: string },
+  ) {
+    const existing = await this.findCinemaById(id);
+
+    // FIX [mục 8.1]: cùng một race condition như form sửa suất chiếu.
+    const { expectedUpdatedAt, ...patch } = data;
+    assertNotStale(existing.updatedAt, expectedUpdatedAt, 'Rạp này');
+
+    await this.cinemaRepo.update({ cinemaId: id }, patch);
     return this.findCinemaById(id);
   }
 

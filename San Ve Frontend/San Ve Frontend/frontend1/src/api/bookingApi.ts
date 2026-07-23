@@ -1,37 +1,18 @@
 import axiosClient from './axiosClient';
 import type { Booking, BookingTicket } from '../types/booking';
+import { normalizeBookingCore } from './bookingNormalizer';
 
+// FIX [mục 9.1]: thân hàm cũ đã chuyển sang `bookingNormalizer.ts` — nguồn sự
+// thật DUY NHẤT dùng chung với `paymentApi.ts`. Trước đây hai file có hai bản
+// normalize riêng và ĐÃ lệch nhau (bản ở paymentApi đọc sai quan hệ lồng nhau,
+// nên PaymentPage mất tên rạp / phòng / giờ chiếu). Giữ wrapper mỏng ở đây để
+// ghép thêm các field riêng của type `Booking`.
 function normalizeBooking(item: Record<string, unknown>): Booking {
-  // FIX [bookingId must be a UUID]: `id` trước đây fallback sang `orderCode`
-  // (mã hiển thị BK-xxx). MyBookingsPage dựng link /payment/${booking.id}, nên khi
-  // fallback này chạy thì trang thanh toán nhận được BK-xxx và POST /payments bị
-  // ValidationPipe chặn. `id` chỉ được phép là booking_id (BIGINT) — mã hiển thị
-  // đưa hết về `orderCode`.
-  // FIX BUG-02 (phía FE): backend trả booking kèm relations lồng nhau
-  // showtime -> movie / room -> cinema. normalizeBooking trước đây chỉ đọc
-  // `item.movie` (không tồn tại) nên movieTitle luôn rơi về giá trị mặc định,
-  // còn cinemaName / roomName / showDate / showTime thì undefined.
-  const showtime = item.showtime as Record<string, unknown> | undefined;
-  const movie    = (item.movie ?? showtime?.movie) as Record<string, unknown> | undefined;
-  const room     = showtime?.room as Record<string, unknown> | undefined;
-  const cinema   = room?.cinema as Record<string, unknown> | undefined;
-
-  const startRaw = (showtime?.startTime ?? showtime?.start_time) as string | undefined;
-  const start    = startRaw ? new Date(startRaw) : null;
-  const validStart = start && !Number.isNaN(start.getTime()) ? start : null;
-
+  const core = normalizeBookingCore(item);
   return {
     ...(item as unknown as Booking),
-    id: String(item.bookingId ?? item.booking_id ?? item.id ?? ''),
-    orderCode: (item.orderCode ?? item.bookingCode ?? item.booking_code) as string | undefined,
-    movieTitle: (item.movieTitle ?? movie?.title ?? 'Booking xem phim') as string,
-    cinemaName: (item.cinemaName ?? cinema?.cinemaName) as string | undefined,
-    roomName: (item.roomName ?? room?.roomName) as string | undefined,
-    showDate: ((item.showDate as string | undefined)
-      ?? validStart?.toLocaleDateString('vi-VN')) as string | undefined,
-    showTime: ((item.showTime as string | undefined)
-      ?? validStart?.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })) as string | undefined,
-    totalAmount: Number(item.totalAmount ?? item.amount ?? 0),
+    ...core,
+    status: core.status as Booking['status'],
   };
 }
 

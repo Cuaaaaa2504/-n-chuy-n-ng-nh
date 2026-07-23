@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Post,
-  Put,
   Patch,
   Delete,
   Param,
@@ -51,17 +50,9 @@ export class CinemaController {
     return this.cinemaService.createCinema(body);
   }
 
-  @Put(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: Partial<Cinema>,
-  ) {
-    return this.cinemaService.updateCinema(id, body);
-  }
-
-  // FIX: báo cáo yêu cầu PATCH /cinemas/:id — trước đây chỉ có PUT
+  // FIX [cùng nhóm với mục 8.3 — báo cáo bỏ sót]: đã xoá `PUT /cinemas/:id`,
+  // alias y hệt PATCH bên dưới (cùng gọi cinemaService.updateCinema).
+  // Frontend adminApi.cinemaApi.update chỉ dùng PATCH.
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -103,16 +94,9 @@ export class CinemaController {
     return this.cinemaService.updateRoom(id, roomId, body);
   }
 
-  @Put(':id/rooms/:roomId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  replaceRoom(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('roomId', ParseIntPipe) roomId: number,
-    @Body() body: Partial<Room>,
-  ) {
-    return this.cinemaService.updateRoom(id, roomId, body);
-  }
+  // FIX [mục 8.3]: đã xoá alias `PUT /cinemas/:id/rooms/:roomId`.
+  // Thân hàm y hệt PATCH ở trên (cùng gọi cinemaService.updateRoom) và frontend
+  // chỉ dùng PATCH. Route thừa chỉ làm bề mặt API rộng ra vô ích.
 
   @Delete(':id/rooms/:roomId')
   @UseGuards(JwtAuthGuard, RolesGuard)
