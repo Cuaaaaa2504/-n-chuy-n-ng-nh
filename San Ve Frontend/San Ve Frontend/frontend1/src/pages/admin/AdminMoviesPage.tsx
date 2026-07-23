@@ -77,6 +77,20 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
     setErrors(prev => ({ ...prev, [key]: undefined }));
   };
 
+  // Dùng functional update thay vì đọc `form.genre_ids` từ closure của lần
+  // render hiện tại — bấm nhanh nhiều chip liên tiếp sẽ không làm mất lựa chọn.
+  const toggleGenre = (id: number) => {
+    setForm(prev => {
+      const current = prev.genre_ids ?? [];
+      return {
+        ...prev,
+        genre_ids: current.includes(id)
+          ? current.filter(x => x !== id)
+          : [...current, id],
+      };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validationErrors = validateForm(form);
@@ -174,14 +188,7 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
                     <button
                       key={g.id}
                       type="button"
-                      onClick={() =>
-                        set(
-                          'genre_ids',
-                          active
-                            ? (form.genre_ids ?? []).filter(id => id !== g.id)
-                            : [...(form.genre_ids ?? []), g.id],
-                        )
-                      }
+                      onClick={() => toggleGenre(g.id)}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
                         active
                           ? 'bg-blue-600/30 text-blue-200 border-blue-500/50'
@@ -271,7 +278,13 @@ function ConfirmDeleteModal({
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 const AdminMoviesPage: React.FC = () => {
-  const { movies, genres, loading, error, setError, addMovie, editMovie, removeMovie } = useMovies();
+  // FIX: `useMovies()` gọi không tham số -> `withGenres` mặc định là false ->
+  // `fetchGenres()` không bao giờ chạy -> state `genres` luôn là [] -> MovieForm
+  // rơi vào nhánh cảnh báo vàng và không render chip thể loại, khiến admin
+  // không gán được thể loại cho phim (payload `genreIds` luôn rỗng).
+  // Trang admin là nơi DUY NHẤT cần danh sách thể loại nên bật cờ tại đây.
+  const { movies, genres, loading, error, setError, addMovie, editMovie, removeMovie } =
+    useMovies({ withGenres: true });
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState<Movie['status'] | ''>('');
   const [formOpen, setFormOpen]         = useState(false);
