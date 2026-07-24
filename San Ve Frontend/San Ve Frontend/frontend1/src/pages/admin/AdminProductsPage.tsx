@@ -3,24 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { comboApi, productApi } from '../../api/adminApi';
 import type { ConcessionCombo, Product } from '../../types/admin';
-import {
-  Btn,
-  ConfirmModal,
-  EmptyState,
-  ErrorBanner,
-  Field,
-  Loading,
-  Modal,
-  PageHeader,
-  Pill,
-  TableShell,
-  Td,
-  Th,
-  Toast,
-  formatVnd,
-  inputClass,
-  useToast,
-} from '../../components/admin/AdminUI';
+import { Btn, ConfirmModal, EmptyState, ErrorBanner, Field, Loading, Modal, PageHeader, Pill, TableShell, Td, Th, Toast } from '../../components/admin/AdminUI';
+import { formatVnd, inputClass, useToast } from '../../components/admin/adminUiHelpers';
 
 type Tab = 'products' | 'combos';
 
@@ -92,6 +76,10 @@ export default function AdminProductsPage() {
   }, []);
 
   useEffect(() => {
+    // Tải dữ liệu lần đầu khi mount. Rule react-hooks/set-state-in-effect
+    // báo vì fetchData() gọi setLoading(true) đồng bộ ở đầu hàm; đây là
+    // pattern fetch-on-mount hợp lệ nên tắt rule tại đúng dòng này.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchData();
   }, [fetchData]);
 

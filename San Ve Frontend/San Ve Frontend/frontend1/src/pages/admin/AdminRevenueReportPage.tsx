@@ -3,19 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { statsApi } from '../../api/adminApi';
 import type { RevenueGroupBy, RevenueReport } from '../../types/admin';
-import {
-  Btn,
-  EmptyState,
-  ErrorBanner,
-  Field,
-  Loading,
-  PageHeader,
-  TableShell,
-  Td,
-  Th,
-  formatVnd,
-  inputClass,
-} from '../../components/admin/AdminUI';
+import { Btn, EmptyState, ErrorBanner, Field, Loading, PageHeader, TableShell, Td, Th } from '../../components/admin/AdminUI';
+import { formatVnd, inputClass } from '../../components/admin/adminUiHelpers';
 
 const GROUP_OPTIONS: { value: RevenueGroupBy; label: string }[] = [
   { value: 'day', label: 'Theo ngày' },
@@ -62,6 +51,10 @@ export default function AdminRevenueReportPage() {
   }, [groupBy, fromDate, toDate]);
 
   useEffect(() => {
+    // Tải dữ liệu lần đầu khi mount. Rule react-hooks/set-state-in-effect
+    // báo vì fetchReport() gọi setLoading(true) đồng bộ ở đầu hàm; đây là
+    // pattern fetch-on-mount hợp lệ nên tắt rule tại đúng dòng này.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchReport();
     // chỉ tự động tải lại khi đổi cách nhóm; ngày do người dùng bấm "Xem báo cáo"
     // eslint-disable-next-line react-hooks/exhaustive-deps

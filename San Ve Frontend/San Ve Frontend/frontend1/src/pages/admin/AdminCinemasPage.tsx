@@ -2,23 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cinemaApi } from '../../api/adminApi';
 import type { Cinema, Room } from '../../types/admin';
-import {
-  Btn,
-  ConfirmModal,
-  EmptyState,
-  ErrorBanner,
-  Field,
-  Loading,
-  Modal,
-  PageHeader,
-  Pill,
-  TableShell,
-  Td,
-  Th,
-  Toast,
-  inputClass,
-  useToast,
-} from '../../components/admin/AdminUI';
+import { Btn, ConfirmModal, EmptyState, ErrorBanner, Field, Loading, Modal, PageHeader, Pill, TableShell, Td, Th, Toast } from '../../components/admin/AdminUI';
+import { inputClass, useToast } from '../../components/admin/adminUiHelpers';
 
 const emptyCinema: Partial<Cinema> = {
   cinemaName: '',
@@ -75,6 +60,10 @@ export default function AdminCinemasPage() {
   }, [showToast]);
 
   useEffect(() => {
+    // Tải dữ liệu lần đầu khi mount. Rule react-hooks/set-state-in-effect
+    // báo vì fetchCinemas() gọi setLoading(true) đồng bộ ở đầu hàm; đây là
+    // pattern fetch-on-mount hợp lệ nên tắt rule tại đúng dòng này.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchCinemas();
   }, [fetchCinemas]);
 

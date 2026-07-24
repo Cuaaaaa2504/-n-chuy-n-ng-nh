@@ -3,24 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { refundApi } from '../../api/adminApi';
 import type { AdminRefund, RefundStatus } from '../../types/admin';
-import {
-  Btn,
-  EmptyState,
-  ErrorBanner,
-  Field,
-  Loading,
-  Modal,
-  PageHeader,
-  Pill,
-  TableShell,
-  Td,
-  Th,
-  Toast,
-  formatDateTime,
-  formatVnd,
-  inputClass,
-  useToast,
-} from '../../components/admin/AdminUI';
+import { Btn, EmptyState, ErrorBanner, Field, Loading, Modal, PageHeader, Pill, TableShell, Td, Th, Toast } from '../../components/admin/AdminUI';
+import { formatDateTime, formatVnd, inputClass, useToast } from '../../components/admin/adminUiHelpers';
 
 const STATUS_TABS: { value: '' | RefundStatus; label: string }[] = [
   { value: '', label: 'Tất cả' },
@@ -68,6 +52,10 @@ export default function AdminRefundsPage() {
   }, [status, page]);
 
   useEffect(() => {
+    // Tải dữ liệu lần đầu khi mount. Rule react-hooks/set-state-in-effect
+    // báo vì fetchData() gọi setLoading(true) đồng bộ ở đầu hàm; đây là
+    // pattern fetch-on-mount hợp lệ nên tắt rule tại đúng dòng này.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchData();
   }, [fetchData]);
 

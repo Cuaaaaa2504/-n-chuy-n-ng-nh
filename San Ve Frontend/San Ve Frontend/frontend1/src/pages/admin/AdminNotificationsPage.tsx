@@ -20,15 +20,8 @@ import {
 } from '../../api/notificationApi';
 import type { NotificationType } from '../../api/notificationApi';
 import type { User } from '../../types/user';
-import {
-  Btn,
-  ErrorBanner,
-  Field,
-  PageHeader,
-  Toast,
-  inputClass,
-  useToast,
-} from '../../components/admin/AdminUI';
+import { Btn, ErrorBanner, Field, PageHeader, Toast } from '../../components/admin/AdminUI';
+import { inputClass, useToast } from '../../components/admin/adminUiHelpers';
 
 export default function AdminNotificationsPage() {
   const [users, setUsers] = useState<User[]>([]);

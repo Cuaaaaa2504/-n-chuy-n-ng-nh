@@ -13,16 +13,8 @@
 //   chỉ vùng bảng đổi trạng thái.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import BookingTable from '../../components/admin/BookingTable';
-import {
-  Btn,
-  EmptyState,
-  ErrorBanner,
-  Field,
-  Loading,
-  PageHeader,
-  Pagination,
-  inputClass,
-} from '../../components/admin/AdminUI';
+import { Btn, EmptyState, ErrorBanner, Field, Loading, PageHeader, Pagination } from '../../components/admin/AdminUI';
+import { inputClass } from '../../components/admin/adminUiHelpers';
 import { useBookings } from '../../hooks/useBookings';
 
 const EMPTY_FILTERS = {

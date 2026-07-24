@@ -3,20 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { auditLogApi } from '../../api/adminApi';
 import type { AuditLog } from '../../types/admin';
-import {
-  Btn,
-  EmptyState,
-  ErrorBanner,
-  Loading,
-  Modal,
-  PageHeader,
-  Pill,
-  TableShell,
-  Td,
-  Th,
-  formatDateTime,
-  inputClass,
-} from '../../components/admin/AdminUI';
+import { Btn, EmptyState, ErrorBanner, Loading, Modal, PageHeader, Pill, TableShell, Td, Th } from '../../components/admin/AdminUI';
+import { formatDateTime, inputClass } from '../../components/admin/adminUiHelpers';
 
 const LIMIT = 20;
 
@@ -62,6 +50,10 @@ export default function AdminAuditLogPage() {
   }, [page]);
 
   useEffect(() => {
+    // Tải dữ liệu lần đầu khi mount. Rule react-hooks/set-state-in-effect
+    // báo vì fetchData() gọi setLoading(true) đồng bộ ở đầu hàm; đây là
+    // pattern fetch-on-mount hợp lệ nên tắt rule tại đúng dòng này.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchData();
   }, [fetchData]);
 

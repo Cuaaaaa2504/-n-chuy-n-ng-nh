@@ -11,18 +11,8 @@ import React, { useMemo, useState } from 'react';
 import ShowtimeTable from '../../components/admin/ShowtimeTable';
 import ShowtimeForm from '../../components/admin/ShowtimeForm';
 import ConfirmCancelModal from '../../components/admin/ConfirmCancelModal';
-import {
-  Btn,
-  EmptyState,
-  ErrorBanner,
-  Field,
-  Loading,
-  Modal,
-  PageHeader,
-  Toast,
-  inputClass,
-  useToast,
-} from '../../components/admin/AdminUI';
+import { Btn, EmptyState, ErrorBanner, Field, Loading, Modal, PageHeader, Toast } from '../../components/admin/AdminUI';
+import { inputClass, useToast } from '../../components/admin/adminUiHelpers';
 import { useShowtimes } from '../../hooks/useShowtimes';
 import { generateSeats, getShowtimeById, toLocalTime } from '../../api/showtimeApi';
 import type { Showtime, ShowtimeFormData } from '../../types/showtime';

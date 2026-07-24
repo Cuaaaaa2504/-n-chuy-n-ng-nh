@@ -3,7 +3,8 @@
 // FIX BUG-04: dropdown Phim / Phòng đổ từ dữ liệu thật (props movies, rooms),
 //             không còn 3 option hardcode 'Avengers Endgame' / 'Room 1'.
 import React, { useMemo, useState } from 'react';
-import { Btn, Field, inputClass } from './AdminUI';
+import { Btn, Field } from './AdminUI';
+import { inputClass } from './adminUiHelpers';
 import type { MovieOption, RoomOption, ShowtimeFormData } from '../../types/showtime';
 
 interface Props {

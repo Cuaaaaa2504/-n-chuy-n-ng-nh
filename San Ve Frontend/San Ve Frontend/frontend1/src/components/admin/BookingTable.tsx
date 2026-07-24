@@ -3,7 +3,8 @@
 // đều là class không tồn tại. Viết lại bằng Tailwind, dùng TableShell/Th/Td của AdminUI.
 import React from 'react';
 import BookingStatusBadge from './BookingStatusBadge';
-import { TableShell, Td, Th, formatDateTime, formatVnd } from './AdminUI';
+import { TableShell, Td, Th } from './AdminUI';
+import { formatDateTime, formatVnd } from './adminUiHelpers';
 import type { AdminBooking } from '../../types/admin';
 
 interface Props {

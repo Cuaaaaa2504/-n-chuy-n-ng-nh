@@ -8,21 +8,8 @@
 //      backend (QueryUsersDto đã hỗ trợ page/limit/search), có debounce 400ms.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useUsers } from '../../hooks/useUsers';
-import {
-  Btn,
-  EmptyState,
-  ErrorBanner,
-  Loading,
-  PageHeader,
-  Pagination,
-  Pill,
-  TableShell,
-  Td,
-  Th,
-  Toast,
-  inputClass,
-  useToast,
-} from '../../components/admin/AdminUI';
+import { Btn, EmptyState, ErrorBanner, Loading, PageHeader, Pagination, Pill, TableShell, Td, Th, Toast } from '../../components/admin/AdminUI';
+import { inputClass, useToast } from '../../components/admin/adminUiHelpers';
 import { ConfirmModal } from '../../components/admin/AdminUI';
 import type { User, UserRole } from '../../types/user';
 

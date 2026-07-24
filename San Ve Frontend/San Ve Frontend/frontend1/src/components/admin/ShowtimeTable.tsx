@@ -3,7 +3,8 @@
 // status-badge, mobile-cards...) — không file CSS nào trong dự án định nghĩa
 // chúng. Chuyển sang Tailwind + component dùng chung của AdminUI.
 import React from 'react';
-import { Btn, Pill, TableShell, Td, Th, formatVnd } from './AdminUI';
+import { Btn, Pill, TableShell, Td, Th } from './AdminUI';
+import { formatVnd } from './adminUiHelpers';
 import { toLocalTime } from '../../api/showtimeApi';
 import type { Showtime, ShowtimeStatus } from '../../types/showtime';
 
