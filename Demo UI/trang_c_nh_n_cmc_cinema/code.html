@@ -1,0 +1,338 @@
+<!DOCTYPE html><html class="dark" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Trang cá nhân - CMC Cinema</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&amp;family=Space+Grotesk:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#ddb7ff",
+                        "on-secondary-container": "#00424e",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-tertiary-container": "#555500",
+                        "inverse-surface": "#e8e0e7",
+                        "on-tertiary-fixed": "#1d1d00",
+                        "surface-tint": "#ddb7ff",
+                        "tertiary-fixed": "#e8e885",
+                        "surface-container-highest": "#373438",
+                        "on-tertiary": "#323200",
+                        "on-background": "#e8e0e7",
+                        "primary-fixed": "#f0dbff",
+                        "error": "#ffb4ab",
+                        "on-error": "#690005",
+                        "inverse-primary": "#715090",
+                        "ultra-dark-navy": "#05070d",
+                        "on-primary-container": "#644483",
+                        "primary-fixed-dim": "#ddb7ff",
+                        "background": "#151217",
+                        "on-secondary": "#003640",
+                        "on-surface": "#e8e0e7",
+                        "on-tertiary-fixed-variant": "#494900",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-primary-fixed-variant": "#583876",
+                        "surface-container-lowest": "#100d11",
+                        "outline-variant": "#4b444f",
+                        "secondary-fixed": "#acedff",
+                        "surface-dim": "#151217",
+                        "tertiary-fixed-dim": "#cbcb6c",
+                        "on-secondary-fixed": "#001f26",
+                        "on-surface-variant": "#cdc3d0",
+                        "surface-container-high": "#2c292d",
+                        "on-primary": "#40215e",
+                        "surface": "#151217",
+                        "tertiary": "#e7e785",
+                        "surface-container": "#211f23",
+                        "glass-surface": "rgba(17, 19, 26, 0.6)",
+                        "neon-pink": "#ffb1c4",
+                        "surface-variant": "#373438",
+                        "outline": "#968e99",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed": "#2a0848",
+                        "tertiary-container": "#cbcb6c",
+                        "secondary-container": "#03b5d4",
+                        "secondary": "#4cd7f6",
+                        "surface-container-low": "#1d1b1f",
+                        "error-container": "#93000a",
+                        "inverse-on-surface": "#332f34",
+                        "surface-bright": "#3b383d",
+                        "primary": "#f0daff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "64px",
+                        "container-max": "1280px",
+                        "margin-mobile": "20px",
+                        "gutter-desktop": "24px",
+                        "gutter-mobile": "16px",
+                        "baseline": "4px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Space Grotesk"],
+                        "headline-lg": ["Montserrat"],
+                        "body-md": ["Montserrat"],
+                        "display-lg": ["Montserrat"],
+                        "title-md": ["Montserrat"],
+                        "headline-lg-mobile": ["Montserrat"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #05070d; color: #e8e0e7; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glow-primary { box-shadow: 0 0 15px rgba(240, 218, 255, 0.6); }
+        .glow-secondary { box-shadow: 0 0 15px rgba(76, 215, 246, 0.6); }
+        .btn-primary {
+            background: linear-gradient(90deg, #715090 0%, #ffb1c4 100%);
+            box-shadow: 0 0 15px rgba(255, 177, 196, 0.5);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 25px rgba(255, 177, 196, 0.8);
+            transform: scale(1.05);
+        }
+        .holo-card {
+            background: linear-gradient(135deg, rgba(113, 80, 144, 0.4) 0%, rgba(76, 215, 246, 0.2) 100%);
+            border: 1px solid rgba(76, 215, 246, 0.5);
+            box-shadow: inset 0 0 20px rgba(76, 215, 246, 0.2), 0 0 15px rgba(113, 80, 144, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .holo-card::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: rotate(45deg);
+            animation: holoSweep 6s linear infinite;
+        }
+        @keyframes holoSweep {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
+        }
+        .input-cyber {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+        .input-cyber:focus {
+            border-color: #4cd7f6;
+            box-shadow: 0 0 10px rgba(76, 215, 246, 0.5);
+            outline: none;
+        }
+        .nav-item-active {
+            color: #4cd7f6;
+            border-bottom: 2px solid #4cd7f6;
+            padding-bottom: 4px;
+            filter: drop-shadow(0 0 8px rgba(76,215,246,0.6));
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-body-md text-body-md">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-margin-desktop h-20 bg-glass-surface backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(3,181,212,0.15)] md:flex hidden">
+<div class="font-display-lg text-display-lg font-extrabold text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.8)]">CMC Cinema</div>
+<div class="flex gap-8 items-center">
+<a class="font-title-md text-title-md text-on-surface-variant hover:text-primary transition-all duration-300" href="#">Trang chủ</a>
+<a class="font-title-md text-title-md text-on-surface-variant hover:text-primary transition-all duration-300" href="#">Phim</a>
+<a class="font-title-md text-title-md text-on-surface-variant hover:text-primary transition-all duration-300" href="#">Lịch chiếu</a>
+<a class="font-title-md text-title-md text-on-surface-variant hover:text-primary transition-all duration-300" href="#">Combo</a>
+</div>
+<div class="flex gap-6 items-center">
+<span class="material-symbols-outlined text-secondary hover:text-primary transition-all duration-300 cursor-pointer text-3xl" data-icon="contrast">contrast</span>
+<!-- Active Profile Nav -->
+<div class="flex flex-col items-center nav-item-active">
+<span class="material-symbols-outlined text-secondary cursor-pointer text-3xl" data-icon="account_circle" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</div>
+</div>
+</nav>
+<!-- Mobile Nav Spacer -->
+<div class="h-20 md:hidden bg-ultra-dark-navy w-full flex items-center justify-center border-b border-white/10">
+<div class="font-display-lg text-[24px] font-extrabold text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.8)]">CMC Cinema</div>
+</div>
+<!-- Main Content -->
+<main class="flex-1 mt-20 pt-12 pb-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full flex flex-col md:flex-row gap-8">
+<!-- Sidebar Profile -->
+<aside class="w-full md:w-1/3 flex flex-col gap-6">
+<!-- Member Card (Holo) -->
+<div class="holo-card rounded-xl p-6 flex flex-col justify-between aspect-[1.6/1]">
+<div class="flex justify-between items-start">
+<div class="font-title-md text-title-md text-white font-bold drop-shadow-md">CMC VIP MEMBER</div>
+<span class="material-symbols-outlined text-secondary text-4xl" data-icon="local_activity">local_activity</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm text-white/70 mb-1">NGUYỄN VĂN A</div>
+<div class="font-headline-lg text-headline-lg text-primary tracking-widest drop-shadow-[0_0_5px_rgba(240,218,255,0.5)]">*** 4092</div>
+<div class="flex justify-between mt-4">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-white/70">STAR POINTS</span>
+<span class="font-title-md text-title-md text-secondary">2,450 ★</span>
+</div>
+<div class="flex flex-col text-right">
+<span class="font-label-sm text-label-sm text-white/70">CẤP ĐỘ</span>
+<span class="font-title-md text-title-md text-neon-pink drop-shadow-[0_0_8px_rgba(255,177,196,0.8)]">PLATINUM</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Profile Nav (Vertical) -->
+<div class="glass-panel rounded-xl p-4 flex flex-col gap-2">
+<button class="flex items-center gap-3 w-full p-3 rounded-lg bg-secondary/10 border-l-2 border-secondary text-secondary glow-secondary transition-all">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-title-md text-[16px]">Thông tin tài khoản</span>
+</button>
+<button class="flex items-center gap-3 w-full p-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-title-md text-[16px]">Lịch sử giao dịch</span>
+</button>
+<button class="flex items-center gap-3 w-full p-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+<span class="font-title-md text-[16px]">Phim yêu thích</span>
+</button>
+<button class="flex items-center gap-3 w-full p-3 rounded-lg text-error hover:bg-error/10 transition-all mt-4">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-title-md text-[16px]">Đăng xuất</span>
+</button>
+</div>
+</aside>
+<!-- Main Dashboard Content -->
+<section class="w-full md:w-2/3 flex flex-col gap-8">
+<!-- Quick Stats Bento -->
+<div class="grid grid-cols-2 gap-4">
+<div class="glass-panel rounded-xl p-6 flex flex-col items-center justify-center text-center gap-2 hover:border-secondary transition-colors group">
+<span class="material-symbols-outlined text-4xl text-primary group-hover:text-neon-pink transition-colors drop-shadow-[0_0_8px_rgba(240,218,255,0.4)]" data-icon="movie">movie</span>
+<span class="font-display-lg text-display-lg text-white">12</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">PHIM ĐÃ XEM (NĂM NAY)</span>
+</div>
+<div class="glass-panel rounded-xl p-6 flex flex-col items-center justify-center text-center gap-2 hover:border-secondary transition-colors group">
+<span class="material-symbols-outlined text-4xl text-secondary group-hover:text-neon-pink transition-colors drop-shadow-[0_0_8px_rgba(76,215,246,0.4)]" data-icon="local_play">local_play</span>
+<span class="font-display-lg text-display-lg text-white">4</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">VOUCHER CHƯA DÙNG</span>
+</div>
+</div>
+<!-- Account Settings Form -->
+<div class="glass-panel rounded-xl p-8 relative overflow-hidden">
+<!-- Decorative glow -->
+<div class="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-[80px]"></div>
+<h2 class="font-headline-lg text-headline-lg text-primary mb-6 flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" data-icon="manage_accounts">manage_accounts</span>
+                    Cập nhật thông tin
+                </h2>
+<form class="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant">HỌ VÀ TÊN</label>
+<input class="input-cyber rounded-lg px-4 py-3 text-white font-body-md" type="text" value="Nguyễn Văn A">
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant">SỐ ĐIỆN THOẠI</label>
+<input class="input-cyber rounded-lg px-4 py-3 text-white font-body-md" disabled="" type="tel" value="0901234567">
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant">EMAIL</label>
+<input class="input-cyber rounded-lg px-4 py-3 text-white font-body-md" type="email" value="nguyenvana@cyber.com">
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-label-sm text-label-sm text-on-surface-variant">NGÀY SINH</label>
+<input class="input-cyber rounded-lg px-4 py-3 text-white font-body-md" type="date" value="1995-10-24">
+</div>
+<div class="md:col-span-2 flex justify-end mt-4">
+<button class="btn-primary rounded-full px-8 py-3 font-title-md text-white flex items-center gap-2" type="button">
+<span class="material-symbols-outlined" data-icon="save">save</span>
+                            Lưu thay đổi
+                        </button>
+</div>
+</form>
+</div>
+<!-- Recent Bookings -->
+<div class="flex flex-col gap-4">
+<h3 class="font-title-md text-title-md text-secondary">Vé sắp xem</h3>
+<div class="glass-panel rounded-xl p-4 flex flex-col md:flex-row gap-6 items-center relative overflow-hidden group hover:border-secondary transition-all">
+<!-- Glow effect on hover -->
+<div class="absolute inset-0 bg-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+<div class="w-full md:w-32 h-40 bg-surface-container-highest rounded-lg overflow-hidden shrink-0 border border-white/10">
+<img class="w-full h-full object-cover" data-alt="A dark, cinematic cyberpunk movie poster featuring a neon-lit futuristic cityscape at night. Deep purple and cyan neon lights reflect on wet pavement. A silhouette of a lone figure stands in the rain. High contrast, atmospheric, professional concept art." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCplfG8rHf9VlSI8UcSLSbuKmUv9DYurinXj6nj5H3Dz91YozwOzLuADEwI-JjVllFrLW00MKYMux3qrowalPcc7K4GkiW4tHbAxPOAg7GfPg9vm4f2T1A9W5Bhx2Eb0ZgkwMvbbofujeyd7-3FdxrK1kmqYNsRMj40iq740gG77p89VXyizHuPZn4iOFtx5ML88tO407qH5lDwbB2zRiMue7YoBl5703NfTMtaih6SWbrk5yXeNzGxnCjZYMXTkP7GC_h4bnzYMK8">
+</div>
+<div class="flex-1 w-full">
+<div class="flex justify-between items-start mb-2">
+<div>
+<span class="inline-block px-2 py-1 border border-secondary text-secondary rounded font-label-sm text-[10px] mb-2 shadow-[0_0_5px_rgba(76,215,246,0.3)]">IMAX 3D</span>
+<h4 class="font-title-md text-title-md text-white font-bold">NEON BLADE: THE AWAKENING</h4>
+</div>
+<span class="font-title-md text-title-md text-primary bg-primary/10 px-3 py-1 rounded-full whitespace-nowrap">Ghế F12, F13</span>
+</div>
+<div class="grid grid-cols-2 gap-y-2 mt-4">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="calendar_month">calendar_month</span>
+<span class="font-body-md text-sm">24/10/2024</span>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+<span class="font-body-md text-sm">20:30</span>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant col-span-2">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+<span class="font-body-md text-sm">CMC Cyberplex Quận 1 - Rạp 4</span>
+</div>
+</div>
+</div>
+<div class="shrink-0 flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6 w-full md:w-auto">
+<img class="w-24 h-24 rounded bg-white p-1 mb-2" data-alt="A clean, sharp QR code graphic glowing slightly in cyan against a pure dark background, resembling high-tech digital ticket authentication." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzA42clzZFkkReovVgtKAwITxCwJ5Ude7Lly7E4cOzOrug499PLi83ATmwoGZmhsijXXOwRYcbez1Uq1TDKsO6hqItD56BKkLRFhPhhJ4RdLY_9a50iJqn8zNZXjAw0NrfZBbm7IwyDg2vfKV-bgPwDC8XPR4y0IgoPgn60xaNbwSDfynNiZ4qPKexOVh8ZQu_l2ZiMUKYonebOy2v88S2WGnglwOHVi4d6F4ynAnXTQW9Q1anCL6-h4fScv6B__aEMBeNBffI1kM">
+<span class="font-label-sm text-[10px] text-secondary">QUÉT ĐỂ VÀO RẠP</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 px-margin-desktop flex flex-col md:flex-row justify-between items-start gap-8 bg-ultra-dark-navy border-t border-white/10 mt-auto">
+<div class="font-headline-lg text-headline-lg text-primary">CMC Cinema</div>
+<div class="flex flex-col md:flex-row gap-6">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Về chúng tôi</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Điều khoản</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Chính sách bảo mật</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Liên hệ</a>
+</div>
+<div class="font-body-md text-body-md text-on-surface-variant">© 2024 CMC Cinema. All rights reserved. Future of Cinema.</div>
+</footer>
+<!-- Mobile Bottom Nav -->
+<div class="md:hidden fixed bottom-0 w-full h-16 bg-glass-surface backdrop-blur-xl border-t border-white/10 flex justify-around items-center z-50 shadow-[0_-5px_20px_rgba(3,181,212,0.1)]">
+<a class="flex flex-col items-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined text-2xl" data-icon="home">home</span>
+</a>
+<a class="flex flex-col items-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined text-2xl" data-icon="movie">movie</span>
+</a>
+<a class="flex flex-col items-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined text-2xl" data-icon="confirmation_number">confirmation_number</span>
+</a>
+<a class="flex flex-col items-center text-secondary drop-shadow-[0_0_8px_rgba(76,215,246,0.6)]" href="#">
+<span class="material-symbols-outlined text-2xl" data-icon="account_circle" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+<span class="w-1 h-1 bg-secondary rounded-full mt-1"></span>
+</a>
+</div>
+</body></html>

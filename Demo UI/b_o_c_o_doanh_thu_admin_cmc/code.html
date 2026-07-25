@@ -1,0 +1,510 @@
+<!DOCTYPE html><html class="dark" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Báo cáo doanh thu - CMC Cinema Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&amp;family=Space+Grotesk:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#acedff",
+                        "inverse-on-surface": "#332f34",
+                        "primary-container": "#ddb7ff",
+                        "background": "#151217",
+                        "outline-variant": "#4b444f",
+                        "surface-container-low": "#1d1b1f",
+                        "inverse-primary": "#715090",
+                        "on-secondary-container": "#00424e",
+                        "neon-pink": "#ffb1c4",
+                        "tertiary-fixed-dim": "#cbcb6c",
+                        "glass-surface": "rgba(17, 19, 26, 0.6)",
+                        "surface": "#151217",
+                        "on-primary-fixed": "#2a0848",
+                        "on-tertiary-fixed-variant": "#494900",
+                        "on-tertiary": "#323200",
+                        "on-surface-variant": "#cdc3d0",
+                        "on-secondary-fixed": "#001f26",
+                        "on-tertiary-container": "#555500",
+                        "surface-container": "#211f23",
+                        "surface-bright": "#3b383d",
+                        "primary-fixed-dim": "#ddb7ff",
+                        "on-secondary": "#003640",
+                        "inverse-surface": "#e8e0e7",
+                        "primary-fixed": "#f0dbff",
+                        "tertiary-container": "#cbcb6c",
+                        "secondary-container": "#03b5d4",
+                        "error": "#ffb4ab",
+                        "on-error-container": "#ffdad6",
+                        "on-error": "#690005",
+                        "surface-container-highest": "#373438",
+                        "error-container": "#93000a",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "secondary": "#4cd7f6",
+                        "surface-container-high": "#2c292d",
+                        "ultra-dark-navy": "#05070d",
+                        "surface-tint": "#ddb7ff",
+                        "outline": "#968e99",
+                        "on-surface": "#e8e0e7",
+                        "surface-dim": "#151217",
+                        "surface-container-lowest": "#100d11",
+                        "surface-variant": "#373438",
+                        "tertiary": "#e7e785",
+                        "primary": "#f0daff",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-primary": "#40215e",
+                        "on-primary-fixed-variant": "#583876",
+                        "on-background": "#e8e0e7",
+                        "tertiary-fixed": "#e8e885",
+                        "on-tertiary-fixed": "#1d1d00",
+                        "on-primary-container": "#644483"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter-desktop": "24px",
+                        "gutter-mobile": "16px",
+                        "margin-mobile": "20px",
+                        "container-max": "1280px",
+                        "margin-desktop": "64px",
+                        "baseline": "4px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Montserrat"],
+                        "body-md": ["Montserrat"],
+                        "title-md": ["Montserrat"],
+                        "label-sm": ["Space Grotesk"],
+                        "headline-lg": ["Montserrat"],
+                        "headline-lg-mobile": ["Montserrat"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #05070d; /* ultra-dark-navy */
+            color: #e8e0e7; /* on-surface */
+        }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .neon-glow-primary:hover {
+            box-shadow: 0 0 15px rgba(240, 218, 255, 0.5); /* primary */
+            border-color: #f0daff;
+        }
+
+        .neon-glow-secondary:hover {
+            box-shadow: 0 0 15px rgba(76, 215, 246, 0.5); /* secondary */
+            border-color: #4cd7f6;
+        }
+
+        .neon-text-secondary {
+            text-shadow: 0 0 8px rgba(76, 215, 246, 0.6);
+        }
+        
+        .chart-grid {
+            stroke: rgba(255,255,255,0.05);
+        }
+        .chart-line {
+            stroke: #4cd7f6;
+            stroke-width: 3;
+            filter: drop-shadow(0 0 8px rgba(76,215,246,0.8));
+        }
+        .chart-line-secondary {
+            stroke: #f0daff;
+            stroke-width: 3;
+            filter: drop-shadow(0 0 8px rgba(240,218,255,0.8));
+        }
+        .chart-fill {
+            fill: url(#gradient-cyan);
+        }
+        
+        /* Custom Scrollbar for tables */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #100d11; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #373438; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b444f; 
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md antialiased overflow-x-hidden min-h-screen flex">
+<!-- SideNavBar (Hidden on Mobile) -->
+<nav class="hidden md:flex bg-surface-container-lowest text-secondary font-label-sm text-label-sm h-screen w-64 left-0 top-0 border-r border-white/5 shadow-2xl transition-all duration-200 ease-in-out fixed left-0 top-0 h-full flex flex-col py-6 z-50">
+<!-- Header -->
+<div class="px-6 mb-8 flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden border border-white/10">
+<img class="w-full h-full object-cover" data-alt="A futuristic, high-tech admin avatar icon, styled in neon blue and purple, representing an AI or digital manager in a cyberpunk setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyyvmXSFK6WNBbLjoGzRk5FgJqLTfjgXYRyRAX9oqdfJza2IKPZkA8X7wbrbi8dG5-rg39W4Zv3CzfwFA94Qcri_v7W0gEllowJ1bqy1q-u0p1iGs19MrSW6mct3jQhixMeXSQoy2GSkk5IEAJ2TbfAZMR2WsQ--cNwR4pya_COmXrQY869Bmx0kinSGNq5GgNPkKIjXz3Yjt2htXCIaWkV6VtUMRRx7n-tsQd8eP98yx8USImF7feksH2YBkRDQPGtjuAuk7oOBU">
+</div>
+<div>
+<h2 class="font-title-md text-title-md font-bold text-primary">CMC Admin</h2>
+<p class="text-on-surface-variant text-[10px] uppercase tracking-widest mt-1">Quản trị hệ thống</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex-1 flex flex-col gap-2 px-4">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:text-primary transition-colors">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:text-primary transition-colors">movie</span>
+<span>Phim</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:text-primary transition-colors">theater_comedy</span>
+<span>Rạp</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:text-primary transition-colors">schedule</span>
+<span>Suất chiếu</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:text-primary transition-colors">group</span>
+<span>Người dùng</span>
+</a>
+<!-- ACTIVE TAB -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary/10 text-secondary border-r-4 border-secondary shadow-[0_0_15px_rgba(76,215,246,0.3)] transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="neon-text-secondary">Báo cáo</span>
+</a>
+</div>
+<!-- Footer Links -->
+<div class="mt-auto px-4 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200 ease-in-out group" href="#">
+<span class="material-symbols-outlined text-lg group-hover:text-primary transition-colors">settings</span>
+<span>Cài đặt</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200 ease-in-out group text-error hover:text-error-container" href="#">
+<span class="material-symbols-outlined text-lg">logout</span>
+<span>Đăng xuất</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-64 flex flex-col min-h-screen relative">
+<!-- Ambient Background Glows -->
+<div class="absolute top-0 right-0 w-[500px] h-[500px] bg-secondary/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+<div class="absolute bottom-0 left-0 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+<!-- TopAppBar -->
+<header class="bg-surface-container-high/80 text-secondary font-title-md text-title-md docked top-0 backdrop-blur-md border-b border-white/5 shadow-sm transition-opacity duration-150 sticky top-0 z-40 w-full flex justify-between items-center px-gutter-desktop h-16">
+<!-- Left: Search -->
+<div class="flex items-center gap-4 flex-1">
+<!-- Mobile Menu Trigger (hidden on desktop) -->
+<button class="md:hidden text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="relative hidden sm:block w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant">search</span>
+<input class="w-full bg-black/30 border border-white/10 rounded-full py-1.5 pl-10 pr-4 text-body-md text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/50 transition-all shadow-inner" placeholder="Tìm kiếm báo cáo..." type="text">
+</div>
+</div>
+<!-- Center: Brand (Mobile mainly, optional on desktop if space permits) -->
+<div class="font-title-md text-title-md text-secondary font-bold absolute left-1/2 -translate-x-1/2 md:hidden">
+                Admin CMC
+            </div>
+<!-- Right: Actions -->
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-outline hover:bg-surface-container-highest hover:text-primary transition-all duration-150 relative group">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-neon-pink rounded-full shadow-[0_0_5px_#ffb1c4]"></span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-outline hover:bg-surface-container-highest hover:text-primary transition-all duration-150">
+<span class="material-symbols-outlined">apps</span>
+</button>
+<div class="w-8 h-8 rounded-full border border-white/20 overflow-hidden ml-2 sm:hidden cursor-pointer">
+<img class="w-full h-full object-cover" data-alt="A tiny thumbnail of a futuristic admin avatar, cyberpunk style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCSpWnUM-Drj5S622byD1L8D2_yLWiEJaMlumW34IDq09IOUhYQLlAHLlOuhoH7Tbqt6uTA_XLVtweuc_4uGvqmieKGm5cu4DteviOwyNYJJXXPtthQOr5HnV8lz0PzaNoLEHPD9k56GJTlH3CUDpMcQqiWjbrv3JtbVYiFWmYwUfBeOa5sZY3ewEgj9gKGNcCtJTQAsNQ4OdlZ8pgkihAuqZg81EVlnz1FeAvNbjbbidAYjZN8XcsEmk2qJY7-cqDDb1RsYGyWyQ">
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-gutter-mobile md:p-gutter-desktop max-w-container-max mx-auto w-full flex-1 flex flex-col gap-8">
+<!-- Page Header & Actions -->
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+<div>
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary font-bold tracking-tight">Báo cáo Doanh thu</h1>
+<p class="text-on-surface-variant mt-1">Tổng quan hiệu suất tài chính toàn hệ thống rạp</p>
+</div>
+<div class="flex items-center gap-3">
+<!-- Date Picker Simulation -->
+<div class="glass-panel flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer hover:border-secondary transition-colors group">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-secondary">calendar_today</span>
+<span class="text-on-surface">Tháng này (10/2024)</span>
+<span class="material-symbols-outlined text-outline-variant">expand_more</span>
+</div>
+<!-- Export Button -->
+<button class="bg-gradient-to-r from-inverse-primary to-primary-container text-on-primary font-title-md text-title-md font-bold px-6 py-2 rounded-lg flex items-center gap-2 hover:shadow-[0_0_15px_rgba(221,183,255,0.5)] transition-all active:scale-95">
+<span class="material-symbols-outlined">download</span>
+<span>Xuất báo cáo</span>
+</button>
+</div>
+</div>
+<!-- KPI Cards Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- KPI 1 -->
+<div class="glass-panel p-5 rounded-xl neon-glow-secondary transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary/10 rounded-lg text-secondary">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<span class="text-secondary font-label-sm text-label-sm flex items-center gap-1 bg-secondary/5 px-2 py-1 rounded-full border border-secondary/20">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +12.5%
+                        </span>
+</div>
+<p class="text-on-surface-variant font-label-sm text-label-sm mb-1 uppercase tracking-wider">Tổng doanh thu</p>
+<h3 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface font-bold">12.4B ₫</h3>
+</div>
+<!-- KPI 2 -->
+<div class="glass-panel p-5 rounded-xl neon-glow-primary transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">local_activity</span>
+</div>
+<span class="text-secondary font-label-sm text-label-sm flex items-center gap-1 bg-secondary/5 px-2 py-1 rounded-full border border-secondary/20">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +5.2%
+                        </span>
+</div>
+<p class="text-on-surface-variant font-label-sm text-label-sm mb-1 uppercase tracking-wider">Vé đã bán</p>
+<h3 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface font-bold">142,590</h3>
+</div>
+<!-- KPI 3 -->
+<div class="glass-panel p-5 rounded-xl transition-all hover:border-white/20">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-tertiary/10 rounded-lg text-tertiary-fixed-dim">
+<span class="material-symbols-outlined">fastfood</span>
+</div>
+<span class="text-error font-label-sm text-label-sm flex items-center gap-1 bg-error/5 px-2 py-1 rounded-full border border-error/20">
+<span class="material-symbols-outlined text-[14px]">trending_down</span> -1.4%
+                        </span>
+</div>
+<p class="text-on-surface-variant font-label-sm text-label-sm mb-1 uppercase tracking-wider">Doanh thu F&amp;B</p>
+<h3 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface font-bold">2.8B ₫</h3>
+</div>
+<!-- KPI 4 -->
+<div class="glass-panel p-5 rounded-xl transition-all hover:border-white/20">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-outline/10 rounded-lg text-outline">
+<span class="material-symbols-outlined">chair_alt</span>
+</div>
+<span class="text-secondary font-label-sm text-label-sm flex items-center gap-1 bg-secondary/5 px-2 py-1 rounded-full border border-secondary/20">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +8.0%
+                        </span>
+</div>
+<p class="text-on-surface-variant font-label-sm text-label-sm mb-1 uppercase tracking-wider">Tỷ lệ lấp đầy</p>
+<h3 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface font-bold">68.4%</h3>
+</div>
+</div>
+<!-- Charts Section (Bento Grid Style) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Main Trend Chart (Spans 2 columns on large screens) -->
+<div class="glass-panel rounded-xl p-6 lg:col-span-2 flex flex-col relative overflow-hidden">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-title-md text-title-md text-primary font-semibold">Biểu đồ doanh thu</h3>
+<div class="flex gap-2">
+<button class="px-3 py-1 text-label-sm rounded bg-surface-variant text-on-surface-variant hover:text-white transition-colors">Ngày</button>
+<button class="px-3 py-1 text-label-sm rounded bg-secondary/20 text-secondary border border-secondary/30">Tuần</button>
+<button class="px-3 py-1 text-label-sm rounded bg-surface-variant text-on-surface-variant hover:text-white transition-colors">Tháng</button>
+</div>
+</div>
+<!-- SVG Chart Visualization -->
+<div class="flex-1 w-full h-[300px] relative">
+<svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 300">
+<defs>
+<linearGradient id="gradient-cyan" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#4cd7f6" stop-opacity="0.3"></stop>
+<stop offset="100%" stop-color="#4cd7f6" stop-opacity="0"></stop>
+</linearGradient>
+</defs>
+<!-- Grid lines -->
+<line class="chart-grid" x1="0" x2="800" y1="50" y2="50"></line>
+<line class="chart-grid" x1="0" x2="800" y1="125" y2="125"></line>
+<line class="chart-grid" x1="0" x2="800" y1="200" y2="200"></line>
+<line class="chart-grid" stroke-dasharray="4" x1="0" x2="800" y1="275" y2="275"></line>
+<!-- Y-axis labels -->
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="0" y="45">1.5B</text>
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="0" y="120">1.0B</text>
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="0" y="195">0.5B</text>
+<!-- X-axis labels -->
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="50" y="295">T2</text>
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="170" y="295">T3</text>
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="290" y="295">T4</text>
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="410" y="295">T5</text>
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="530" y="295">T6</text>
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="650" y="295">T7</text>
+<text fill="#968e99" font-family="Space Grotesk" font-size="12" x="770" y="295">CN</text>
+<!-- Area fill -->
+<path class="chart-fill" d="M50,220 L170,180 L290,190 L410,120 L530,90 L650,40 L770,60 L770,275 L50,275 Z"></path>
+<!-- Trend Line (Ticket Sales) -->
+<path class="chart-line" d="M50,220 L170,180 L290,190 L410,120 L530,90 L650,40 L770,60" fill="none"></path>
+<!-- Data Points -->
+<circle cx="530" cy="90" fill="#151217" r="4" stroke="#4cd7f6" stroke-width="2"></circle>
+<circle cx="650" cy="40" fill="#4cd7f6" filter="drop-shadow(0 0 10px #4cd7f6)" r="6"></circle>
+<!-- Secondary Line (F&B) -->
+<path class="chart-line-secondary" d="M50,250 L170,230 L290,240 L410,200 L530,180 L650,150 L770,160" fill="none" stroke-dasharray="6"></path>
+</svg>
+<!-- Tooltip Mockup -->
+<div class="absolute top-[10px] right-[100px] glass-panel px-3 py-2 rounded border-secondary/50 pointer-events-none">
+<p class="font-label-sm text-label-sm text-outline mb-1">Thứ 7</p>
+<p class="text-secondary font-bold">1.42B ₫ <span class="text-[10px] font-normal text-on-surface">Vé</span></p>
+<p class="text-primary font-bold">350M ₫ <span class="text-[10px] font-normal text-on-surface">F&amp;B</span></p>
+</div>
+</div>
+</div>
+<!-- Revenue by Theater (Bar Chart/List) -->
+<div class="glass-panel rounded-xl p-6 flex flex-col">
+<h3 class="font-title-md text-title-md text-primary font-semibold mb-6">Doanh thu theo rạp</h3>
+<div class="flex-1 flex flex-col gap-4">
+<!-- Bar Item 1 -->
+<div>
+<div class="flex justify-between text-label-sm mb-1">
+<span class="text-on-surface">CMC Vincom Đồng Khởi</span>
+<span class="text-secondary">4.2B ₫</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[85%] shadow-[0_0_8px_#4cd7f6]"></div>
+</div>
+</div>
+<!-- Bar Item 2 -->
+<div>
+<div class="flex justify-between text-label-sm mb-1">
+<span class="text-on-surface">CMC Landmark 81</span>
+<span class="text-primary">3.8B ₫</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[75%] shadow-[0_0_8px_#f0daff]"></div>
+</div>
+</div>
+<!-- Bar Item 3 -->
+<div>
+<div class="flex justify-between text-label-sm mb-1">
+<span class="text-on-surface">CMC Gigamall</span>
+<span class="text-on-surface-variant">2.1B ₫</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-outline-variant w-[45%]"></div>
+</div>
+</div>
+<!-- Bar Item 4 -->
+<div>
+<div class="flex justify-between text-label-sm mb-1">
+<span class="text-on-surface">CMC Aeon Tân Phú</span>
+<span class="text-on-surface-variant">1.5B ₫</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-outline-variant w-[30%]"></div>
+</div>
+</div>
+<button class="mt-auto w-full py-2 border border-white/10 rounded-lg text-label-sm text-on-surface-variant hover:text-primary hover:border-primary/50 transition-colors">
+                            Xem tất cả rạp
+                        </button>
+</div>
+</div>
+</div>
+<!-- Data Table Section -->
+<div class="glass-panel rounded-xl overflow-hidden mb-12">
+<div class="p-6 border-b border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<h3 class="font-title-md text-title-md text-primary font-semibold">Top phim doanh thu cao nhất</h3>
+<div class="relative w-full sm:w-auto">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm">search</span>
+<input class="w-full sm:w-48 bg-black/30 border border-white/10 rounded py-1.5 pl-9 pr-3 text-label-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-secondary transition-all" placeholder="Tìm phim..." type="text">
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container/50 border-b border-white/10 text-label-sm text-outline-variant uppercase tracking-wider">
+<th class="p-4 font-medium">Tên phim</th>
+<th class="p-4 font-medium">Ngày khởi chiếu</th>
+<th class="p-4 font-medium text-right">Lượt vé</th>
+<th class="p-4 font-medium text-right">Doanh thu vé</th>
+<th class="p-4 font-medium text-center">Xu hướng</th>
+</tr>
+</thead>
+<tbody class="text-body-md text-on-surface">
+<tr class="border-b border-white/5 hover:bg-white/5 transition-colors group">
+<td class="p-4 flex items-center gap-3">
+<div class="w-10 h-14 bg-surface-container-highest rounded overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small vertical movie poster showing a futuristic cyberpunk city with neon lights and flying cars." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEn3pG7HGWdBPttiMSihKsnNScdrhDSxhfEipU5btcJtFZKYVi_aHrTVNHbATS6Cbdq8Ahmxfvtq_Btp7j9_jMFMm88nKfqdFpJRMhR-TGX8YBCFUHaAwOrshqapiiYw0gbn1f3Zn9lSkdW_fWVKFMnlMYU-McU7jeETvr70cn-Qw_0e8-2CI8RSajLDrGYWiuLQx0ba7Ti24lHU0kjqjCEVriHoM5WJ7IvjjOnkuY7GjhdjtCub4zmQyEuJlTInYUcTksKPWRDtM">
+</div>
+<span class="font-semibold text-secondary group-hover:text-primary transition-colors cursor-pointer">Neon City Blues</span>
+</td>
+<td class="p-4 text-on-surface-variant">12/10/2024</td>
+<td class="p-4 text-right">45,210</td>
+<td class="p-4 text-right font-semibold text-secondary">4.5B ₫</td>
+<td class="p-4 text-center">
+<span class="material-symbols-outlined text-secondary">trending_up</span>
+</td>
+</tr>
+<tr class="border-b border-white/5 hover:bg-white/5 transition-colors group">
+<td class="p-4 flex items-center gap-3">
+<div class="w-10 h-14 bg-surface-container-highest rounded overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small vertical movie poster showing an intense sci-fi battle scene in space." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDOR9_EX7L7kz0dDZSGvP8sqQbeItCvL_pjRrbVpRh_uDMylZuk2SWCPrEGrWLO7mQRGMgNnDzsptrj-09P8zz8hO7vDEKi9nA2vCvt-0TlRkUfvzF7ndbeL9Bwaml-LFUTtao0YVLkfNbrHvRYTc0JRWNgnQi_xTznm82c04bD8oAylpsQIlgI9bWNttNMw9Mw3Q1iLbDcuwa-yMk3344OjYwXpoDWUavVEy71vKgNTcHMdInlLx6hAGjzZL2QUr5F7TgqpBptnc">
+</div>
+<span class="font-semibold text-secondary group-hover:text-primary transition-colors cursor-pointer">Galactic War III</span>
+</td>
+<td class="p-4 text-on-surface-variant">05/10/2024</td>
+<td class="p-4 text-right">38,105</td>
+<td class="p-4 text-right font-semibold">3.8B ₫</td>
+<td class="p-4 text-center">
+<span class="material-symbols-outlined text-secondary">trending_up</span>
+</td>
+</tr>
+<tr class="border-b border-white/5 hover:bg-white/5 transition-colors group">
+<td class="p-4 flex items-center gap-3">
+<div class="w-10 h-14 bg-surface-container-highest rounded overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small vertical movie poster showing a dark, moody thriller aesthetic with rain and a silhouette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaaRPQ7b2O-Dr9qRTRr5QxMyoESHZGoqza29J4tkhYfwxe-bfMGDh9N8_pks_qHk9yS1SXL2jLdl9hjdrYnd-x5oHGWpRPKsNZ-Gdpj4MKIm_XFxL3_qEGRliIxGsSKnoaG2xpEVgq3hW0zBhJLHJolI3ncxTNjiZxNhboiHJUYFnqIUljdUZIoynC3zaQ3SOGDK3iNaeJD-nyNjQM-fzzMt_Kj3x4fh6u4TwVg5XJ8UomJ28Ms3ELQ33ErZOrJydxfmh0drC9T6I">
+</div>
+<span class="font-semibold text-secondary group-hover:text-primary transition-colors cursor-pointer">Shadow Protocol</span>
+</td>
+<td class="p-4 text-on-surface-variant">20/09/2024</td>
+<td class="p-4 text-right">25,890</td>
+<td class="p-4 text-right font-semibold">2.5B ₫</td>
+<td class="p-4 text-center">
+<span class="material-symbols-outlined text-error">trending_down</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-white/10 flex justify-center">
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded border border-white/10 flex items-center justify-center text-outline hover:text-white hover:border-white/30 disabled:opacity-50"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="w-8 h-8 rounded border border-secondary text-secondary flex items-center justify-center font-label-sm bg-secondary/10">1</button>
+<button class="w-8 h-8 rounded border border-white/10 flex items-center justify-center text-outline hover:text-white hover:border-white/30 font-label-sm">2</button>
+<button class="w-8 h-8 rounded border border-white/10 flex items-center justify-center text-outline hover:text-white hover:border-white/30"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

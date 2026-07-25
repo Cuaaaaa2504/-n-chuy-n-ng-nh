@@ -1,0 +1,173 @@
+<!DOCTYPE html><html class="dark" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>404 - Not Found - CMC Cinema</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&amp;family=Space+Grotesk:wght@300..700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#acedff",
+                        "inverse-surface": "#e8e0e7",
+                        "surface-container-lowest": "#100d11",
+                        "on-primary-container": "#644483",
+                        "surface-container-low": "#1d1b1f",
+                        "tertiary": "#e7e785",
+                        "glass-surface": "rgba(17, 19, 26, 0.6)",
+                        "on-error": "#690005",
+                        "surface-variant": "#373438",
+                        "surface-container-high": "#2c292d",
+                        "surface-container-highest": "#373438",
+                        "on-tertiary-container": "#555500",
+                        "secondary-container": "#03b5d4",
+                        "tertiary-fixed-dim": "#cbcb6c",
+                        "on-secondary-container": "#00424e",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "tertiary-fixed": "#e8e885",
+                        "primary": "#f0daff",
+                        "surface-tint": "#ddb7ff",
+                        "on-primary-fixed": "#2a0848",
+                        "neon-pink": "#ffb1c4",
+                        "outline-variant": "#4b444f",
+                        "tertiary-container": "#cbcb6c",
+                        "on-tertiary-fixed-variant": "#494900",
+                        "inverse-primary": "#715090",
+                        "surface": "#151217",
+                        "on-primary-fixed-variant": "#583876",
+                        "on-error-container": "#ffdad6",
+                        "secondary": "#4cd7f6",
+                        "on-background": "#e8e0e7",
+                        "outline": "#968e99",
+                        "on-secondary-fixed": "#001f26",
+                        "error-container": "#93000a",
+                        "primary-fixed-dim": "#ddb7ff",
+                        "background": "#151217",
+                        "on-surface-variant": "#cdc3d0",
+                        "on-surface": "#e8e0e7",
+                        "ultra-dark-navy": "#05070d",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "primary-fixed": "#f0dbff",
+                        "primary-container": "#ddb7ff",
+                        "on-tertiary-fixed": "#1d1d00",
+                        "surface-bright": "#3b383d",
+                        "surface-container": "#211f23",
+                        "on-secondary": "#003640",
+                        "on-tertiary": "#323200",
+                        "on-primary": "#40215e",
+                        "surface-dim": "#151217",
+                        "inverse-on-surface": "#332f34",
+                        "error": "#ffb4ab"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "baseline": "4px",
+                        "margin-desktop": "64px",
+                        "margin-mobile": "20px",
+                        "gutter-mobile": "16px",
+                        "gutter-desktop": "24px",
+                        "container-max": "1280px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Montserrat"],
+                        "display-lg": ["Montserrat"],
+                        "title-md": ["Montserrat"],
+                        "headline-lg-mobile": ["Montserrat"],
+                        "headline-lg": ["Montserrat"],
+                        "label-sm": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .neon-glow-primary {
+            box-shadow: 0 0 15px theme('colors.primary');
+        }
+        .neon-text-glow-primary {
+            text-shadow: 0 0 10px theme('colors.primary'), 0 0 20px theme('colors.primary');
+        }
+        .neon-text-glow-secondary {
+            text-shadow: 0 0 10px theme('colors.secondary'), 0 0 20px theme('colors.secondary');
+        }
+        .glitch-effect {
+            animation: glitch 1s linear infinite;
+        }
+        @keyframes glitch {
+            2%, 64% { transform: translate(2px,0) skew(0deg); }
+            4%, 60% { transform: translate(-2px,0) skew(0deg); }
+            62% { transform: translate(0,0) skew(5deg); }
+        }
+        
+        .bg-cyber-grid {
+            background-size: 50px 50px;
+            background-image: 
+                linear-gradient(to right, rgba(76, 215, 246, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(76, 215, 246, 0.05) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="bg-ultra-dark-navy text-on-surface min-h-screen flex flex-col font-body-md bg-cyber-grid relative overflow-hidden">
+<!-- TopAppBar Nav is Suppressed because this is an Error Page -->
+<!-- Main Content Canvas -->
+<main class="flex-grow flex items-center justify-center relative z-10 px-margin-mobile md:px-margin-desktop py-12">
+<!-- Background Ambient Glow -->
+<div class="absolute inset-0 z-0 flex items-center justify-center pointer-events-none opacity-20">
+<div class="w-96 h-96 bg-secondary rounded-full blur-[120px]"></div>
+<div class="w-96 h-96 bg-neon-pink rounded-full blur-[120px] ml-[-100px]"></div>
+</div>
+<div class="relative z-10 max-w-4xl w-full flex flex-col items-center text-center">
+<!-- 404 Glitch Text -->
+<div class="relative mb-8">
+<h1 class="font-display-lg text-[120px] md:text-[180px] leading-none text-transparent bg-clip-text bg-gradient-to-br from-primary to-neon-pink neon-text-glow-primary glitch-effect tracking-tighter mix-blend-screen">
+                    404
+                </h1>
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-50 mix-blend-overlay">
+<span class="font-display-lg text-[120px] md:text-[180px] leading-none text-secondary translate-x-2 translate-y-1">404</span>
+</div>
+</div>
+<!-- Illustration Container -->
+<div class="w-full max-w-lg mb-12 relative group rounded-xl overflow-hidden glass-surface border border-white/10 p-2 shadow-[0_0_30px_rgba(3,181,212,0.1)] transition-all duration-500 hover:shadow-[0_0_40px_rgba(255,177,196,0.2)]">
+<div class="relative w-full aspect-video rounded-lg overflow-hidden">
+<!-- Placeholder Image with detailed data-alt for generation -->
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 mix-blend-luminosity hover:mix-blend-normal" data-alt="A highly detailed illustration in a dark, glowing cyberpunk style. A lone, rusty futuristic robot with glowing blue eyes is trying to fix a tangle of glowing neon cables (cyan and magenta) against a dark, metallic wall. The background suggests a high-tech city suffering a localized blackout, with faint neon signs flickering in the distance. Deep shadows and high contrast, cinematic lighting, neon accents reflecting off the metallic surfaces. Cyberpunk aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2BmNvGWqiM3BLID7A8LQSaNIsz-VzSwZ4EYKa_EfVgtIAbTAiMbdIVAR510vrRE1u8iuL8WrRhN50O66yUVVH02ZUYFJoS6xzCgUXFN7M1UPjCYJJKlh7Vfjg8krAnuVwYSTqjOovodue8gs-MT6lnH9AAqU-hP71D_h4ym5vukVt4Sxvj8XS1r0-sTMxGWg23oCgj0A3h8Dgiqb3q_j7fq3EL6nawLXJRy_j5icl0NEHGDiLy1SMTb2tlaEHd6LQGRs6cUvAaqQ">
+<!-- Overlay Gradient -->
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent pointer-events-none"></div>
+</div>
+</div>
+<!-- Error Message -->
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-primary mb-4 neon-text-glow-primary max-w-2xl">
+                Oops! Trang này đã biến mất vào hư không kỹ thuật số
+            </h2>
+<p class="font-body-md text-on-surface-variant mb-12 max-w-lg mx-auto">
+                Kết nối bị đứt. Hệ thống không thể tìm thấy tọa độ bạn yêu cầu. Hãy quay lại an toàn trước khi cảnh sát mạng đến.
+            </p>
+<!-- Action Button -->
+<a class="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-inverse-primary to-neon-pink text-white font-title-md rounded-lg overflow-hidden transition-all duration-300 neon-glow-primary hover:scale-105 active:scale-95" href="/">
+<span class="relative z-10 flex items-center gap-2">
+<span class="material-symbols-outlined text-[24px]">home</span>
+                    Quay lại trang chủ
+                </span>
+<!-- Button hover effect overlay -->
+<div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out"></div>
+</a>
+</div>
+</main>
+</body></html>

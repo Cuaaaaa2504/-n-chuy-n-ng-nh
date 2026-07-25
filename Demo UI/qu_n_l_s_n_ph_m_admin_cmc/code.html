@@ -1,0 +1,471 @@
+<!DOCTYPE html><html class="dark" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>CMC Admin - Combo Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&amp;family=Space+Grotesk:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary-fixed": "#acedff",
+                      "inverse-on-surface": "#332f34",
+                      "primary-container": "#ddb7ff",
+                      "background": "#151217",
+                      "outline-variant": "#4b444f",
+                      "surface-container-low": "#1d1b1f",
+                      "inverse-primary": "#715090",
+                      "on-secondary-container": "#00424e",
+                      "neon-pink": "#ffb1c4",
+                      "tertiary-fixed-dim": "#cbcb6c",
+                      "glass-surface": "rgba(17, 19, 26, 0.6)",
+                      "surface": "#151217",
+                      "on-primary-fixed": "#2a0848",
+                      "on-tertiary-fixed-variant": "#494900",
+                      "on-tertiary": "#323200",
+                      "on-surface-variant": "#cdc3d0",
+                      "on-secondary-fixed": "#001f26",
+                      "on-tertiary-container": "#555500",
+                      "surface-container": "#211f23",
+                      "surface-bright": "#3b383d",
+                      "primary-fixed-dim": "#ddb7ff",
+                      "on-secondary": "#003640",
+                      "inverse-surface": "#e8e0e7",
+                      "primary-fixed": "#f0dbff",
+                      "tertiary-container": "#cbcb6c",
+                      "secondary-container": "#03b5d4",
+                      "error": "#ffb4ab",
+                      "on-error-container": "#ffdad6",
+                      "on-error": "#690005",
+                      "surface-container-highest": "#373438",
+                      "error-container": "#93000a",
+                      "secondary-fixed-dim": "#4cd7f6",
+                      "secondary": "#4cd7f6",
+                      "surface-container-high": "#2c292d",
+                      "ultra-dark-navy": "#05070d",
+                      "surface-tint": "#ddb7ff",
+                      "outline": "#968e99",
+                      "on-surface": "#e8e0e7",
+                      "surface-dim": "#151217",
+                      "surface-container-lowest": "#100d11",
+                      "surface-variant": "#373438",
+                      "tertiary": "#e7e785",
+                      "primary": "#f0daff",
+                      "on-secondary-fixed-variant": "#004e5c",
+                      "on-primary": "#40215e",
+                      "on-primary-fixed-variant": "#583876",
+                      "on-background": "#e8e0e7",
+                      "tertiary-fixed": "#e8e885",
+                      "on-tertiary-fixed": "#1d1d00",
+                      "on-primary-container": "#644483"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "gutter-desktop": "24px",
+                      "gutter-mobile": "16px",
+                      "margin-mobile": "20px",
+                      "container-max": "1280px",
+                      "margin-desktop": "64px",
+                      "baseline": "4px"
+              },
+              "fontFamily": {
+                      "display-lg": [
+                              "Montserrat"
+                      ],
+                      "body-md": [
+                              "Montserrat"
+                      ],
+                      "title-md": [
+                              "Montserrat"
+                      ],
+                      "label-sm": [
+                              "Space Grotesk"
+                      ],
+                      "headline-lg": [
+                              "Montserrat"
+                      ],
+                      "headline-lg-mobile": [
+                              "Montserrat"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "title-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: #05070d;
+            color: #e8e0e7;
+        }
+        
+        /* Cyber Neon Utilities */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .neon-glow-primary {
+            box-shadow: 0 0 15px rgba(240, 218, 255, 0.5);
+        }
+        
+        .neon-glow-secondary {
+            box-shadow: 0 0 15px rgba(76, 215, 246, 0.5);
+        }
+        
+        .neon-text-primary {
+            text-shadow: 0 0 10px rgba(240, 218, 255, 0.8);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #715090, #ffb1c4);
+            box-shadow: 0 0 15px rgba(255, 177, 196, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            box-shadow: 0 0 25px rgba(255, 177, 196, 0.6);
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid #4cd7f6;
+            color: #4cd7f6;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(76, 215, 246, 0.1);
+            box-shadow: 0 0 15px rgba(76, 215, 246, 0.4);
+        }
+        
+        .input-cyber {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .input-cyber:focus {
+            outline: none;
+            border-color: #4cd7f6;
+            box-shadow: 0 0 10px rgba(76, 215, 246, 0.5);
+        }
+        
+        .status-badge-active {
+            background: rgba(76, 215, 246, 0.1);
+            border: 1px solid #4cd7f6;
+            color: #4cd7f6;
+        }
+        
+        .status-badge-inactive {
+            background: rgba(255, 180, 171, 0.1);
+            border: 1px solid #ffb4ab;
+            color: #ffb4ab;
+        }
+        
+        .combo-card {
+            transition: all 0.3s ease;
+        }
+        
+        .combo-card:hover {
+            transform: scale(1.02);
+            border-color: rgba(240, 218, 255, 0.5);
+            box-shadow: 0 0 20px rgba(240, 218, 255, 0.15);
+        }
+        
+        .action-icon {
+            transition: all 0.2s;
+        }
+        
+        .action-icon:hover {
+            color: #ffb1c4;
+            text-shadow: 0 0 8px rgba(255, 177, 196, 0.8);
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden antialiased font-body-md text-body-md">
+<!-- SideNavBar (Admin) -->
+<nav class="bg-surface-container-lowest border-r border-white/5 shadow-2xl fixed left-0 top-0 h-full flex flex-col py-6 h-screen w-64 left-0 top-0 transition-all duration-200 ease-in-out z-50">
+<!-- Brand / Header -->
+<div class="px-6 mb-8 flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-secondary neon-glow-secondary">
+<img alt="Admin Avatar" class="w-full h-full object-cover" data-alt="Cyberpunk style digital avatar of a network administrator. The character wears a glowing neon visor and dark, high-tech tactical gear. Background is a dark metallic surface with faint blue circuitry lines. Lighting is high-contrast with intense cyan highlights on the face. Detailed, high resolution, digital art style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJ5pxb8vnWcMV63Ev5kLENHiQ3vD5Fwk6FX0B6dhRhndP9dndus2cCJQCTXU9BXl32DaUUxlWqNxULOprv55rZrtuRSJ_JlDMxJumqCWKH7cpg_Ix-W3PMcfJLgu6bB3O00et-arQtpjPORrKOym8bHDEf_rcS7SLXzIef7GzWgiKBg7QSKl1CC86KE7UJ9RBFGfNCLK_WkR8y6JyL1VVysxcM5gwX_9zgVaWiI1kk02rVNAl-QFKLHj0HFQ2_EvfrWkipcQaKCuY">
+</div>
+<div>
+<h1 class="font-title-md text-title-md font-bold text-primary neon-text-primary">CMC Admin</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Quản trị hệ thống</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<ul class="flex-1 px-4 space-y-2">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-label-sm text-label-sm">Dashboard</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">movie</span>
+<span class="font-label-sm text-label-sm">Phim</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">theater_comedy</span>
+<span class="font-label-sm text-label-sm">Rạp</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">schedule</span>
+<span class="font-label-sm text-label-sm">Suất chiếu</span>
+</a>
+</li>
+<li>
+<!-- Semantic Match: Combo Management (Products/B&F) doesn't have an exact match in the provided list, 
+                     but typically falls under its own category. Since we must map to an existing tab or suppress, 
+                     and none of the provided JSON tabs (Dashboard, Phim, Rạp, Suất chiếu, Người dùng, Báo cáo) 
+                     perfectly fit 'Combos' (Food/Beverage). 
+                     Wait, if it's not in the nav, I should still highlight the closest generic or suppress. 
+                     Let's assume this is a sub-page of "Rạp" or a general management page. 
+                     Actually, to be safe, I'll just leave them all inactive if there's no match, per "Anti-Hallucination". 
+                     Wait, the prompt says "Admin Products/Combo Management". 
+                     I will highlight NOTHING if there's no exact match. -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">category</span>
+<span class="font-label-sm text-label-sm">Sản phẩm (Combo)</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">group</span>
+<span class="font-label-sm text-label-sm">Người dùng</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">analytics</span>
+<span class="font-label-sm text-label-sm">Báo cáo</span>
+</a>
+</li>
+</ul>
+<!-- Footer Links -->
+<div class="px-4 mt-auto space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+<span class="font-label-sm text-label-sm">Cài đặt</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">logout</span>
+<span class="font-label-sm text-label-sm">Đăng xuất</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+<!-- TopAppBar -->
+<header class="bg-surface-container-high/80 backdrop-blur-md border-b border-white/5 shadow-sm sticky top-0 z-40 w-full flex justify-between items-center px-gutter-desktop h-16 transition-opacity duration-150">
+<div class="flex items-center gap-4">
+<h2 class="font-title-md text-title-md text-secondary">Admin CMC</h2>
+</div>
+<div class="flex-1 max-w-md mx-8">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-variation-settings: 'FILL' 0;">search</span>
+<input class="w-full input-cyber rounded-full py-2 pl-10 pr-4 text-on-surface font-body-md text-body-md focus:outline-none" placeholder="Tìm kiếm combo, đồ uống..." type="text">
+</div>
+</div>
+<div class="flex items-center gap-4 text-secondary">
+<button class="p-2 rounded-full hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">apps</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden ml-2 cursor-pointer border border-white/10">
+<img alt="Admin Profile" class="w-full h-full object-cover" data-alt="Cyberpunk style digital avatar of a network administrator. Small thumbnail size." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpEw6oirfA1CnQF85hCY8s_8hy6fVQefIvmDVDbrTyQ0ZRfKaHbJe5WK4ersPtD3tJxbSr395_K_FlDmfqeH3wu9mil_pa_hlUawSJ3E9WFKRMCRxaA5Kqd2ISZVPsWE1I40uE5Jcsz2RYmppAczMSOemNVEAkGXXJ8LoiSbT_oqE-Gw_H8eHEWrijt6KoUFJJOHfCod7k4wXJg_TqhkwiOl52j3GL87aP0IIG7iqI4UYKjLNSaQ52N774EtlQwxwZLHjh9inONBQ">
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 overflow-y-auto p-gutter-desktop bg-background">
+<!-- Page Header & Actions -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary neon-text-primary mb-2">Quản lý Sản phẩm &amp; Combo</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Quản lý danh sách đồ ăn, thức uống và các gói combo tại rạp.</p>
+</div>
+<div class="flex gap-4">
+<button class="btn-secondary px-4 py-2 rounded-lg font-label-sm text-label-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                        Lọc / Sắp xếp
+                    </button>
+<button class="btn-primary px-6 py-2 rounded-lg font-label-sm text-label-sm text-on-primary font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Thêm sản phẩm mới
+                    </button>
+</div>
+</div>
+<!-- Tabs/Categories -->
+<div class="flex gap-4 mb-8 border-b border-white/10 pb-4">
+<button class="px-4 py-2 rounded-full bg-secondary/10 border border-secondary text-secondary font-label-sm text-label-sm neon-glow-secondary">Tất cả</button>
+<button class="px-4 py-2 rounded-full glass-card text-on-surface hover:text-primary transition-colors font-label-sm text-label-sm">Combo</button>
+<button class="px-4 py-2 rounded-full glass-card text-on-surface hover:text-primary transition-colors font-label-sm text-label-sm">Bắp (Popcorn)</button>
+<button class="px-4 py-2 rounded-full glass-card text-on-surface hover:text-primary transition-colors font-label-sm text-label-sm">Nước (Drinks)</button>
+</div>
+<!-- Bento Grid / Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<!-- Card 1: Combo -->
+<div class="glass-card rounded-xl overflow-hidden combo-card flex flex-col group relative">
+<div class="absolute top-3 right-3 z-10 flex gap-2">
+<button class="w-8 h-8 rounded-full bg-ultra-dark-navy/80 backdrop-blur-md flex items-center justify-center border border-white/10 action-icon hover:border-neon-pink">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-ultra-dark-navy/80 backdrop-blur-md flex items-center justify-center border border-white/10 action-icon hover:border-error text-error">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+<div class="h-48 w-full relative overflow-hidden bg-surface-container-highest">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="High definition photograph of a cinematic movie combo. A large bucket of golden, buttery popcorn next to two tall cups of cola with ice and condensation. The background is dark with dramatic, vibrant neon cyan and pink rim lighting highlighting the food. Cyberpunk aesthetic, professional food photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQ1xL5dtUiXghZuBHSUmuRIqDlvtei-ADc7EUQK5z8XdGdbDR-wfFCnLF2JnyC49P56qU9YUtdhUPEPOhKNvkuhFWgO_p1jzXuwGzi_i68enkS3gBhjpB7YUhJZ1qO7Wm7mTSIqXisK4gVGHZ6yDEyRxKNw-oRIxjkkbFyDdsFrP-8y-CJy-HKjrEaSEemOWViKna2sTSpLD7YiIbet17l5-7kLnXOGBbLJHTqCsrP0FF2AqUsI8MRDAnvxXUwitAJcZoxq85Osfg">
+<div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-[#05070d] to-transparent"></div>
+<span class="absolute bottom-3 left-3 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-primary-container text-on-primary-container">Combo</span>
+</div>
+<div class="p-4 flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-title-md text-title-md text-on-surface line-clamp-1">Combo Couple Extra</h3>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mb-4 line-clamp-2">1 Bắp lớn (Vị tùy chọn) + 2 Nước lớn + 1 Snack.</p>
+<div class="mt-auto flex justify-between items-center">
+<span class="font-headline-lg text-[20px] text-secondary font-bold">129.000đ</span>
+<span class="px-2 py-1 rounded text-[10px] font-bold status-badge-active flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-secondary"></span> Còn hàng
+                            </span>
+</div>
+</div>
+</div>
+<!-- Card 2: Popcorn -->
+<div class="glass-card rounded-xl overflow-hidden combo-card flex flex-col group relative">
+<div class="absolute top-3 right-3 z-10 flex gap-2">
+<button class="w-8 h-8 rounded-full bg-ultra-dark-navy/80 backdrop-blur-md flex items-center justify-center border border-white/10 action-icon hover:border-neon-pink">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-ultra-dark-navy/80 backdrop-blur-md flex items-center justify-center border border-white/10 action-icon hover:border-error text-error">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+<div class="h-48 w-full relative overflow-hidden bg-surface-container-highest">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="High definition photograph of a large bucket of caramel popcorn. The popcorn is glistening and piled high. The background is dark with striking neon pink lighting illuminating the bucket from the side. Cyberpunk aesthetic, professional food photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGze5W68838wXEwbBR91o-BD4EbfsYD_6KR3T91Hcf3zgDrkKPDf0fY9jJ2TjWfZwgq8yMkv0mnrjlWHDs7cvXNiFm_ow_QyIY3fVolA0vc06DP9zVcJFp2WLDfDpe0i363NWExfC-u4u7MVyqNZ_1Dcwl2V-i1gd_Vn3hq8lYLSxBa7UCeGUgnxXcaGiV_lZPblsn-akLnmqDZ-6-r2sn6pTG083tBN5fZjEbOmXUpbgGgXUyPEj2ShrYnQBQm2vQezbZ-49ZM4M">
+<div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-[#05070d] to-transparent"></div>
+<span class="absolute bottom-3 left-3 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-tertiary-container text-on-tertiary-container">Bắp</span>
+</div>
+<div class="p-4 flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-title-md text-title-md text-on-surface line-clamp-1">Bắp Phô Mai (Lớn)</h3>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mb-4 line-clamp-2">Bắp rang bơ lắc phô mai đậm vị, size L.</p>
+<div class="mt-auto flex justify-between items-center">
+<span class="font-headline-lg text-[20px] text-secondary font-bold">65.000đ</span>
+<span class="px-2 py-1 rounded text-[10px] font-bold status-badge-active flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-secondary"></span> Còn hàng
+                            </span>
+</div>
+</div>
+</div>
+<!-- Card 3: Drink (Out of stock) -->
+<div class="glass-card rounded-xl overflow-hidden combo-card flex flex-col group relative opacity-75">
+<div class="absolute top-3 right-3 z-10 flex gap-2">
+<button class="w-8 h-8 rounded-full bg-ultra-dark-navy/80 backdrop-blur-md flex items-center justify-center border border-white/10 action-icon hover:border-neon-pink">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-ultra-dark-navy/80 backdrop-blur-md flex items-center justify-center border border-white/10 action-icon hover:border-error text-error">
+<span class="material-symbols-outlined text-[16px]">delete</span>
+</button>
+</div>
+<div class="h-48 w-full relative overflow-hidden bg-surface-container-highest grayscale-[50%]">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="High definition photograph of a tall cinematic soda cup filled with ice and dark cola. Condensation drips down the side. The background is pitch black with subtle blue neon accents. Cyberpunk aesthetic, moody lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwjdzIFfpMjc3T9iMevX_vYkCj_hOVGqDqJnqaGp-Hptgc-bDp5fhvNbkiL44YpuNLDsgf53eXPpNHapIuBGnIsBJJ9EYp15NonJXsgE5LEXmHnFY5Cwo3EXfJXLc44TBkD60-sI02CoVuGVAOv2CE4T82xYa9BLtxW-_Z77D3PN3OcBltxGDv9VoOYrL2q1CqUJq6PJPa39eN5r5jELajhvXyiqTFPxePeBL-ZbyvZ8X0mJjpr6zc-bgErWllHgP6oO6o1HdxeyE">
+<div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-[#05070d] to-transparent"></div>
+<span class="absolute bottom-3 left-3 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-secondary-container text-on-secondary-container">Nước</span>
+</div>
+<div class="p-4 flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-title-md text-title-md text-on-surface line-clamp-1">Coca Cola (Lớn)</h3>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mb-4 line-clamp-2">Nước ngọt có gas giải khát, size L.</p>
+<div class="mt-auto flex justify-between items-center">
+<span class="font-headline-lg text-[20px] text-outline font-bold">35.000đ</span>
+<span class="px-2 py-1 rounded text-[10px] font-bold status-badge-inactive flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-error"></span> Hết hàng
+                            </span>
+</div>
+</div>
+</div>
+<!-- Add New Placeholder Card -->
+<button class="glass-card rounded-xl h-full min-h-[300px] flex flex-col items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary transition-all duration-300 border-dashed border-2 group">
+<div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center mb-4 group-hover:bg-primary/20 group-hover:neon-glow-primary transition-all">
+<span class="material-symbols-outlined text-[32px]">add</span>
+</div>
+<span class="font-title-md text-title-md font-bold">Thêm Mới</span>
+</button>
+</div>
+<div class="h-12 w-full"></div> <!-- Bottom padding -->
+</main>
+</div>
+</body></html>

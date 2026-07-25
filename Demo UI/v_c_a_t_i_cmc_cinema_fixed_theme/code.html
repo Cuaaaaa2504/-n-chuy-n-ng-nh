@@ -1,0 +1,279 @@
+<!DOCTYPE html><html class="dark" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>CMC Cinema - My Bookings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#151217",
+                        "on-primary-fixed-variant": "#583876",
+                        "inverse-primary": "#715090",
+                        "error": "#ffb4ab",
+                        "primary-fixed": "#f0dbff",
+                        "on-tertiary-container": "#555500",
+                        "tertiary-fixed": "#e8e885",
+                        "tertiary": "#e7e785",
+                        "surface-bright": "#3b383d",
+                        "on-secondary-fixed": "#001f26",
+                        "inverse-on-surface": "#332f34",
+                        "on-secondary-container": "#00424e",
+                        "on-secondary": "#003640",
+                        "on-primary": "#40215e",
+                        "neon-pink": "#ffb1c4",
+                        "surface-container": "#211f23",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "ultra-dark-navy": "#05070d",
+                        "surface-tint": "#ddb7ff",
+                        "on-tertiary-fixed-variant": "#494900",
+                        "outline": "#968e99",
+                        "on-primary-container": "#644483",
+                        "secondary-fixed": "#acedff",
+                        "on-surface-variant": "#cdc3d0",
+                        "tertiary-container": "#cbcb6c",
+                        "glass-surface": "rgba(17, 19, 26, 0.6)",
+                        "surface-container-low": "#1d1b1f",
+                        "primary-fixed-dim": "#ddb7ff",
+                        "on-surface": "#e8e0e7",
+                        "surface-container-highest": "#373438",
+                        "on-tertiary": "#323200",
+                        "background": "#151217",
+                        "on-error-container": "#ffdad6",
+                        "on-error": "#690005",
+                        "tertiary-fixed-dim": "#cbcb6c",
+                        "on-tertiary-fixed": "#1d1d00",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "secondary-container": "#03b5d4",
+                        "inverse-surface": "#e8e0e7",
+                        "surface": "#151217",
+                        "secondary": "#4cd7f6",
+                        "on-background": "#e8e0e7",
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#100d11",
+                        "primary-container": "#ddb7ff",
+                        "surface-variant": "#373438",
+                        "outline-variant": "#4b444f",
+                        "primary": "#f0daff",
+                        "on-primary-fixed": "#2a0848",
+                        "surface-container-high": "#2c292d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "64px",
+                        "gutter-mobile": "16px",
+                        "baseline": "4px",
+                        "container-max": "1280px",
+                        "margin-mobile": "20px",
+                        "gutter-desktop": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Montserrat", "sans-serif"],
+                        "headline-lg": ["Montserrat", "sans-serif"],
+                        "label-sm": ["Space Grotesk", "monospace"],
+                        "body-md": ["Montserrat", "sans-serif"],
+                        "title-md": ["Montserrat", "sans-serif"],
+                        "display-lg": ["Montserrat", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }]
+                    }
+                },
+            }
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&amp;family=Space+Grotesk:wght@500;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        body {
+            background-color: #05070d; /* ultra-dark-navy */
+            color: theme('colors.on-background');
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(5, 7, 13, 0.7); /* ultra-dark-navy with transparency */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .neon-glow {
+            box-shadow: 0 0 15px rgba(221, 183, 255, 0.5); /* Electric Purple glow */
+        }
+        .neon-text-glow {
+            text-shadow: 0 0 8px rgba(76, 215, 246, 0.8); /* Cyber Cyan glow */
+        }
+        .platinum-gradient {
+            background: linear-gradient(135deg, #4cd7f6, #ddb7ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .platinum-border {
+            border: 1px solid rgba(76, 215, 246, 0.3);
+            box-shadow: 0 0 10px rgba(76, 215, 246, 0.15);
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col font-body-md text-body-md bg-ultra-dark-navy text-on-surface">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-margin-desktop h-20 bg-ultra-dark-navy/80 backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(3,181,212,0.15)]">
+<div class="flex items-center gap-8">
+<span class="font-display-lg text-display-lg font-extrabold text-surface-tint drop-shadow-[0_0_10px_rgba(221,183,255,0.8)] cursor-pointer">CMC Cinema</span>
+<div class="hidden md:flex gap-6">
+<a class="font-title-md text-title-md text-on-surface hover:text-secondary transition-all duration-300 hover:scale-105 active:scale-95" href="#">Trang chủ</a>
+<a class="font-title-md text-title-md text-on-surface hover:text-secondary transition-all duration-300 hover:scale-105 active:scale-95" href="#">Phim</a>
+<a class="font-title-md text-title-md text-on-surface hover:text-secondary transition-all duration-300 hover:scale-105 active:scale-95" href="#">Lịch chiếu</a>
+<a class="font-title-md text-title-md text-on-surface hover:text-secondary transition-all duration-300 hover:scale-105 active:scale-95" href="#">Combo</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-secondary hover:text-surface-tint transition-all duration-300 hover:scale-105 active:scale-95">
+<span class="material-symbols-outlined text-2xl" data-icon="contrast">contrast</span>
+</button>
+<button class="text-surface-tint border-b-2 border-surface-tint pb-1 drop-shadow-[0_0_8px_rgba(221,183,255,0.6)] hover:scale-105 active:scale-95 transition-all duration-300">
+<span class="material-symbols-outlined text-2xl" data-icon="account_circle" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</button>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow pt-28 pb-20 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
+<!-- Header & Platinum Status -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+<div>
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-surface-tint mb-2 drop-shadow-[0_0_10px_rgba(221,183,255,0.6)]">Vé của tôi</h1>
+<p class="text-on-surface font-body-md text-body-md">Quản lý các suất chiếu bạn đã đặt.</p>
+</div>
+<div class="glass-card rounded-lg p-4 flex items-center gap-4 platinum-border">
+<div class="w-12 h-12 rounded-full bg-surface-variant border border-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Hạng Thành Viên</div>
+<div class="font-title-md text-title-md platinum-gradient font-bold">Platinum Member</div>
+</div>
+</div>
+</div>
+<!-- Bookings Grid (Bento style approach for tickets) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Booking Card 1 (Upcoming) -->
+<div class="glass-card rounded-xl overflow-hidden group hover:scale-[1.02] transition-transform duration-300 relative border-t-2 border-secondary">
+<div class="absolute top-0 right-0 bg-secondary text-ultra-dark-navy px-3 py-1 rounded-bl-lg font-label-sm text-label-sm font-bold flex items-center gap-1 z-10 shadow-[0_0_10px_rgba(76,215,246,0.5)]">
+<span class="material-symbols-outlined text-[16px]" data-icon="event">event</span> Sắp chiếu
+            </div>
+<div class="h-40 w-full relative">
+<div class="bg-cover bg-center w-full h-full opacity-60 group-hover:opacity-80 transition-opacity duration-300" data-alt="A cinematic, cyberpunk inspired movie poster featuring a futuristic cityscape at night. Neon blues and pinks dominate the scene. A solitary figure stands overlooking the glowing metropolis. High contrast, highly detailed, photorealistic render. The style perfectly matches a premium digital cinema experience." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBkvN950zOTvpLtukVdfpz2W7x-aek9QhiXMVlIR7RcSoalbtJgiHW46cKLuEHNiTC4uDx_zVNbPLvgiOQikOW-adALTYdrAWPJyg5OtmggNTaXz_SOtzy23KGVgrtQgO8td25IZ-KFSKPbVisBQnbZ_Zmb72dCXmmdjEHZUPdNG7WSUu44V7O6Kev3dqLZTLWd87R7sYGaEjLnTfC-3veyfyu1QJ9-BWHC7iZy_wUsTvSch8fxBI99Mam8BKVNVSiNWvEibNiPQf4')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-ultra-dark-navy to-transparent"></div>
+<h3 class="absolute bottom-4 left-4 right-4 font-title-md text-title-md text-surface-tint font-bold truncate">Dune: Hành Tinh Cát - Phần 2</h3>
+</div>
+<div class="p-6">
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div>
+<span class="block font-label-sm text-label-sm text-secondary">Ngày &amp; Giờ</span>
+<span class="block font-['Space_Grotesk'] text-[14px] font-bold text-white">24/10/2024 • 19:30</span>
+</div>
+<div>
+<span class="block font-label-sm text-label-sm text-secondary">Rạp</span>
+<span class="block font-['Space_Grotesk'] text-[14px] font-bold text-white truncate">CMC IMAX Landmark</span>
+</div>
+<div>
+<span class="block font-label-sm text-label-sm text-secondary">Ghế</span>
+<span class="block font-['Space_Grotesk'] text-[14px] font-bold text-secondary neon-text-glow">G12, G13</span>
+</div>
+<div>
+<span class="block font-label-sm text-label-sm text-secondary">Trạng thái</span>
+<span class="block font-['Space_Grotesk'] text-[14px] font-bold text-surface-tint">Đã thanh toán</span>
+</div>
+</div>
+<button class="w-full py-3 rounded-lg bg-surface-tint text-ultra-dark-navy font-title-md text-title-md font-bold neon-glow hover:bg-white transition-colors flex justify-center items-center gap-2">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span>
+                    Xem vé (QR)
+                </button>
+</div>
+</div>
+<!-- Booking Card 2 (Past) -->
+<div class="glass-card rounded-xl overflow-hidden group hover:scale-[1.02] transition-transform duration-300 relative border-t-2 border-surface-variant">
+<div class="absolute top-0 right-0 bg-surface-variant text-white px-3 py-1 rounded-bl-lg font-label-sm text-label-sm font-bold flex items-center gap-1 z-10">
+<span class="material-symbols-outlined text-[16px]" data-icon="history">history</span> Đã xem
+            </div>
+<div class="h-40 w-full relative">
+<div class="bg-cover bg-center w-full h-full opacity-40 grayscale group-hover:grayscale-0 transition-all duration-300" data-alt="A retro-futuristic movie poster showing a neon-lit sports car speeding down a dark, wet highway. Synthwave aesthetic with deep purples and bright cyan accents. The style is moody, cinematic, and fits a high-end digital theater theme. Sharp details and dynamic lighting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCczN21tgVbKwn18mgFvHl4MHJi96G5sG5t4kZcyIxSQ9jnt6U1jswKuERslZH1rTMBSMI8lHf31iUPo12lSg_BY3Sw6b2uiWH8NerWT1KuNyH1e7XsbhGxKZpDfnWXh39qnaSm1tpqfwZpH06CHuwOZAJDGRMUsMUsyVCaamFVZpk2SPay3JrKTmOpd6le7iSAr-FWN30Y6A6AgI-bwAeGitJWSYofkPl-cGXkBRMAWa4pBgzPBhcdnqkNFaKLlzYKtElM5j1JMzU')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-ultra-dark-navy to-transparent"></div>
+<h3 class="absolute bottom-4 left-4 right-4 font-title-md text-title-md text-white font-bold truncate">Drive (Bản Remaster)</h3>
+</div>
+<div class="p-6 opacity-80">
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div>
+<span class="block font-label-sm text-label-sm text-secondary">Ngày &amp; Giờ</span>
+<span class="block font-['Space_Grotesk'] text-[14px] font-bold text-white">15/09/2024 • 20:00</span>
+</div>
+<div>
+<span class="block font-label-sm text-label-sm text-secondary">Rạp</span>
+<span class="block font-['Space_Grotesk'] text-[14px] font-bold text-white truncate">CMC CyberPunk Dist</span>
+</div>
+<div>
+<span class="block font-label-sm text-label-sm text-secondary">Ghế</span>
+<span class="block font-['Space_Grotesk'] text-[14px] font-bold text-white">VIP 1, VIP 2</span>
+</div>
+</div>
+<button class="w-full py-3 rounded-lg border border-secondary text-secondary font-title-md text-title-md font-bold hover:bg-secondary/20 transition-colors flex justify-center items-center gap-2">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+                    Xem chi tiết
+                </button>
+</div>
+</div>
+<!-- Booking Card 3 (Cancelled) -->
+<div class="glass-card rounded-xl overflow-hidden group hover:scale-[1.02] transition-transform duration-300 relative border-t-2 border-error/50">
+<div class="absolute top-0 right-0 bg-error/20 text-error px-3 py-1 rounded-bl-lg font-label-sm text-label-sm font-bold flex items-center gap-1 z-10">
+<span class="material-symbols-outlined text-[16px]" data-icon="cancel">cancel</span> Đã hủy
+            </div>
+<div class="h-40 w-full relative">
+<div class="bg-cover bg-center w-full h-full opacity-30 transition-opacity duration-300" data-alt="A dark, moody cinematic still of an abandoned sci-fi facility. Low key lighting, deep shadows, subtle red emergency lights reflecting off metallic surfaces. Very atmospheric, fitting a high-tech cyberpunk thriller. Desaturated color palette with intense red highlights." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuADemGR7bvcdJGGObNbepjoertYVJWxMT_1iA4T7-JOpVXZSLNNEgigY1ilpU8Kl5fI_HFoibVEUYiiHCEd-dyUcfn5kCND73S7bpbqpABI8rww7N9NLKbBYkbNibfhU4TugToogph1Ln4DP1fTBpBMAjpgM1D2SQua4EwgHy2i41cCVIu2lCb5ErMMsCgsJ5Omcprsv1T7Lkj4OCC_scDakZyqyvoCZvYoFH6SczU22VixiNIfpK-Gb8rArro0IyYOr3EFjbr32qI')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-ultra-dark-navy to-transparent"></div>
+<h3 class="absolute bottom-4 left-4 right-4 font-title-md text-title-md text-white/50 font-bold truncate line-through">Alien: Romulus</h3>
+</div>
+<div class="p-6 opacity-60">
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div>
+<span class="block font-label-sm text-label-sm text-secondary">Ngày &amp; Giờ</span>
+<span class="block font-['Space_Grotesk'] text-[14px] font-bold text-white">01/09/2024 • 18:45</span>
+</div>
+<div>
+<span class="block font-label-sm text-label-sm text-secondary">Rạp</span>
+<span class="block font-['Space_Grotesk'] text-[14px] font-bold text-white truncate">CMC Starlight</span>
+</div>
+</div>
+<button class="w-full py-3 rounded-lg border border-outline-variant text-white font-title-md text-title-md font-bold hover:bg-surface-variant transition-colors flex justify-center items-center gap-2">
+<span class="material-symbols-outlined" data-icon="info">info</span>
+                    Chi tiết hủy
+                </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 px-margin-desktop flex flex-col md:flex-row justify-between items-start gap-8 bg-ultra-dark-navy border-t border-white/10 flat no shadows mt-auto">
+<div>
+<div class="font-headline-lg text-headline-lg text-surface-tint mb-4">CMC Cinema</div>
+<p class="font-body-md text-body-md text-on-surface">© 2024 CMC Cinema. All rights reserved. Future of Cinema.</p>
+</div>
+<div class="flex flex-col md:flex-row gap-6 md:gap-12">
+<a class="font-body-md text-body-md text-on-surface hover:text-secondary transition-colors" href="#">Về chúng tôi</a>
+<a class="font-body-md text-body-md text-on-surface hover:text-secondary transition-colors" href="#">Điều khoản</a>
+<a class="font-body-md text-body-md text-on-surface hover:text-secondary transition-colors" href="#">Chính sách bảo mật</a>
+<a class="font-body-md text-body-md text-on-surface hover:text-secondary transition-colors" href="#">Liên hệ</a>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html><html class="dark" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Hỗ trợ &amp; FAQ - CMC Cinema</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&amp;family=Space+Grotesk:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "ultra-dark-navy": "#05070d",
+                    "on-error": "#690005",
+                    "outline": "#968e99",
+                    "on-primary": "#40215e",
+                    "inverse-primary": "#715090",
+                    "primary-container": "#ddb7ff",
+                    "outline-variant": "#4b444f",
+                    "surface-container-low": "#1d1b1f",
+                    "surface-variant": "#373438",
+                    "on-tertiary": "#323200",
+                    "inverse-surface": "#e8e0e7",
+                    "error": "#ffb4ab",
+                    "surface-dim": "#151217",
+                    "on-secondary-fixed": "#001f26",
+                    "tertiary-container": "#cbcb6c",
+                    "on-secondary": "#003640",
+                    "surface-container-lowest": "#100d11",
+                    "secondary-fixed": "#acedff",
+                    "primary-fixed": "#f0dbff",
+                    "neon-pink": "#ffb1c4",
+                    "on-primary-fixed-variant": "#583876",
+                    "surface": "#151217",
+                    "on-primary-container": "#644483",
+                    "tertiary-fixed": "#e8e885",
+                    "on-tertiary-fixed-variant": "#494900",
+                    "on-tertiary-container": "#555500",
+                    "inverse-on-surface": "#332f34",
+                    "on-surface": "#e8e0e7",
+                    "on-secondary-container": "#00424e",
+                    "secondary-fixed-dim": "#4cd7f6",
+                    "on-tertiary-fixed": "#1d1d00",
+                    "secondary": "#4cd7f6",
+                    "background": "#151217",
+                    "on-secondary-fixed-variant": "#004e5c",
+                    "surface-tint": "#ddb7ff",
+                    "primary": "#f0daff",
+                    "tertiary-fixed-dim": "#cbcb6c",
+                    "on-surface-variant": "#cdc3d0",
+                    "primary-fixed-dim": "#ddb7ff",
+                    "surface-container": "#211f23",
+                    "surface-bright": "#3b383d",
+                    "on-error-container": "#ffdad6",
+                    "tertiary": "#e7e785",
+                    "secondary-container": "#03b5d4",
+                    "surface-container-high": "#2c292d",
+                    "glass-surface": "rgba(17, 19, 26, 0.6)",
+                    "error-container": "#93000a",
+                    "surface-container-highest": "#373438",
+                    "on-background": "#e8e0e7",
+                    "on-primary-fixed": "#2a0848"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter-mobile": "16px",
+                    "gutter-desktop": "24px",
+                    "margin-desktop": "64px",
+                    "baseline": "4px",
+                    "margin-mobile": "20px",
+                    "container-max": "1280px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Space Grotesk"],
+                    "headline-lg-mobile": ["Montserrat"],
+                    "body-md": ["Montserrat"],
+                    "headline-lg": ["Montserrat"],
+                    "display-lg": ["Montserrat"],
+                    "title-md": ["Montserrat"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body {
+            background-color: #05070d; /* ultra-dark-navy */
+            color: #e8e0e7; /* on-background */
+        }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .neon-text-primary {
+            text-shadow: 0 0 10px rgba(221,183,255,0.8);
+        }
+
+        .accordion-content {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+
+        .accordion-item.active .accordion-content {
+            max-height: 500px;
+            opacity: 1;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+
+        .accordion-item.active .accordion-icon {
+            transform: rotate(180deg);
+            color: #4cd7f6; /* secondary */
+        }
+        
+        .accordion-button:hover {
+            border-color: #4cd7f6;
+            box-shadow: 0 0 15px rgba(76, 215, 246, 0.3);
+        }
+        
+        .accordion-item.active .accordion-button {
+             border-color: #4cd7f6;
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-body-md text-body-md antialiased relative overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)] bg-glass-surface z-50 flex justify-between items-center px-gutter-desktop h-20 md:flex hidden">
+<div class="font-display-lg text-display-lg font-black text-primary drop-shadow-[0_0_10px_rgba(221,183,255,0.8)]">
+            CMC Cinema
+        </div>
+<div class="flex gap-8 items-center font-title-md text-title-md">
+<a class="text-on-surface-variant hover:text-secondary transition-colors hover:bg-white/5 transition-all duration-300 active:scale-95 duration-150 px-3 py-2 rounded-lg" href="#">Phim</a>
+<a class="text-on-surface-variant hover:text-secondary transition-colors hover:bg-white/5 transition-all duration-300 active:scale-95 duration-150 px-3 py-2 rounded-lg" href="#">Rạp</a>
+<a class="text-on-surface-variant hover:text-secondary transition-colors hover:bg-white/5 transition-all duration-300 active:scale-95 duration-150 px-3 py-2 rounded-lg" href="#">Khuyến mãi</a>
+<a class="text-on-surface-variant hover:text-secondary transition-colors hover:bg-white/5 transition-all duration-300 active:scale-95 duration-150 px-3 py-2 rounded-lg" href="#">Thành viên</a>
+</div>
+<div class="flex items-center gap-6 text-secondary">
+<button class="hover:bg-white/5 transition-all duration-300 active:scale-95 duration-150 p-2 rounded-full">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="hover:bg-white/5 transition-all duration-300 active:scale-95 duration-150 p-2 rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="font-title-md text-title-md text-secondary hover:bg-white/5 transition-all duration-300 active:scale-95 duration-150 px-4 py-2 border border-secondary rounded-lg">
+                Đăng nhập
+            </button>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow pt-32 pb-24 px-gutter-mobile md:px-gutter-desktop max-w-container-max mx-auto w-full relative z-10">
+<!-- Header Section -->
+<div class="text-center mb-16">
+<h1 class="font-display-lg text-display-lg font-black text-primary mb-4 neon-text-primary">Trung Tâm Hỗ Trợ</h1>
+<p class="text-on-surface-variant max-w-2xl mx-auto font-body-md text-body-md">
+                Giải đáp mọi thắc mắc của bạn về dịch vụ tại CMC Cinema. Tìm kiếm nhanh câu trả lời hoặc duyệt qua các danh mục bên dưới.
+            </p>
+<div class="mt-8 max-w-xl mx-auto relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-secondary transition-colors">search</span>
+<input class="w-full bg-black/30 border border-white/10 rounded-full py-4 pl-12 pr-6 text-on-surface placeholder:text-outline focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/50 transition-all shadow-inner font-body-md text-body-md" placeholder="Bạn cần hỗ trợ gì hôm nay?" type="text">
+</div>
+</div>
+<!-- FAQ Categories Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+<button class="glass-panel rounded-xl p-6 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300 focus:outline-none">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-secondary/20 transition-colors">
+<span class="material-symbols-outlined text-primary text-3xl group-hover:text-secondary group-hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)] transition-all">confirmation_number</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-2">Đặt Vé &amp; Thanh Toán</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Quy trình, lỗi giao dịch</p>
+</button>
+<button class="glass-panel rounded-xl p-6 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300 focus:outline-none ring-1 ring-secondary/50 shadow-[0_0_15px_rgba(76,215,246,0.15)] bg-secondary/5">
+<div class="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-secondary text-3xl drop-shadow-[0_0_8px_rgba(76,215,246,0.8)]">star</span>
+</div>
+<h3 class="font-title-md text-title-md text-secondary mb-2">Thành Viên CMC</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Điểm thưởng, ưu đãi</p>
+</button>
+<button class="glass-panel rounded-xl p-6 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300 focus:outline-none">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-secondary/20 transition-colors">
+<span class="material-symbols-outlined text-primary text-3xl group-hover:text-secondary group-hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)] transition-all">local_cafe</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-2">Dịch Vụ Rạp</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Bắp nước, không gian</p>
+</button>
+<button class="glass-panel rounded-xl p-6 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300 focus:outline-none">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-secondary/20 transition-colors">
+<span class="material-symbols-outlined text-primary text-3xl group-hover:text-secondary group-hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)] transition-all">feedback</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-2">Góp Ý &amp; Phản Hồi</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Trải nghiệm khách hàng</p>
+</button>
+</div>
+<!-- FAQ Accordion List -->
+<div class="max-w-3xl mx-auto space-y-4">
+<h2 class="font-headline-lg text-headline-lg text-primary mb-8 border-b border-white/10 pb-4">Câu hỏi thường gặp - Thành Viên</h2>
+<div class="accordion-item glass-panel rounded-xl overflow-hidden">
+<button class="accordion-button w-full flex justify-between items-center p-6 text-left focus:outline-none transition-colors border border-transparent rounded-xl">
+<span class="font-title-md text-title-md text-on-surface">Làm thế nào để thăng hạng thành viên VIP?</span>
+<span class="material-symbols-outlined accordion-icon text-outline transition-transform duration-300">expand_more</span>
+</button>
+<div class="accordion-content px-6 text-on-surface-variant font-body-md text-body-md bg-black/20">
+                    Để thăng hạng lên VIP, bạn cần tích lũy đủ 10.000 điểm chi tiêu trong vòng 1 năm. Điểm sẽ tự động cộng vào tài khoản mỗi khi bạn mua vé hoặc bắp nước trực tuyến/trực tiếp. Khi đạt đủ điểm, hệ thống sẽ tự động nâng cấp và thông báo qua email/ứng dụng.
+                </div>
+</div>
+<div class="accordion-item glass-panel rounded-xl overflow-hidden">
+<button class="accordion-button w-full flex justify-between items-center p-6 text-left focus:outline-none transition-colors border border-transparent rounded-xl">
+<span class="font-title-md text-title-md text-on-surface">Tôi có thể chuyển nhượng điểm thưởng không?</span>
+<span class="material-symbols-outlined accordion-icon text-outline transition-transform duration-300">expand_more</span>
+</button>
+<div class="accordion-content px-6 text-on-surface-variant font-body-md text-body-md bg-black/20">
+                    Hiện tại CMC Cinema chưa hỗ trợ tính năng chuyển nhượng điểm thưởng giữa các tài khoản để đảm bảo tính bảo mật và quyền lợi cá nhân của từng thành viên.
+                </div>
+</div>
+<div class="accordion-item glass-panel rounded-xl overflow-hidden">
+<button class="accordion-button w-full flex justify-between items-center p-6 text-left focus:outline-none transition-colors border border-transparent rounded-xl">
+<span class="font-title-md text-title-md text-on-surface">Quên mật khẩu tài khoản thành viên phải làm sao?</span>
+<span class="material-symbols-outlined accordion-icon text-outline transition-transform duration-300">expand_more</span>
+</button>
+<div class="accordion-content px-6 text-on-surface-variant font-body-md text-body-md bg-black/20">
+                    Tại màn hình đăng nhập, vui lòng chọn "Quên mật khẩu". Nhập email hoặc số điện thoại đã đăng ký, hệ thống sẽ gửi mã OTP/Link khôi phục để bạn thiết lập lại mật khẩu mới.
+                </div>
+</div>
+<div class="accordion-item glass-panel rounded-xl overflow-hidden">
+<button class="accordion-button w-full flex justify-between items-center p-6 text-left focus:outline-none transition-colors border border-transparent rounded-xl">
+<span class="font-title-md text-title-md text-on-surface">Quyền lợi sinh nhật được áp dụng như thế nào?</span>
+<span class="material-symbols-outlined accordion-icon text-outline transition-transform duration-300">expand_more</span>
+</button>
+<div class="accordion-content px-6 text-on-surface-variant font-body-md text-body-md bg-black/20">
+                    Thành viên sẽ nhận được 1 vé xem phim 2D miễn phí và 1 combo bắp nước nhỏ trong tháng sinh nhật. Voucher sẽ tự động xuất hiện trong mục "Ưu đãi của tôi" vào ngày mùng 1 của tháng sinh nhật và có giá trị sử dụng trong 30 ngày.
+                </div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full border-t border-white/5 pt-12 pb-8 bg-ultra-dark-navy mt-20 max-w-container-max mx-auto px-gutter-desktop">
+<div class="flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="font-title-md text-title-md text-primary">
+                CMC Cinema
+            </div>
+<div class="flex gap-6 font-body-md text-body-md">
+<a class="text-outline hover:text-on-surface transition-colors hover:underline opacity-80 hover:opacity-100 transition-opacity" href="#">Terms of Service</a>
+<a class="text-outline hover:text-on-surface transition-colors hover:underline opacity-80 hover:opacity-100 transition-opacity" href="#">Privacy Policy</a>
+<a class="text-outline hover:text-on-surface transition-colors hover:underline opacity-80 hover:opacity-100 transition-opacity" href="#">Contact Support</a>
+<a class="text-outline hover:text-on-surface transition-colors hover:underline opacity-80 hover:opacity-100 transition-opacity" href="#">Careers</a>
+</div>
+<div class="font-body-md text-body-md text-outline opacity-80">
+                © 2024 CMC Cinema. Next-Gen Experience.
+            </div>
+</div>
+</footer>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 px-4 md:hidden bg-glass-surface backdrop-blur-2xl border-t border-white/10 shadow-[0_-5px_20px_rgba(0,0,0,0.8)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant active:bg-white/10 animate-pulse-neon font-label-sm text-label-sm w-full py-2" href="#">
+<span class="material-symbols-outlined mb-1">home</span>
+            Home
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant active:bg-white/10 animate-pulse-neon font-label-sm text-label-sm w-full py-2" href="#">
+<span class="material-symbols-outlined mb-1">movie_filter</span>
+            Movies
+        </a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant active:bg-white/10 animate-pulse-neon font-label-sm text-label-sm w-full py-2" href="#">
+<span class="material-symbols-outlined mb-1">confirmation_number</span>
+            Booking
+        </a>
+<a class="flex flex-col items-center justify-center text-secondary drop-shadow-[0_0_8px_rgba(76,215,246,0.6)] active:bg-white/10 animate-pulse-neon font-label-sm text-label-sm w-full py-2" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">person</span>
+            Profile
+        </a>
+</nav>
+<script>
+        document.querySelectorAll('.accordion-item').forEach(item => {
+            const button = item.querySelector('.accordion-button');
+            button.addEventListener('click', () => {
+                const isActive = item.classList.contains('active');
+                
+                // Close all others
+                document.querySelectorAll('.accordion-item').forEach(otherItem => {
+                    otherItem.classList.remove('active');
+                });
+
+                // Toggle current
+                if (!isActive) {
+                    item.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body></html>

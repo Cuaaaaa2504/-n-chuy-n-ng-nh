@@ -1,0 +1,261 @@
+<!DOCTYPE html><html class="dark" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Đăng nhập - CMC Cinema</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&amp;family=Space+Grotesk:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#ddb7ff",
+                    "on-secondary-container": "#00424e",
+                    "secondary-fixed-dim": "#4cd7f6",
+                    "on-tertiary-container": "#555500",
+                    "inverse-surface": "#e8e0e7",
+                    "on-tertiary-fixed": "#1d1d00",
+                    "surface-tint": "#ddb7ff",
+                    "tertiary-fixed": "#e8e885",
+                    "surface-container-highest": "#373438",
+                    "on-tertiary": "#323200",
+                    "on-background": "#e8e0e7",
+                    "primary-fixed": "#f0dbff",
+                    "error": "#ffb4ab",
+                    "on-error": "#690005",
+                    "inverse-primary": "#715090",
+                    "ultra-dark-navy": "#05070d",
+                    "on-primary-container": "#644483",
+                    "primary-fixed-dim": "#ddb7ff",
+                    "background": "#151217",
+                    "on-secondary": "#003640",
+                    "on-surface": "#e8e0e7",
+                    "on-tertiary-fixed-variant": "#494900",
+                    "on-secondary-fixed-variant": "#004e5c",
+                    "on-primary-fixed-variant": "#583876",
+                    "surface-container-lowest": "#100d11",
+                    "outline-variant": "#4b444f",
+                    "secondary-fixed": "#acedff",
+                    "surface-dim": "#151217",
+                    "tertiary-fixed-dim": "#cbcb6c",
+                    "on-secondary-fixed": "#001f26",
+                    "on-surface-variant": "#cdc3d0",
+                    "surface-container-high": "#2c292d",
+                    "on-primary": "#40215e",
+                    "surface": "#151217",
+                    "tertiary": "#e7e785",
+                    "surface-container": "#211f23",
+                    "glass-surface": "rgba(17, 19, 26, 0.6)",
+                    "neon-pink": "#ffb1c4",
+                    "surface-variant": "#373438",
+                    "outline": "#968e99",
+                    "on-error-container": "#ffdad6",
+                    "on-primary-fixed": "#2a0848",
+                    "tertiary-container": "#cbcb6c",
+                    "secondary-container": "#03b5d4",
+                    "secondary": "#4cd7f6",
+                    "surface-container-low": "#1d1b1f",
+                    "error-container": "#93000a",
+                    "inverse-on-surface": "#332f34",
+                    "surface-bright": "#3b383d",
+                    "primary": "#f0daff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "64px",
+                    "container-max": "1280px",
+                    "margin-mobile": "20px",
+                    "gutter-desktop": "24px",
+                    "gutter-mobile": "16px",
+                    "baseline": "4px"
+            },
+            "fontFamily": {
+                    "label-sm": [
+                            "Space Grotesk"
+                    ],
+                    "headline-lg": [
+                            "Montserrat"
+                    ],
+                    "body-md": [
+                            "Montserrat"
+                    ],
+                    "display-lg": [
+                            "Montserrat"
+                    ],
+                    "title-md": [
+                            "Montserrat"
+                    ],
+                    "headline-lg-mobile": [
+                            "Montserrat"
+                    ]
+            },
+            "fontSize": {
+                    "label-sm": [
+                            "12px",
+                            {
+                                    "lineHeight": "16px",
+                                    "letterSpacing": "0.05em",
+                                    "fontWeight": "500"
+                            }
+                    ],
+                    "headline-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "40px",
+                                    "letterSpacing": "-0.01em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "body-md": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "display-lg": [
+                            "48px",
+                            {
+                                    "lineHeight": "56px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "800"
+                            }
+                    ],
+                    "title-md": [
+                            "20px",
+                            {
+                                    "lineHeight": "28px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg-mobile": [
+                            "28px",
+                            {
+                                    "lineHeight": "36px",
+                                    "fontWeight": "700"
+                            }
+                    ]
+            }
+    },
+        },
+      }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .input-glow:focus {
+            box-shadow: 0 0 15px rgba(76, 215, 246, 0.5);
+            border-color: #4cd7f6;
+            outline: none;
+        }
+
+        .btn-primary-glow {
+            background: linear-gradient(90deg, #715090 0%, #ffb1c4 100%);
+            box-shadow: 0 0 15px rgba(255, 177, 196, 0.5);
+            transition: all 0.3s ease;
+        }
+        .btn-primary-glow:hover {
+            box-shadow: 0 0 25px rgba(255, 177, 196, 0.8);
+            transform: scale(1.02);
+        }
+
+        .btn-ghost-cyan {
+            border: 1px solid #4cd7f6;
+            color: #4cd7f6;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-ghost-cyan:hover {
+            background: rgba(76, 215, 246, 0.1);
+            box-shadow: 0 0 15px rgba(76, 215, 246, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-ultra-dark-navy text-on-surface min-h-screen flex items-center justify-center relative overflow-hidden font-body-md text-body-md">
+<!-- Decorative background elements -->
+<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary rounded-full mix-blend-screen filter blur-[100px] opacity-20"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary rounded-full mix-blend-screen filter blur-[100px] opacity-20"></div>
+<div class="w-full max-w-container-max px-margin-mobile md:px-margin-desktop grid grid-cols-1 lg:grid-cols-2 gap-8 items-center z-10">
+<!-- Left: Branding / Visual (Hidden on smaller screens) -->
+<div class="hidden lg:flex flex-col items-start justify-center p-12">
+<h1 class="font-display-lg text-display-lg font-extrabold text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.8)] mb-6">
+                CMC Cinema
+            </h1>
+<p class="font-headline-lg text-headline-lg text-secondary mb-8">
+                Trải nghiệm tương lai của điện ảnh.
+            </p>
+<div class="w-full h-64 rounded-xl overflow-hidden relative glass-panel">
+<div class="bg-cover bg-center w-full h-full absolute inset-0 opacity-80 mix-blend-luminosity hover:mix-blend-normal transition-all duration-700" data-alt="A highly cinematic, retro-futuristic cyberpunk cityscape scene. Dark, moody atmosphere with vibrant neon pink and cyan lights reflecting off wet, dark surfaces. High-tech, glowing elements intermixed with urban grit. In the style of a high-end digital painting or 3D render, perfectly matching the UI's ultra-dark navy background and vivid neon accents." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDOAK8tv1ZF1a_bRyNBD6c79kXa72ivgivCRkxhKfVa8tbc5lv8NdGP8nVr0JlIpp87ok8rNpCvva_X8jHJFgdXj72qOYWBAqcP7aQWRmTAo4pPf0rk_iKs8YlBWnJs4dwg5AKpsCJHQsR1u0Ei2LslhNIN0LjrDqjX-ternhrPEL7jSqpDkKQ_5Baj8V7uIkTmFk15aOPAbgmvGLlUFoyfx3rmTG5Ch-v7vwVEW0msBi8sigxfosmhiPPdTfZTJrTSwq9E1Av1nP4')"></div>
+</div>
+</div>
+<!-- Right: Login Card -->
+<div class="glass-panel p-8 md:p-12 rounded-xl w-full max-w-md mx-auto relative shadow-[0_0_20px_rgba(3,181,212,0.15)]">
+<div class="absolute inset-0 bg-primary opacity-5 blur-[50px] -z-10 rounded-xl"></div>
+<div class="text-center mb-8 lg:hidden">
+<h1 class="font-display-lg text-display-lg font-extrabold text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.8)]">
+                    CMC Cinema
+                </h1>
+</div>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-2">
+                Đăng nhập
+            </h2>
+<p class="text-on-surface-variant font-body-md text-body-md mb-8">
+                Chào mừng trở lại trạm điều khiển.
+            </p>
+<form class="space-y-6">
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase" for="email">Email</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline" style="font-variation-settings: 'FILL' 0;">mail</span>
+<input class="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-on-surface placeholder-outline-variant input-glow transition-all duration-200" id="email" placeholder="pilot@cmc.com" type="email">
+</div>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase" for="password">Mật khẩu</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline" style="font-variation-settings: 'FILL' 0;">lock</span>
+<input class="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-on-surface placeholder-outline-variant input-glow transition-all duration-200" id="password" placeholder="••••••••" type="password">
+</div>
+<div class="flex justify-end mt-2">
+<a class="font-label-sm text-label-sm text-secondary hover:text-primary transition-colors" href="#">Quên mật khẩu?</a>
+</div>
+</div>
+<button class="w-full btn-primary-glow text-white font-title-md text-title-md py-3 rounded-lg flex items-center justify-center gap-2" type="button">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">login</span>
+                    Vào Hệ Thống
+                </button>
+</form>
+<div class="my-8 flex items-center gap-4">
+<div class="flex-1 h-px bg-white/10"></div>
+<span class="font-label-sm text-label-sm text-outline-variant uppercase">Hoặc kết nối với</span>
+<div class="flex-1 h-px bg-white/10"></div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<button class="btn-ghost-cyan py-3 rounded-lg flex items-center justify-center gap-2 font-label-sm text-label-sm" type="button">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">public</span>
+                    Google
+                </button>
+<button class="btn-ghost-cyan py-3 rounded-lg flex items-center justify-center gap-2 font-label-sm text-label-sm" type="button">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">qr_code_2</span>
+                    Facebook
+                </button>
+</div>
+<p class="text-center mt-8 font-body-md text-body-md text-on-surface-variant">
+                Chưa có quyền truy cập? <a class="text-secondary hover:text-primary transition-colors font-bold border-b border-secondary/50 pb-0.5 hover:border-primary" href="#">Đăng ký ngay</a>
+</p>
+</div>
+</div>
+</body></html>

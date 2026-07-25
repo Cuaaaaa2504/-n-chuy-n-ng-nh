@@ -1,0 +1,353 @@
+<!DOCTYPE html><html class="dark" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Chọn Combo - CMC Cinema</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#ddb7ff",
+                        "on-secondary-container": "#00424e",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-tertiary-container": "#555500",
+                        "inverse-surface": "#e8e0e7",
+                        "on-tertiary-fixed": "#1d1d00",
+                        "surface-tint": "#ddb7ff",
+                        "tertiary-fixed": "#e8e885",
+                        "surface-container-highest": "#373438",
+                        "on-tertiary": "#323200",
+                        "on-background": "#e8e0e7",
+                        "primary-fixed": "#f0dbff",
+                        "error": "#ffb4ab",
+                        "on-error": "#690005",
+                        "inverse-primary": "#715090",
+                        "ultra-dark-navy": "#05070d",
+                        "on-primary-container": "#644483",
+                        "primary-fixed-dim": "#ddb7ff",
+                        "background": "#151217",
+                        "on-secondary": "#003640",
+                        "on-surface": "#e8e0e7",
+                        "on-tertiary-fixed-variant": "#494900",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-primary-fixed-variant": "#583876",
+                        "surface-container-lowest": "#100d11",
+                        "outline-variant": "#4b444f",
+                        "secondary-fixed": "#acedff",
+                        "surface-dim": "#151217",
+                        "tertiary-fixed-dim": "#cbcb6c",
+                        "on-secondary-fixed": "#001f26",
+                        "on-surface-variant": "#cdc3d0",
+                        "surface-container-high": "#2c292d",
+                        "on-primary": "#40215e",
+                        "surface": "#151217",
+                        "tertiary": "#e7e785",
+                        "surface-container": "#211f23",
+                        "glass-surface": "rgba(17, 19, 26, 0.6)",
+                        "neon-pink": "#ffb1c4",
+                        "surface-variant": "#373438",
+                        "outline": "#968e99",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed": "#2a0848",
+                        "tertiary-container": "#cbcb6c",
+                        "secondary-container": "#03b5d4",
+                        "secondary": "#4cd7f6",
+                        "surface-container-low": "#1d1b1f",
+                        "error-container": "#93000a",
+                        "inverse-on-surface": "#332f34",
+                        "surface-bright": "#3b383d",
+                        "primary": "#f0daff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "64px",
+                        "container-max": "1280px",
+                        "margin-mobile": "20px",
+                        "gutter-desktop": "24px",
+                        "gutter-mobile": "16px",
+                        "baseline": "4px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Space Grotesk"],
+                        "headline-lg": ["Montserrat"],
+                        "body-md": ["Montserrat"],
+                        "display-lg": ["Montserrat"],
+                        "title-md": ["Montserrat"],
+                        "headline-lg-mobile": ["Montserrat"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #05070d; /* ultra-dark-navy */
+            color: #e8e0e7; /* on-surface */
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(221, 183, 255, 0.05), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(76, 215, 246, 0.05), transparent 25%);
+        }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .neon-border-hover:hover {
+            border-color: #4cd7f6;
+            box-shadow: 0 0 15px rgba(76, 215, 246, 0.3);
+        }
+
+        .neon-button-primary {
+            background: linear-gradient(135deg, #715090, #ffb1c4);
+            box-shadow: 0 0 15px rgba(255, 177, 196, 0.4);
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .neon-button-primary:hover {
+            box-shadow: 0 0 25px rgba(255, 177, 196, 0.6);
+            transform: scale(1.02);
+        }
+
+        .quantity-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.2s;
+        }
+        
+        .quantity-btn:hover {
+            border-color: #4cd7f6;
+            color: #4cd7f6;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(76, 215, 246, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(76, 215, 246, 0.6);
+        }
+    </style>
+</head>
+<body class="font-body-md antialiased min-h-screen flex flex-col">
+<!-- TopNavBar (Shared Component) -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-margin-desktop h-20 bg-glass-surface backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(3,181,212,0.15)] hidden md:flex">
+<div class="flex items-center gap-8">
+<div class="font-display-lg text-display-lg font-extrabold text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.8)] cursor-pointer">
+                CMC Cinema
+            </div>
+<div class="flex gap-6">
+<a class="font-title-md text-title-md text-on-surface-variant hover:text-primary transition-all duration-300 hover:scale-105 active:scale-95" href="#">Trang chủ</a>
+<a class="font-title-md text-title-md text-on-surface-variant hover:text-primary transition-all duration-300 hover:scale-105 active:scale-95" href="#">Phim</a>
+<a class="font-title-md text-title-md text-on-surface-variant hover:text-primary transition-all duration-300 hover:scale-105 active:scale-95" href="#">Lịch chiếu</a>
+<a class="font-title-md text-title-md text-secondary border-b-2 border-secondary pb-1 drop-shadow-[0_0_8px_rgba(76,215,246,0.6)] hover:text-primary transition-all duration-300 hover:scale-105 active:scale-95" href="#">Combo</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary hover:text-primary cursor-pointer text-[28px] transition-all duration-300 hover:scale-105 active:scale-95">contrast</span>
+<span class="material-symbols-outlined text-secondary hover:text-primary cursor-pointer text-[28px] transition-all duration-300 hover:scale-105 active:scale-95">account_circle</span>
+</div>
+</nav>
+<!-- Mobile Top Bar Fallback -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-margin-mobile h-16 bg-glass-surface backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(3,181,212,0.15)] md:hidden">
+<div class="font-headline-lg-mobile text-headline-lg-mobile font-extrabold text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.8)]">
+            CMC Cinema
+        </div>
+<span class="material-symbols-outlined text-secondary">menu</span>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow pt-24 md:pt-32 pb-24 px-margin-mobile md:px-margin-desktop max-w-[1280px] mx-auto w-full flex flex-col lg:flex-row gap-8">
+<!-- Left Column: Combos -->
+<div class="flex-grow flex flex-col gap-8">
+<!-- Progress Bar -->
+<div class="glass-panel rounded-xl p-4 flex items-center justify-between">
+<div class="flex flex-col items-center flex-1">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-title-md text-title-md mb-2">1</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Chọn Ghế</span>
+</div>
+<div class="h-[2px] bg-white/10 flex-grow mx-4"></div>
+<div class="flex flex-col items-center flex-1">
+<div class="w-8 h-8 rounded-full bg-secondary/20 text-secondary border border-secondary shadow-[0_0_10px_rgba(76,215,246,0.5)] flex items-center justify-center font-title-md text-title-md mb-2">2</div>
+<span class="font-label-sm text-label-sm text-secondary">Chọn Combo</span>
+</div>
+<div class="h-[2px] bg-white/10 flex-grow mx-4"></div>
+<div class="flex flex-col items-center flex-1">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-title-md text-title-md mb-2">3</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Thanh Toán</span>
+</div>
+</div>
+<div>
+<h1 class="font-headline-lg text-headline-lg md:font-display-lg md:text-display-lg text-primary mb-2">Đồ Ăn &amp; Thức Uống</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mb-8">Nâng tầm trải nghiệm điện ảnh của bạn với các combo hấp dẫn.</p>
+<!-- Combo Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Combo Card 1 -->
+<div class="glass-panel rounded-xl p-6 flex flex-col neon-border-hover transition-all duration-300">
+<div class="w-full h-48 rounded-lg mb-4 overflow-hidden relative">
+<img class="w-full h-full object-cover" data-alt="A highly detailed cinematic 3D render of a futuristic cinema combo set featuring a glowing neon-edged popcorn bucket filled with perfectly popped golden popcorn and two sleek, metallic soda cups with glowing cyan straws. The setting is a dark, glassmorphic table surface reflecting the ambient cyber-neon pink and cyan lighting. Cyberpunk aesthetic, high quality, 8k." src="https://lh3.googleusercontent.com/aida-public/AB6AXuALGmO4OeaGjvpIoCcypMcZBJlqI6MPPb73BVbRIcziOzFsM7M1oULT7zA3vP2WnGq62iG8hy2DeOB4h3JQS7VvpKmG8Lk2xl8IRMWw0hD6MSEGXcCjPQtx3RxwW_WD4GAzI_n-4WATmh7TJZCnmqrH2kEhsw4vw5Wq38Td6cv2EvK3d6o-FwGzyjmAaxPaZjh52AGmMYCaisoZnihu3bvtEqh_0KcG-GJB_zmxqHWcvNL4hcLQFxC1bRy_4_iYaNsgklGn2ZQ1N1g">
+<div class="absolute top-2 right-2 bg-secondary text-on-secondary px-2 py-1 rounded font-label-sm text-label-sm font-bold shadow-[0_0_8px_rgba(76,215,246,0.8)]">
+                                BÁN CHẠY
+                            </div>
+</div>
+<h3 class="font-title-md text-title-md text-secondary mb-2">Couple Combo</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4 flex-grow">1 Bắp lớn (Vị tự chọn) + 2 Nước ngọt siêu lớn.</p>
+<div class="flex justify-between items-center mb-4">
+<span class="font-title-md text-title-md text-primary">125,000 ₫</span>
+</div>
+<div class="flex items-center justify-between bg-surface-container/50 rounded-lg p-2 border border-white/5">
+<button aria-label="Decrease quantity" class="quantity-btn w-8 h-8 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<span class="font-title-md text-title-md w-8 text-center">0</span>
+<button aria-label="Increase quantity" class="quantity-btn w-8 h-8 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</div>
+<!-- Combo Card 2 -->
+<div class="glass-panel rounded-xl p-6 flex flex-col neon-border-hover transition-all duration-300 border-secondary/50 shadow-[0_0_15px_rgba(76,215,246,0.15)] relative">
+<!-- Active Glow Background -->
+<div class="absolute inset-0 bg-secondary/5 rounded-xl pointer-events-none"></div>
+<div class="w-full h-48 rounded-lg mb-4 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A highly detailed cinematic 3D render of a single futuristic cinema combo set featuring a glowing neon-edged popcorn bucket filled with perfectly popped caramel popcorn and one sleek, metallic soda cup with a glowing pink straw. The setting is a dark, glassmorphic table surface reflecting the ambient cyber-neon lighting. Cyberpunk aesthetic, high quality, 8k." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGP60KCbwTMdTyxth88C0CxQObpm0aX0kpr7JPCf-zKaJJgqcEixG3qB1C1unt0qOwpgobS6COk0ZwgcjAzrBPLQC9N3VcCnKvPVSExAxBVV0TsFx2dQpWVopqmiiq330oXEd5rCQzohQsp2IsTHLh7WKG5pIp-Gn3xl2QfqDXiVCOt9CHCy-sxz9F1gP2Ougr8Z9QDyRaz7dSO3urHGKaINTfa-MRYTt9ffwmbj-D4AiO6Op4EAJdzctMOwskBfF8-iyzz6dNtbw">
+</div>
+<h3 class="font-title-md text-title-md text-secondary mb-2">Solo Combo</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4 flex-grow">1 Bắp vừa + 1 Nước ngọt lớn. Lựa chọn hoàn hảo cho người đi một mình.</p>
+<div class="flex justify-between items-center mb-4">
+<span class="font-title-md text-title-md text-primary">75,000 ₫</span>
+</div>
+<div class="flex items-center justify-between bg-secondary/10 rounded-lg p-2 border border-secondary/30">
+<button aria-label="Decrease quantity" class="quantity-btn w-8 h-8 rounded flex items-center justify-center text-secondary border-secondary/50">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<span class="font-title-md text-title-md w-8 text-center text-secondary">1</span>
+<button aria-label="Increase quantity" class="quantity-btn w-8 h-8 rounded flex items-center justify-center text-secondary border-secondary/50">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</div>
+<!-- Combo Card 3 -->
+<div class="glass-panel rounded-xl p-6 flex flex-col neon-border-hover transition-all duration-300">
+<div class="w-full h-48 rounded-lg mb-4 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A highly detailed cinematic 3D render of a large futuristic cinema combo set featuring two massive glowing neon-edged popcorn buckets (one cheese, one caramel) and three sleek, metallic soda cups with glowing neon straws. The setting is a dark, glassmorphic table surface reflecting the ambient cyber-neon lighting. Family size. Cyberpunk aesthetic, high quality, 8k." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDEZhcABCrQjk3se08-ZWSYOxVMVEk5KtMchQLn5EcZjUdXdVsVZ5PWELBHwAqXdl-kg55eYOzNw8XBkAg5Ff8rUY0tOb3cYLu_aaS3OHe_b2aWHxy9GD7jG6494TUcCXblQ6DvD18Z4aeQYYGeWI4Tp-jOfsN2Hng560u7kyvsr94RWht-WSwIxW3wwG4RPy2gJ1dbUo3aiSEwTyBsIocz0rPCctcNZj-I0fBCDPqci17aOsMFNhrDxtSlS0Hi_exivBeb5t0H6zE">
+</div>
+<h3 class="font-title-md text-title-md text-secondary mb-2">Family Combo</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4 flex-grow">2 Bắp lớn (Mix 2 vị) + 3 Nước ngọt siêu lớn + 1 Snack.</p>
+<div class="flex justify-between items-center mb-4">
+<span class="font-title-md text-title-md text-primary">210,000 ₫</span>
+</div>
+<div class="flex items-center justify-between bg-surface-container/50 rounded-lg p-2 border border-white/5">
+<button aria-label="Decrease quantity" class="quantity-btn w-8 h-8 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<span class="font-title-md text-title-md w-8 text-center">0</span>
+<button aria-label="Increase quantity" class="quantity-btn w-8 h-8 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Order Summary Sidebar -->
+<aside class="w-full lg:w-96 flex-shrink-0">
+<div class="glass-panel rounded-xl p-6 sticky top-28 flex flex-col gap-6">
+<h2 class="font-title-md text-title-md text-primary border-b border-white/10 pb-4">Tóm Tắt Đơn Hàng</h2>
+<!-- Movie Info -->
+<div class="flex gap-4 items-start">
+<div class="w-16 h-24 rounded overflow-hidden flex-shrink-0 border border-white/10">
+<img class="w-full h-full object-cover" data-alt="A futuristic sci-fi movie poster featuring a neon-lit cyberpunk city skyline, dark tones with glowing neon blue and pink highlights. The title 'NEON DREAMS' is prominent in bold cyber font. A lone figure stands on a glowing platform. Cinematic, high contrast, 8k resolution." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDq5WHVCJIvOr2oFrWFMPeH8BtKProFdlrQW0w8X9KDVH3zA4Pw_NAc7_9Vh-P8wy5tuqVVkWnRs6wgbEL6dl4a75DDn1Vsv8IOWbpW3yg5XdP39AFCRfImFgw8qT6Yu4nkjXsVF5RA9QnOiYM3vUV7hl32UAN_kNTdJTrxPQGa2mY89b5AQzC_s4wblIDYCImVkf-nT1obPKxvadrqzsnRlUGTGBh0lgeeBfTUS732kxSo9trDy7mn7dId5UXXoMgD-fVChr44DKI">
+</div>
+<div>
+<h3 class="font-title-md text-title-md text-secondary leading-tight mb-1">NEON DREAMS: THE AWAKENING</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">CMC Cinema - Cyber Room 1</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Hôm nay, 20:30</p>
+</div>
+</div>
+<div class="h-[1px] bg-white/10 w-full"></div>
+<!-- Seats Selected -->
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="font-body-md text-body-md text-on-surface">Ghế đã chọn:</span>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-secondary/20 text-secondary border border-secondary/50 rounded text-sm">G8</span>
+<span class="px-2 py-1 bg-secondary/20 text-secondary border border-secondary/50 rounded text-sm">G9</span>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant">2 x Ghế VIP</span>
+<span class="font-body-md text-body-md text-primary">240,000 ₫</span>
+</div>
+</div>
+<div class="h-[1px] bg-white/10 w-full"></div>
+<!-- Combos Selected -->
+<div>
+<div class="flex justify-between items-center mb-2">
+<span class="font-body-md text-body-md text-on-surface">Combo đã chọn:</span>
+</div>
+<div class="flex justify-between items-start">
+<div>
+<span class="font-body-md text-body-md text-on-surface">1 x Solo Combo</span>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Bắp phô mai, Pepsi</p>
+</div>
+<span class="font-body-md text-body-md text-primary">75,000 ₫</span>
+</div>
+</div>
+<div class="h-[1px] bg-white/10 w-full mt-auto pt-4"></div>
+<!-- Total -->
+<div class="flex justify-between items-end">
+<span class="font-title-md text-title-md text-on-surface">Tổng cộng:</span>
+<span class="font-headline-lg text-headline-lg text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.5)]">315,000 ₫</span>
+</div>
+<button class="w-full py-4 rounded-lg neon-button-primary font-title-md text-title-md flex items-center justify-center gap-2 mt-2">
+                    Tiếp Tục Thanh Toán
+                    <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</aside>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="w-full py-12 px-margin-desktop flex flex-col md:flex-row justify-between items-start gap-8 bg-ultra-dark-navy border-t border-white/10 flat no shadows mt-auto">
+<div class="flex flex-col gap-4">
+<div class="font-headline-lg text-headline-lg text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.3)]">
+                CMC Cinema
+            </div>
+<p class="font-body-md text-body-md text-on-surface-variant">© 2024 CMC Cinema. All rights reserved. Future of Cinema.</p>
+</div>
+<div class="flex flex-col md:flex-row gap-6 md:gap-12">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Về chúng tôi</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Điều khoản</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Chính sách bảo mật</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Liên hệ</a>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html><html class="dark" lang="vi"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Chi tiết phim - CMC Cinema</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&amp;family=Space+Grotesk:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "error": "#ffb4ab",
+                      "surface-container": "#211f23",
+                      "surface-container-high": "#2c292d",
+                      "background": "#151217",
+                      "surface-container-lowest": "#100d11",
+                      "on-tertiary": "#323200",
+                      "tertiary-fixed-dim": "#cbcb6c",
+                      "glass-surface": "rgba(17, 19, 26, 0.6)",
+                      "surface": "#151217",
+                      "surface-tint": "#ddb7ff",
+                      "tertiary-fixed": "#e8e885",
+                      "inverse-primary": "#715090",
+                      "on-surface-variant": "#cdc3d0",
+                      "on-tertiary-fixed-variant": "#494900",
+                      "on-secondary-container": "#00424e",
+                      "ultra-dark-navy": "#05070d",
+                      "on-secondary-fixed-variant": "#004e5c",
+                      "surface-container-low": "#1d1b1f",
+                      "secondary": "#4cd7f6",
+                      "outline": "#968e99",
+                      "error-container": "#93000a",
+                      "primary-fixed": "#f0dbff",
+                      "primary": "#f0daff",
+                      "inverse-surface": "#e8e0e7",
+                      "tertiary": "#e7e785",
+                      "inverse-on-surface": "#332f34",
+                      "secondary-container": "#03b5d4",
+                      "on-secondary": "#003640",
+                      "on-primary-fixed-variant": "#583876",
+                      "on-tertiary-fixed": "#1d1d00",
+                      "primary-fixed-dim": "#ddb7ff",
+                      "surface-dim": "#151217",
+                      "tertiary-container": "#cbcb6c",
+                      "outline-variant": "#4b444f",
+                      "on-tertiary-container": "#555500",
+                      "on-secondary-fixed": "#001f26",
+                      "neon-pink": "#ffb1c4",
+                      "surface-variant": "#373438",
+                      "secondary-fixed-dim": "#4cd7f6",
+                      "surface-container-highest": "#373438",
+                      "on-primary-fixed": "#2a0848",
+                      "on-primary": "#40215e",
+                      "on-error": "#690005",
+                      "on-primary-container": "#644483",
+                      "on-background": "#e8e0e7",
+                      "secondary-fixed": "#acedff",
+                      "primary-container": "#ddb7ff",
+                      "on-surface": "#e8e0e7",
+                      "surface-bright": "#3b383d",
+                      "on-error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-max": "1280px",
+                      "margin-mobile": "20px",
+                      "margin-desktop": "64px",
+                      "gutter-desktop": "24px",
+                      "baseline": "4px",
+                      "gutter-mobile": "16px"
+              },
+              "fontFamily": {
+                      "title-md": [
+                              "Montserrat"
+                      ],
+                      "body-md": [
+                              "Montserrat"
+                      ],
+                      "label-sm": [
+                              "Space Grotesk"
+                      ],
+                      "headline-lg-mobile": [
+                              "Montserrat"
+                      ],
+                      "headline-lg": [
+                              "Montserrat"
+                      ],
+                      "display-lg": [
+                              "Montserrat"
+                      ]
+              },
+              "fontSize": {
+                      "title-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "800"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .glow-button {
+            background: linear-gradient(90deg, #715090, #ffb1c4);
+            box-shadow: 0 0 15px rgba(255, 177, 196, 0.5);
+            transition: all 0.3s ease;
+        }
+        .glow-button:hover {
+            box-shadow: 0 0 25px rgba(255, 177, 196, 0.8);
+            transform: scale(1.05);
+        }
+        .neon-border {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .neon-border:hover {
+            border-color: #4cd7f6;
+            box-shadow: 0 0 10px rgba(76, 215, 246, 0.5);
+        }
+        .chip {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-ultra-dark-navy text-on-surface font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 flex justify-between items-center px-margin-desktop h-20 bg-glass-surface font-title-md text-title-md backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(3,181,212,0.15)]">
+<div class="font-display-lg text-display-lg font-extrabold text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.8)] hover:scale-105 active:scale-95 transition-all duration-300">
+            CMC Cinema
+        </div>
+<div class="hidden md:flex gap-8">
+<a class="text-on-surface-variant hover:text-primary transition-all duration-300" href="#">Trang chủ</a>
+<a class="text-secondary border-b-2 border-secondary pb-1 drop-shadow-[0_0_8px_rgba(76,215,246,0.6)] hover:text-primary transition-all duration-300" href="#">Phim</a>
+<a class="text-on-surface-variant hover:text-primary transition-all duration-300" href="#">Lịch chiếu</a>
+<a class="text-on-surface-variant hover:text-primary transition-all duration-300" href="#">Combo</a>
+</div>
+<div class="flex gap-4 text-secondary">
+<span class="material-symbols-outlined hover:text-primary transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95" data-icon="contrast">contrast</span>
+<span class="material-symbols-outlined hover:text-primary transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95" data-icon="account_circle">account_circle</span>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow pt-20">
+<!-- Backdrop Banner -->
+<div class="relative w-full h-[614px] md:h-[716px] overflow-hidden">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="A highly detailed cinematic shot of a futuristic cyberpunk city skyline at night, with towering skyscrapers glowing with neon pink and cyan lights. Flying vehicles streak across the sky leaving light trails. The scene is illuminated by dramatic high-contrast lighting, casting deep shadows and vibrant highlights. The mood is epic, technologically advanced, and immersive." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDnjaHMzkeKNK8wuTT-ELyWegS8pIOEUWUAX-MFCN6O_bi11KGhCIFmXVu-GdCo3HmgwqvNW_8XDUYzLggh1XIpdCl8HDhsobatQZW67eZW7J7TpJ0UYTNfYmvsnfR8fsf1BDhCLByoZKfOr1o_vGVFs6tYBKsXl9Voa7Qv_-akn9kO8FMKZ_XefMhVP_JuI2rJTJZitNmT9pd6pGglCUn1qoykcuVnWDAk3CoRaqOXc-QLBJZxw0DmuYMM8VhVxTDvvLG88UNTI_4')"></div>
+<div class="absolute inset-0 bg-ultra-dark-navy/80 backdrop-blur-[10px]"></div>
+<div class="absolute inset-0 flex flex-col md:flex-row items-end md:items-center px-margin-mobile md:px-margin-desktop pb-8 md:pb-0 gap-8">
+<!-- Poster -->
+<div class="w-48 md:w-72 flex-shrink-0 neon-border rounded-lg overflow-hidden hidden md:block">
+<img class="w-full h-auto object-cover" data-alt="A futuristic movie poster featuring a lone cyberpunk warrior standing on a neon-lit rooftop overlooking a sprawling megacity. The warrior wears high-tech armor with glowing cyan accents. The background features towering skyscrapers and flying cars. The overall color palette is dominated by deep blues, vibrant pinks, and bright cyans. High contrast, cinematic lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-Zqvho6gvaIUWpkRsml720e-T8n5sZVaaNPfddGB0OuqJDPnMy8Uw1nfgS4t57qFnVMaP970c7WrhvHPOYPcsdNlWQj4vyBCo_ATVGH5uk7yEFN4Z-QxTROFt_p-wbxlbfpe6dIwvmxVaZXr1Kreqdc-Vc3EGA8PVVljX5IctkRYWNmF8M6lppR0-hY58dw36ardKk5G-HeuprNiuu0IORXkhJb-7C1KroJV4K0-eliZgn919ttsdQk6cvVKO6biNyazEgOuNcLA">
+</div>
+<!-- Info -->
+<div class="flex flex-col gap-4 z-10 w-full">
+<h1 class="font-display-lg text-display-lg text-primary drop-shadow-[0_0_15px_rgba(240,218,255,0.6)]">Blade Runner: 2099</h1>
+<div class="flex gap-4 flex-wrap">
+<span class="chip px-4 py-1 rounded-full font-label-sm text-label-sm text-secondary">Hành động</span>
+<span class="chip px-4 py-1 rounded-full font-label-sm text-label-sm text-secondary">Viễn tưởng</span>
+<span class="chip px-4 py-1 rounded-full font-label-sm text-label-sm text-outline">145 Phút</span>
+</div>
+<div class="flex gap-6 items-center mt-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-title-md text-title-md text-secondary">8.9/10</span>
+<span class="text-outline text-sm">(IMDb)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error" data-icon="local_fire_department" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+<span class="font-title-md text-title-md text-error">92%</span>
+<span class="text-outline text-sm">(RT)</span>
+</div>
+</div>
+<p class="text-on-surface-variant font-body-md text-body-md max-w-3xl mt-4 line-clamp-3 md:line-clamp-none">
+                        Trong một tương lai loạn lạc, một thợ săn tiền thưởng trẻ tuổi phát hiện ra một bí mật bị chôn vùi từ lâu có khả năng đẩy phần còn lại của xã hội vào hỗn loạn. Khám phá của cô dẫn cô vào một cuộc truy tìm...
+                    </p>
+<div class="mt-6">
+<button class="glow-button px-8 py-4 rounded-full font-title-md text-title-md text-white flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span>
+                            Đặt vé ngay
+                        </button>
+</div>
+</div>
+</div>
+</div>
+<div class="px-margin-mobile md:px-margin-desktop py-12 grid grid-cols-1 md:grid-cols-3 gap-12 max-w-container-max mx-auto">
+<!-- Left Column: Details & Trailer -->
+<div class="md:col-span-2 flex flex-col gap-12">
+<!-- Trailer -->
+<section>
+<h2 class="font-headline-lg text-headline-lg text-secondary mb-6 border-l-4 border-secondary pl-4">Trailer</h2>
+<div class="aspect-video bg-surface-container rounded-lg overflow-hidden relative group neon-border">
+<div class="absolute inset-0 bg-cover bg-center opacity-70 group-hover:opacity-100 transition-opacity duration-300" data-alt="A dynamic action scene from a futuristic cyberpunk movie, showing a high-speed chase on flying motorcycles through a neon-lit city street. Sparks are flying, and the lighting is dramatic with intense pink and cyan hues. The scene captures a moment of high tension and speed." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBszGcYl05b0i5E87fpciwNPMO47YJblO_RkKPIZLWhjJHLnlyxCOxqyJb17ag0PNhN7gryULdhIc0NliwT9l7S0AnOhnmbDyxW43aKMm3KKI_VG0XBRMfPVD2nRaa97C54tSLIW1huZQ83NvHN0gUy9c21it5MTmTlvaRD76xwrfdRD183yvzS9E_nbGIGMGkaRjGTCLk8zimoXUWba06EdkTzhk4-lpPuPM5jSmCwyE7T1rlBGrx1WBjar1uRYytkIpd5eHTSVVY')"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-16 h-16 rounded-full bg-secondary/20 backdrop-blur-md flex items-center justify-center border border-secondary group-hover:scale-110 transition-transform cursor-pointer shadow-[0_0_15px_rgba(76,215,246,0.5)]">
+<span class="material-symbols-outlined text-secondary text-4xl" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Cast & Crew -->
+<section>
+<h2 class="font-headline-lg text-headline-lg text-secondary mb-6 border-l-4 border-secondary pl-4">Đạo diễn &amp; Diễn viên</h2>
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+<div class="flex flex-col items-center gap-2">
+<div class="w-24 h-24 rounded-full overflow-hidden neon-border">
+<img class="w-full h-full object-cover" data-alt="A portrait of a futuristic movie director, looking thoughtfully off-camera. They are in a high-tech studio environment with soft blue and purple lighting. The portrait is cinematic, with shallow depth of field focusing on their expressive face." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvVO4HjPGTVQcA2hiBbXJ9goisydhw1XmxDoOJncB-_9We0dv-96h7aH6qAYSXrecADhffaJHYo6aL4QHetVmqxySQG8EyS0UhBDI4qLTVlBU2uUhwhNdxOArLEpwBoIxcEzhSU9GNdSrkw-S8ALKySSPLYuhH4JSIqOkt4nl5acHtdl9bCd9xLftvyeS2-ohXWKjRaufySxcr2gsjYSAqVrYNHY3iiQync8HYQ_9F4hGrQzU5-OgiOo4-LB9E1GgNl9SPQ0DlgAg">
+</div>
+<span class="font-title-md text-title-md text-primary text-center">Denis V.</span>
+<span class="font-label-sm text-label-sm text-outline text-center">Đạo diễn</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-24 h-24 rounded-full overflow-hidden neon-border">
+<img class="w-full h-full object-cover" data-alt="A portrait of a male actor in a cyberpunk setting. He has a rugged look, wearing a dark leather jacket with subtle neon accents. The lighting is moody, with bright cyan light illuminating one side of his face. Cinematic quality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4QgBlq9EiWA97ZPOU0PKF6gPmh9uNyldeTjl3QiD-MFTm04wyqz8AeKJXbc272_ms9b_ZHUtOgkA_YBc79NddIcbCUqze8w00AQj0KwSnvQ0uDAd8hxIdpyNQ63yX1UAV3LA6myI_hzrUq1y4rp6T_Pp5YD3pyM10Sbi5cZ_ZZylWUzMnjeTvtoxhnCAMQytsw0FT05R3ZbVhdDnhXvtjSkbOA1DmNvYPlNeKmMmpS_hJca-ygVz44fYUnocMJpfMoMyq9X0JAQs">
+</div>
+<span class="font-title-md text-title-md text-primary text-center">Ryan G.</span>
+<span class="font-label-sm text-label-sm text-outline text-center">Diễn viên chính</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-24 h-24 rounded-full overflow-hidden neon-border">
+<img class="w-full h-full object-cover" data-alt="A portrait of a female actor with vibrant pink neon hair and high-tech facial implants. She is looking intensely at the camera. The background is a blurred cityscape at night. The lighting is dramatic and colorful, typical of cyberpunk aesthetics." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGhaqTwiGbEHvegpmsbHG9WbkCRLwzDSOxMwwtTttCdSULO1VqSOBBeg0eAkHQqCxSXC84UTSa4zdI-gt6HQwC607sOzDDGSPIs6MJ1e5SGaKXRQzK5vnDoik0eZvHvFrmwo8n4UwNGthYFk7Ah_2v4O49EmMEvSgLpRCNk8ul4P3ySab2KyskGTaWOkhzz7tv7chc7mS8BeLC-hHNIUch0qlVOpuEJb5fu-w-BT3VNRoTWyMdH_9yn0RDkoIKl_Ta9MIuDS3GIew">
+</div>
+<span class="font-title-md text-title-md text-primary text-center">Ana de A.</span>
+<span class="font-label-sm text-label-sm text-outline text-center">Diễn viên</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Quick Schedule -->
+<div class="flex flex-col gap-8">
+<section class="bg-surface-container/60 backdrop-blur-xl p-6 rounded-xl border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+<h2 class="font-title-md text-title-md text-secondary mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+                        Suất chiếu nhanh
+                    </h2>
+<div class="flex flex-col gap-4">
+<div class="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+<button class="chip px-4 py-2 rounded-lg font-label-sm text-label-sm text-secondary border-secondary bg-secondary/10 whitespace-nowrap">Hôm nay</button>
+<button class="chip px-4 py-2 rounded-lg font-label-sm text-label-sm text-on-surface-variant whitespace-nowrap">Ngày mai</button>
+</div>
+<div class="space-y-4">
+<div>
+<h3 class="font-label-sm text-label-sm text-outline mb-2">CMC Cinema Quận 1</h3>
+<div class="flex gap-2 flex-wrap">
+<button class="chip px-3 py-1 rounded md text-on-surface hover:text-secondary hover:border-secondary transition-colors">18:30</button>
+<button class="chip px-3 py-1 rounded md text-on-surface hover:text-secondary hover:border-secondary transition-colors">20:45</button>
+<button class="chip px-3 py-1 rounded md text-on-surface hover:text-secondary hover:border-secondary transition-colors">23:00</button>
+</div>
+</div>
+<div>
+<h3 class="font-label-sm text-label-sm text-outline mb-2">CMC Cinema Quận 7</h3>
+<div class="flex gap-2 flex-wrap">
+<button class="chip px-3 py-1 rounded md text-on-surface hover:text-secondary hover:border-secondary transition-colors">19:00</button>
+<button class="chip px-3 py-1 rounded md text-on-surface hover:text-secondary hover:border-secondary transition-colors">21:15</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 px-margin-desktop flex flex-col md:flex-row justify-between items-start gap-8 bg-ultra-dark-navy border-t border-white/10 font-body-md text-body-md">
+<div class="flex flex-col gap-4">
+<div class="font-headline-lg text-headline-lg text-primary">
+                CMC Cinema
+            </div>
+<p class="text-on-surface-variant">© 2024 CMC Cinema. All rights reserved. Future of Cinema.</p>
+</div>
+<div class="flex gap-8 flex-wrap">
+<a class="text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Về chúng tôi</a>
+<a class="text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Điều khoản</a>
+<a class="text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Chính sách bảo mật</a>
+<a class="text-on-surface-variant hover:text-neon-pink transition-colors" href="#">Liên hệ</a>
+</div>
+</footer>
+</body></html>
