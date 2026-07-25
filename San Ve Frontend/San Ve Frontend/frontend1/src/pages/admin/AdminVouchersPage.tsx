@@ -2,25 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { voucherApi } from '../../api/adminApi';
 import type { CreateVoucherPayload, Voucher } from '../../types/admin';
-import {
-  Btn,
-  ConfirmModal,
-  EmptyState,
-  ErrorBanner,
-  Field,
-  Loading,
-  Modal,
-  PageHeader,
-  Pill,
-  TableShell,
-  Td,
-  Th,
-  Toast,
-  formatDate,
-  formatVnd,
-  inputClass,
-  useToast,
-} from '../../components/admin/AdminUI';
+import { Btn, ConfirmModal, EmptyState, ErrorBanner, Field, Loading, Modal, PageHeader, Pill, TableShell, Td, Th, Toast } from '../../components/admin/AdminUI';
+import { formatDate, formatVnd, inputClass, useToast } from '../../components/admin/adminUiHelpers';
 
 type FormState = CreateVoucherPayload;
 
@@ -65,7 +48,13 @@ export default function AdminVouchersPage() {
   }, []);
 
   useEffect(() => {
-    void fetchData();
+    const timer = window.setTimeout(() => {
+      void fetchData();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [fetchData]);
 
   const openCreate = () => {
@@ -116,7 +105,8 @@ export default function AdminVouchersPage() {
         endAt: new Date(form.endAt).toISOString(),
       };
       if (editing) {
-        const { code: _unusedCode, ...rest } = payload;
+        const rest = { ...payload };
+        delete (rest as Partial<typeof payload>).code;
         await voucherApi.update(editing.promotionId, rest);
         showToast('Đã cập nhật voucher');
       } else {

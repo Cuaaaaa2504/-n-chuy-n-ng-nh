@@ -1,25 +1,9 @@
 // src/components/admin/AdminUI.tsx
 // Các mảnh UI dùng chung cho toàn bộ trang /admin (Tailwind, dark theme).
-import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { ToastState } from './adminUiHelpers';
 
 // ── Toast ──────────────────────────────────────────────────────────────────
-export interface ToastState {
-  msg: string;
-  type: 'success' | 'error';
-}
-
-export function useToast() {
-  const [toast, setToast] = useState<ToastState | null>(null);
-
-  const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-
-  return { toast, showToast };
-}
-
 export function Toast({ toast }: { toast: ToastState | null }) {
   if (!toast) return null;
   return (
@@ -297,16 +281,3 @@ export function Field({
     </label>
   );
 }
-
-export const inputClass =
-  'w-full px-3 py-2 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm';
-
-// ── Format ─────────────────────────────────────────────────────────────────
-export const formatVnd = (n: number) =>
-  `${Number(n ?? 0).toLocaleString('vi-VN')} ₫`;
-
-export const formatDateTime = (value?: string | null) =>
-  value ? new Date(value).toLocaleString('vi-VN') : '—';
-
-export const formatDate = (value?: string | null) =>
-  value ? new Date(value).toLocaleDateString('vi-VN') : '—';
