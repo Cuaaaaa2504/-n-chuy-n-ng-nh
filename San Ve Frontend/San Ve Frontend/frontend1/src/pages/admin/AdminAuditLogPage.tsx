@@ -62,7 +62,11 @@ export default function AdminAuditLogPage() {
   }, [page]);
 
   useEffect(() => {
-    void fetchData();
+    const timer = window.setTimeout(() => {
+      void fetchData();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [fetchData]);
 
   // Lọc phía client trên trang hiện tại

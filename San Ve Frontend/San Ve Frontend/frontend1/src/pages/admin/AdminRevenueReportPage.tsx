@@ -62,7 +62,11 @@ export default function AdminRevenueReportPage() {
   }, [groupBy, fromDate, toDate]);
 
   useEffect(() => {
-    void fetchReport();
+    const timer = window.setTimeout(() => {
+      void fetchReport();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
     // chỉ tự động tải lại khi đổi cách nhóm; ngày do người dùng bấm "Xem báo cáo"
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupBy]);

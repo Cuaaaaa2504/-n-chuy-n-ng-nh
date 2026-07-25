@@ -75,7 +75,11 @@ export default function AdminCinemasPage() {
   }, [showToast]);
 
   useEffect(() => {
-    void fetchCinemas();
+    const timer = window.setTimeout(() => {
+      void fetchCinemas();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [fetchCinemas]);
 
   const openCinema = (cinema: Cinema | null) => {

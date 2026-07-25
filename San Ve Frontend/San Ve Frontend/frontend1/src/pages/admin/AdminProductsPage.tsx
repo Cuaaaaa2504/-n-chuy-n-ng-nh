@@ -92,7 +92,11 @@ export default function AdminProductsPage() {
   }, []);
 
   useEffect(() => {
-    void fetchData();
+    const timer = window.setTimeout(() => {
+      void fetchData();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [fetchData]);
 
   // ── Sản phẩm ─────────────────────────────────────────────────────────────
