@@ -1,18 +1,22 @@
 import { Outlet } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { useTheme } from '../context/useTheme';
 
 export default function MainLayout() {
-  const { darkMode } = useTheme();
   return (
-    <div
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        darkMode ? 'bg-gray-950 text-white' : 'bg-gray-100 text-gray-900'
-      }`}
-    >
+    <div className="relative min-h-screen flex flex-col bg-ultra-dark-navy text-on-surface font-body-md text-body-md">
+      {/* Ánh neon nền — thuần trang trí */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed top-[-15%] left-[-10%] w-[45%] h-[45%] bg-primary rounded-full mix-blend-screen blur-[120px] opacity-[0.12]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed bottom-[-15%] right-[-10%] w-[45%] h-[45%] bg-secondary rounded-full mix-blend-screen blur-[120px] opacity-[0.12]"
+      />
+
       <Navbar />
-      <main className="flex-1">
+      <main className="flex-1 relative z-10">
         <Outlet />
       </main>
       <Footer />
