@@ -7,6 +7,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { BookingModule } from './booking/booking.module';
 import { ShowtimeSeatsModule } from './showtime-seats/showtime-seats.module';
 import { MovieModule } from './movie/movie.module';
+import { RecommendationModule } from './recommendation/recommendation.module';
 import { GenreModule } from './genre/genre.module';
 import { CinemaModule } from './cinema/cinema.module';
 import { ConcessionComboModule } from './concession-combo/concession-combo.module';
@@ -32,19 +33,11 @@ import {
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
-    // FIX [#3]: Không hardcode ttl/limit nữa. Dùng forRootAsync + ConfigService
-    // giống cách TypeOrmModule đang làm, để prod / staging / dev chỉ cần đổi
-    // biến môi trường THROTTLE_TTL, THROTTLE_LIMIT trong .env là xong,
-    // không phải sửa code rồi redeploy.
-    //
-    // Đây là "lưới an toàn" mặc định cho toàn app (mức nới rộng: 100 req/60s).
-    // Các route nhạy cảm tự override chặt hơn bằng @Throttle() tại controller.
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => [
         {
-          // parseInt bắt buộc: process.env luôn trả về string
           ttl: parseInt(
             configService.get<string>('THROTTLE_TTL') ?? String(THROTTLE_TTL),
             10,
@@ -63,8 +56,6 @@ import {
       useFactory: (configService: ConfigService) => ({
         type: 'mssql',
         host: configService.get<string>('DB_HOST'),
-        // FIX: parseInt bắt buộc vì process.env luôn là string,
-        // configService.get<number>() không tự ép kiểu
         port: parseInt(configService.get<string>('DB_PORT') ?? '1433', 10),
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
@@ -74,20 +65,9 @@ import {
         migrationsTableName: 'typeorm_migrations',
         migrationsRun: false,
         synchronize: false,
-
-        // FIX [#2]: options ở đây PHẢI giống hệt typeorm.config.ts.
-        //
-        // Trước đây chỉ có `encrypt: false`. Trên Windows local vẫn chạy được
-        // vì Windows tin self-signed cert của SQL Server, nhưng khi deploy lên
-        // Linux / Docker thì driver mssql v11 validate certificate và từ chối
-        // kết nối. Lỗi trả về chỉ là "connection timeout" nên cực khó lần ra
-        // nguyên nhân. Bật trustServerCertificate để hành vi giống nhau ở mọi
-        // môi trường.
         options: {
           encrypt: false,
           trustServerCertificate: true,
-          // Chỉ dùng khi SQL Server cài dạng named instance (VD: SQLEXPRESS).
-          // Đặt DB_INSTANCE=SQLEXPRESS trong .env. Không đặt thì bỏ qua.
           ...(configService.get<string>('DB_INSTANCE')
             ? { instanceName: configService.get<string>('DB_INSTANCE') }
             : {}),
@@ -97,6 +77,7 @@ import {
     BookingModule,
     ShowtimeSeatsModule,
     MovieModule,
+    RecommendationModule,
     GenreModule,
     CinemaModule,
     ConcessionComboModule,
@@ -115,18 +96,6 @@ import {
     AdminModule,
   ],
   providers: [
-    // FIX [#1]: GIỮ guard toàn cục nhưng đổi hẳn ý đồ thiết kế.
-    //
-    // Trước đây: global limit rất chặt (20 req/60s) -> phải rải @SkipThrottle()
-    // khắp controller để "gỡ" ra => thiết kế ngược, dễ bỏ sót.
-    //
-    // Bây giờ: global limit là lưới an toàn nới rộng (100 req/60s, cấu hình
-    // qua .env) chống spam/DoS cho MỌI module — kể cả module viết sau này mà
-    // lập trình viên quên đặt throttle. Route nào cần chặt hơn thì override
-    // bằng @Throttle() ngay tại route đó (opt-in siết chặt), thay vì opt-out
-    // bằng @SkipThrottle().
-    //
-    // => Toàn bộ @SkipThrottle() trong auth.controller.ts đã được gỡ bỏ.
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

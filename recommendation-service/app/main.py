@@ -1,21 +1,4 @@
-"""
-HTTP server của recommendation-service.
-
-HỢP ĐỒNG API — phải khớp CHÍNH XÁC với
-`San Ve Backend3/cinehunt-backend/src/movie/recommendation.service.ts`:
-
-    GET /recommend/{user_id}?limit=10
-
-Cụ thể là `fetchMovieIdsFromModel()` gọi tới
-`${baseUrl}/recommend/${userId}` kèm query `limit`. Đổi đường dẫn ở đây mà
-quên sửa bên NestJS thì mọi request rơi vào catchError, log ra một dòng
-warning rồi trả về fallback — trang chủ VẪN CHẠY BÌNH THƯỜNG nên không ai
-phát hiện ra là model chưa bao giờ được dùng. Đây là kiểu lỗi im lặng khó
-chịu nhất, nên hai bên phải giữ nguyên đường dẫn.
-
-Bên NestJS chấp nhận nhiều dạng payload (mảng số, {movieIds}, {items}).
-Ở đây trả về dạng đầy đủ nhất: {items: [{movieId, score}], movieIds: [...]}.
-"""
+"""HTTP server của recommendation-service."""
 
 from __future__ import annotations
 
@@ -34,12 +17,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("recommendation-service")
-
 settings = get_settings()
-
-# Model được nạp MỘT LẦN lúc khởi động và giữ trong RAM.
-# Nạp lại ở mỗi request là sai lầm kinh điển: joblib.load() mất hàng trăm ms,
-# nhân với mỗi lượt vào trang chủ thì service tự bóp cổ chính nó.
 _model: HybridRecommender | None = None
 
 
@@ -48,8 +26,7 @@ def _load_model() -> None:
     path = settings.model_path
     if not path.exists():
         logger.warning(
-            "Chưa có file model tại %s. Service vẫn chạy nhưng sẽ dùng cache/"
-            "popularity từ DB. Chạy `python train.py` để tạo model.",
+            "Chưa có file model tại %s. Service vẫn chạy bằng cache/popularity.",
             path,
         )
         _model = None
@@ -64,7 +41,7 @@ def _load_model() -> None:
             len(_model.movie_ids),
         )
     except Exception:
-        logger.exception("Không nạp được file model, service chuyển sang chế độ dự phòng.")
+        logger.exception("Không nạp được file model, chuyển sang chế độ dự phòng.")
         _model = None
 
 
@@ -77,14 +54,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="CineHunt Recommendation Service",
     description="Gợi ý phim cá nhân hoá (Hybrid: SVD + Content-based + Popularity)",
-    version="1.0.0",
+    version="1.0.1",
     lifespan=lifespan,
 )
 
-
-# ---------------------------------------------------------------------------
-# Schemas
-# ---------------------------------------------------------------------------
 
 class RecommendedMovie(BaseModel):
     movieId: int
@@ -94,19 +67,13 @@ class RecommendedMovie(BaseModel):
 class RecommendResponse(BaseModel):
     userId: int
     items: list[RecommendedMovie]
-    # Danh sách id phẳng — NestJS đọc được cả hai dạng, giữ lại cho tiện debug.
     movieIds: list[int]
-    source: str          # MODEL | CACHE | POPULARITY
+    source: str
     modelVersion: str | None = None
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-
 @app.get("/health")
 def health() -> dict:
-    """Dùng cho Docker healthcheck và để kiểm tra nhanh service còn sống."""
     return {
         "status": "ok",
         "modelLoaded": _model is not None,
@@ -124,21 +91,21 @@ def recommend(
     if user_id <= 0:
         raise HTTPException(status_code=400, detail="user_id phải là số nguyên dương")
 
-    # 1) Đường đi bình thường: model đã nạp trong RAM.
     if _model is not None:
+        known_user = int(user_id) in _model.user_to_idx
         pairs = _model.recommend(user_id, limit)
         if pairs:
             return RecommendResponse(
                 userId=user_id,
-                items=[RecommendedMovie(movieId=m, score=round(s, 6)) for m, s in pairs],
-                movieIds=[m for m, _ in pairs],
-                source="MODEL",
+                items=[
+                    RecommendedMovie(movieId=movie_id, score=round(score, 6))
+                    for movie_id, score in pairs
+                ],
+                movieIds=[movie_id for movie_id, _ in pairs],
+                source="MODEL" if known_user else "POPULARITY",
                 modelVersion=_model.model_version,
             )
 
-    # 2) Model chưa train (hoặc không trả được gì): đọc bảng cache.
-    #    Import ở trong hàm để service vẫn khởi động được khi DB đang chết —
-    #    /health phải trả lời được kể cả lúc SQL Server tắt.
     try:
         from .db import load_cached_recommendations, load_popular_movie_ids
 
@@ -146,24 +113,20 @@ def recommend(
         if cached:
             return RecommendResponse(
                 userId=user_id,
-                items=[RecommendedMovie(movieId=m, score=0.0) for m in cached],
+                items=[RecommendedMovie(movieId=movie_id, score=0.0) for movie_id in cached],
                 movieIds=cached,
                 source="CACHE",
             )
 
-        # 3) Phương án cuối: phim ăn khách 90 ngày gần đây.
         popular = load_popular_movie_ids(limit)
         return RecommendResponse(
             userId=user_id,
-            items=[RecommendedMovie(movieId=m, score=0.0) for m in popular],
+            items=[RecommendedMovie(movieId=movie_id, score=0.0) for movie_id in popular],
             movieIds=popular,
             source="POPULARITY",
         )
     except Exception:
         logger.exception("Không truy vấn được DB khi chạy phương án dự phòng.")
-        # Trả 200 với danh sách rỗng, KHÔNG trả 500.
-        # NestJS đã có fallback riêng (findTopBookedMovieIds); ném 500 sang
-        # đó chỉ làm bẩn log chứ không đổi kết quả người dùng nhìn thấy.
         return RecommendResponse(
             userId=user_id,
             items=[],
@@ -174,13 +137,6 @@ def recommend(
 
 @app.post("/reload")
 def reload_model() -> JSONResponse:
-    """
-    Nạp lại file model sau khi chạy train.py, KHÔNG cần restart service.
-
-    CẢNH BÁO BẢO MẬT: endpoint này không có xác thực. Chỉ để service lắng
-    nghe trong mạng nội bộ (Docker network) hoặc chặn cổng 8000 từ bên
-    ngoài. Frontend không bao giờ gọi thẳng vào đây — mọi thứ đi qua NestJS.
-    """
     _load_model()
     return JSONResponse(
         {
