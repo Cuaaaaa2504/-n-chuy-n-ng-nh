@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import type { Movie } from "../types/movie";
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import type { Movie } from '../types/movie';
 
 interface HeroBannerProps {
   movies: Movie[];
@@ -27,39 +27,47 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
   const movie = movies[current];
 
   return (
-    <div className="relative w-full overflow-hidden mb-0 select-none">
+    <div className="relative w-full overflow-hidden select-none">
       <div
-        className="absolute inset-0 bg-cover bg-no-repeat bg-center transition-all duration-700"
-        style={{
-          backgroundImage: `url(${movie.backdrop_url || movie.poster_url})`,
-        }}
+        className="absolute inset-0 bg-cover bg-no-repeat bg-center transition-all duration-700 scale-105"
+        style={{ backgroundImage: `url(${movie.backdrop_url || movie.poster_url})` }}
       />
-      <div className="absolute inset-0 bg-black/55" />
+      {/* Phủ tối + hắt neon */}
+      <div className="absolute inset-0 bg-gradient-to-r from-ultra-dark-navy via-ultra-dark-navy/85 to-ultra-dark-navy/40" />
+      <div className="absolute inset-0 bg-gradient-to-t from-ultra-dark-navy via-transparent to-transparent" />
 
-      <div className="relative z-10 flex flex-col md:flex-row items-center gap-12 px-10 md:px-24 py-20 md:py-32 min-h-[550px]">
+      <div className="relative z-10 max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-20 md:py-28 min-h-[520px] flex flex-col md:flex-row items-center gap-12">
         <div className="flex-1">
-          <span className="inline-block bg-white/20 text-white text-sm font-bold px-3 py-1 rounded-full mb-4 tracking-widest uppercase backdrop-blur-sm">
-            🔥 Phim nổi bật
+          <span className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-wider bg-primary-container/15 border border-primary-container/30 text-primary-container shadow-[0_0_14px_rgba(221,183,255,0.3)]">
+            <span className="material-symbols-outlined text-[16px]">local_fire_department</span>
+            Phim nổi bật
           </span>
 
-          <h1 className="text-5xl md:text-6xl font-extrabold text-white leading-tight mb-3 drop-shadow-lg">
+          <h1 className="font-display-lg text-headline-lg md:text-display-lg text-primary-container text-glow mb-4">
             {movie.title}
           </h1>
 
-          <div className="flex flex-wrap gap-3 text-white/80 text-base mb-4">
-            <span>⏱ {movie.duration_minutes} phút</span>
-            <span>•</span>
-            <span>🎭 {movie.genres.join(", ")}</span>
-            <span>•</span>
-            <span>🔞 {movie.age_rating}</span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-body-md text-on-surface-variant mb-6">
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[18px] text-secondary">schedule</span>
+              {movie.duration_minutes} phút
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[18px] text-secondary">theaters</span>
+              {movie.genres.join(', ')}
+            </span>
+            <span className="px-2 py-0.5 rounded border border-white/20 bg-surface-variant/50 font-label-sm text-label-sm">
+              {movie.age_rating}
+            </span>
           </div>
 
-          <div className="flex gap-3 mt-6 flex-wrap">
+          <div className="flex gap-4 flex-wrap">
             <Link
               to={`/movies/${movie.movie_id}`}
-              className="px-7 py-3 bg-transparent border-2 border-white text-white text-base font-bold rounded-xl hover:bg-white/20 transition"
+              className="btn-primary px-7 py-3 rounded-lg font-title-md text-title-md uppercase inline-flex items-center gap-2"
             >
-              🎟 Mua vé ngay
+              <span className="material-symbols-outlined text-[20px]">confirmation_number</span>
+              Mua vé ngay
             </Link>
 
             {movie.trailer_url && (
@@ -67,47 +75,51 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
                 href={movie.trailer_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-7 py-3 bg-transparent border-2 border-white text-white text-base font-bold rounded-xl hover:bg-white/20 transition"
+                className="btn-secondary px-7 py-3 rounded-lg font-title-md text-title-md uppercase inline-flex items-center gap-2"
               >
-                ▶ Xem trailer
+                <span className="material-symbols-outlined text-[20px]">play_arrow</span>
+                Xem trailer
               </a>
             )}
           </div>
         </div>
 
-        <div className="flex-shrink-0 max-w-xs w-full">
-          <p className="text-white/60 text-sm font-bold uppercase tracking-widest mb-3">
-            📖 Nội dung phim
+        <div className="flex-shrink-0 max-w-xs w-full glass-panel rounded-xl p-6">
+          <p className="font-label-sm text-label-sm uppercase tracking-wider text-secondary mb-3">
+            Nội dung phim
           </p>
-          <p className="text-white/90 text-base leading-relaxed">
-            {movie.description || "Đang cập nhật nội dung phim..."}
+          <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+            {movie.description || 'Đang cập nhật nội dung phim...'}
           </p>
         </div>
       </div>
 
       <button
         onClick={prev}
-        className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-black/30 hover:bg-black/50 text-white rounded-full flex items-center justify-center text-xl transition backdrop-blur-sm"
+        aria-label="Phim trước"
+        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full glass-panel text-on-surface-variant hover:text-secondary hover:shadow-[0_0_18px_rgba(76,215,246,0.45)] flex items-center justify-center transition-all"
       >
-        ‹
+        <span className="material-symbols-outlined">chevron_left</span>
       </button>
 
       <button
         onClick={next}
-        className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-black/30 hover:bg-black/50 text-white rounded-full flex items-center justify-center text-xl transition backdrop-blur-sm"
+        aria-label="Phim tiếp theo"
+        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full glass-panel text-on-surface-variant hover:text-secondary hover:shadow-[0_0_18px_rgba(76,215,246,0.45)] flex items-center justify-center transition-all"
       >
-        ›
+        <span className="material-symbols-outlined">chevron_right</span>
       </button>
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2">
         {movies.map((_, i) => (
           <button
             key={i}
             onClick={() => setCurrent(i)}
+            aria-label={`Chuyển tới phim ${i + 1}`}
             className={`rounded-full transition-all duration-300 ${
               i === current
-                ? "w-6 h-2.5 bg-white"
-                : "w-2.5 h-2.5 bg-white/40 hover:bg-white/70"
+                ? 'w-7 h-2 bg-primary-container shadow-[0_0_12px_rgba(221,183,255,0.8)]'
+                : 'w-2 h-2 bg-on-surface-variant/40 hover:bg-secondary'
             }`}
           />
         ))}

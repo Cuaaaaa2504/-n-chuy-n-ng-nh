@@ -1,1 +1,319 @@
 @import "tailwindcss";
+
+/* ============================================================
+   CMC CINEMA — Design tokens ("Cyber Neon Cinema")
+   Nguồn: Demo UI/cyber_neon_cinema/DESIGN.md
+   Demo UI dùng Tailwind v3 (CDN + tailwind.config).
+   Project này dùng Tailwind v4 -> mọi token phải khai báo trong
+   @theme, KHÔNG dùng tailwind.config.js.
+   ============================================================ */
+
+@theme {
+  /* ---------- Colors (Material 3 dark scheme) ---------- */
+  --color-surface: #151217;
+  --color-surface-dim: #151217;
+  --color-surface-bright: #3b383d;
+  --color-surface-container-lowest: #100d11;
+  --color-surface-container-low: #1d1b1f;
+  --color-surface-container: #211f23;
+  --color-surface-container-high: #2c292d;
+  --color-surface-container-highest: #373438;
+  --color-on-surface: #e8e0e7;
+  --color-on-surface-variant: #cdc3d0;
+  --color-inverse-surface: #e8e0e7;
+  --color-inverse-on-surface: #332f34;
+  --color-outline: #968e99;
+  --color-outline-variant: #4b444f;
+  --color-surface-tint: #ddb7ff;
+
+  --color-primary: #f0daff;
+  --color-on-primary: #40215e;
+  --color-primary-container: #ddb7ff;
+  --color-on-primary-container: #644483;
+  --color-inverse-primary: #715090;
+
+  --color-secondary: #4cd7f6;
+  --color-on-secondary: #003640;
+  --color-secondary-container: #03b5d4;
+  --color-on-secondary-container: #00424e;
+
+  --color-tertiary: #e7e785;
+  --color-on-tertiary: #323200;
+  --color-tertiary-container: #cbcb6c;
+  --color-on-tertiary-container: #555500;
+
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+
+  --color-primary-fixed: #f0dbff;
+  --color-primary-fixed-dim: #ddb7ff;
+  --color-on-primary-fixed: #2a0848;
+  --color-on-primary-fixed-variant: #583876;
+  --color-secondary-fixed: #acedff;
+  --color-secondary-fixed-dim: #4cd7f6;
+  --color-on-secondary-fixed: #001f26;
+  --color-on-secondary-fixed-variant: #004e5c;
+  --color-tertiary-fixed: #e8e885;
+  --color-tertiary-fixed-dim: #cbcb6c;
+  --color-on-tertiary-fixed: #1d1d00;
+  --color-on-tertiary-fixed-variant: #494900;
+
+  --color-background: #151217;
+  --color-on-background: #e8e0e7;
+  --color-surface-variant: #373438;
+
+  --color-ultra-dark-navy: #05070d;
+  --color-neon-pink: #ffb1c4;
+  --color-glass-surface: rgba(17, 19, 26, 0.6);
+
+  /* ---------- Font families ---------- */
+  --font-display-lg: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-headline-lg: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-headline-lg-mobile: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-title-md: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-body-md: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-label-sm: "Space Grotesk", ui-monospace, monospace;
+
+  /* ---------- Font sizes ---------- */
+  --text-display-lg: 48px;
+  --text-display-lg--line-height: 56px;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-lg--font-weight: 800;
+
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 40px;
+  --text-headline-lg--letter-spacing: -0.01em;
+  --text-headline-lg--font-weight: 700;
+
+  --text-headline-lg-mobile: 28px;
+  --text-headline-lg-mobile--line-height: 36px;
+  --text-headline-lg-mobile--font-weight: 700;
+
+  --text-title-md: 20px;
+  --text-title-md--line-height: 28px;
+  --text-title-md--font-weight: 600;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 24px;
+  --text-body-md--font-weight: 400;
+
+  --text-label-sm: 12px;
+  --text-label-sm--line-height: 16px;
+  --text-label-sm--letter-spacing: 0.05em;
+  --text-label-sm--font-weight: 500;
+
+  /* ---------- Spacing riêng của Demo UI ---------- */
+  --spacing-baseline: 4px;
+  --spacing-gutter-mobile: 16px;
+  --spacing-gutter-desktop: 24px;
+  --spacing-margin-mobile: 20px;
+  --spacing-margin-desktop: 64px;
+  --spacing-container-max: 1280px;
+
+  /* max-w-container-max: v4 đọc max-w-* từ namespace --container-* */
+  --container-container-max: 1280px;
+
+  /* ---------- Radius ---------- */
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-ultra-dark-navy);
+    color: var(--color-on-surface);
+    font-family: var(--font-body-md);
+    font-size: var(--text-body-md);
+    line-height: var(--text-body-md--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--color-surface-container-lowest); }
+  ::-webkit-scrollbar-thumb { background: var(--color-outline-variant); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-secondary-container); }
+}
+
+/* ============================================================
+   Component classes dùng chung (trích từ <style> của Demo UI)
+   ============================================================ */
+@layer components {
+  .glass-panel {
+    background: var(--color-glass-surface);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-card {
+    background: rgba(33, 31, 35, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-xl);
+    transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .glass-card:hover {
+    border-color: rgba(76, 215, 246, 0.35);
+    box-shadow: 0 0 24px rgba(76, 215, 246, 0.18);
+  }
+
+  .glass-modal {
+    background: rgba(16, 13, 17, 0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--color-primary-container), var(--color-secondary-container));
+    color: var(--color-on-primary);
+    font-weight: 600;
+    border-radius: var(--radius-lg);
+    transition: box-shadow 0.25s ease, transform 0.15s ease, filter 0.25s ease;
+  }
+  .btn-primary:hover { box-shadow: 0 0 20px rgba(221, 183, 255, 0.45); filter: brightness(1.05); }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-primary:disabled { opacity: 0.45; box-shadow: none; filter: none; cursor: not-allowed; }
+
+  .btn-primary-glow {
+    background: linear-gradient(135deg, var(--color-primary-container), var(--color-secondary-container));
+    color: var(--color-on-primary);
+    box-shadow: 0 0 18px rgba(3, 181, 212, 0.35);
+    transition: box-shadow 0.25s ease, filter 0.25s ease;
+  }
+  .btn-primary-glow:hover { box-shadow: 0 0 28px rgba(221, 183, 255, 0.55); filter: brightness(1.05); }
+
+  .btn-secondary, .secondary-btn {
+    background: transparent;
+    color: var(--color-secondary);
+    border: 1px solid var(--color-secondary);
+    border-radius: var(--radius-lg);
+    transition: background-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .btn-secondary:hover, .secondary-btn:hover {
+    background: rgba(76, 215, 246, 0.12);
+    box-shadow: 0 0 16px rgba(76, 215, 246, 0.3);
+  }
+
+  .input-glass, .input-cyber {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    color: var(--color-on-surface);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .input-glow { transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+  .input-glass:focus, .input-cyber:focus, .input-glow:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 12px rgba(76, 215, 246, 0.35);
+  }
+  .terminal-glow:focus-within { box-shadow: 0 0 14px rgba(76, 215, 246, 0.4); }
+
+  .neon-text-primary { color: var(--color-primary); text-shadow: 0 0 10px rgba(240, 218, 255, 0.7); }
+  .neon-text-secondary { color: var(--color-secondary); text-shadow: 0 0 10px rgba(76, 215, 246, 0.7); }
+  .neon-text-glow, .text-glow { text-shadow: 0 0 8px currentColor; }
+  .neon-glow, .neon-glow-primary { box-shadow: 0 0 20px rgba(221, 183, 255, 0.4); }
+  .neon-glow-secondary { box-shadow: 0 0 20px rgba(76, 215, 246, 0.4); }
+  .neon-border { border: 1px solid var(--color-secondary); box-shadow: 0 0 12px rgba(76, 215, 246, 0.35); }
+
+  .movie-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+  .movie-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(221, 183, 255, 0.25);
+  }
+
+  .cyber-card {
+    background: var(--color-surface-container-low);
+    border: 1px solid var(--color-outline-variant);
+    border-radius: var(--radius-xl);
+  }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 10px; border-radius: 9999px;
+    font-size: var(--text-label-sm); letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .status-badge-active, .status-active, .status-valid {
+    background: rgba(76, 215, 246, 0.15); color: var(--color-secondary);
+    border: 1px solid rgba(76, 215, 246, 0.4);
+  }
+  .status-badge-inactive, .status-ended {
+    background: rgba(150, 142, 153, 0.15); color: var(--color-outline);
+    border: 1px solid rgba(150, 142, 153, 0.35);
+  }
+  .status-locked {
+    background: rgba(255, 180, 171, 0.15); color: var(--color-error);
+    border: 1px solid rgba(255, 180, 171, 0.4);
+  }
+
+  .table-row-hover:hover { background: rgba(255, 255, 255, 0.04); }
+  .sidenav-active {
+    background: rgba(221, 183, 255, 0.12);
+    color: var(--color-primary);
+    border-left: 3px solid var(--color-primary);
+  }
+
+  .ticket-glass {
+    position: relative;
+    background: var(--color-glass-surface);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-xl);
+  }
+  .ticket-divider { border-top: 2px dashed var(--color-outline-variant); }
+  .ticket-cutout {
+    position: absolute; width: 24px; height: 24px; border-radius: 9999px;
+    background: var(--color-ultra-dark-navy); top: 50%; transform: translateY(-50%);
+  }
+  .ticket-cutout.left { left: -12px; }
+  .ticket-cutout.right { right: -12px; }
+
+  .nav-glow {
+    text-shadow: 0 0 10px rgba(221, 183, 255, 0.8);
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .material-symbols-outlined {
+    font-family: "Material Symbols Outlined";
+    font-weight: normal; font-style: normal; line-height: 1;
+    letter-spacing: normal; text-transform: none;
+    display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr;
+    -webkit-font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  }
+}
+
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+@keyframes shine {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

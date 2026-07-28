@@ -5,6 +5,15 @@ import { useAuth } from '../context/AuthContext';
 import { resolveAssetUrl } from '../utils/assetUrl';
 import NotificationBell from './NotificationBell';
 
+const NAV_LINK =
+  'font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant hover:text-secondary hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)] transition-all duration-300 px-3 py-2 rounded-full hover:bg-white/5';
+
+const ICON_BTN =
+  'text-on-surface-variant hover:text-secondary hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)] transition-colors p-2 rounded-full hover:bg-white/5 flex items-center justify-center';
+
+const MENU_ITEM =
+  'flex items-center gap-3 px-4 py-2.5 font-body-md text-[14px] text-on-surface-variant hover:text-secondary hover:bg-white/5 transition-colors';
+
 export default function Navbar() {
   const { darkMode, toggleDarkMode } = useTheme();
   const { isLoggedIn, user, logout } = useAuth();
@@ -31,109 +40,115 @@ export default function Navbar() {
     navigate('/');
   };
 
+  const closeAll = () => {
+    setDropdownOpen(false);
+    setTicketSubmenuOpen(false);
+  };
+
   const avatarLetter = (user?.fullName || user?.email || 'U').charAt(0).toUpperCase();
 
   return (
-    <nav
-      className={`sticky top-0 z-50 shadow-md ${
-        darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
-      }`}
-    >
-      {/* Top bar */}
-      <div
-        className={`text-sm py-3 px-6 flex justify-between items-center ${
-          darkMode ? 'bg-gray-800 text-gray-300' : 'bg-blue-600 text-white'
-        }`}
-      >
-        <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition">
-          <span>📍</span>
-          <select className="bg-transparent text-inherit text-sm font-semibold cursor-pointer outline-none">
-            <option>CMC Cinema Hà Nội</option>
-            <option>CMC Cinema HCM</option>
-            <option>CMC Cinema Đà Nẵng</option>
-          </select>
-        </div>
+    <header className="sticky top-0 z-50 bg-glass-surface backdrop-blur-xl border-b border-white/10 shadow-lg shadow-primary/5">
+      <div className="max-w-container-max mx-auto w-full px-margin-mobile md:px-margin-desktop py-4 flex items-center justify-between gap-4">
+        {/* Brand */}
+        <Link
+          to="/"
+          className="font-headline-lg text-[24px] font-bold text-primary-container text-glow shrink-0"
+        >
+          CMC Cinema
+        </Link>
 
-        <div className="flex items-center gap-4">
-          <button
-            onClick={toggleDarkMode}
-            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/20 transition text-lg"
-          >
-            {darkMode ? '☀️' : '🌙'}
+        {/* Navigation */}
+        <nav className="hidden md:flex items-center gap-2">
+          <Link to="/schedule" className={NAV_LINK}>
+            Lịch chiếu
+          </Link>
+          <Link to="/movies" className={NAV_LINK}>
+            Phim
+          </Link>
+          {isLoggedIn && (user?.role === 'STAFF' || user?.role === 'ADMIN') && (
+            <Link
+              to="/staff/checkin"
+              className="font-label-sm text-label-sm uppercase tracking-wider text-tertiary hover:drop-shadow-[0_0_8px_rgba(231,231,133,0.8)] transition-all duration-300 px-3 py-2 rounded-full hover:bg-white/5 flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[18px]">verified</span>
+              Soát vé
+            </Link>
+          )}
+          {isLoggedIn && user?.role === 'ADMIN' && (
+            <Link
+              to="/admin"
+              className="font-label-sm text-label-sm uppercase tracking-wider text-error hover:drop-shadow-[0_0_8px_rgba(255,180,171,0.8)] transition-all duration-300 px-3 py-2 rounded-full hover:bg-white/5 flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[18px]">shield_person</span>
+              Admin
+            </Link>
+          )}
+        </nav>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          <div className={`${ICON_BTN} hidden sm:flex gap-1.5`}>
+            <span className="material-symbols-outlined text-[20px]">location_on</span>
+            <select className="bg-transparent font-label-sm text-label-sm uppercase tracking-wider text-inherit cursor-pointer outline-none [&>option]:bg-surface-container [&>option]:text-on-surface">
+              <option>CMC Cinema Hà Nội</option>
+              <option>CMC Cinema HCM</option>
+              <option>CMC Cinema Đà Nẵng</option>
+            </select>
+          </div>
+
+          <button onClick={toggleDarkMode} className={ICON_BTN} aria-label="Đổi giao diện">
+            <span className="material-symbols-outlined text-[20px]">
+              {darkMode ? 'light_mode' : 'dark_mode'}
+            </span>
           </button>
-          {/* FIX [mục 3.1 + 3.2]: chuông thông báo + badge chưa đọc.
-              Navbar trước đây không có icon nào cho notifications, nên cả 4
-              endpoint phía user của module này chưa từng được gọi. */}
-          {isLoggedIn && <NotificationBell darkMode={darkMode} />}
 
-          <span className="opacity-30">|</span>
+          {/* FIX [mục 3.1 + 3.2]: chuông thông báo + badge chưa đọc. */}
+          {isLoggedIn && <NotificationBell darkMode={darkMode} />}
 
           {isLoggedIn ? (
             <div className="relative" ref={dropdownRef}>
-              {/* Avatar button */}
               <button
                 onClick={() => {
                   setDropdownOpen((prev) => !prev);
                   setTicketSubmenuOpen(false);
                 }}
-                className="flex items-center gap-2 hover:opacity-90 transition focus:outline-none"
+                className="flex items-center gap-2 p-1 rounded-full hover:bg-white/5 transition-colors focus:outline-none"
               >
                 {user?.avatarUrl ? (
                   <img
                     src={resolveAssetUrl(user.avatarUrl)}
                     alt={user.fullName}
-                    className="w-9 h-9 rounded-full object-cover border-2 border-white/60"
+                    className="w-9 h-9 rounded-full object-cover border border-primary/50 shadow-[0_0_12px_rgba(221,183,255,0.35)]"
                   />
                 ) : (
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-base border-2 ${
-                    darkMode
-                      ? 'bg-blue-600 text-white border-blue-400'
-                      : 'bg-white text-blue-600 border-white'
-                  }`}>
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center font-title-md text-[15px] font-bold bg-primary-container text-on-primary shadow-[0_0_12px_rgba(221,183,255,0.45)]">
                     {avatarLetter}
                   </div>
                 )}
-                <svg
-                  className={`w-3 h-3 transition-transform duration-200 ${
+                <span
+                  className={`material-symbols-outlined text-[18px] text-on-surface-variant transition-transform duration-200 ${
                     dropdownOpen ? 'rotate-180' : ''
                   }`}
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
                 >
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
+                  expand_more
+                </span>
               </button>
 
-              {/* Dropdown menu */}
               {dropdownOpen && (
-                <div
-                  className={`absolute right-0 top-12 w-56 rounded-xl shadow-xl border overflow-visible z-50 ${
-                    darkMode
-                      ? 'bg-gray-800 border-gray-700 text-white'
-                      : 'bg-white border-gray-200 text-gray-800'
-                  }`}
-                >
-                  {/* Header */}
-                  <div className={`px-4 py-3 border-b ${
-                    darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-100 bg-gray-50'
-                  }`}>
-                    <p className="font-bold text-sm truncate">{user?.fullName || 'Người dùng'}</p>
-                    <p className={`text-xs truncate ${
-                      darkMode ? 'text-gray-400' : 'text-gray-500'
-                    }`}>{user?.email}</p>
+                <div className="absolute right-0 top-14 w-64 rounded-xl glass-panel overflow-hidden z-50 shadow-[0_0_30px_rgba(0,0,0,0.6)]">
+                  <div className="px-4 py-3 border-b border-white/10 bg-white/[0.03]">
+                    <p className="font-title-md text-[15px] text-on-surface truncate">
+                      {user?.fullName || 'Người dùng'}
+                    </p>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant truncate">
+                      {user?.email}
+                    </p>
                   </div>
 
-                  {/* Menu items */}
                   <div className="py-1">
-                    {/* Thông tin cá nhân */}
-                    <Link
-                      to="/profile"
-                      onClick={() => { setDropdownOpen(false); setTicketSubmenuOpen(false); }}
-                      className={`flex items-center gap-3 px-4 py-2.5 text-sm transition ${
-                        darkMode ? 'hover:bg-gray-700' : 'hover:bg-blue-50 hover:text-blue-600'
-                      }`}
-                    >
-                      <span>👤</span>
+                    <Link to="/profile" onClick={closeAll} className={MENU_ITEM}>
+                      <span className="material-symbols-outlined text-[20px]">person</span>
                       <span>Thông tin cá nhân</span>
                     </Link>
 
@@ -141,107 +156,67 @@ export default function Navbar() {
                     <div className="relative">
                       <button
                         onClick={() => setTicketSubmenuOpen((prev) => !prev)}
-                        className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition ${
-                          ticketSubmenuOpen
-                            ? darkMode
-                              ? 'bg-gray-700 text-blue-400'
-                              : 'bg-blue-50 text-blue-600'
-                            : darkMode
-                            ? 'hover:bg-gray-700'
-                            : 'hover:bg-blue-50 hover:text-blue-600'
+                        className={`w-full justify-between ${MENU_ITEM} ${
+                          ticketSubmenuOpen ? 'text-secondary bg-white/5' : ''
                         }`}
                       >
                         <span className="flex items-center gap-3">
-                          <span>🎫</span>
+                          <span className="material-symbols-outlined text-[20px]">
+                            confirmation_number
+                          </span>
                           <span>Vé của tôi</span>
                         </span>
-                        <svg
-                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                        <span
+                          className={`material-symbols-outlined text-[18px] transition-transform duration-200 ${
                             ticketSubmenuOpen ? 'rotate-90' : ''
                           }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
                         >
-                          <path fillRule="evenodd" d="M7.293 4.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L10.586 9 7.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
+                          chevron_right
+                        </span>
                       </button>
 
-                      {/* Submenu vé — mở ra bên dưới */}
                       {ticketSubmenuOpen && (
-                        <div className={`border-t ${
-                          darkMode ? 'border-gray-700 bg-gray-900' : 'border-gray-100 bg-gray-50'
-                        }`}>
-                          {/* Vé đang giữ */}
+                        <div className="border-y border-white/10 bg-black/30">
                           <Link
                             to="/my-tickets?tab=holding"
-                            onClick={() => { setDropdownOpen(false); setTicketSubmenuOpen(false); }}
-                            className={`flex items-center gap-3 pl-10 pr-4 py-2.5 text-sm transition ${
-                              darkMode
-                                ? 'hover:bg-gray-700 text-yellow-400'
-                                : 'hover:bg-yellow-50 text-yellow-600'
-                            }`}
+                            onClick={closeAll}
+                            className={`${MENU_ITEM} pl-11 text-tertiary hover:text-tertiary`}
                           >
-                            <span>⏳</span>
-                            <span className="font-medium">Vé đang giữ</span>
+                            <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                            <span>Vé đang giữ</span>
                           </Link>
-
-                          {/* Vé đã mua */}
                           <Link
                             to="/my-tickets?tab=paid"
-                            onClick={() => { setDropdownOpen(false); setTicketSubmenuOpen(false); }}
-                            className={`flex items-center gap-3 pl-10 pr-4 py-2.5 text-sm transition ${
-                              darkMode
-                                ? 'hover:bg-gray-700 text-green-400'
-                                : 'hover:bg-green-50 text-green-600'
-                            }`}
+                            onClick={closeAll}
+                            className={`${MENU_ITEM} pl-11 text-secondary hover:text-secondary`}
                           >
-                            <span>✅</span>
-                            <span className="font-medium">Vé đã mua</span>
+                            <span className="material-symbols-outlined text-[18px]">task_alt</span>
+                            <span>Vé đã mua</span>
                           </Link>
                         </div>
                       )}
                     </div>
 
-                    {/* Các mục còn lại */}
-                    {/* FIX [báo cáo bỏ sót]: 3 link này trước đây trỏ tới
-                        /booking-history, /vouchers, /settings — KHÔNG route nào
-                        trong số đó được đăng ký ở routes/index.tsx, nên bấm vào
-                        là rơi thẳng vào NotFoundPage. Đã trỏ về các trang có
-                        thật; mục "Cài đặt" gộp vào /profile vì chưa có trang
-                        settings riêng. */}
+                    {/* FIX [báo cáo bỏ sót]: 3 link cũ trỏ tới route không tồn tại
+                        (/booking-history, /vouchers, /settings) nên luôn rơi 404.
+                        Đã trỏ về các trang có thật. */}
                     {[
-                      { to: '/my-bookings', icon: '📜', label: 'Lịch sử mua vé' },
-                      { to: '/profile',     icon: '⚙️', label: 'Cài đặt tài khoản' },
+                      { to: '/my-bookings', icon: 'receipt_long', label: 'Lịch sử mua vé' },
+                      { to: '/profile', icon: 'settings', label: 'Cài đặt tài khoản' },
                     ].map((item) => (
-                      <Link
-                        key={item.to}
-                        to={item.to}
-                        onClick={() => { setDropdownOpen(false); setTicketSubmenuOpen(false); }}
-                        className={`flex items-center gap-3 px-4 py-2.5 text-sm transition ${
-                          darkMode
-                            ? 'hover:bg-gray-700'
-                            : 'hover:bg-blue-50 hover:text-blue-600'
-                        }`}
-                      >
-                        <span>{item.icon}</span>
+                      <Link key={item.label} to={item.to} onClick={closeAll} className={MENU_ITEM}>
+                        <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
                         <span>{item.label}</span>
                       </Link>
                     ))}
                   </div>
 
-                  {/* Divider + logout */}
-                  <div className={`border-t ${
-                    darkMode ? 'border-gray-700' : 'border-gray-100'
-                  }`}>
+                  <div className="border-t border-white/10">
                     <button
                       onClick={handleLogout}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition ${
-                        darkMode
-                          ? 'text-red-400 hover:bg-gray-700'
-                          : 'text-red-500 hover:bg-red-50'
-                      }`}
+                      className={`w-full ${MENU_ITEM} text-error hover:text-error`}
                     >
-                      <span>🚪</span>
+                      <span className="material-symbols-outlined text-[20px]">logout</span>
                       <span>Đăng xuất</span>
                     </button>
                   </div>
@@ -252,17 +227,13 @@ export default function Navbar() {
             <>
               <Link
                 to="/login"
-                className="hover:underline hover:opacity-80 transition font-semibold text-sm"
+                className="font-label-sm text-label-sm uppercase tracking-wider text-primary px-4 py-2 rounded-full border border-primary/40 hover:bg-primary/10 hover:shadow-[0_0_15px_rgba(221,183,255,0.4)] transition-all duration-300"
               >
                 Đăng nhập
               </Link>
               <Link
                 to="/register"
-                className={`px-4 py-1.5 rounded-full text-sm font-bold transition ${
-                  darkMode
-                    ? 'bg-blue-500 text-white hover:bg-blue-400'
-                    : 'bg-white text-blue-600 hover:bg-blue-50'
-                }`}
+                className="btn-primary font-label-sm text-label-sm uppercase tracking-wider px-4 py-2 rounded-full hidden sm:inline-block"
               >
                 Đăng ký
               </Link>
@@ -270,35 +241,6 @@ export default function Navbar() {
           )}
         </div>
       </div>
-
-      {/* Main nav */}
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Link to="/" className="text-2xl font-extrabold text-blue-500 tracking-tight">
-          🎬 CMC Cinema
-        </Link>
-        <div className="flex gap-7 text-sm font-semibold uppercase tracking-wide">
-          {/* FIX Lỗi 4: trước đây trỏ về "/" (trang chủ), không có trang lịch chiếu */}
-          <Link to="/schedule" className="hover:text-blue-500 transition">Lịch chiếu</Link>
-          <Link to="/movies" className="hover:text-blue-500 transition">Phim</Link>
-          {/* FIX [báo cáo bỏ sót]: đã gỡ 3 link "Rạp" (/cinemas), "Giá vé"
-              (/price) và "Tin tức & Ưu đãi" (/news). Không route nào trong số
-              đó được đăng ký ở routes/index.tsx, nên chúng luôn rơi vào
-              NotFoundPage — menu chính của trang chủ có 3/5 mục dẫn tới 404.
-              Gỡ link là lựa chọn trung thực hơn giữ lại; khi nào có trang thật
-              thì thêm lại. */}
-          {/* FIX [mục 7.2]: lối vào màn hình soát vé cho nhân viên tại rạp. */}
-          {isLoggedIn && (user?.role === 'STAFF' || user?.role === 'ADMIN') && (
-            <Link to="/staff/checkin" className="hover:text-green-400 transition text-green-400">
-              ✅ Soát vé
-            </Link>
-          )}
-          {isLoggedIn && user?.role === 'ADMIN' && (
-            <Link to="/admin" className="hover:text-red-400 transition text-red-400">
-              ⚙️ Admin
-            </Link>
-          )}
-        </div>
-      </div>
-    </nav>
+    </header>
   );
 }

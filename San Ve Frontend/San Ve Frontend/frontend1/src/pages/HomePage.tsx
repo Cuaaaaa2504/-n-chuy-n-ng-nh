@@ -7,6 +7,9 @@
 // FIX Lỗi 6: banner trước đây dựa vào `featured` — field KHÔNG tồn tại trong
 // entity/DTO/bảng `movies` của backend, nên với dữ liệu thật nó luôn undefined.
 // Nay banner lấy các phim đang chiếu mới nhất, tiêu chí có thật trong DB.
+//
+// RESKIN: chỉ đổi JSX + class theo Demo UI (Cyber Neon). State, hook, tiêu chí
+// lọc và mọi lời gọi API giữ nguyên 100%.
 import { useMemo, useState } from 'react';
 import HeroBanner from '../components/HeroBanner';
 import MovieSection from '../components/MovieSection';
@@ -53,11 +56,11 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-20">
-        <div className="h-72 rounded-2xl bg-gray-800/40 animate-pulse mb-10" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+      <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-20">
+        <div className="h-80 rounded-xl glass-panel animate-pulse mb-10" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter-desktop">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="aspect-[2/3] rounded-2xl bg-gray-800/40 animate-pulse" />
+            <div key={i} className="aspect-[2/3] rounded-lg glass-panel animate-pulse" />
           ))}
         </div>
       </div>
@@ -66,14 +69,17 @@ export default function HomePage() {
 
   if (error) {
     return (
-      <div className="max-w-md mx-auto text-center px-4 py-24">
-        <p className="text-4xl mb-3">⚠️</p>
-        <p className="text-red-500 mb-2 font-semibold">Không tải được danh sách phim</p>
-        <p className={`text-sm mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{error}</p>
+      <div className="max-w-md mx-auto text-center px-margin-mobile py-24">
+        <span className="material-symbols-outlined text-[48px] text-error">error</span>
+        <p className="font-headline-lg text-headline-lg-mobile text-error mt-3 mb-2">
+          Không tải được danh sách phim
+        </p>
+        <p className="font-body-md text-on-surface-variant mb-8">{error}</p>
         <button
           onClick={() => void fetchMovies()}
-          className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition"
+          className="btn-primary px-6 py-3 rounded-lg font-title-md text-title-md uppercase inline-flex items-center gap-2"
         >
+          <span className="material-symbols-outlined text-[20px]">refresh</span>
           Thử lại
         </button>
       </div>
@@ -84,24 +90,17 @@ export default function HomePage() {
     <div>
       <HeroBanner movies={heroMovies} />
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div
-          className={`flex justify-center border-b mb-6 overflow-x-auto overflow-y-hidden hide-scrollbar ${
-            darkMode ? 'border-gray-700' : 'border-gray-300'
-          }`}
-        >
+      <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-12">
+        {/* Tabs */}
+        <div className="flex justify-center border-b border-white/10 mb-10 overflow-x-auto overflow-y-hidden hide-scrollbar">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-6 md:px-10 py-4 text-sm md:text-base font-bold tracking-wide transition border-b-2 -mb-px whitespace-nowrap ${
+              className={`px-6 md:px-10 py-4 -mb-px whitespace-nowrap border-b-2 font-label-sm text-label-sm uppercase tracking-wider transition-all duration-300 ${
                 activeTab === tab.key
-                  ? 'border-blue-500 text-blue-500'
-                  : `border-transparent ${
-                      darkMode
-                        ? 'text-white hover:text-blue-400'
-                        : 'text-gray-900 hover:text-blue-500'
-                    }`
+                  ? 'border-primary text-primary nav-glow drop-shadow-[0_0_10px_rgba(221,183,255,0.8)]'
+                  : 'border-transparent text-on-surface-variant hover:text-secondary hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)]'
               }`}
             >
               {tab.label}

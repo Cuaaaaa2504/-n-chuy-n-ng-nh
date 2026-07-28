@@ -1,139 +1,53 @@
-import { Link } from "react-router-dom";
-import type { Movie } from "../types/movie";
+import { Link } from 'react-router-dom';
+import type { Movie } from '../types/movie';
 
 interface Props {
   movie: Movie;
-  darkMode: boolean;
+  /** Giữ lại để không phải sửa call-site; theme Cyber Neon chỉ có bảng màu tối. */
+  darkMode?: boolean;
 }
 
-const FALLBACK_POSTER = "https://picsum.photos/seed/fallbackposter/500/750";
+const FALLBACK_POSTER = 'https://picsum.photos/seed/fallbackposter/500/750';
 
-export default function MovieCard({ movie, darkMode }: Props) {
+export default function MovieCard({ movie }: Props) {
   return (
-    <div className="w-full">
-      <Link
-        to={`/movies/${movie.movie_id}`}
-        className="group block w-full [perspective:1000px]"
-      >
-        <div className="relative w-full aspect-[2/3] transition-transform duration-700 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
-          {/* Front */}
-          <div
-            className={`absolute inset-0 rounded-2xl overflow-hidden shadow-lg ${
-              darkMode ? "bg-gray-800 border border-gray-700" : "bg-white"
-            } [backface-visibility:hidden]`}
-          >
-            <img
-              src={movie.poster_url}
-              alt={movie.title}
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = FALLBACK_POSTER;
-              }}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
+    <Link
+      to={`/movies/${movie.movie_id}`}
+      className="movie-card glass-panel group relative block w-full aspect-[2/3] overflow-hidden rounded-lg cursor-pointer"
+    >
+      <img
+        src={movie.poster_url}
+        alt={movie.title}
+        onError={(e) => {
+          e.currentTarget.onerror = null;
+          e.currentTarget.src = FALLBACK_POSTER;
+        }}
+        className="w-full h-full object-cover"
+      />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+      {/* Lớp phủ gradient */}
+      <div className="absolute inset-0 flex flex-col justify-end p-5 bg-gradient-to-t from-ultra-dark-navy via-ultra-dark-navy/60 to-transparent backdrop-blur-[2px]">
+        <span className="w-max mb-2 px-2 py-1 rounded font-label-sm text-[10px] bg-primary-container/20 border border-primary-container/30 text-primary-container shadow-[0_0_10px_rgba(221,183,255,0.3)]">
+          {movie.age_rating}
+        </span>
 
-            <span className="absolute top-3 left-3 bg-red-500 text-white text-xs px-2.5 py-1 rounded font-bold shadow-lg z-10">
-              {movie.age_rating}
-            </span>
+        <h3 className="font-title-md text-title-md text-on-surface mb-1 truncate group-hover:text-glow transition-all">
+          {movie.title}
+        </h3>
 
-            <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-              <h3 className="font-bold text-base leading-tight mb-1 line-clamp-2">
-                {movie.title}
-              </h3>
-              <p className="text-xs text-white/80">⏱ {movie.duration_minutes} phút</p>
-            </div>
-          </div>
+        <p className="font-label-sm text-label-sm text-secondary truncate">
+          {movie.genres.length > 0 ? movie.genres.join(' / ') : 'Đang cập nhật'}
+        </p>
 
-          {/* Back */}
-          <div
-            className={`absolute inset-0 rounded-2xl shadow-lg p-4 flex flex-col justify-between ${
-              darkMode ? "bg-gray-900 border border-gray-700" : "bg-white border border-gray-200"
-            } [backface-visibility:hidden] [transform:rotateY(180deg)]`}
-          >
-            <div>
-              <div className="flex items-start gap-3 mb-4">
-                <img
-                  src={movie.poster_url}
-                  alt={movie.title}
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = FALLBACK_POSTER;
-                  }}
-                  className="w-16 aspect-[2/3] object-cover rounded-lg shadow"
-                />
+        <p className="font-label-sm text-label-sm text-on-surface-variant mt-1 flex items-center gap-1">
+          <span className="material-symbols-outlined text-[14px]">schedule</span>
+          {movie.duration_minutes} phút
+        </p>
 
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-extrabold text-sm leading-tight mb-2 line-clamp-2">
-                    {movie.title}
-                  </h3>
-
-                  <div className="flex flex-wrap gap-1">
-                    <span className="inline-block bg-red-500 text-white text-[10px] px-2 py-0.5 rounded font-bold">
-                      {movie.age_rating}
-                    </span>
-                    <span
-                      className={`inline-block text-[10px] px-2 py-0.5 rounded font-medium ${
-                        darkMode
-                          ? "bg-white/10 text-white"
-                          : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {movie.duration_minutes} phút
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-1 mb-3">
-                {movie.genres.map((g) => (
-                  <span
-                    key={g}
-                    className={`text-[10px] px-2 py-1 rounded-full border ${
-                      darkMode
-                        ? "bg-red-500/10 text-red-300 border-red-500/20"
-                        : "bg-red-50 text-red-500 border-red-200"
-                    }`}
-                  >
-                    {g}
-                  </span>
-                ))}
-              </div>
-
-              <p
-                className={`text-xs leading-5 ${
-                  darkMode ? "text-gray-300" : "text-gray-600"
-                }`}
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 5,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {movie.description}
-              </p>
-            </div>
-
-            <div className="mt-4 flex flex-col gap-2">
-              <div className="w-full rounded-xl bg-red-500 text-white text-sm font-semibold py-2.5 text-center">
-                🎟 Mua vé
-              </div>
-
-              <div
-                className={`w-full rounded-xl text-sm font-semibold py-2.5 text-center border ${
-                  darkMode
-                    ? "bg-white/5 text-white border-white/10"
-                    : "bg-gray-50 text-gray-700 border-gray-200"
-                }`}
-              >
-                Xem chi tiết
-              </div>
-            </div>
-          </div>
-        </div>
-      </Link>
-    </div>
+        <span className="btn-primary w-full py-2 rounded-lg mt-4 text-center font-title-md text-[14px] uppercase opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          Đặt vé
+        </span>
+      </div>
+    </Link>
   );
 }
