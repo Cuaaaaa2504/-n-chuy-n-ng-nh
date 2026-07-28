@@ -1,0 +1,34 @@
+# ============================================================
+# recommendation-service — dependencies
+# Cài:  pip install -r requirements.txt
+# Khuyến nghị Python 3.10 – 3.12.
+# ============================================================
+
+# --- HTTP server ---------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# --- Tính toán / mô hình -------------------------------------
+# CHỦ Ý: KHÔNG dùng tensorflow.
+# Notebook có phần Neural CF, nhưng nhánh Hybrid tốt nhất chỉ cần
+# SVD + Content + Popularity (xem mục "Trọng số Hybrid" trong notebook).
+# Kéo cả tensorflow (~600 MB) vào production chỉ để dùng 3 dòng embedding
+# là không đáng: image Docker phình to, thời gian khởi động lâu, và trên
+# máy không có AVX2 thì tensorflow còn crash lúc import.
+numpy==2.2.1
+pandas==2.2.3
+scipy==1.15.0
+scikit-learn==1.6.0
+joblib==1.4.2
+
+# --- Kết nối SQL Server --------------------------------------
+SQLAlchemy==2.0.36
+# pyodbc cần ODBC Driver 17/18 for SQL Server cài sẵn ở HĐH (xem README).
+pyodbc==5.2.0
+# pymssql là phương án thay thế khi KHÔNG cài được ODBC driver
+# (đặt DB_CONNECTOR=pymssql trong .env). Cài sẵn cả hai cho tiện.
+pymssql==2.3.2
+
+python-dotenv==1.0.1
