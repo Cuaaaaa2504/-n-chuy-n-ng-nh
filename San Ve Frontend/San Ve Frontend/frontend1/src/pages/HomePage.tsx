@@ -13,6 +13,7 @@
 import { useMemo, useState } from 'react';
 import HeroBanner from '../components/HeroBanner';
 import MovieSection from '../components/MovieSection';
+import RecommendedMovies from '../components/RecommendedMovies';
 import { useMovies } from '../hooks/useMovies';
 import { useTheme } from '../context/useTheme';
 
@@ -89,8 +90,23 @@ export default function HomePage() {
   return (
     <div>
       <HeroBanner movies={heroMovies} />
-
+<RecommendedMovies />
       <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-12">
+        {/*
+          VÁ MỤC #4 & #7 CỦA BÁO CÁO — mắt xích cuối của chuỗi
+          frontend -> backend -> ML service -> database.
+
+          ĐẶT TRÊN TABS LÀ CÓ CHỦ Ý: gợi ý cá nhân hoá chỉ có giá trị khi nó
+          là thứ người dùng thấy đầu tiên sau banner. Nhét xuống dưới cùng thì
+          gần như không ai cuộn tới, và toàn bộ công sức của model coi như bỏ.
+
+          Component tự ẩn khi chưa đăng nhập / không có dữ liệu / API chết, nên
+          KHÔNG cần bọc thêm điều kiện ở đây. Nó cũng có state loading riêng —
+          cố tình KHÔNG gộp vào `loading` của `useMovies` ở trên: nếu gộp, một
+          service gợi ý chậm sẽ giữ nguyên cả trang chủ ở màn hình skeleton.
+        */}
+        <RecommendedMovies />
+
         {/* Tabs */}
         <div className="flex justify-center border-b border-white/10 mb-10 overflow-x-auto overflow-y-hidden hide-scrollbar">
           {tabs.map((tab) => (

@@ -31,15 +31,32 @@ export class RecommendationService {
     private readonly configService: ConfigService,
     private readonly movieService: MovieService,
   ) {
+    // FIX #18 (MỚI): giá trị fallback trước đây là cổng 8001, nhưng:
+    //   - `.env.example` của backend ghi RECOMMENDATION_SERVICE_URL=http://localhost:8000
+    //   - `.env.example` của recommendation-service ghi PORT=8000
+    //   - README + Dockerfile của Python service đều dùng 8000
+    // Ai quên copy `.env.example` thành `.env` (rất hay xảy ra) sẽ chạy vào
+    // cổng 8001 chết -> catchError nuốt lỗi -> trang chủ vẫn hiện gợi ý
+    // FALLBACK bình thường nên KHÔNG AI BIẾT model chưa từng được gọi.
+    // Đúng loại lỗi im lặng mà chính file main.py bên Python đã cảnh báo.
     this.baseUrl = (
       this.configService.get<string>('RECOMMENDATION_SERVICE_URL') ??
-      'http://localhost:8001'
+      'http://localhost:8000'
     ).replace(/\/+$/, '');
 
-    this.timeoutMs = parseInt(
-      this.configService.get<string>('RECOMMENDATION_TIMEOUT_MS') ?? '2000',
+    // FIX #19 (MỚI): fallback 2000ms ở đây không khớp RECOMMENDATION_TIMEOUT_MS=5000
+    // trong `.env.example`. Lần inference đầu tiên sau khi service khởi động
+    // (model vừa nạp, cache chưa nóng) thường vượt 2s -> timeout -> lại rơi
+    // vào FALLBACK một cách vô cớ. Lấy 5000 cho khớp file mẫu.
+    const parsedTimeout = parseInt(
+      this.configService.get<string>('RECOMMENDATION_TIMEOUT_MS') ?? '5000',
       10,
     );
+    // Giá trị rác trong .env (VD: RECOMMENDATION_TIMEOUT_MS=abc) làm parseInt
+    // trả NaN; rxjs timeout(NaN) ném ngay lập tức -> gợi ý chết hoàn toàn.
+    this.timeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0
+      ? parsedTimeout
+      : 5000;
   }
 
   /**
