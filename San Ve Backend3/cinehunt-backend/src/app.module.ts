@@ -74,7 +74,24 @@ import {
         migrationsTableName: 'typeorm_migrations',
         migrationsRun: false,
         synchronize: false,
-        options: { encrypt: false },
+
+        // FIX [#2]: options ở đây PHẢI giống hệt typeorm.config.ts.
+        //
+        // Trước đây chỉ có `encrypt: false`. Trên Windows local vẫn chạy được
+        // vì Windows tin self-signed cert của SQL Server, nhưng khi deploy lên
+        // Linux / Docker thì driver mssql v11 validate certificate và từ chối
+        // kết nối. Lỗi trả về chỉ là "connection timeout" nên cực khó lần ra
+        // nguyên nhân. Bật trustServerCertificate để hành vi giống nhau ở mọi
+        // môi trường.
+        options: {
+          encrypt: false,
+          trustServerCertificate: true,
+          // Chỉ dùng khi SQL Server cài dạng named instance (VD: SQLEXPRESS).
+          // Đặt DB_INSTANCE=SQLEXPRESS trong .env. Không đặt thì bỏ qua.
+          ...(configService.get<string>('DB_INSTANCE')
+            ? { instanceName: configService.get<string>('DB_INSTANCE') }
+            : {}),
+        },
       }),
     }),
     BookingModule,

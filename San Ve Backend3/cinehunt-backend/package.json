@@ -8,9 +8,12 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "typeorm": "typeorm-ts-node-commonjs -d typeorm.config.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d typeorm.config.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d typeorm.config.ts",
-    "migration:show": "typeorm-ts-node-commonjs migration:show -d typeorm.config.ts"
+    "migration:show": "typeorm-ts-node-commonjs migration:show -d typeorm.config.ts",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d typeorm.config.ts",
+    "migration:create": "typeorm-ts-node-commonjs migration:create"
   },
   "dependencies": {
     "@nestjs/axios": "^3.1.3",

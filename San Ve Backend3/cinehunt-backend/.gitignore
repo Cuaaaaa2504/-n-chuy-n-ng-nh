@@ -2,6 +2,17 @@
 /dist
 /node_modules
 
+# FIX [#4]: build cache của TypeScript (~280KB), sinh lại mỗi lần `nest build`.
+# Commit vào Git chỉ làm nặng repo và gây noise trong git diff.
+# Nếu file đã lỡ được commit, chạy 1 lần:
+#   git rm --cached tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# File người dùng upload lúc runtime — không phải source code.
+# Giữ lại .gitkeep để thư mục vẫn tồn tại sau khi clone.
+/uploads/**/*
+!/uploads/**/.gitkeep
+
 # Logs
 logs
 *.log
