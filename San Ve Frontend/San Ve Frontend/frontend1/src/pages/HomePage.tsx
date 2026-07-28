@@ -1,15 +1,3 @@
-// src/pages/HomePage.tsx
-//
-// FIX Lỗi 2: trang chủ import `mockMovies` và không hề gọi API. Admin thêm/sửa/xoá
-// phim thì trang chủ không bao giờ phản ánh — banner và cả 2 tab đều là dữ liệu
-// giả cứng. Nay toàn bộ dữ liệu đến từ `GET /movies` qua hook `useMovies()`.
-//
-// FIX Lỗi 6: banner trước đây dựa vào `featured` — field KHÔNG tồn tại trong
-// entity/DTO/bảng `movies` của backend, nên với dữ liệu thật nó luôn undefined.
-// Nay banner lấy các phim đang chiếu mới nhất, tiêu chí có thật trong DB.
-//
-// RESKIN: chỉ đổi JSX + class theo Demo UI (Cyber Neon). State, hook, tiêu chí
-// lọc và mọi lời gọi API giữ nguyên 100%.
 import { useMemo, useState } from 'react';
 import HeroBanner from '../components/HeroBanner';
 import MovieSection from '../components/MovieSection';
@@ -18,7 +6,6 @@ import { useMovies } from '../hooks/useMovies';
 import { useTheme } from '../context/useTheme';
 
 type Tab = 'NOW_SHOWING' | 'COMING_SOON' | 'SPECIAL';
-
 const HERO_COUNT = 5;
 
 export default function HomePage() {
@@ -26,28 +13,34 @@ export default function HomePage() {
   const { movies, loading, error, fetchMovies } = useMovies();
   const [activeTab, setActiveTab] = useState<Tab>('NOW_SHOWING');
 
-  // Không bao giờ hiển thị phim đã ẩn / đã kết thúc ra trang công khai
   const visible = useMemo(
-    () => movies.filter((m) => m.status === 'NOW_SHOWING' || m.status === 'COMING_SOON'),
+    () =>
+      movies.filter(
+        (movie) =>
+          movie.status === 'NOW_SHOWING' || movie.status === 'COMING_SOON',
+      ),
     [movies],
   );
 
   const nowShowing = useMemo(
-    () => visible.filter((m) => m.status === 'NOW_SHOWING'),
+    () => visible.filter((movie) => movie.status === 'NOW_SHOWING'),
     [visible],
   );
   const comingSoon = useMemo(
-    () => visible.filter((m) => m.status === 'COMING_SOON'),
+    () => visible.filter((movie) => movie.status === 'COMING_SOON'),
     [visible],
   );
-
   const heroMovies = useMemo(
     () => (nowShowing.length > 0 ? nowShowing : visible).slice(0, HERO_COUNT),
     [nowShowing, visible],
   );
 
   const filtered =
-    activeTab === 'NOW_SHOWING' ? nowShowing : activeTab === 'COMING_SOON' ? comingSoon : visible;
+    activeTab === 'NOW_SHOWING'
+      ? nowShowing
+      : activeTab === 'COMING_SOON'
+        ? comingSoon
+        : visible;
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'NOW_SHOWING', label: 'PHIM ĐANG CHIẾU' },
@@ -60,8 +53,11 @@ export default function HomePage() {
       <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-20">
         <div className="h-80 rounded-xl glass-panel animate-pulse mb-10" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter-desktop">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="aspect-[2/3] rounded-lg glass-panel animate-pulse" />
+          {[1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="aspect-[2/3] rounded-lg glass-panel animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -71,7 +67,9 @@ export default function HomePage() {
   if (error) {
     return (
       <div className="max-w-md mx-auto text-center px-margin-mobile py-24">
-        <span className="material-symbols-outlined text-[48px] text-error">error</span>
+        <span className="material-symbols-outlined text-[48px] text-error">
+          error
+        </span>
         <p className="font-headline-lg text-headline-lg-mobile text-error mt-3 mb-2">
           Không tải được danh sách phim
         </p>
@@ -90,24 +88,9 @@ export default function HomePage() {
   return (
     <div>
       <HeroBanner movies={heroMovies} />
-<RecommendedMovies />
       <div className="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-12">
-        {/*
-          VÁ MỤC #4 & #7 CỦA BÁO CÁO — mắt xích cuối của chuỗi
-          frontend -> backend -> ML service -> database.
-
-          ĐẶT TRÊN TABS LÀ CÓ CHỦ Ý: gợi ý cá nhân hoá chỉ có giá trị khi nó
-          là thứ người dùng thấy đầu tiên sau banner. Nhét xuống dưới cùng thì
-          gần như không ai cuộn tới, và toàn bộ công sức của model coi như bỏ.
-
-          Component tự ẩn khi chưa đăng nhập / không có dữ liệu / API chết, nên
-          KHÔNG cần bọc thêm điều kiện ở đây. Nó cũng có state loading riêng —
-          cố tình KHÔNG gộp vào `loading` của `useMovies` ở trên: nếu gộp, một
-          service gợi ý chậm sẽ giữ nguyên cả trang chủ ở màn hình skeleton.
-        */}
         <RecommendedMovies />
 
-        {/* Tabs */}
         <div className="flex justify-center border-b border-white/10 mb-10 overflow-x-auto overflow-y-hidden hide-scrollbar">
           {tabs.map((tab) => (
             <button
