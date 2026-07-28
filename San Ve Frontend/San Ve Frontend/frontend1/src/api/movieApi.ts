@@ -6,7 +6,17 @@ import type { Genre, Movie } from '../types/movie';
  * Normalize: response backend (camelCase, genres là object) -> Movie (snake_case)
  * ──────────────────────────────────────────────────────────────────────────*/
 
-function normalizeMovie(item: Record<string, unknown>): Movie {
+/**
+ * FIX (mục #3 báo cáo): hàm này trước đây là `function` private của module.
+ * `recommendationApi.ts` cần đúng phép chuyển đổi này — endpoint
+ * `GET /movies/recommendations` trả về nguyên entity `Movie` camelCase kèm
+ * relation `genres`, y hệt `GET /movies`.
+ *
+ * Copy-paste sang file mới là cách sai: hai bản normalize sẽ trôi dạt khỏi
+ * nhau ngay lần đầu backend đổi tên field, và bug chỉ xuất hiện ở MỘT trong
+ * hai màn hình -> rất khó lần ra. Export ra dùng chung.
+ */
+export function normalizeMovie(item: Record<string, unknown>): Movie {
   // Backend trả genres qua relation ManyToMany: [{ genreId, genreName, slug }]
   const rawGenres = Array.isArray(item.genres) ? (item.genres as unknown[]) : [];
   const genreObjs = rawGenres.map((g) =>
