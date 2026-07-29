@@ -1,16 +1,28 @@
 .DS_Store
 .env
-.DS_Store
-.env
-.DS_Store
-.env
 
 CineHunt_Complete_Local/
 Minhhanh2812/
 
 recommendation-service/.venv/
 recommendation-service/.env
-recommendation-service/model/
 recommendation-service/__pycache__/
 recommendation-service/app/__pycache__/
 .chatbox-backup-*/
+
+# ============================================================
+# FIX REC-02 — file model bị gitignore, máy mới clone không có model
+#
+# Dòng cũ ở đây là `recommendation-service/model/` — bỏ qua CẢ THƯ MỤC.
+# Hệ quả: sau khi clone, thư mục `model/` không tồn tại, `_load_model()` ghi
+# warning rồi đặt `_model = None`, và toàn bộ người dùng nhận fallback
+# POPULARITY dù service vẫn chạy và /health vẫn trả 200.
+#
+# Bản thân file .joblib thì VẪN NÊN bị ignore: nó là artifact nhị phân sinh ra
+# từ dữ liệu, nặng, đổi mỗi lần train, và commit nó lên Git sẽ làm repo phình
+# ra rất nhanh. Cách đúng là giữ THƯ MỤC (qua model/.gitkeep) nhưng bỏ qua
+# NỘI DUNG nhị phân, kèm README nói rõ cách sinh lại file.
+# ============================================================
+recommendation-service/model/*.joblib
+recommendation-service/model/*.joblib.tmp
+recommendation-service/model/*.pkl

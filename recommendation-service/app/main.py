@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
+import sys
+import threading
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -20,14 +25,38 @@ logger = logging.getLogger("recommendation-service")
 settings = get_settings()
 _model: HybridRecommender | None = None
 
+# Trạng thái của lần train gần nhất do POST /train khởi động.
+# Một khoá duy nhất để hai request train không chạy chồng lên nhau: `train.py`
+# ghi cùng một file model và DELETE cùng một bảng cache, chạy song song thì kết
+# quả là file model bị cắt cụt hoặc bảng cache rỗng giữa chừng.
+_train_lock = threading.Lock()
+_train_state: dict = {
+    "running": False,
+    "startedAt": None,
+    "finishedAt": None,
+    "exitCode": None,
+    "lastError": None,
+}
+
 
 def _load_model() -> None:
     global _model
     path = settings.model_path
     if not path.exists():
-        logger.warning(
-            "Chưa có file model tại %s. Service vẫn chạy bằng cache/popularity.",
+        # FIX REC-02 — file model bị .gitignore nên máy mới clone về KHÔNG có
+        # nó. Cảnh báo cũ ("Chưa có file model...") đúng nhưng vô dụng: nó
+        # không nói phải làm gì, và service vẫn trả HTTP 200 nên NestJS coi như
+        # bình thường. Kết quả là mọi user nhận cùng một danh sách popularity
+        # trong khi tất cả tưởng model đang chạy.
+        logger.error(
+            "CHƯA CÓ FILE MODEL tại %s.\n"
+            "    -> Mọi người dùng sẽ nhận CÙNG một danh sách (fallback popularity).\n"
+            "    -> Đây là trạng thái bình thường sau khi clone repo: file .joblib "
+            "không được commit lên Git (và không nên commit — nó là artifact nhị phân).\n"
+            "    -> Tạo model bằng:  python train.py\n"
+            "    -> Hoặc gọi:        POST http://<host>:%s/train",
             path,
+            settings.port,
         )
         _model = None
         return
@@ -47,7 +76,31 @@ def _load_model() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # FIX REC-04: in ra .env nào đang được dùng. Trước đây khi Python kết nối
+    # DB thất bại trong lúc NestJS chạy ngon lành, không có cách nào biết hai
+    # bên đang đọc cấu hình khác nhau ngoài việc mở từng file ra so.
+    if settings.inherited_backend_env:
+        logger.info(
+            "Kế thừa cấu hình DB còn thiếu từ .env của NestJS: %s",
+            settings.inherited_backend_env,
+        )
+    logger.info(
+        "Kết nối DB: connector=%s, host=%s, database=%s",
+        settings.resolve_connector(),
+        settings.db_host,
+        settings.db_name,
+    )
+
     _load_model()
+
+    # FIX REC-02: cho phép tự train ngay lúc khởi động nếu chưa có file model.
+    # Mặc định TẮT — train có thể mất vài phút và người ta thường không muốn
+    # `uvicorn` treo lâu như vậy. Bật bằng AUTO_TRAIN_ON_START=true khi dựng
+    # môi trường mới (Docker, máy chấm đồ án) để không phải nhớ chạy tay.
+    if _model is None and os.getenv("AUTO_TRAIN_ON_START", "").lower() == "true":
+        logger.info("AUTO_TRAIN_ON_START=true -> tự chạy train.py ở nền...")
+        threading.Thread(target=_run_training, daemon=True).start()
+
     yield
 
 
@@ -74,12 +127,29 @@ class RecommendResponse(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
+    """
+    FIX REC-01 + REC-06 — điểm chẩn đoán để phân biệt bốn trạng thái vốn nhìn
+    giống hệt nhau trên giao diện: model thật / cache / popularity / chết hẳn.
+    """
     return {
         "status": "ok",
         "modelLoaded": _model is not None,
+        "modelPath": str(settings.model_path),
+        "modelFileExists": settings.model_path.exists(),
         "modelVersion": _model.model_version if _model else None,
         "trainedAt": _model.trained_at if _model else None,
         "knownUsers": len(_model.user_to_idx) if _model else 0,
+        "knownMovies": len(_model.movie_ids) if _model else 0,
+        "svdMode": _model.svd_mode if _model else None,
+        "dbConnector": settings.resolve_connector(),
+        "training": dict(_train_state),
+        # Nói thẳng ra hệ quả, để người đọc log không phải tự suy luận.
+        "effect": (
+            "Gợi ý đang được cá nhân hoá bằng model."
+            if _model is not None
+            else "MỌI người dùng đang nhận cùng một danh sách (fallback popularity). "
+            "Chạy `python train.py` hoặc POST /train."
+        ),
     }
 
 
@@ -144,4 +214,97 @@ def reload_model() -> JSONResponse:
             "modelVersion": _model.model_version if _model else None,
             "trainedAt": _model.trained_at if _model else None,
         }
+    )
+
+
+# ---------------------------------------------------------------------------
+# FIX REC-05 (phía Python) — endpoint để NestJS gọi train lại theo cron
+#
+# VÌ SAO SPAWN `train.py` THAY VÌ GỌI HÀM TRỰC TIẾP:
+# Phân rã SVD là tác vụ CPU thuần. Gọi thẳng trong tiến trình uvicorn thì GIL
+# giữ chặt luồng và MỌI request /recommend đang chờ bị treo theo cho tới khi
+# train xong — đúng lý do train.py được tách riêng ngay từ đầu. Tiến trình con
+# có GIL riêng, web vẫn phục vụ bình thường trong lúc train chạy.
+# ---------------------------------------------------------------------------
+
+def _run_training() -> None:
+    """Chạy `python train.py` trong tiến trình con rồi nạp lại model."""
+    global _train_state
+
+    if not _train_lock.acquire(blocking=False):
+        logger.warning("Đang có một tiến trình train chạy dở -> bỏ qua yêu cầu này.")
+        return
+
+    _train_state.update(
+        running=True,
+        startedAt=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        finishedAt=None,
+        exitCode=None,
+        lastError=None,
+    )
+
+    try:
+        script = settings.model_dir.parent / "train.py"
+        logger.info("Bắt đầu train lại model (%s)...", script)
+
+        completed = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=str(script.parent),
+            capture_output=True,
+            text=True,
+            timeout=int(os.getenv("TRAIN_TIMEOUT_SECONDS", "1800")),
+        )
+
+        _train_state["exitCode"] = completed.returncode
+
+        if completed.returncode == 0:
+            logger.info("Train xong. Đang nạp lại model vào bộ nhớ...")
+            _load_model()
+        else:
+            _train_state["lastError"] = (completed.stderr or "").strip()[-2000:]
+            logger.error(
+                "train.py thoát với mã %s:\n%s",
+                completed.returncode,
+                _train_state["lastError"],
+            )
+    except subprocess.TimeoutExpired:
+        _train_state["lastError"] = "Train vượt quá thời gian cho phép."
+        logger.error("Train bị huỷ vì quá thời gian (TRAIN_TIMEOUT_SECONDS).")
+    except Exception as exc:  # noqa: BLE001 - không được để luồng nền chết câm
+        _train_state["lastError"] = str(exc)
+        logger.exception("Không chạy được train.py.")
+    finally:
+        _train_state.update(
+            running=False,
+            finishedAt=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        )
+        _train_lock.release()
+
+
+@app.post("/train")
+def train(background_tasks: BackgroundTasks) -> JSONResponse:
+    """
+    Khởi động train ở NỀN và trả lời ngay.
+
+    Không chờ train xong mới trả response: NestJS đặt timeout 20 giây cho lời
+    gọi này, còn train có thể mất vài phút. Trả 202 rồi để client theo dõi
+    tiến độ qua GET /health -> training.
+    """
+    if _train_state["running"]:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "started": False,
+                "message": "Đang có một tiến trình train chạy dở.",
+                "training": dict(_train_state),
+            },
+        )
+
+    background_tasks.add_task(_run_training)
+    return JSONResponse(
+        status_code=202,
+        content={
+            "started": True,
+            "message": "Đã khởi động train ở nền. Theo dõi tiến độ ở GET /health.",
+        },
     )

@@ -9,10 +9,55 @@
 // thường và làm hỏng ý nghĩa của section.
 
 import type { Movie } from '../types/movie';
-import type { RecommendationSource } from '../types/recommendation';
+import type {
+  RecommendationDebug,
+  RecommendationSource,
+} from '../types/recommendation';
 import MovieCard from './MovieCard';
 import { useRecommendations } from '../hooks/useRecommendations';
-import { RECOMMENDATION_DEFAULT_LIMIT } from '../types/recommendation';
+import {
+  RECOMMENDATION_DEFAULT_LIMIT,
+  UPSTREAM_LABELS,
+} from '../types/recommendation';
+
+/**
+ * FIX REC-06 — badge kỹ thuật phân biệt MODEL / CACHE / POPULARITY / SERVICE OFF.
+ *
+ * Bốn trạng thái này cho ra bốn danh sách rất khác nhau nhưng hiện lên GIỐNG HỆT
+ * nhau — chính vì vậy không ai trong nhóm phát hiện ra model chưa từng chạy.
+ * Badge chỉ render ở chế độ dev (`import.meta.env.DEV`), nên bản build cho người
+ * dùng cuối không hề thay đổi.
+ *
+ * Đặt ngay cạnh tiêu đề section thay vì chỉ log ra console: khi đang so tay hai
+ * tài khoản xem gợi ý có khác nhau không, mở DevTools rồi cuộn tìm log là quá
+ * chậm — thông tin phải nằm cùng chỗ với dữ liệu nó mô tả.
+ */
+function DebugBadge({ debug }: { debug: RecommendationDebug | null }) {
+  if (!import.meta.env.DEV || !debug) return null;
+
+  const meta = UPSTREAM_LABELS[debug.upstreamSource];
+  const isHealthy = debug.upstreamSource === 'MODEL';
+
+  return (
+    <span
+      title={`${meta.hint}\nService: ${debug.serviceUrl || 'không rõ'}\nSố id nhận được: ${debug.upstreamCount}`}
+      className={[
+        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border',
+        'font-label-sm text-label-sm uppercase tracking-wider cursor-help',
+        isHealthy
+          ? 'border-secondary/50 text-secondary bg-secondary/10'
+          : 'border-error/50 text-error bg-error/10',
+      ].join(' ')}
+    >
+      <span className="material-symbols-outlined text-[14px]">
+        {isHealthy ? 'check_circle' : 'warning'}
+      </span>
+      {meta.label}
+      {debug.modelVersion ? ` · ${debug.modelVersion}` : ''}
+      {debug.fellBackAfterFilter ? ' · đã lọc hết' : ''}
+    </span>
+  );
+}
 
 interface Props {
   /** Số phim hiển thị. Backend chặn trần 30. */
@@ -50,11 +95,13 @@ function SectionShell({
   title,
   subtitle,
   icon,
+  debug,
   children,
 }: {
   title: string;
   subtitle: string;
   icon: string;
+  debug?: RecommendationDebug | null;
   children: React.ReactNode;
 }) {
   return (
@@ -62,11 +109,12 @@ function SectionShell({
       <div className="flex items-center gap-3 mb-6">
         <span className="w-1 h-8 rounded-full bg-primary-container shadow-[0_0_12px_rgba(221,183,255,0.6)]" />
         <div>
-          <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface flex items-center gap-2">
+          <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface flex items-center gap-2 flex-wrap">
             <span className="material-symbols-outlined text-[24px] text-primary-container">
               {icon}
             </span>
             {title}
+            <DebugBadge debug={debug ?? null} />
           </h2>
           <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">
             {subtitle}
@@ -81,7 +129,7 @@ function SectionShell({
 export default function RecommendedMovies({
   limit = RECOMMENDATION_DEFAULT_LIMIT,
 }: Props) {
-  const { movies, source, loading, error, isLoggedIn, refetch } =
+  const { movies, source, debug, loading, error, isLoggedIn, refetch } =
     useRecommendations({ limit });
 
   // 1) Chưa đăng nhập -> ẩn hoàn toàn.
@@ -95,7 +143,7 @@ export default function RecommendedMovies({
   //    dữ liệu về (tránh cumulative layout shift).
   if (loading) {
     return (
-      <SectionShell title={title} subtitle={subtitle} icon={icon}>
+      <SectionShell title={title} subtitle={subtitle} icon={icon} debug={debug}>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-gutter-mobile md:gap-gutter-desktop">
           {Array.from({ length: Math.min(limit, 4) }).map((_, i) => (
             <div
@@ -113,7 +161,7 @@ export default function RecommendedMovies({
   //    vẫn đặt vé bình thường được. Chỉ để một dòng nhỏ kèm nút thử lại.
   if (error) {
     return (
-      <SectionShell title={title} subtitle={subtitle} icon={icon}>
+      <SectionShell title={title} subtitle={subtitle} icon={icon} debug={debug}>
         <div className="glass-panel rounded-xl py-8 px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="font-body-md text-on-surface-variant">
             Chưa tải được danh sách gợi ý.
@@ -137,7 +185,7 @@ export default function RecommendedMovies({
   if (movies.length === 0) return null;
 
   return (
-    <SectionShell title={title} subtitle={subtitle} icon={icon}>
+    <SectionShell title={title} subtitle={subtitle} icon={icon} debug={debug}>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-gutter-mobile md:gap-gutter-desktop">
         {movies.map((movie: Movie) => (
           <MovieCard key={movie.movie_id} movie={movie} />

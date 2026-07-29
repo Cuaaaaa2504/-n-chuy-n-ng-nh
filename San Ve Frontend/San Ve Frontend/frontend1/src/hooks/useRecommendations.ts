@@ -12,7 +12,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getRecommendations } from '../api/recommendationApi';
 import type { Movie } from '../types/movie';
-import type { RecommendationSource } from '../types/recommendation';
+import type {
+  RecommendationDebug,
+  RecommendationSource,
+} from '../types/recommendation';
 import { RECOMMENDATION_DEFAULT_LIMIT } from '../types/recommendation';
 import { useAuth } from '../context/AuthContext';
 
@@ -36,6 +39,8 @@ export function useRecommendations(options: UseRecommendationsOptions = {}) {
 
   const [movies, setMovies] = useState<Movie[]>([]);
   const [source, setSource] = useState<RecommendationSource>('FALLBACK');
+  // FIX REC-06: giữ nguyên khối debug để component hiện badge kỹ thuật.
+  const [debug, setDebug] = useState<RecommendationDebug | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +57,7 @@ export function useRecommendations(options: UseRecommendationsOptions = {}) {
       const result = await getRecommendations({ limit });
       setMovies(result.items);
       setSource(result.source);
+      setDebug(result.debug);
     } catch (err) {
       // Không hiện thông báo lỗi đỏ chói ở trang chủ chỉ vì service gợi ý chết.
       // Section sẽ tự ẩn; các phần khác của trang không bị ảnh hưởng.
@@ -82,6 +88,7 @@ export function useRecommendations(options: UseRecommendationsOptions = {}) {
   return {
     movies,
     source,
+    debug,
     loading,
     error,
     isLoggedIn,

@@ -1,9 +1,11 @@
 import axiosClient from './axiosClient';
 import { normalizeMovie } from './movieApi';
 import type {
+  RecommendationDebug,
   RecommendationParams,
   RecommendationResult,
   RecommendationSource,
+  RecommendationUpstreamSource,
 } from '../types/recommendation';
 import {
   RECOMMENDATION_DEFAULT_LIMIT,
@@ -31,6 +33,40 @@ function readSource(payload: unknown): RecommendationSource {
   return value === 'MODEL' ? 'MODEL' : 'FALLBACK';
 }
 
+/**
+ * FIX REC-06 — đọc khối `debug` do backend trả kèm.
+ *
+ * Có giá trị mặc định cho mọi trường vì frontend phải chạy được với backend
+ * bản cũ (chưa có khối debug). Thiếu thông tin thì badge hiện UNKNOWN, không
+ * phải là màn hình trắng.
+ */
+function readDebug(payload: unknown): RecommendationDebug {
+  const raw = (payload as Record<string, unknown> | null)?.debug as
+    | Record<string, unknown>
+    | undefined;
+
+  const upstream = raw?.upstreamSource;
+  const known: RecommendationUpstreamSource[] = [
+    'MODEL',
+    'CACHE',
+    'POPULARITY',
+    'UNREACHABLE',
+    'UNKNOWN',
+  ];
+
+  return {
+    upstreamSource: known.includes(upstream as RecommendationUpstreamSource)
+      ? (upstream as RecommendationUpstreamSource)
+      : 'UNKNOWN',
+    serviceReachable: raw?.serviceReachable === true,
+    modelVersion:
+      typeof raw?.modelVersion === 'string' ? raw.modelVersion : null,
+    upstreamCount: Number(raw?.upstreamCount ?? 0) || 0,
+    fellBackAfterFilter: raw?.fellBackAfterFilter === true,
+    serviceUrl: typeof raw?.serviceUrl === 'string' ? raw.serviceUrl : '',
+  };
+}
+
 export async function getRecommendations(
   params?: RecommendationParams,
 ): Promise<RecommendationResult> {
@@ -45,11 +81,23 @@ export async function getRecommendations(
     })) as unknown;
 
     const items = unwrapItems(payload).map(normalizeMovie);
-    return {
+    const result: RecommendationResult = {
       items,
       total: items.length,
       source: readSource(payload),
+      debug: readDebug(payload),
     };
+
+    // FIX REC-06: log một dòng duy nhất, chỉ ở chế độ dev. Trước đây không có
+    // cách nào biết danh sách đang tới từ đâu ngoài việc đọc log backend.
+    if (import.meta.env.DEV) {
+      console.info(
+        `[recommendations] ${result.debug.upstreamSource} — ${items.length} phim` +
+          (result.debug.modelVersion ? ` (model ${result.debug.modelVersion})` : ''),
+      );
+    }
+
+    return result;
   } catch (err) {
     const error = err as {
       status?: number;

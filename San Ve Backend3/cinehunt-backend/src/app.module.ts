@@ -30,6 +30,11 @@ import {
   THROTTLE_LIMIT,
 } from './common/constants/throttle.constants';
 
+function parseBoolean(value: string | undefined, fallback: boolean): boolean {
+  if (!value) return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -54,26 +59,34 @@ import {
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'mssql',
-        host: configService.get<string>('DB_HOST'),
-        port: parseInt(configService.get<string>('DB_PORT') ?? '1433', 10),
-        username: configService.get<string>('DB_USERNAME'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_DATABASE'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        migrationsTableName: 'typeorm_migrations',
-        migrationsRun: false,
-        synchronize: false,
-        options: {
-          encrypt: false,
-          trustServerCertificate: true,
-          ...(configService.get<string>('DB_INSTANCE')
-            ? { instanceName: configService.get<string>('DB_INSTANCE') }
-            : {}),
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const isProduction =
+          configService.get<string>('NODE_ENV')?.toLowerCase() === 'production';
+
+        return {
+          type: 'mssql' as const,
+          host: configService.get<string>('DB_HOST'),
+          port: parseInt(configService.get<string>('DB_PORT') ?? '1433', 10),
+          username: configService.get<string>('DB_USERNAME'),
+          password: configService.get<string>('DB_PASSWORD'),
+          database: configService.get<string>('DB_DATABASE'),
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          migrations: [__dirname + '/migrations/*{.ts,.js}'],
+          migrationsTableName: 'typeorm_migrations',
+          migrationsRun: parseBoolean(
+            configService.get<string>('DB_MIGRATIONS_RUN'),
+            !isProduction,
+          ),
+          synchronize: false,
+          options: {
+            encrypt: false,
+            trustServerCertificate: true,
+            ...(configService.get<string>('DB_INSTANCE')
+              ? { instanceName: configService.get<string>('DB_INSTANCE') }
+              : {}),
+          },
+        };
+      },
     }),
     BookingModule,
     ShowtimeSeatsModule,

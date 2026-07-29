@@ -1,3 +1,23 @@
+/* ============================================================================
+ * FIX UI-01 — ChatBox hardcode màu Netflix, không dùng design token của dự án.
+ *
+ * File cũ dùng hex cứng: FAB gradient #e50914 -> #9b0610, panel #111318, bubble
+ * người dùng #e50914, viền focus #e50914. Không một `var(--color-*)` nào.
+ * Trong khi đó `index.css` đã khai báo đầy đủ token "Cyber Neon Cinema" theo
+ * Tailwind v4 `@theme` với hệ tím/cyan và glassmorphism — nên chatbot trông
+ * như widget của một website khác dán nhầm vào.
+ *
+ * Nguyên tắc áp dụng ở đây:
+ *   - MỌI màu đều đọc từ `var(--color-*)` khai báo trong index.css.
+ *     Đổi bảng màu dự án sau này thì ChatBox tự đổi theo, không phải sửa file
+ *     này — đó mới là mục đích của design token.
+ *   - Panel dùng glassmorphism (`backdrop-filter: blur`) đồng bộ với
+ *     `.glass-panel` của trang chủ.
+ *   - `color-mix()` để pha độ trong suốt từ chính token, thay vì viết rgba()
+ *     với số kênh màu chép tay — chép tay là cách hex cứng quay lại.
+ *   - Chỉ giữ giá trị tuyệt đối cho kích thước, bo góc, thời lượng animation.
+ * ========================================================================== */
+
 .chatRoot {
   position: fixed;
   right: 24px;
@@ -7,19 +27,27 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 14px;
-  font-family: inherit;
+  font-family: var(--font-body-md);
 }
 
+/* ---------------------------------------------------------------- nút nổi -- */
 .fab {
+  display: grid;
+  place-items: center;
   width: 58px;
   height: 58px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 50%;
-  background: linear-gradient(145deg, #e50914, #9b0610);
-  color: #fff;
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42);
+  border: 1px solid color-mix(in srgb, var(--color-primary-container) 40%, transparent);
+  border-radius: 9999px;
+  background: linear-gradient(
+    145deg,
+    var(--color-primary-container),
+    var(--color-secondary-container)
+  );
+  color: var(--color-on-primary);
+  box-shadow:
+    0 16px 38px color-mix(in srgb, var(--color-ultra-dark-navy) 70%, transparent),
+    0 0 18px color-mix(in srgb, var(--color-primary-container) 45%, transparent);
   cursor: pointer;
-  font-size: 25px;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease;
@@ -27,20 +55,37 @@
 
 .fab:hover {
   transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 20px 44px color-mix(in srgb, var(--color-ultra-dark-navy) 75%, transparent),
+    0 0 26px color-mix(in srgb, var(--color-primary-container) 65%, transparent);
 }
 
+.fab:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 3px;
+}
+
+.fab .material-symbols-outlined {
+  font-size: 26px;
+}
+
+/* ------------------------------------------------------------------ panel -- */
 .chatPanel {
   width: min(380px, calc(100vw - 32px));
   height: min(560px, calc(100vh - 118px));
   display: grid;
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
-  background: #111318;
-  color: #f7f7f8;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.56);
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 70%, transparent);
+  border-radius: var(--radius-xl);
+
+  /* Đồng bộ với .glass-panel của index.css */
+  background: var(--color-glass-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+
+  color: var(--color-on-surface);
+  box-shadow: 0 24px 70px color-mix(in srgb, var(--color-ultra-dark-navy) 80%, transparent);
   animation: slideUp 180ms ease-out;
 }
 
@@ -49,39 +94,70 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-  background: #181b21;
+  padding: 14px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-outline-variant) 60%, transparent);
+  background: color-mix(in srgb, var(--color-surface-container-high) 75%, transparent);
 }
 
-.header div {
+.headerText {
   display: grid;
   gap: 3px;
+  min-width: 0;
 }
 
-.header strong {
+.headerText strong {
+  font-family: var(--font-title-md);
   font-size: 15px;
+  font-weight: 600;
+  color: var(--color-on-surface);
 }
 
-.header span {
-  color: #aeb3bd;
-  font-size: 12px;
+.headerText span {
+  font-family: var(--font-label-sm);
+  font-size: var(--text-label-sm);
+  letter-spacing: var(--text-label-sm--letter-spacing);
+  color: var(--color-on-surface-variant);
 }
 
-.closeButton {
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
   border: 0;
+  border-radius: 9999px;
   background: transparent;
-  color: #d7d9de;
+  color: var(--color-on-surface-variant);
   cursor: pointer;
-  font-size: 25px;
-  line-height: 1;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
+.iconButton:hover {
+  background: color-mix(in srgb, var(--color-primary-container) 18%, transparent);
+  color: var(--color-on-surface);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 1px;
+}
+
+.iconButton .material-symbols-outlined {
+  font-size: 20px;
+}
+
+/* ----------------------------------------------------------- danh sách tin -- */
 .messageList {
   overflow-y: auto;
   padding: 18px 14px;
   scrollbar-width: thin;
-  scrollbar-color: #444b57 transparent;
+  scrollbar-color: var(--color-outline-variant) transparent;
 }
 
 .messageRow {
@@ -109,50 +185,135 @@
 
 .userBubble {
   border-bottom-right-radius: 4px;
-  background: #e50914;
-  color: #fff;
+  background: var(--color-primary-container);
+  color: var(--color-on-primary);
 }
 
 .assistantBubble {
   border-bottom-left-radius: 4px;
-  background: #242832;
-  color: #f0f1f3;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 50%, transparent);
+  background: color-mix(in srgb, var(--color-surface-container-high) 85%, transparent);
+  color: var(--color-on-surface);
 }
 
+/*
+ * FIX CHAT-06 (phần hiển thị) — thông báo lỗi phải NHÌN ra là lỗi.
+ * Dùng token error của Material 3 thay vì trộn lẫn với bubble trả lời thường,
+ * vốn là lý do người dùng tưởng chatbot đang "trả lời" một câu vô nghĩa.
+ */
+.errorBubble {
+  border-color: color-mix(in srgb, var(--color-error) 55%, transparent);
+  background: color-mix(in srgb, var(--color-error-container) 35%, transparent);
+  color: var(--color-on-error-container);
+}
+
+/* Con trỏ nhấp nháy trong lúc stream (FIX CHAT-07). */
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--color-secondary);
+  animation: caretBlink 1s steps(2, start) infinite;
+}
+
+/* Dòng "Đang tra lịch chiếu…" khi chatbot gọi dữ liệu thật (FIX CHAT-05). */
+.statusLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 10px;
+  font-family: var(--font-label-sm);
+  font-size: var(--text-label-sm);
+  letter-spacing: var(--text-label-sm--letter-spacing);
+  color: var(--color-secondary);
+}
+
+.statusLine .material-symbols-outlined {
+  font-size: 16px;
+}
+
+/* ------------------------------------------------------------- ô nhập liệu -- */
 .inputArea {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
   padding: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-  background: #181b21;
+  border-top: 1px solid color-mix(in srgb, var(--color-outline-variant) 60%, transparent);
+  background: color-mix(in srgb, var(--color-surface-container-high) 75%, transparent);
 }
 
 .inputArea input {
   min-width: 0;
-  border: 1px solid #373d48;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 80%, transparent);
   border-radius: 12px;
   outline: none;
-  background: #0f1115;
-  color: #fff;
+  background: color-mix(in srgb, var(--color-surface-container-lowest) 85%, transparent);
+  color: var(--color-on-surface);
   padding: 11px 12px;
   font: inherit;
   font-size: 14px;
 }
 
-.inputArea input:focus {
-  border-color: #e50914;
-  box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.14);
+.inputArea input::placeholder {
+  color: var(--color-outline);
 }
 
-.inputArea button {
+.inputArea input:focus {
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-secondary) 22%, transparent);
+}
+
+.sendButton,
+.stopButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 0;
   border-radius: 12px;
-  background: #e50914;
-  color: #fff;
   cursor: pointer;
-  padding: 0 16px;
-  font-weight: 700;
+  padding: 0 14px;
+  font-family: var(--font-label-sm);
+  font-size: var(--text-label-sm);
+  letter-spacing: var(--text-label-sm--letter-spacing);
+  font-weight: 600;
+  text-transform: uppercase;
+  transition: filter 160ms ease, opacity 160ms ease;
+}
+
+.sendButton {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary);
+}
+
+.sendButton:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/*
+ * Nút Dừng dùng màu secondary (cyan) chứ không phải error đỏ: dừng là hành
+ * động bình thường của người dùng, không phải sự cố.
+ */
+.stopButton {
+  border: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent);
+  background: color-mix(in srgb, var(--color-secondary) 14%, transparent);
+  color: var(--color-secondary);
+}
+
+.stopButton:hover {
+  background: color-mix(in srgb, var(--color-secondary) 24%, transparent);
+}
+
+.sendButton:focus-visible,
+.stopButton:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
+}
+
+.sendButton .material-symbols-outlined,
+.stopButton .material-symbols-outlined {
+  font-size: 18px;
 }
 
 .inputArea button:disabled,
@@ -161,6 +322,7 @@
   opacity: 0.58;
 }
 
+/* -------------------------------------------------------------- hiệu ứng --- */
 .typing {
   display: flex;
   align-items: center;
@@ -172,7 +334,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #b7bbc3;
+  background: var(--color-on-surface-variant);
   animation: typingBounce 1s infinite ease-in-out;
 }
 
@@ -210,6 +372,12 @@
   }
 }
 
+@keyframes caretBlink {
+  to {
+    visibility: hidden;
+  }
+}
+
 @media (max-width: 520px) {
   .chatRoot {
     right: 16px;
@@ -224,7 +392,8 @@
 @media (prefers-reduced-motion: reduce) {
   .chatPanel,
   .fab,
-  .typing span {
+  .typing span,
+  .caret {
     animation: none;
     transition: none;
   }

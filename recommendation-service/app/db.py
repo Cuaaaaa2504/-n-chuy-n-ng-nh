@@ -41,10 +41,15 @@ def get_engine() -> Engine:
     global _engine
     if _engine is None:
         settings = get_settings()
+        # FIX REC-04: `fast_executemany` là tuỳ chọn RIÊNG của pyodbc. Nếu
+        # config tự chuyển sang pymssql (vì máy không có ODBC driver) mà vẫn
+        # truyền cờ này thì SQLAlchemy ném TypeError ngay lúc tạo engine.
+        # Phải hỏi connector ĐÃ RESOLVE, không phải giá trị thô trong .env.
+        connector = settings.resolve_connector()
         _engine = create_engine(
             settings.sqlalchemy_url(),
             pool_pre_ping=True,  # tự phát hiện connection đã chết sau khi idle
-            fast_executemany=(settings.db_connector == "pyodbc"),
+            **({"fast_executemany": True} if connector == "pyodbc" else {}),
         )
     return _engine
 
