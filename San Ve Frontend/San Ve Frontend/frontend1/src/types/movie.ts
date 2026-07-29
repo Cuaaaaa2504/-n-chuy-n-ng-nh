@@ -13,29 +13,20 @@ export interface Movie {
   genres: string[];
 
   /**
-   * FIX Lỗi 2 & 3 (tầng 2): backend `CreateMovieDto` yêu cầu `genreIds: number[]`
-   * (ID số nguyên của thể loại có sẵn trong bảng `genres`), không phải mảng tên.
-   * Gửi tên -> `resolveGenres()` ném BadRequestException 'Một hoặc nhiều thể
-   * loại không tồn tại'. Nay form thao tác trên ID và `genres` chỉ để render.
+   * Backend `CreateMovieDto` yêu cầu ID số nguyên của thể loại có sẵn,
+   * còn `genres` chỉ phục vụ render giao diện.
    */
   genre_ids?: number[];
 
-  release_date?: string;
+  release_date?: string | null;
 
-  // FIX Lỗi 6: đã XOÁ field `featured`.
-  // Bảng `movies`, entity `Movie` và `CreateMovieDto` đều không có cột này
-  // (`grep -c featured` trên file SQL trả về 0). Giữ nó lại chỉ tạo ra rủi ro:
-  // bất kỳ component nào filter/sort theo `featured` cũng luôn nhận undefined
-  // với dữ liệu thật từ API. HomePage nay chọn banner theo `status` — tiêu chí
-  // có thật trong DB. Muốn có "phim nổi bật" thì phải thêm cột ở DB + DTO trước.
+  /** Dữ liệu trình bày cho Hero; hỗ trợ cả mapper frontend và response backend. */
+  release_year?: number | null;
+  imdb_rating?: number | string | null;
+  average_rating?: number | string | null;
 }
 
-/**
- * Giá trị hợp lệ của `age_rating`.
- * FIX: khớp CHECK constraint `CK_movies_age_rating` trong SQL V6.3
- * — ('P','K','T13','T16','T18','C'). Form cũ đưa ra C13/C16/C18, không giá trị
- * nào tồn tại trong constraint -> INSERT bị DB từ chối.
- */
+/** Giá trị hợp lệ của `age_rating`, khớp CHECK constraint trong SQL. */
 export const AGE_RATINGS = ['P', 'K', 'T13', 'T16', 'T18', 'C'] as const;
 export type AgeRating = (typeof AGE_RATINGS)[number];
 

@@ -1,12 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/useTheme';
 import { useAuth } from '../context/AuthContext';
 import { resolveAssetUrl } from '../utils/assetUrl';
 import NotificationBell from './NotificationBell';
 
 const NAV_LINK =
-  'font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant hover:text-secondary hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)] transition-all duration-300 px-3 py-2 rounded-full hover:bg-white/5';
+  'font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant hover:text-secondary hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)] transition-all duration-300 px-3 py-2 border-b-2 border-transparent';
+const NAV_LINK_ACTIVE = 'border-primary text-primary nav-glow';
 
 const ICON_BTN =
   'text-on-surface-variant hover:text-secondary hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)] transition-colors p-2 rounded-full hover:bg-white/5 flex items-center justify-center';
@@ -18,13 +19,22 @@ export default function Navbar() {
   const { darkMode, toggleDarkMode } = useTheme();
   const { isLoggedIn, user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [ticketSubmenuOpen, setTicketSubmenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const isActive = (path: string) =>
+    path === '/'
+      ? pathname === '/'
+      : pathname === path || pathname.startsWith(`${path}/`);
+
+  const navLinkClass = (path: string) =>
+    `${NAV_LINK} ${isActive(path) ? NAV_LINK_ACTIVE : ''}`;
+
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
         setTicketSubmenuOpen(false);
       }
@@ -50,26 +60,38 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-glass-surface backdrop-blur-xl border-b border-white/10 shadow-lg shadow-primary/5">
       <div className="max-w-container-max mx-auto w-full px-margin-mobile md:px-margin-desktop py-4 flex items-center justify-between gap-4">
-        {/* Brand */}
         <Link
           to="/"
+          aria-current={isActive('/') ? 'page' : undefined}
           className="font-headline-lg text-[24px] font-bold text-primary-container text-glow shrink-0"
         >
           CMC Cinema
         </Link>
 
-        {/* Navigation */}
         <nav className="hidden md:flex items-center gap-2">
-          <Link to="/schedule" className={NAV_LINK}>
+          <Link
+            to="/schedule"
+            aria-current={isActive('/schedule') ? 'page' : undefined}
+            className={navLinkClass('/schedule')}
+          >
             Lịch chiếu
           </Link>
-          <Link to="/movies" className={NAV_LINK}>
+          <Link
+            to="/movies"
+            aria-current={isActive('/movies') ? 'page' : undefined}
+            className={navLinkClass('/movies')}
+          >
             Phim
           </Link>
           {isLoggedIn && (user?.role === 'STAFF' || user?.role === 'ADMIN') && (
             <Link
               to="/staff/checkin"
-              className="font-label-sm text-label-sm uppercase tracking-wider text-tertiary hover:drop-shadow-[0_0_8px_rgba(231,231,133,0.8)] transition-all duration-300 px-3 py-2 rounded-full hover:bg-white/5 flex items-center gap-1.5"
+              aria-current={isActive('/staff/checkin') ? 'page' : undefined}
+              className={`font-label-sm text-label-sm uppercase tracking-wider text-tertiary hover:drop-shadow-[0_0_8px_rgba(231,231,133,0.8)] transition-all duration-300 px-3 py-2 border-b-2 ${
+                isActive('/staff/checkin')
+                  ? 'border-tertiary nav-glow'
+                  : 'border-transparent'
+              } flex items-center gap-1.5`}
             >
               <span className="material-symbols-outlined text-[18px]">verified</span>
               Soát vé
@@ -78,7 +100,10 @@ export default function Navbar() {
           {isLoggedIn && user?.role === 'ADMIN' && (
             <Link
               to="/admin"
-              className="font-label-sm text-label-sm uppercase tracking-wider text-error hover:drop-shadow-[0_0_8px_rgba(255,180,171,0.8)] transition-all duration-300 px-3 py-2 rounded-full hover:bg-white/5 flex items-center gap-1.5"
+              aria-current={isActive('/admin') ? 'page' : undefined}
+              className={`font-label-sm text-label-sm uppercase tracking-wider text-error hover:drop-shadow-[0_0_8px_rgba(255,180,171,0.8)] transition-all duration-300 px-3 py-2 border-b-2 ${
+                isActive('/admin') ? 'border-error nav-glow' : 'border-transparent'
+              } flex items-center gap-1.5`}
             >
               <span className="material-symbols-outlined text-[18px]">shield_person</span>
               Admin
@@ -86,7 +111,6 @@ export default function Navbar() {
           )}
         </nav>
 
-        {/* Actions */}
         <div className="flex items-center gap-2">
           <div className={`${ICON_BTN} hidden sm:flex gap-1.5`}>
             <span className="material-symbols-outlined text-[20px]">location_on</span>
@@ -103,17 +127,18 @@ export default function Navbar() {
             </span>
           </button>
 
-          {/* FIX [mục 3.1 + 3.2]: chuông thông báo + badge chưa đọc. */}
           {isLoggedIn && <NotificationBell darkMode={darkMode} />}
 
           {isLoggedIn ? (
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => {
-                  setDropdownOpen((prev) => !prev);
+                  setDropdownOpen((previous) => !previous);
                   setTicketSubmenuOpen(false);
                 }}
                 className="flex items-center gap-2 p-1 rounded-full hover:bg-white/5 transition-colors focus:outline-none"
+                aria-expanded={dropdownOpen}
+                aria-label="Mở menu tài khoản"
               >
                 {user?.avatarUrl ? (
                   <img
@@ -152,13 +177,13 @@ export default function Navbar() {
                       <span>Thông tin cá nhân</span>
                     </Link>
 
-                    {/* ====== Vé của tôi — có submenu ====== */}
                     <div className="relative">
                       <button
-                        onClick={() => setTicketSubmenuOpen((prev) => !prev)}
+                        onClick={() => setTicketSubmenuOpen((previous) => !previous)}
                         className={`w-full justify-between ${MENU_ITEM} ${
                           ticketSubmenuOpen ? 'text-secondary bg-white/5' : ''
                         }`}
+                        aria-expanded={ticketSubmenuOpen}
                       >
                         <span className="flex items-center gap-3">
                           <span className="material-symbols-outlined text-[20px]">
@@ -182,7 +207,9 @@ export default function Navbar() {
                             onClick={closeAll}
                             className={`${MENU_ITEM} pl-11 text-tertiary hover:text-tertiary`}
                           >
-                            <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                            <span className="material-symbols-outlined text-[18px]">
+                              hourglass_top
+                            </span>
                             <span>Vé đang giữ</span>
                           </Link>
                           <Link
@@ -197,9 +224,6 @@ export default function Navbar() {
                       )}
                     </div>
 
-                    {/* FIX [báo cáo bỏ sót]: 3 link cũ trỏ tới route không tồn tại
-                        (/booking-history, /vouchers, /settings) nên luôn rơi 404.
-                        Đã trỏ về các trang có thật. */}
                     {[
                       { to: '/my-bookings', icon: 'receipt_long', label: 'Lịch sử mua vé' },
                       { to: '/profile', icon: 'settings', label: 'Cài đặt tài khoản' },

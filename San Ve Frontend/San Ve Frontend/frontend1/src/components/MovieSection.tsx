@@ -14,7 +14,7 @@ export default function MovieSection({ title, movies }: MovieSectionProps) {
     <section className="mb-14">
       <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <span className="w-1 h-8 rounded-full bg-primary-container shadow-[0_0_12px_rgba(221,183,255,0.6)]" />
+          <span className="w-2 h-8 rounded-full bg-primary-container shadow-[0_0_12px_rgba(221,183,255,0.6)]" />
           <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">
             {title}
           </h2>
@@ -31,8 +31,8 @@ export default function MovieSection({ title, movies }: MovieSectionProps) {
 
       {movies.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-gutter-mobile md:gap-gutter-desktop">
-          {movies.map((m) => (
-            <MovieCard key={m.movie_id} movie={m} />
+          {movies.map((movie) => (
+            <MovieCard key={movie.movie_id} movie={movie} />
           ))}
         </div>
       ) : (

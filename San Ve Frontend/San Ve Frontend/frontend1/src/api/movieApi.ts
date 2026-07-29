@@ -44,7 +44,17 @@ export function normalizeMovie(item: Record<string, unknown>): Movie {
     status: (item.status ?? 'NOW_SHOWING') as Movie['status'],
     genres: genreObjs.map((g) => g.name).filter(Boolean),
     genre_ids: genreObjs.map((g) => g.id).filter((id) => id > 0),
-    release_date: (item.releaseDate ?? item.release_date) as string | undefined,
+    release_date: (item.releaseDate ?? item.release_date) as string | null | undefined,
+    average_rating: (item.averageRating ?? item.average_rating) as
+      | number
+      | string
+      | null
+      | undefined,
+    imdb_rating: (item.imdbRating ?? item.imdb_rating) as
+      | number
+      | string
+      | null
+      | undefined,
   };
 }
 
