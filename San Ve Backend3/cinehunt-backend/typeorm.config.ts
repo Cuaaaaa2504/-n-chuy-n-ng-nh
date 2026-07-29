@@ -66,15 +66,15 @@ export const dataSourceOptions: DataSourceOptions = {
   logging: ['error', 'schema', 'migration'],
 
   options: {
-    encrypt: false,
-    /**
-     * FIX — lỗi SSL / certificate khi chạy CLI trên SQL Server local (Windows).
-     * mssql v11 mặc định vẫn validate certificate; SQL Server local dùng
-     * self-signed cert nên bắt buộc phải có dòng này.
-     */
-    trustServerCertificate: true,
+    encrypt:
+      (process.env.DB_ENCRYPT ?? 'false').toLowerCase() === 'true',
+
+    trustServerCertificate:
+      (process.env.DB_TRUST_SERVER_CERTIFICATE ?? 'true').toLowerCase() ===
+      'true',
+
     // Chỉ dùng khi SQL Server cài dạng named instance (VD: SQLEXPRESS).
-    // Lúc đó đặt DB_INSTANCE=SQLEXPRESS trong .env.
+    // Azure SQL không cần DB_INSTANCE.
     ...(process.env.DB_INSTANCE
       ? { instanceName: process.env.DB_INSTANCE }
       : {}),
