@@ -13,3 +13,4 @@ recommendation-service/.env
 recommendation-service/model/
 recommendation-service/__pycache__/
 recommendation-service/app/__pycache__/
+.chatbox-backup-*/

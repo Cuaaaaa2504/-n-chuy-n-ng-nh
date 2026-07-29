@@ -24,6 +24,7 @@ import { ShowtimeModule } from './showtime/showtime.module';
 import { TicketWatchRequestModule } from './ticket-watch-request/ticket-watch-request.module';
 import { ProductModule } from './product/product.module';
 import { AdminModule } from './admin/admin.module';
+import { ChatModule } from './chat/chat.module';
 import {
   THROTTLE_TTL,
   THROTTLE_LIMIT,
@@ -94,6 +95,7 @@ import {
     TicketWatchRequestModule,
     ProductModule,
     AdminModule,
+    ChatModule,
   ],
   providers: [
     {
