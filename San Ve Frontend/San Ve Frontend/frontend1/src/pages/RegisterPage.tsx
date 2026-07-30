@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import authApi from '../api/authApi';
-import { useAuth } from '../context/AuthContext';
+import axiosClient from '../api/axiosClient';
 
 interface RegisterForm {
   fullName: string;
   email: string;
   phone: string;
   password: string;
+  confirmPassword: string;
 }
 
 const INPUT =
@@ -21,22 +21,26 @@ const FIELDS: {
   placeholder: string;
   type: string;
   icon: string;
+  autoComplete?: string;
+  minLength?: number;
 }[] = [
-  { name: 'fullName', label: 'Họ và tên', placeholder: 'Nguyễn Văn A', type: 'text', icon: 'person' },
-  { name: 'email', label: 'Email', placeholder: 'pilot@cmc.com', type: 'email', icon: 'mail' },
-  { name: 'phone', label: 'Số điện thoại', placeholder: '09xx xxx xxx', type: 'text', icon: 'call' },
-  { name: 'password', label: 'Mật khẩu', placeholder: '••••••••', type: 'password', icon: 'lock' },
+  { name: 'fullName', label: 'Họ và tên', placeholder: 'Nguyễn Văn A', type: 'text', icon: 'person', autoComplete: 'name' },
+  { name: 'email', label: 'Email', placeholder: 'pilot@cmc.com', type: 'email', icon: 'mail', autoComplete: 'email' },
+  { name: 'phone', label: 'Số điện thoại', placeholder: '09xx xxx xxx', type: 'tel', icon: 'call', autoComplete: 'tel' },
+  { name: 'password', label: 'Mật khẩu', placeholder: '••••••••', type: 'password', icon: 'lock', autoComplete: 'new-password', minLength: 6 },
+  { name: 'confirmPassword', label: 'Xác nhận mật khẩu', placeholder: '••••••••', type: 'password', icon: 'lock_reset', autoComplete: 'new-password', minLength: 6 },
 ];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
   const [formData, setFormData] = useState<RegisterForm>({
     fullName: '',
     email: '',
     phone: '',
     password: '',
+    confirmPassword: '',
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
@@ -48,18 +52,33 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setMessage('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setIsError(true);
+      setMessage('Mật khẩu xác nhận không khớp!');
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setIsError(true);
+      setMessage('Bạn cần đồng ý với Điều khoản dịch vụ để tiếp tục.');
+      return;
+    }
+
+    setLoading(true);
     try {
-      await authApi.register(formData);
-      const session = await authApi.login({
-        email: formData.email,
-        password: formData.password,
+      // Chỉ gửi các trường backend cần, không gửi confirmPassword lên server.
+      const { fullName, email, phone, password } = formData;
+      await axiosClient.post('/auth/register', {
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        password,
       });
-      login(session.accessToken, session.user);
       setIsError(false);
-      setMessage('Đăng ký thành công! Đang tải gợi ý phim cho bạn...');
-      navigate('/', { replace: true });
+      setMessage('Đăng ký thành công! Chuyển đến trang đăng nhập...');
+      setTimeout(() => navigate('/login'), 1500);
     } catch (error: unknown) {
       setIsError(true);
       setMessage((error as { message?: string }).message || 'Đăng ký thất bại!');
@@ -90,6 +109,7 @@ export default function RegisterPage() {
 
         {message && (
           <p
+            role={isError ? 'alert' : 'status'}
             className={`flex items-center gap-2 font-body-md text-[14px] rounded-lg px-4 py-3 mb-6 border ${
               isError
                 ? 'text-error bg-error/10 border-error/30'
@@ -121,11 +141,34 @@ export default function RegisterPage() {
                   value={formData[field.name]}
                   onChange={handleChange}
                   required={field.name !== 'phone'}
+                  autoComplete={field.autoComplete}
+                  minLength={field.minLength}
                   className={INPUT}
                 />
               </div>
             </div>
           ))}
+
+          <label className="flex items-start gap-3 font-body-md text-[14px] text-on-surface-variant cursor-pointer">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              required
+              className="mt-1 w-4 h-4 rounded border-white/20 bg-black/30 accent-primary cursor-pointer"
+            />
+            <span>
+              Tôi đồng ý với{' '}
+              <Link to="/terms" className="text-secondary hover:text-primary transition-colors font-semibold">
+                Điều khoản dịch vụ
+              </Link>{' '}
+              và{' '}
+              <Link to="/privacy" className="text-secondary hover:text-primary transition-colors font-semibold">
+                Chính sách bảo mật
+              </Link>
+              .
+            </span>
+          </label>
 
           <button
             type="submit"

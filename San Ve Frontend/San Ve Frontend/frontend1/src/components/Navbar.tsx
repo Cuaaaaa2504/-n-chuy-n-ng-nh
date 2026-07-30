@@ -59,7 +59,7 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 bg-glass-surface backdrop-blur-xl border-b border-white/10 shadow-lg shadow-primary/5">
-      <div className="max-w-container-max mx-auto w-full px-margin-mobile md:px-margin-desktop py-4 flex items-center justify-between gap-4">
+      <div className="max-w-container-max mx-auto w-full px-margin-mobile md:px-margin-desktop py-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
         <Link
           to="/"
           aria-current={isActive('/') ? 'page' : undefined}
@@ -68,7 +68,7 @@ export default function Navbar() {
           CMC Cinema
         </Link>
 
-        <nav className="hidden md:flex items-center gap-2">
+        <nav className="hidden md:flex items-center justify-center gap-6">
           <Link
             to="/schedule"
             aria-current={isActive('/schedule') ? 'page' : undefined}
@@ -111,7 +111,7 @@ export default function Navbar() {
           )}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-self-end">
           <div className={`${ICON_BTN} hidden sm:flex gap-1.5`}>
             <span className="material-symbols-outlined text-[20px]">location_on</span>
             <select className="bg-transparent font-label-sm text-label-sm uppercase tracking-wider text-inherit cursor-pointer outline-none [&>option]:bg-surface-container [&>option]:text-on-surface">
@@ -121,7 +121,13 @@ export default function Navbar() {
             </select>
           </div>
 
-          <button onClick={toggleDarkMode} className={ICON_BTN} aria-label="Đổi giao diện">
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            className={ICON_BTN}
+            aria-label={darkMode ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+            title={darkMode ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+          >
             <span className="material-symbols-outlined text-[20px]">
               {darkMode ? 'light_mode' : 'dark_mode'}
             </span>

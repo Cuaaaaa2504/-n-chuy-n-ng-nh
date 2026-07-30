@@ -1,0 +1,81 @@
+/* ============================================================
+   CMC CINEMA — Light Mode overrides ("Cyber Neon Cinema")
+   Ghi đè các CSS custom properties định nghĩa trong index.css
+   khi thẻ <html> có class "light" (gắn bởi ThemeContext.tsx).
+   ============================================================ */
+
+html.light {
+  color-scheme: light;
+
+  /* ---------- Colors (Material 3 light scheme) ---------- */
+  --color-surface: #fdf7ff;
+  --color-surface-dim: #ded8e0;
+  --color-surface-bright: #fdf7ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f8f1fa;
+  --color-surface-container: #f2ecf4;
+  --color-surface-container-high: #ece6ee;
+  --color-surface-container-highest: #e6e0e9;
+  --color-on-surface: #1d1b1e;
+  --color-on-surface-variant: #4a454e;
+  --color-inverse-surface: #322f33;
+  --color-inverse-on-surface: #f5eff7;
+  --color-outline: #7c757f;
+  --color-outline-variant: #cdc4cf;
+  --color-surface-tint: #715090;
+
+  --color-primary: #6b4a8a;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #f0daff;
+  --color-on-primary-container: #40215e;
+  --color-inverse-primary: #ddb7ff;
+
+  --color-secondary: #006877;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #b0eaff;
+  --color-on-secondary-container: #00404a;
+
+  --color-tertiary: #5c5d00;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #e7e785;
+  --color-on-tertiary-container: #1b1c00;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #410002;
+
+  --color-background: #fdf7ff;
+  --color-on-background: #1d1b1e;
+  --color-surface-variant: #e6e0e9;
+
+  --color-ultra-dark-navy: #f4f1f8;
+  --color-glass-surface: rgba(255, 255, 255, 0.65);
+}
+
+/* Thành phần trang trí/neon vốn được thiết kế cho nền tối,
+   giảm bớt độ chói trên nền sáng để không bị chói mắt/loè. */
+html.light body {
+  background-color: var(--color-background);
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: var(--color-surface-container-low);
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-secondary-container);
+}
+
+html.light .glass-panel,
+html.light .glass-modal {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+html.light .cyber-card {
+  border-color: var(--color-outline-variant);
+}

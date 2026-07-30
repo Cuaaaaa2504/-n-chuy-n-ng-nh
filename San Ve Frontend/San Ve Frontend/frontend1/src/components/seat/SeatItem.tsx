@@ -4,11 +4,11 @@ import type { SeatItemProps } from '../../types/seat.types';
 import './SeatMap.css';
 
 const SeatItem: React.FC<SeatItemProps> = ({ seat, selected, onClick, disabled = false }) => {
-  const isDisabled = disabled || ['SOLD', 'BOOKED', 'HELD', 'BLOCKED'].includes(seat.status);
+  const isDisabled = disabled || ['SOLD','HELD','BLOCKED'].includes(seat.status);
 
   const getTooltip = () => {
     if (selected) return 'Bỏ chọn ghế';
-    const map: Record<string, string> = { HELD: 'Ghế đang được giữ', SOLD: 'Ghế đã bán', BOOKED: 'Ghế đã bán', BLOCKED: 'Ghế bị khóa', AVAILABLE: 'Chọn ghế' };
+    const map: Record<string, string> = { HELD: 'Ghế đang được giữ', SOLD: 'Ghế đã bán', BLOCKED: 'Ghế bị khóa', AVAILABLE: 'Chọn ghế' };
     return map[seat.status] ?? '';
   };
 
@@ -32,7 +32,7 @@ const SeatItem: React.FC<SeatItemProps> = ({ seat, selected, onClick, disabled =
       <span className="seat-number">{seat.seatNumber}</span>
       {isDisabled && seat.status !== 'SELECTED' && (
         <span className="seat-status-icon">
-          {['SOLD', 'BOOKED'].includes(seat.status) && '✕'}
+          {seat.status === 'SOLD' && '✕'}
           {seat.status === 'HELD' && '⏳'}
           {seat.status === 'BLOCKED' && '⊘'}
         </span>

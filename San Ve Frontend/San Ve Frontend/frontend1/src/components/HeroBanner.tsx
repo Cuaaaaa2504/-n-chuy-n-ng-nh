@@ -14,9 +14,13 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
   const transitioningRef = useRef(false);
 
   useEffect(() => {
-    if (current >= featuredMovies.length) {
+    if (current < featuredMovies.length) return;
+
+    const timer = window.setTimeout(() => {
       setCurrent(0);
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [current, featuredMovies.length]);
 
   useEffect(

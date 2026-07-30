@@ -18,19 +18,14 @@ export interface AuthResponse {
   user: User;
 }
 
-export interface RegisterResponse {
-  message: string;
-  user: User;
-}
-
 const authApi = {
   // FIX [M-14]: thêm try/catch để lỗi API được xử lý nhất quán,
   // tránh unhandled rejection bubble lên UI
   login: async (data: LoginRequest): Promise<AuthResponse> =>
     await axiosClient.post<AuthResponse>('/auth/login', data) as unknown as AuthResponse,
 
-  register: async (data: RegisterRequest): Promise<RegisterResponse> =>
-    await axiosClient.post<RegisterResponse>('/auth/register', data) as unknown as RegisterResponse,
+  register: async (data: RegisterRequest): Promise<AuthResponse> =>
+    await axiosClient.post<AuthResponse>('/auth/register', data) as unknown as AuthResponse,
 
   logout: async (): Promise<void> => {
     try {

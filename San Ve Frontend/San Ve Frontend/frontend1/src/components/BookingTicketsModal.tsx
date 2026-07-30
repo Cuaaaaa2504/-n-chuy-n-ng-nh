@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { BookingTicket } from '../types/booking';
 import { useTheme } from '../context/useTheme';
+import TicketQrCode from './TicketQrCode';
 
 type Props = {
   open: boolean;
@@ -27,18 +28,25 @@ export default function BookingTicketsModal({ open, loading, error, tickets, onC
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onMouseDown={onClose}
+      role="presentation"
     >
       <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="booking-tickets-title"
         className={`relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl p-6 ${
           darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
         }`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-extrabold">🎟 QR Vé của bạn</h2>
+          <h2 id="booking-tickets-title" className="text-xl font-extrabold">🎟 QR Vé của bạn</h2>
           <button
+            type="button"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+            aria-label="Đóng danh sách vé"
+            title="Đóng"
           >
             ✕
           </button>
@@ -54,6 +62,7 @@ export default function BookingTicketsModal({ open, loading, error, tickets, onC
           <div className="text-center py-6">
             <p className="text-red-500 mb-3">{error}</p>
             <button
+              type="button"
               onClick={onRetry}
               className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg transition"
             >
@@ -80,14 +89,7 @@ export default function BookingTicketsModal({ open, loading, error, tickets, onC
               <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                 Ghế: <strong>{ticket.seatCode || ticket.seatName || 'N/A'}</strong>
               </p>
-              <img
-                className="w-40 h-40 rounded-lg border"
-                src={
-                  ticket.qrUrl ||
-                  `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${ticket.id}`
-                }
-                alt="QR vé"
-              />
+              <TicketQrCode value={ticket.id} qrUrl={ticket.qrUrl} size={160} className="w-40 h-40" />
             </article>
           ))}
         </div>

@@ -4,7 +4,7 @@ import Footer from '../components/Footer';
 
 export default function MainLayout() {
   return (
-    <div className="relative min-h-screen flex flex-col bg-ultra-dark-navy text-on-surface font-body-md text-body-md">
+    <div className="relative min-h-screen flex flex-col bg-background text-on-surface font-body-md text-body-md">
       {/* Ánh neon nền — thuần trang trí */}
       <div
         aria-hidden
