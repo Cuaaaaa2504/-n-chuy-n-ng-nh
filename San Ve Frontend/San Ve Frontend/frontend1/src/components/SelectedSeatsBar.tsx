@@ -63,40 +63,45 @@ export default function SelectedSeatsBar(props: Props) {
   const onHoldFull = 'onHold' in props && !isSimple ? (props as FullProps).onHold : () => {};
 
   if (isSimple) {
-    // ── Render đơn giản dùng trong SeatBookingPage ──────────────────
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 px-4 py-4">
-        <div className="max-w-5xl mx-auto space-y-3">
-          {holdCountdown !== null && holdCountdown > 0 && (
-            <div className="text-sm text-amber-400 text-center">
-              ⏱ Giữ ghế còn: {Math.floor(holdCountdown / 60)}:{String(holdCountdown % 60).padStart(2, '0')}
-            </div>
-          )}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Đã chọn {selectedSeats.length} ghế</p>
-              <p className="text-lg font-bold text-amber-400">{totalPrice.toLocaleString('vi-VN')} đ</p>
-            </div>
-            <div className="flex gap-2">
-              {onHoldSimple && (
-                <button
-                  onClick={() => { void onHoldSimple(); }}
-                  disabled={loading || selectedSeats.length === 0}
-                  className="px-4 py-2 rounded-xl bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-semibold text-sm transition-colors"
-                >
-                  {loading ? 'Đang giữ…' : 'Giữ ghế'}
-                </button>
-              )}
-              {onProceed && (
-                <button
-                  onClick={() => { void onProceed(); }}
-                  disabled={navigating || selectedSeats.length === 0}
-                  className="px-6 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-900 font-bold text-sm transition-colors"
-                >
-                  {navigating ? 'Đang chuyển…' : 'Đặt vé →'}
-                </button>
-              )}
-            </div>
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-secondary/20 bg-[#0b0f18]/92 px-4 py-3 shadow-[0_-16px_45px_rgba(0,0,0,0.48)] backdrop-blur-2xl lg:hidden">
+        <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-4">
+          <div className="min-w-0">
+            {holdCountdown !== null && holdCountdown > 0 && (
+              <p className="mb-1 font-label-sm text-[10px] uppercase tracking-[0.14em] text-tertiary">
+                Giữ ghế còn {Math.floor(holdCountdown / 60)}:{String(holdCountdown % 60).padStart(2, '0')}
+              </p>
+            )}
+            <p className="text-xs text-on-surface-variant">Đã chọn {selectedSeats.length} ghế</p>
+            <p className="truncate text-lg font-extrabold text-tertiary drop-shadow-[0_0_8px_rgba(231,231,133,0.2)]">
+              {totalPrice.toLocaleString('vi-VN')} ₫
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {onHoldSimple && (
+              <button
+                onClick={() => { void onHoldSimple(); }}
+                disabled={loading || selectedSeats.length === 0}
+                className="btn-secondary rounded-xl px-3 py-2.5 text-xs font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-outline"
+              >
+                {loading ? 'Đang giữ…' : 'Giữ ghế'}
+              </button>
+            )}
+            {onProceed && (
+              <button
+                onClick={() => { void onProceed(); }}
+                disabled={navigating || selectedSeats.length === 0}
+                className="btn-primary inline-flex items-center gap-1 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:bg-none disabled:bg-white/[0.06] disabled:text-outline disabled:shadow-none"
+              >
+                {navigating ? 'Đang chuyển…' : (
+                  <>
+                    Đặt vé
+                    <span className="material-symbols-outlined text-[17px]">arrow_forward</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
