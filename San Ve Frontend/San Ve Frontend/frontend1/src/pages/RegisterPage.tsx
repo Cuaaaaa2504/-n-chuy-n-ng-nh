@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axiosClient from '../api/axiosClient';
+import authApi from '../api/authApi';
+import { useAuth } from '../context/AuthContext';
 
 interface RegisterForm {
   fullName: string;
@@ -29,6 +30,7 @@ const FIELDS: {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState<RegisterForm>({
     fullName: '',
     email: '',
@@ -49,10 +51,15 @@ export default function RegisterPage() {
     setLoading(true);
     setMessage('');
     try {
-      await axiosClient.post('/auth/register', formData);
+      await authApi.register(formData);
+      const session = await authApi.login({
+        email: formData.email,
+        password: formData.password,
+      });
+      login(session.accessToken, session.user);
       setIsError(false);
-      setMessage('Đăng ký thành công! Chuyển đến trang đăng nhập...');
-      setTimeout(() => navigate('/login'), 1500);
+      setMessage('Đăng ký thành công! Đang tải gợi ý phim cho bạn...');
+      navigate('/', { replace: true });
     } catch (error: unknown) {
       setIsError(true);
       setMessage((error as { message?: string }).message || 'Đăng ký thất bại!');
