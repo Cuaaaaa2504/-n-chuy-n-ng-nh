@@ -1,18 +1,11 @@
-// FIX (báo cáo bỏ sót): trang này tra cứu phim bằng `mockMovies.find(...)`, tức
-// chỉ 4 phim giả cứng ID 1-4 mới xem được. Ngay khi HomePage/MoviesPage chuyển
-// sang API thật, mọi link phim đều dẫn tới "Không tìm thấy phim".
-// Nay gọi `getMovieById()` — helper có sẵn, đã normalize camelCase -> snake_case.
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getMovieById } from '../api/movieApi';
 import type { Movie } from '../types/movie';
-import { useTheme } from '../context/useTheme';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
-const FALLBACK_POSTER = 'https://picsum.photos/seed/fallbackposter/500/750';
-const FALLBACK_BACKDROP = 'https://picsum.photos/seed/fallbackbackdrop/1600/900';
-
-// FIX: trước đây mọi status khác NOW_SHOWING đều bị hiển thị là "Sắp chiếu",
-// kể cả phim đã kết thúc (ENDED) hoặc bị ẩn (HIDDEN).
+const FALLBACK_POSTER = 'https://picsum.photos/seed/cmc-detail-poster/600/900';
+const FALLBACK_BACKDROP = 'https://picsum.photos/seed/cmc-detail-backdrop/1800/1000';
 const STATUS_LABEL: Record<string, string> = {
   NOW_SHOWING: 'Đang chiếu',
   COMING_SOON: 'Sắp chiếu',
@@ -22,22 +15,13 @@ const STATUS_LABEL: Record<string, string> = {
 
 function getYoutubeEmbedUrl(url?: string) {
   if (!url) return null;
-  if (url.includes('watch?v=')) {
-    const id = url.split('watch?v=')[1]?.split('&')[0];
-    return id ? `https://www.youtube.com/embed/${id}` : null;
-  }
-  if (url.includes('youtu.be/')) {
-    const id = url.split('youtu.be/')[1]?.split('?')[0];
-    return id ? `https://www.youtube.com/embed/${id}` : null;
-  }
-  return null;
+  const match = url.match(/(?:watch\?v=|youtu\.be\/)([\w-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
 }
 
 export default function MovieDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { darkMode } = useTheme();
-
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,12 +33,10 @@ export default function MovieDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const m = await getMovieById(Number(id));
-        if (!cancelled) setMovie(m);
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError((err as { message?: string })?.message || 'Không tải được thông tin phim');
-        }
+        const result = await getMovieById(Number(id));
+        if (!cancelled) setMovie(result);
+      } catch (reason: unknown) {
+        if (!cancelled) setError((reason as { message?: string })?.message || 'Không tải được thông tin phim');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -63,171 +45,110 @@ export default function MovieDetailPage() {
   }, [id]);
 
   if (loading) {
-    return (
-      <div className="max-w-6xl mx-auto px-4 py-20">
-        <div className="flex flex-col md:flex-row gap-8 animate-pulse">
-          <div className="w-48 md:w-64 aspect-[2/3] rounded-2xl bg-gray-800/40" />
-          <div className="flex-1 space-y-4 py-2">
-            <div className="h-10 bg-gray-800/40 rounded w-2/3" />
-            <div className="h-4 bg-gray-800/40 rounded w-1/3" />
-            <div className="h-24 bg-gray-800/40 rounded" />
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="stitch-container py-16"><div className="stitch-card h-[680px] animate-pulse" /></div>;
   }
 
   if (error || !movie) {
     return (
-      <div className="flex-1 flex items-center justify-center px-4 py-20">
-        <div className="text-center">
-          <p className="text-4xl mb-3">🎬</p>
-          <h1 className="text-3xl font-bold mb-3">Không tìm thấy phim</h1>
-          {error && (
-            <p className={`text-sm mb-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{error}</p>
-          )}
-          <Link to="/" className="inline-block bg-red-500 text-white px-5 py-2 rounded-lg">
-            Quay về trang chủ
-          </Link>
+      <section className="stitch-page grid place-items-center">
+        <div className="stitch-card p-12 text-center max-w-xl">
+          <span className="material-symbols-outlined text-[56px] stitch-muted">movie_off</span>
+          <h1 className="text-3xl font-extrabold mt-4">Không tìm thấy phim</h1>
+          {error && <p className="stitch-muted mt-3">{error}</p>}
+          <Link to="/movies" className="stitch-btn stitch-btn-primary mt-7">Về danh sách phim</Link>
         </div>
-      </div>
+      </section>
     );
   }
 
   const trailerEmbedUrl = getYoutubeEmbedUrl(movie.trailer_url);
+  const poster = resolveAssetUrl(movie.poster_url) || FALLBACK_POSTER;
+  const backdrop = resolveAssetUrl(movie.backdrop_url || movie.poster_url) || FALLBACK_BACKDROP;
+  const year = movie.release_year || (movie.release_date ? movie.release_date.slice(0, 4) : null);
+  const rawRating = movie.imdb_rating ?? movie.average_rating;
+  const numericRating = rawRating == null ? null : Number(rawRating);
+  const rating = numericRating !== null && Number.isFinite(numericRating) ? numericRating.toFixed(1) : '8.5';
 
   return (
     <div>
-      {/* Hero backdrop */}
-      <div className="relative h-[420px] md:h-[560px] overflow-hidden">
-        <img
-          src={movie.backdrop_url || FALLBACK_BACKDROP}
-          alt={movie.title}
-          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_BACKDROP; }}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/50" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-
-        <div className="absolute top-5 left-5 z-20 flex gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20"
-          >
-            ← Quay lại
-          </button>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20"
-          >
-            Trang chủ
-          </Link>
-        </div>
-
-        <div className="absolute bottom-0 left-0 right-0 z-10 px-4 md:px-10 pb-10">
-          <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-end gap-8">
-            <img
-              src={movie.poster_url}
-              alt={movie.title}
-              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_POSTER; }}
-              className="w-48 md:w-64 aspect-[2/3] object-cover rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] border border-white/10"
-            />
-            <div className="flex-1">
-              <div className="flex flex-wrap gap-2 mb-3">
-                <span className="bg-red-500 text-white text-sm px-3 py-1 rounded-full font-semibold">{movie.age_rating}</span>
-                <span className="bg-white/10 text-white text-sm px-3 py-1 rounded-full border border-white/10">{movie.duration_minutes} phút</span>
-                <span className="bg-white/10 text-white text-sm px-3 py-1 rounded-full border border-white/10">
-                  {STATUS_LABEL[movie.status] ?? movie.status}
-                </span>
-              </div>
-              <h1 className="text-3xl md:text-5xl font-extrabold mb-4 text-white">{movie.title}</h1>
-              <div className="flex flex-wrap gap-2 mb-5">
-                {movie.genres.map((genre) => (
-                  <span key={genre} className="bg-white/10 text-white text-sm px-3 py-1 rounded-full border border-white/10">
-                    {genre}
-                  </span>
-                ))}
-              </div>
-              <p className="text-white/90 text-base md:text-lg leading-8 max-w-3xl whitespace-pre-line mb-8">
-                {movie.description || 'Đang cập nhật nội dung phim...'}
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <button
-                  onClick={() => navigate(`/showtimes/${movie.movie_id}`)}
-                  className="bg-red-500 hover:bg-red-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg transition"
-                >
-                  🎟 Mua vé
-                </button>
-                {movie.trailer_url ? (
-                  <a href={movie.trailer_url} target="_blank" rel="noopener noreferrer"
-                    className="bg-white/10 hover:bg-white/20 text-white font-semibold px-6 py-3 rounded-xl border border-white/15 backdrop-blur-sm transition">
-                    ▶ Xem trailer
-                  </a>
-                ) : (
-                  <button disabled className="bg-white/10 text-white/50 font-semibold px-6 py-3 rounded-xl border border-white/10 cursor-not-allowed">
-                    ▶ Chưa có trailer
-                  </button>
-                )}
-                <button className="bg-white/10 hover:bg-white/20 text-white font-semibold px-6 py-3 rounded-xl border border-white/15 backdrop-blur-sm transition">
-                  ❤ Yêu thích
-                </button>
-              </div>
+      <section className="stitch-detail-hero">
+        <img className="backdrop" src={backdrop} alt="" onError={(event) => { event.currentTarget.src = FALLBACK_BACKDROP; }} />
+        <div className="stitch-detail-overlay" />
+        <div className="stitch-detail-content">
+          <img className="stitch-detail-poster" src={poster} alt={movie.title} onError={(event) => { event.currentTarget.src = FALLBACK_POSTER; }} />
+          <div>
+            <button type="button" onClick={() => navigate(-1)} className="stitch-kicker inline-flex items-center gap-2 mb-5 hover:text-secondary">
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span>Quay lại
+            </button>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {movie.age_rating && <span className="stitch-badge stitch-badge-purple">{movie.age_rating}</span>}
+              <span className="stitch-badge stitch-badge-cyan">{STATUS_LABEL[movie.status] || movie.status}</span>
+              {year && <span className="stitch-badge border border-white/20 text-white/80">{year}</span>}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Info + Trailer */}
-      <div className="max-w-6xl mx-auto px-4 md:px-10 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className={`rounded-2xl p-5 ${darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow'}`}>
-            <h3 className="text-lg font-bold mb-3">Thông tin phim</h3>
-            <div className="space-y-2 text-sm">
-              <p><span className="font-semibold">Tên phim:</span> {movie.title}</p>
-              <p><span className="font-semibold">Thời lượng:</span> {movie.duration_minutes} phút</p>
-              <p><span className="font-semibold">Phân loại:</span> {movie.age_rating}</p>
-              <p><span className="font-semibold">Trạng thái:</span> {STATUS_LABEL[movie.status] ?? movie.status}</p>
-              <p><span className="font-semibold">Thể loại:</span> {movie.genres.join(', ')}</p>
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-[-.055em] leading-[.95] text-white max-w-4xl">{movie.title}</h1>
+            <div className="flex flex-wrap items-center gap-4 mt-5 text-sm">
+              <span className="inline-flex items-center gap-1" style={{ color: 'var(--st-gold)' }}><span className="material-symbols-outlined text-[18px]">star</span>{rating}/10</span>
+              <span className="inline-flex items-center gap-1 text-white/75"><span className="material-symbols-outlined text-[18px]">schedule</span>{movie.duration_minutes} phút</span>
+              <span className="text-white/65">{movie.genres?.join(' • ') || 'Đang cập nhật thể loại'}</span>
             </div>
-          </div>
-          <div className={`rounded-2xl p-5 ${darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow'}`}>
-            <h3 className="text-lg font-bold mb-3">Hành động nhanh</h3>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => navigate(`/showtimes/${movie.movie_id}`)}
-                className="bg-red-500 hover:bg-red-600 text-white font-semibold px-5 py-3 rounded-xl transition"
-              >
-                Mua vé
+            <p className="mt-6 max-w-3xl text-white/72 leading-7 line-clamp-4">{movie.description || 'Đang cập nhật nội dung phim...'}</p>
+            <div className="flex flex-wrap gap-3 mt-8">
+              <button type="button" onClick={() => navigate(`/showtimes/${movie.movie_id}`)} className="stitch-btn stitch-btn-primary">
+                <span className="material-symbols-outlined">confirmation_number</span>Đặt vé ngay
               </button>
-              <button className={`font-semibold px-5 py-3 rounded-xl border transition ${
-                darkMode ? 'bg-white/10 hover:bg-white/20 text-white border-white/10' : 'bg-gray-100 hover:bg-gray-200 text-gray-900 border-gray-200'
-              }`}>
-                Xem suất chiếu gần nhất
-              </button>
+              {movie.trailer_url && (
+                <a href={movie.trailer_url} target="_blank" rel="noreferrer" className="stitch-btn stitch-btn-outline">
+                  <span className="material-symbols-outlined">play_circle</span>Xem trailer
+                </a>
+              )}
+              <button type="button" className="stitch-btn stitch-btn-outline"><span className="material-symbols-outlined">favorite</span>Yêu thích</button>
             </div>
           </div>
         </div>
+      </section>
 
-        {trailerEmbedUrl ? (
-          <div className={`rounded-2xl p-6 shadow-md ${darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'}`}>
-            <div className="flex items-center justify-between gap-4 mb-4">
-              <h2 className="text-2xl font-extrabold">Trailer</h2>
-              <a href={movie.trailer_url} target="_blank" rel="noopener noreferrer" className="text-sm text-red-400 hover:text-red-300">
-                Mở trên YouTube
-              </a>
-            </div>
-            <div className="aspect-video overflow-hidden rounded-xl">
-              <iframe src={trailerEmbedUrl} title={`${movie.title} trailer`} className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-            </div>
+      <section className="stitch-container py-16">
+        <div className="stitch-detail-grid">
+          <div className="grid gap-6">
+            <article className="stitch-card p-7">
+              <p className="stitch-kicker mb-3">Synopsis</p>
+              <h2 className="text-3xl font-extrabold mb-5">Nội dung phim</h2>
+              <p className="stitch-muted leading-8 whitespace-pre-line">{movie.description || 'Đang cập nhật nội dung phim...'}</p>
+            </article>
+
+            {trailerEmbedUrl ? (
+              <article className="stitch-card p-7">
+                <div className="flex justify-between items-center gap-4 mb-5">
+                  <div><p className="stitch-kicker mb-2">Official trailer</p><h2 className="text-3xl font-extrabold">Trailer</h2></div>
+                  <a className="stitch-kicker hover:text-secondary" href={movie.trailer_url} target="_blank" rel="noreferrer">Mở YouTube ↗</a>
+                </div>
+                <div className="aspect-video rounded-xl overflow-hidden border border-white/10">
+                  <iframe src={trailerEmbedUrl} title={`${movie.title} trailer`} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                </div>
+              </article>
+            ) : (
+              <article className="stitch-card p-7"><h2 className="text-2xl font-extrabold">Trailer</h2><p className="stitch-muted mt-3">Hiện chưa có trailer cho phim này.</p></article>
+            )}
           </div>
-        ) : (
-          <div className={`rounded-2xl p-6 shadow-md ${darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'}`}>
-            <h2 className="text-2xl font-extrabold mb-3">Trailer</h2>
-            <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Hiện chưa có trailer phù hợp cho phim này.</p>
-          </div>
-        )}
-      </div>
+
+          <aside className="grid gap-6 content-start sticky top-28">
+            <article className="stitch-card p-6">
+              <p className="stitch-kicker mb-4">Movie data</p>
+              <dl className="grid gap-4 text-sm">
+                <div className="flex justify-between gap-4 border-b border-white/10 pb-3"><dt className="stitch-muted">Thời lượng</dt><dd className="font-semibold">{movie.duration_minutes} phút</dd></div>
+                <div className="flex justify-between gap-4 border-b border-white/10 pb-3"><dt className="stitch-muted">Phân loại</dt><dd className="font-semibold">{movie.age_rating}</dd></div>
+                <div className="flex justify-between gap-4 border-b border-white/10 pb-3"><dt className="stitch-muted">Trạng thái</dt><dd className="font-semibold">{STATUS_LABEL[movie.status] || movie.status}</dd></div>
+                <div className="grid gap-2"><dt className="stitch-muted">Thể loại</dt><dd className="flex flex-wrap gap-2">{movie.genres?.map((genre) => <span key={genre} className="stitch-badge border border-white/10" style={{ color: 'var(--st-purple)', background: 'var(--st-panel-light)' }}>{genre}</span>)}</dd></div>
+              </dl>
+            </article>
+            <article className="stitch-card p-6">
+              <p className="stitch-kicker mb-3">Quick action</p>
+              <h3 className="text-2xl font-extrabold mb-5">Chọn suất chiếu gần nhất</h3>
+              <button type="button" onClick={() => navigate(`/showtimes/${movie.movie_id}`)} className="stitch-btn stitch-btn-primary w-full">Mua vé</button>
+            </article>
+          </aside>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,37 +1,24 @@
-// src/components/RecommendedMovies.tsx
-//
-// VÁ MỤC #4 CỦA BÁO CÁO — "Frontend chưa có component/page hiển thị recommendation".
-//
-// Xử lý đủ 4 trạng thái mà báo cáo chỉ ra là còn thiếu: loading / error /
-// empty / có dữ liệu. Không dùng lại `MovieSection` vì component đó luôn kèm
-// nút "Xem tất cả" trỏ về `/movies` — với gợi ý cá nhân hoá thì không có
-// trang "tất cả" nào để xem, bấm vào chỉ dẫn người dùng sang danh sách phim
-// thường và làm hỏng ý nghĩa của section.
-
+import { startTransition, useEffect, useMemo, useState, type ReactNode } from 'react';
+import type { Booking } from '../types/booking';
 import type { Movie } from '../types/movie';
 import type {
   RecommendationDebug,
   RecommendationSource,
 } from '../types/recommendation';
-import MovieCard from './MovieCard';
+import { getMyBookings } from '../api/bookingApi';
+import { useAuth } from '../context/AuthContext';
 import { useRecommendations } from '../hooks/useRecommendations';
+import {
+  FAVORITE_GENRES_CHANGED_EVENT,
+  readFavoriteGenres,
+} from '../utils/moviePreferences';
+import { rankPersonalizedMovies } from '../utils/recommendationRanking';
+import MovieCard from './MovieCard';
 import {
   RECOMMENDATION_DEFAULT_LIMIT,
   UPSTREAM_LABELS,
 } from '../types/recommendation';
 
-/**
- * FIX REC-06 — badge kỹ thuật phân biệt MODEL / CACHE / POPULARITY / SERVICE OFF.
- *
- * Bốn trạng thái này cho ra bốn danh sách rất khác nhau nhưng hiện lên GIỐNG HỆT
- * nhau — chính vì vậy không ai trong nhóm phát hiện ra model chưa từng chạy.
- * Badge chỉ render ở chế độ dev (`import.meta.env.DEV`), nên bản build cho người
- * dùng cuối không hề thay đổi.
- *
- * Đặt ngay cạnh tiêu đề section thay vì chỉ log ra console: khi đang so tay hai
- * tài khoản xem gợi ý có khác nhau không, mở DevTools rồi cuộn tìm log là quá
- * chậm — thông tin phải nằm cùng chỗ với dữ liệu nó mô tả.
- */
 function DebugBadge({ debug }: { debug: RecommendationDebug | null }) {
   if (!import.meta.env.DEV || !debug) return null;
 
@@ -41,52 +28,63 @@ function DebugBadge({ debug }: { debug: RecommendationDebug | null }) {
   return (
     <span
       title={`${meta.hint}\nService: ${debug.serviceUrl || 'không rõ'}\nSố id nhận được: ${debug.upstreamCount}`}
-      className={[
-        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border',
-        'font-label-sm text-label-sm uppercase tracking-wider cursor-help',
-        isHealthy
-          ? 'border-secondary/50 text-secondary bg-secondary/10'
-          : 'border-error/50 text-error bg-error/10',
-      ].join(' ')}
+      className="stitch-recommendation-note"
+      style={{
+        color: isHealthy ? 'var(--st-success)' : 'var(--st-gold)',
+        borderColor: isHealthy
+          ? 'color-mix(in srgb,var(--st-success) 35%,transparent)'
+          : 'color-mix(in srgb,var(--st-gold) 35%,transparent)',
+      }}
     >
       <span className="material-symbols-outlined text-[14px]">
-        {isHealthy ? 'check_circle' : 'warning'}
+        {isHealthy ? 'check_circle' : 'info'}
       </span>
       {meta.label}
       {debug.modelVersion ? ` · ${debug.modelVersion}` : ''}
-      {debug.fellBackAfterFilter ? ' · đã lọc hết' : ''}
     </span>
   );
 }
 
 interface Props {
-  /** Số phim hiển thị. Backend chặn trần 30. */
   limit?: number;
+  /** Toàn bộ phim công khai để xếp hạng thêm theo sở thích và lịch sử vé. */
+  fallbackMovies?: Movie[];
 }
 
-/**
- * Tiêu đề phụ thuộc nguồn dữ liệu.
- *
- * FALLBACK nghĩa là danh sách này GIỐNG NHAU với mọi người dùng (cold start,
- * hoặc Python service không phản hồi). Vẫn đề "Gợi ý riêng cho bạn" lúc đó là
- * nói dối, và đó cũng chính là lý do không ai trong nhóm phát hiện ra model
- * chưa từng chạy — giao diện trông y hệt nhau ở cả hai trường hợp.
- */
-function headingFor(source: RecommendationSource): {
-  title: string;
-  subtitle: string;
-  icon: string;
-} {
-  if (source === 'MODEL') {
+function headingFor({
+  source,
+  usingFallback,
+  favoriteGenres,
+  historyGenres,
+}: {
+  source: RecommendationSource;
+  usingFallback: boolean;
+  favoriteGenres: string[];
+  historyGenres: string[];
+}) {
+  const signals = Array.from(new Set([...favoriteGenres, ...historyGenres])).slice(0, 4);
+
+  if (signals.length > 0) {
     return {
-      title: 'Gợi ý riêng cho bạn',
-      subtitle: 'Dựa trên những phim bạn đã đặt vé',
+      title: 'Gợi ý dành riêng cho bạn',
+      subtitle: `Ưu tiên theo gu ${signals.join(', ')} và lịch sử vé của tài khoản.`,
       icon: 'auto_awesome',
     };
   }
+
+  if (!usingFallback && source === 'MODEL') {
+    return {
+      title: 'Gợi ý riêng cho bạn',
+      subtitle: 'Dựa trên lịch sử đặt vé và dữ liệu cá nhân hóa từ hệ thống.',
+      icon: 'auto_awesome',
+    };
+  }
+
   return {
     title: 'Có thể bạn sẽ thích',
-    subtitle: 'Những phim đang được đặt nhiều nhất',
+    subtitle: usingFallback
+      ? 'Tạm hiển thị các phim nổi bật trong khi hệ thống hoàn thiện gợi ý cá nhân.'
+      : 'Những phim đang được nhiều khán giả quan tâm.',
     icon: 'local_fire_department',
   };
 }
@@ -96,30 +94,45 @@ function SectionShell({
   subtitle,
   icon,
   debug,
+  fallback,
+  signals,
   children,
 }: {
   title: string;
   subtitle: string;
   icon: string;
   debug?: RecommendationDebug | null;
-  children: React.ReactNode;
+  fallback?: boolean;
+  signals?: string[];
+  children: ReactNode;
 }) {
   return (
-    <section className="mb-14">
-      <div className="flex items-center gap-3 mb-6">
-        <span className="w-1 h-8 rounded-full bg-primary-container shadow-[0_0_12px_rgba(221,183,255,0.6)]" />
+    <section className="stitch-recommendation-section" aria-labelledby="recommendation-title">
+      <div className="stitch-section-heading">
         <div>
-          <h2 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface flex items-center gap-2 flex-wrap">
-            <span className="material-symbols-outlined text-[24px] text-primary-container">
-              {icon}
-            </span>
+          <p className="stitch-kicker mb-3">Personalized cinema</p>
+          <h2 id="recommendation-title" className="stitch-section-title">
+            <span className="material-symbols-outlined">{icon}</span>
             {title}
-            <DebugBadge debug={debug ?? null} />
           </h2>
-          <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">
-            {subtitle}
-          </p>
+          <p className="stitch-muted mt-2">{subtitle}</p>
+          {signals && signals.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {signals.slice(0, 4).map((signal) => (
+                <span key={signal} className="stitch-recommendation-note">
+                  {signal}
+                </span>
+              ))}
+            </div>
+          )}
+          {fallback && (
+            <span className="stitch-recommendation-note">
+              <span className="material-symbols-outlined text-[14px]">bolt</span>
+              Danh sách dự phòng
+            </span>
+          )}
         </div>
+        <DebugBadge debug={debug ?? null} />
       </div>
       {children}
     </section>
@@ -128,49 +141,115 @@ function SectionShell({
 
 export default function RecommendedMovies({
   limit = RECOMMENDATION_DEFAULT_LIMIT,
+  fallbackMovies = [],
 }: Props) {
-  const { movies, source, debug, loading, error, isLoggedIn, refetch } =
+  const { user, isLoggedIn } = useAuth();
+  const { movies, source, debug, loading, error, refetch } =
     useRecommendations({ limit });
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [favoriteGenres, setFavoriteGenres] = useState<string[]>(() =>
+    readFavoriteGenres(user?.id),
+  );
 
-  // 1) Chưa đăng nhập -> ẩn hoàn toàn.
-  //    Không hiện "Đăng nhập để xem gợi ý": trang chủ đã có nút đăng nhập ở
-  //    Navbar, thêm một lời mời nữa chỉ làm loãng trang.
+  useEffect(() => {
+    startTransition(() => {
+      setFavoriteGenres(readFavoriteGenres(user?.id));
+    });
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handlePreferencesChanged = () => {
+      setFavoriteGenres(readFavoriteGenres(user?.id));
+    };
+    window.addEventListener(FAVORITE_GENRES_CHANGED_EVENT, handlePreferencesChanged);
+    return () => {
+      window.removeEventListener(FAVORITE_GENRES_CHANGED_EVENT, handlePreferencesChanged);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      startTransition(() => {
+        setBookings([]);
+      });
+      return;
+    }
+
+    let cancelled = false;
+    void getMyBookings({ page: 1, limit: 50 })
+      .then((result) => {
+        if (!cancelled) setBookings(result.items);
+      })
+      .catch((historyError) => {
+        console.warn('[recommendations] Không đọc được lịch sử vé:', historyError);
+        if (!cancelled) setBookings([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn]);
+
+  const publicFallback = useMemo(
+    () => fallbackMovies.filter((movie) => movie.status !== 'HIDDEN' && movie.status !== 'ENDED'),
+    [fallbackMovies],
+  );
+
+  const ranked = useMemo(
+    () =>
+      rankPersonalizedMovies({
+        recommendationMovies: movies,
+        allMovies: fallbackMovies,
+        bookings,
+        favoriteGenres,
+        limit,
+      }),
+    [bookings, fallbackMovies, favoriteGenres, limit, movies],
+  );
+
   if (!isLoggedIn) return null;
 
-  const { title, subtitle, icon } = headingFor(source);
+  const usingFallback = movies.length === 0 && publicFallback.length > 0;
+  const displayMovies = ranked.movies;
+  const signals = Array.from(
+    new Set([...favoriteGenres, ...ranked.profile.historyGenreLabels]),
+  );
+  const { title, subtitle, icon } = headingFor({
+    source,
+    usingFallback,
+    favoriteGenres,
+    historyGenres: ranked.profile.historyGenreLabels,
+  });
 
-  // 2) Loading — skeleton đúng bằng số ô sẽ hiện, để layout không nhảy khi
-  //    dữ liệu về (tránh cumulative layout shift).
-  if (loading) {
+  if (loading && displayMovies.length === 0) {
     return (
-      <SectionShell title={title} subtitle={subtitle} icon={icon} debug={debug}>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-gutter-mobile md:gap-gutter-desktop">
-          {Array.from({ length: Math.min(limit, 4) }).map((_, i) => (
-            <div
-              key={i}
-              className="aspect-[2/3] rounded-lg glass-panel animate-pulse"
-            />
+      <SectionShell
+        title="Đang tạo gợi ý cho bạn"
+        subtitle="Hệ thống đang phân tích sở thích và lịch sử vé."
+        icon="auto_awesome"
+        debug={debug}
+      >
+        <div className="stitch-movie-grid">
+          {Array.from({ length: Math.min(limit, 4) }).map((_, index) => (
+            <div key={index} className="stitch-card aspect-[2/3] animate-pulse" />
           ))}
         </div>
       </SectionShell>
     );
   }
 
-  // 3) Lỗi — KHÔNG chiếm chỗ bằng khối báo lỗi to đùng.
-  //    Gợi ý phim hỏng không phải là chuyện người dùng cần biết hay xử lý; họ
-  //    vẫn đặt vé bình thường được. Chỉ để một dòng nhỏ kèm nút thử lại.
-  if (error) {
+  if (displayMovies.length === 0) {
     return (
-      <SectionShell title={title} subtitle={subtitle} icon={icon} debug={debug}>
-        <div className="glass-panel rounded-xl py-8 px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="font-body-md text-on-surface-variant">
-            Chưa tải được danh sách gợi ý.
-          </p>
-          <button
-            onClick={() => void refetch()}
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-secondary/40 font-label-sm text-label-sm uppercase tracking-wider text-secondary hover:bg-secondary/10 transition-all duration-300"
-          >
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
+      <SectionShell
+        title="Gợi ý dành cho bạn"
+        subtitle="Chưa có đủ dữ liệu phim để tạo danh sách phù hợp."
+        icon="auto_awesome"
+        debug={debug}
+      >
+        <div className="stitch-card p-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="stitch-muted">Danh sách gợi ý đang được cập nhật.</p>
+          <button type="button" onClick={() => void refetch()} className="stitch-btn stitch-btn-outline">
+            <span className="material-symbols-outlined text-[18px]">refresh</span>
             Thử lại
           </button>
         </div>
@@ -178,16 +257,17 @@ export default function RecommendedMovies({
     );
   }
 
-  // 4) Rỗng -> ẩn section.
-  //    Đây là quyết định có chủ ý, khác với `MovieSection` (hiện "Không có phim
-  //    nào"). Một section gợi ý trống rỗng chỉ nói với người dùng rằng hệ thống
-  //    không hiểu họ — thà đừng hiện còn hơn.
-  if (movies.length === 0) return null;
-
   return (
-    <SectionShell title={title} subtitle={subtitle} icon={icon} debug={debug}>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-gutter-mobile md:gap-gutter-desktop">
-        {movies.map((movie: Movie) => (
+    <SectionShell
+      title={title}
+      subtitle={subtitle}
+      icon={icon}
+      debug={debug}
+      fallback={usingFallback || Boolean(error)}
+      signals={signals}
+    >
+      <div className="stitch-movie-grid">
+        {displayMovies.map((movie) => (
           <MovieCard key={movie.movie_id} movie={movie} />
         ))}
       </div>

@@ -1,6 +1,5 @@
-// src/pages/TicketDetailPage.tsx
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import TicketQrCode from '../components/TicketQrCode';
 
@@ -21,22 +20,32 @@ export default function TicketDetailPage() {
     if (!ticketId) return;
     (axiosClient.get(`/tickets/${ticketId}`) as Promise<unknown>)
       .then((data) => setTicket(data as TicketDetail))
-      .catch((err: Error) => setError(err.message));
+      .catch((reason: Error) => setError(reason.message));
   }, [ticketId]);
 
   return (
-    <main className="container mx-auto px-4 py-8 max-w-md">
-      <h1 className="text-2xl font-bold mb-6">Chi tiết vé</h1>
-      {error && <p className="text-error mb-4" role="alert">{error}</p>}
-      <div className="bg-surface-container border border-outline-variant rounded-2xl p-6 text-center space-y-4">
-        <p><span className="text-on-surface-variant">Mã vé:</span> <strong>{ticket?.id ?? ticketId}</strong></p>
-        {ticket?.movieTitle && <p><span className="text-on-surface-variant">Phim:</span> <strong>{ticket.movieTitle}</strong></p>}
-        {ticket?.seatCode && <p><span className="text-on-surface-variant">Ghế:</span> <strong>{ticket.seatCode}</strong></p>}
-        {ticket?.showTime && <p><span className="text-on-surface-variant">Suất chiếu:</span> <strong>{ticket.showTime}</strong></p>}
-        <div className="flex justify-center">
-          <TicketQrCode value={ticket?.id ?? ticketId ?? ''} qrUrl={ticket?.qrUrl} size={200} />
-        </div>
+    <section className="stitch-page grid place-items-center">
+      <div className="w-full max-w-md px-4">
+        <Link to="/my-tickets?tab=paid" className="stitch-kicker inline-flex items-center gap-2 mb-5"><span className="material-symbols-outlined text-[18px]">arrow_back</span>Vé của tôi</Link>
+        <article className="stitch-card overflow-hidden shadow-[0_0_60px_rgba(174,112,229,.2)]">
+          <div className="h-32 bg-[radial-gradient(circle_at_30%_20%,rgba(220,184,255,.38),transparent_45%),linear-gradient(145deg,#24182f,#08070b)] p-6 flex flex-col justify-end">
+            <p className="stitch-kicker text-white/70">Cinema access pass</p>
+            <h1 className="text-2xl font-extrabold text-white">{ticket?.movieTitle || 'Chi tiết vé'}</h1>
+          </div>
+          <div className="p-7">
+            {error && <p className="mb-5" style={{ color: 'var(--st-danger)' }}>{error}</p>}
+            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
+              <div><p className="stitch-kicker mb-1">Mã vé</p><strong className="font-mono break-all">{ticket?.id ?? ticketId}</strong></div>
+              <div><p className="stitch-kicker mb-1">Ghế</p><strong>{ticket?.seatCode || '—'}</strong></div>
+              <div className="col-span-2"><p className="stitch-kicker mb-1">Suất chiếu</p><strong>{ticket?.showTime || 'Đang cập nhật'}</strong></div>
+            </div>
+            <div className="rounded-2xl bg-white p-5 flex justify-center shadow-inner">
+              <TicketQrCode value={ticket?.id ?? ticketId ?? ''} qrUrl={ticket?.qrUrl} size={220} />
+            </div>
+            <p className="text-center text-xs stitch-muted mt-5">Xuất trình mã QR tại quầy soát vé trước giờ chiếu.</p>
+          </div>
+        </article>
       </div>
-    </main>
+    </section>
   );
 }

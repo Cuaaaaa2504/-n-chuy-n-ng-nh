@@ -26,3 +26,7 @@ recommendation-service/app/__pycache__/
 recommendation-service/model/*.joblib
 recommendation-service/model/*.joblib.tmp
 recommendation-service/model/*.pkl
+
+# Local Stitch UI backups
+**/.stitch-v2*-backup*/
+**/*.bak-*

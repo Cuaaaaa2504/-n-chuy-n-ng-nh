@@ -1,52 +1,28 @@
 import { Link } from 'react-router-dom';
 import type { Movie } from '../types/movie';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
-interface Props {
-  movie: Movie;
-  /** Giữ lại để không phải sửa call-site; theme Cyber Neon chỉ có bảng màu tối. */
-  darkMode?: boolean;
-}
-
-const FALLBACK_POSTER = 'https://picsum.photos/seed/fallbackposter/500/750';
+interface Props { movie: Movie; darkMode?: boolean; }
+const FALLBACK_POSTER = 'https://picsum.photos/seed/cmc-card/600/900';
 
 export default function MovieCard({ movie }: Props) {
   return (
-    <Link
-      to={`/movies/${movie.movie_id}`}
-      className="movie-card glass-panel group relative block w-full aspect-[2/3] overflow-hidden rounded-lg cursor-pointer"
-    >
+    <Link to={`/movies/${movie.movie_id}`} className="stitch-movie-card stitch-card-hover group block">
       <img
-        src={movie.poster_url}
+        src={resolveAssetUrl(movie.poster_url) || FALLBACK_POSTER}
         alt={movie.title}
-        onError={(e) => {
-          e.currentTarget.onerror = null;
-          e.currentTarget.src = FALLBACK_POSTER;
-        }}
-        className="w-full h-full object-cover"
+        onError={(event) => { event.currentTarget.src = FALLBACK_POSTER; }}
       />
-
-      {/* Lớp phủ gradient */}
-      <div className="absolute inset-0 flex flex-col justify-end p-5 bg-gradient-to-t from-ultra-dark-navy via-ultra-dark-navy/60 to-transparent backdrop-blur-[2px]">
-        <span className="w-max mb-2 px-2 py-1 rounded font-label-sm text-[10px] bg-primary-container/20 border border-primary-container/30 text-primary-container shadow-[0_0_10px_rgba(221,183,255,0.3)]">
-          {movie.age_rating}
-        </span>
-
-        <h3 className="font-title-md text-title-md text-on-surface mb-1 truncate group-hover:text-glow transition-all">
-          {movie.title}
-        </h3>
-
-        <p className="font-label-sm text-label-sm text-secondary truncate">
-          {movie.genres.length > 0 ? movie.genres.join(' / ') : 'Đang cập nhật'}
+      <div className="stitch-movie-card-overlay">
+        <div className="flex gap-2 mb-3">
+          {movie.age_rating && <span className="stitch-badge stitch-badge-purple">{movie.age_rating}</span>}
+          <span className="stitch-badge stitch-badge-cyan">{movie.status === 'COMING_SOON' ? 'Sắp chiếu' : '2D'}</span>
+        </div>
+        <h3 className="stitch-movie-title line-clamp-2">{movie.title}</h3>
+        <p className="mt-2 text-[11px] uppercase tracking-[.12em] text-white/65 line-clamp-1">
+          {movie.genres?.join(', ') || 'Đang cập nhật'}
         </p>
-
-        <p className="font-label-sm text-label-sm text-on-surface-variant mt-1 flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">schedule</span>
-          {movie.duration_minutes} phút
-        </p>
-
-        <span className="btn-primary w-full py-2 rounded-lg mt-4 text-center font-title-md text-[14px] uppercase opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          Đặt vé
-        </span>
+        <p className="mt-1 text-xs text-white/50">{movie.duration_minutes || 0} phút</p>
       </div>
     </Link>
   );

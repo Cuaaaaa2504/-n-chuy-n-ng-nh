@@ -10,11 +10,6 @@ interface RegisterForm {
   confirmPassword: string;
 }
 
-const INPUT =
-  'w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-on-surface placeholder-outline-variant input-glow font-body-md text-body-md transition-all duration-200';
-
-const LABEL = 'block font-label-sm text-label-sm uppercase text-on-surface-variant mb-2';
-
 const FIELDS: {
   name: keyof RegisterForm;
   label: string;
@@ -88,108 +83,44 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="relative min-h-[calc(100vh-140px)] flex items-center justify-center overflow-hidden px-margin-mobile py-16">
-      <div
-        aria-hidden
-        className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary rounded-full mix-blend-screen blur-[100px] opacity-20"
-      />
-      <div
-        aria-hidden
-        className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-secondary rounded-full mix-blend-screen blur-[100px] opacity-20"
-      />
+    <section className="stitch-auth-page">
+      <div className="stitch-auth-grid">
+        <div className="stitch-auth-visual order-2 lg:order-1">
+          <div className="absolute inset-0 opacity-50 bg-[radial-gradient(circle_at_70%_25%,rgba(220,184,255,.34),transparent_19rem),radial-gradient(circle_at_25%_76%,rgba(83,216,244,.24),transparent_18rem)]" />
+          <div className="absolute inset-0 grid place-items-center"><span className="material-symbols-outlined text-[180px] text-white/10">movie_filter</span></div>
+          <div className="stitch-auth-copy">
+            <p className="stitch-kicker mb-3">Join the cinema network</p>
+            <h1 className="text-5xl font-extrabold tracking-[-.055em] text-white">Tạo tài khoản</h1>
+            <p className="text-white/65 mt-4 max-w-md leading-7">Lưu lịch sử mua vé, nhận ưu đãi thành viên và đặt chỗ nhanh hơn.</p>
+          </div>
+        </div>
 
-      <div className="glass-panel p-8 md:p-12 rounded-xl w-full max-w-md relative z-10 shadow-[0_0_20px_rgba(3,181,212,0.15)]">
-        <h1 className="font-display-lg text-headline-lg text-primary drop-shadow-[0_0_10px_rgba(240,218,255,0.8)] text-center mb-2">
-          CMC Cinema
-        </h1>
-        <h2 className="font-headline-lg text-headline-lg-mobile text-on-surface mb-2">Đăng ký</h2>
-        <p className="font-body-md text-body-md text-on-surface-variant mb-8">
-          Tạo tài khoản để bắt đầu hành trình.
-        </p>
+        <div className="stitch-card stitch-auth-card order-1 lg:order-2">
+          <p className="stitch-kicker mb-3">New member</p>
+          <h2 className="text-4xl font-extrabold tracking-[-.04em]">Đăng ký</h2>
+          <p className="stitch-muted mt-3 mb-7">Tạo tài khoản để bắt đầu hành trình.</p>
 
-        {message && (
-          <p
-            role={isError ? 'alert' : 'status'}
-            className={`flex items-center gap-2 font-body-md text-[14px] rounded-lg px-4 py-3 mb-6 border ${
-              isError
-                ? 'text-error bg-error/10 border-error/30'
-                : 'text-secondary bg-secondary/10 border-secondary/30'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[18px]">
-              {isError ? 'error' : 'task_alt'}
-            </span>
-            {message}
-          </p>
-        )}
+          {message && <div className="rounded-xl border px-4 py-3 mb-5 text-sm" style={{ color: isError ? 'var(--st-danger)' : 'var(--st-success)', borderColor: isError ? 'color-mix(in srgb,var(--st-danger) 42%,transparent)' : 'color-mix(in srgb,var(--st-success) 42%,transparent)' }}>{message}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {FIELDS.map((field) => (
-            <div key={field.name}>
-              <label className={LABEL} htmlFor={field.name}>
-                {field.label}
-              </label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">
-                  {field.icon}
-                </span>
-                <input
-                  id={field.name}
-                  name={field.name}
-                  type={field.type}
-                  placeholder={field.placeholder}
-                  value={formData[field.name]}
-                  onChange={handleChange}
-                  required={field.name !== 'phone'}
-                  autoComplete={field.autoComplete}
-                  minLength={field.minLength}
-                  className={INPUT}
-                />
+          <form onSubmit={handleSubmit} className="grid gap-4">
+            {FIELDS.map((field) => (
+              <div key={field.name}>
+                <label className="stitch-label" htmlFor={field.name}>{field.label}</label>
+                <div className="stitch-input-icon-wrap">
+                  <span className="material-symbols-outlined stitch-input-icon" aria-hidden="true">{field.icon}</span>
+                  <input id={field.name} name={field.name} type={field.type} className="stitch-input stitch-input-with-icon" value={formData[field.name]} onChange={handleChange} required={field.name !== 'phone'} autoComplete={field.autoComplete} minLength={field.minLength} placeholder={field.placeholder} />
+                </div>
               </div>
-            </div>
-          ))}
-
-          <label className="flex items-start gap-3 font-body-md text-[14px] text-on-surface-variant cursor-pointer">
-            <input
-              type="checkbox"
-              checked={acceptedTerms}
-              onChange={(e) => setAcceptedTerms(e.target.checked)}
-              required
-              className="mt-1 w-4 h-4 rounded border-white/20 bg-black/30 accent-primary cursor-pointer"
-            />
-            <span>
-              Tôi đồng ý với{' '}
-              <Link to="/terms" className="text-secondary hover:text-primary transition-colors font-semibold">
-                Điều khoản dịch vụ
-              </Link>{' '}
-              và{' '}
-              <Link to="/privacy" className="text-secondary hover:text-primary transition-colors font-semibold">
-                Chính sách bảo mật
-              </Link>
-              .
-            </span>
-          </label>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary-glow w-full py-3 rounded-lg font-title-md text-title-md uppercase flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-[20px]">person_add</span>
-            {loading ? 'Đang đăng ký...' : 'Tạo tài khoản'}
-          </button>
-        </form>
-
-        <p className="font-body-md text-[14px] text-on-surface-variant text-center mt-8">
-          Đã có tài khoản?{' '}
-          <Link
-            to="/login"
-            className="text-secondary hover:text-primary hover:drop-shadow-[0_0_8px_rgba(76,215,246,0.8)] transition-colors font-semibold"
-          >
-            Đăng nhập
-          </Link>
-        </p>
+            ))}
+            <label className="flex items-start gap-3 text-sm stitch-muted cursor-pointer mt-1">
+              <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required className="mt-1 accent-purple-400" />
+              <span>Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của CMC Cinema.</span>
+            </label>
+            <button type="submit" disabled={loading} className="stitch-btn stitch-btn-primary w-full mt-2"><span className="material-symbols-outlined">person_add</span>{loading ? 'Đang đăng ký...' : 'Tạo tài khoản'}</button>
+          </form>
+          <p className="stitch-muted text-center mt-7">Đã có tài khoản? <Link to="/login" className="font-semibold" style={{ color: 'var(--st-cyan)' }}>Đăng nhập</Link></p>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -19,6 +19,7 @@ export interface Booking {
   totalAmount: number;
   status: BookingStatus;
   createdAt?: string;
+  seatCodes?: string[];
 }
 
 export interface BookingTicket {

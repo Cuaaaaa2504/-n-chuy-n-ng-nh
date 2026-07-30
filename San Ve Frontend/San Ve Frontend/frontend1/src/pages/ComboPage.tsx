@@ -16,6 +16,8 @@ import { useTheme } from '../context/useTheme';
 import axiosClient from '../api/axiosClient';
 import { validateVoucher } from '../api/voucherApi';
 import type { VoucherPreview } from '../api/voucherApi';
+import comboFallback from '../assets/combo-neon.svg';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 // ===== Types =====
 interface ComboItem {
@@ -57,7 +59,7 @@ interface ComboNavState {
   seatTotal?: number;
 }
 
-const FALLBACK_IMG = 'https://picsum.photos/seed/combo/400/300';
+const FALLBACK_IMG = comboFallback;
 
 function formatVND(amount: number) {
   return amount.toLocaleString('vi-VN') + ' ₫';
@@ -362,8 +364,8 @@ export default function ComboPage() {
   }
 
   return (
-    <div className={`min-h-screen ${bg}`}>
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+    <div className={`min-h-screen stitch-flow-page ${bg}`}>
+      <div className="stitch-container py-10 space-y-8">
 
         {/* ── Header: các bước ── */}
         <div className="flex items-center gap-2 text-xs font-semibold flex-wrap">
@@ -405,7 +407,7 @@ export default function ComboPage() {
                       }`}
                     >
                       <img
-                        src={c.imageUrl || FALLBACK_IMG}
+                        src={resolveAssetUrl(c.imageUrl) || FALLBACK_IMG}
                         alt={c.name}
                         className="w-full h-36 object-cover"
                         onError={(e) => { e.currentTarget.src = FALLBACK_IMG; }}

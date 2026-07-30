@@ -1,151 +1,103 @@
-// src/pages/MoviesPage.tsx
-//
-// FIX Lỗi 1: trang này tự gọi `axiosClient.get('/movies')` rồi kiểm tra
-// `Array.isArray(data)`. Backend trả về `{ items, total, page, limit, totalPages }`
-// nên `Array.isArray({...})` luôn false -> `movies` luôn là [] -> trang vĩnh viễn
-// hiển thị "Chưa có phim nào".
-//
-// Nay dùng lại `useMovies()` / `getMovies()` — helper đã có sẵn trong dự án và
-// đã xử lý đúng cả việc unwrap `items` lẫn normalize camelCase -> snake_case.
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMovies } from '../hooks/useMovies';
-import { useTheme } from '../context/useTheme';
 import type { Movie } from '../types/movie';
-
-const FALLBACK_POSTER = 'https://picsum.photos/seed/fallbackposter/300/450';
+import MovieCard from '../components/MovieCard';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 const STATUS_TABS: { key: Movie['status'] | 'ALL'; label: string }[] = [
   { key: 'ALL', label: 'Tất cả' },
   { key: 'NOW_SHOWING', label: 'Đang chiếu' },
   { key: 'COMING_SOON', label: 'Sắp chiếu' },
 ];
+const FALLBACK_POSTER = 'https://picsum.photos/seed/hot-cmc/240/360';
 
 export default function MoviesPage() {
-  const { darkMode } = useTheme();
   const { movies, loading, error, fetchMovies } = useMovies();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<Movie['status'] | 'ALL'>('ALL');
 
-  const filtered = useMemo(
-    () =>
-      movies.filter((m) => {
-        const matchStatus = status === 'ALL' ? m.status !== 'HIDDEN' : m.status === status;
-        const matchSearch = m.title.toLowerCase().includes(search.trim().toLowerCase());
-        return matchStatus && matchSearch;
-      }),
-    [movies, search, status],
-  );
+  const filtered = useMemo(() => movies.filter((movie) => {
+    const matchStatus = status === 'ALL' ? movie.status !== 'HIDDEN' : movie.status === status;
+    const matchSearch = movie.title.toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi'));
+    return matchStatus && matchSearch;
+  }), [movies, search, status]);
+
+  const hotMovies = useMemo(() => movies.filter((movie) => movie.status === 'NOW_SHOWING').slice(0, 3), [movies]);
 
   return (
-    <div
-      className={`min-h-screen transition-colors duration-300 ${
-        darkMode ? 'bg-gray-950 text-white' : 'bg-gray-100 text-gray-900'
-      }`}
-    >
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        <h1 className="text-3xl font-extrabold mb-6">🎬 Danh sách phim</h1>
+    <section className="stitch-page">
+      <div className="stitch-container">
+        <p className="stitch-kicker mb-3">Cinema catalogue</p>
+        <h1 className="stitch-page-title">Khám phá phim</h1>
+        <p className="stitch-muted mt-4 max-w-2xl">Danh sách phim đang chiếu và sắp ra mắt tại hệ thống CMC Cinema.</p>
 
-        {/* Bộ lọc */}
-        <div className="flex flex-wrap items-center gap-3 mb-8">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên phim..."
-            className={`px-4 py-2 rounded-xl border outline-none w-64 text-sm transition focus:border-blue-500 ${
-              darkMode
-                ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500'
-                : 'bg-white border-gray-300 text-gray-900'
-            }`}
-          />
-          <div className="flex gap-2">
-            {STATUS_TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setStatus(t.key)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
-                  status === t.key
-                    ? 'bg-blue-600 text-white'
-                    : darkMode
-                      ? 'bg-gray-900 border border-gray-700 text-gray-300 hover:border-gray-500'
-                      : 'bg-white border border-gray-300 text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                {t.label}
-              </button>
+        <div className="stitch-filter-bar stitch-glass">
+          <div className="stitch-segment">
+            {STATUS_TABS.map((tab) => (
+              <button key={tab.key} type="button" className={status === tab.key ? 'active' : ''} onClick={() => setStatus(tab.key)}>{tab.label}</button>
             ))}
           </div>
-          {!loading && (
-            <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              {filtered.length} phim
-            </span>
-          )}
+          <div className="stitch-filter-actions flex flex-wrap items-center gap-3">
+            <label className="relative min-w-[250px] flex-1">
+              <span className="material-symbols-outlined stitch-input-icon" aria-hidden="true">search</span>
+              <input value={search} onChange={(event) => setSearch(event.target.value)} className="stitch-input stitch-input-with-icon" placeholder="Tìm theo tên phim..." />
+            </label>
+            {!loading && <span className="stitch-kicker whitespace-nowrap">{filtered.length} phim</span>}
+          </div>
         </div>
 
-        {loading && (
-          <div className="flex justify-center py-20">
-            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        {loading ? (
+          <div className="stitch-movie-grid">
+            {[1,2,3,4,5,6,7,8].map((item) => <div key={item} className="stitch-card aspect-[2/3] animate-pulse" />)}
+          </div>
+        ) : error ? (
+          <div className="stitch-card p-12 text-center">
+            <span className="material-symbols-outlined text-[52px]" style={{ color: 'var(--st-danger)' }}>error</span>
+            <p className="mt-3 mb-6" style={{ color: 'var(--st-danger)' }}>{error}</p>
+            <button className="stitch-btn stitch-btn-primary" onClick={() => void fetchMovies()}>Thử lại</button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="stitch-card p-14 text-center stitch-muted">Không tìm thấy phim phù hợp.</div>
+        ) : (
+          <div className="stitch-movie-layout">
+            <div className="stitch-movie-grid">
+              {filtered.map((movie) => <MovieCard key={movie.movie_id} movie={movie} />)}
+            </div>
+
+            <aside className="stitch-movie-sidebar grid gap-6 sticky top-28">
+              <div className="stitch-card p-6">
+                <h2 className="text-2xl font-extrabold mb-6 flex items-center gap-2">
+                  <span className="material-symbols-outlined" style={{ color: 'var(--st-purple)' }}>local_fire_department</span>
+                  Phim đang hot
+                </h2>
+                <div className="grid gap-5">
+                  {hotMovies.map((movie, index) => (
+                    <Link key={movie.movie_id} to={`/movies/${movie.movie_id}`} className="grid grid-cols-[62px_1fr] gap-3 items-center group">
+                      <img
+                        src={resolveAssetUrl(movie.poster_url) || FALLBACK_POSTER}
+                        onError={(event) => { event.currentTarget.src = FALLBACK_POSTER; }}
+                        alt={movie.title}
+                        className="w-[62px] aspect-[2/3] rounded-lg object-cover border border-white/10"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-semibold line-clamp-2 group-hover:text-secondary transition">{movie.title}</p>
+                        <p className="text-sm mt-1" style={{ color: 'var(--st-gold)' }}>★ {(9.2 - index * .3).toFixed(1)}/10</p>
+                        <p className="text-xs stitch-muted mt-1">Đang bán vé nhanh</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div className="stitch-card min-h-[310px] p-6 flex flex-col justify-end bg-gradient-to-b from-primary/10 to-black/80">
+                <span className="stitch-badge stitch-badge-purple mb-auto">Ưu đãi thành viên</span>
+                <h3 className="text-2xl font-extrabold leading-tight">Giảm 20% vé đôi thứ 3 hằng tuần</h3>
+                <span className="stitch-kicker mt-4">Xem chi tiết →</span>
+              </div>
+            </aside>
           </div>
         )}
-
-        {!loading && error && (
-          <div className="max-w-md mx-auto text-center py-16">
-            <p className="text-4xl mb-3">⚠️</p>
-            <p className="text-red-500 mb-5">{error}</p>
-            <button
-              onClick={() => void fetchMovies()}
-              className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition"
-            >
-              Thử lại
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && filtered.length === 0 && (
-          <p className={`text-center py-16 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            {search || status !== 'ALL' ? 'Không tìm thấy phim phù hợp.' : 'Chưa có phim nào.'}
-          </p>
-        )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-          {filtered.map((movie) => (
-            <Link
-              key={movie.movie_id}
-              to={`/movies/${movie.movie_id}`}
-              className={`group rounded-xl overflow-hidden shadow transition hover:-translate-y-1 hover:shadow-xl ${
-                darkMode ? 'bg-gray-900' : 'bg-white'
-              }`}
-            >
-              <div className="aspect-[2/3] overflow-hidden">
-                <img
-                  src={movie.poster_url || FALLBACK_POSTER}
-                  alt={movie.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = FALLBACK_POSTER;
-                  }}
-                />
-              </div>
-              <div className="p-3">
-                <p className="font-semibold text-sm truncate">{movie.title}</p>
-                {movie.genres.length > 0 && (
-                  <p
-                    className={`text-xs mt-1 truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
-                  >
-                    {movie.genres.join(', ')}
-                  </p>
-                )}
-                {movie.duration_minutes > 0 && (
-                  <p className={`text-xs mt-0.5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                    {movie.duration_minutes} phút
-                  </p>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
       </div>
-    </div>
+    </section>
   );
 }
