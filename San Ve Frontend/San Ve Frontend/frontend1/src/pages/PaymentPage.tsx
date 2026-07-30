@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useTheme } from '../context/useTheme';
 import { getOrder, getPaymentMethods } from '../api/paymentApi';
 import { usePayment } from '../hooks/usePayment';
 import type { OrderDetail, PaymentMethod, PaymentMethodCode } from '../api/paymentApi';
@@ -60,7 +59,6 @@ export default function PaymentPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const [searchParams] = useSearchParams();
   const navigate    = useNavigate();
-  const { darkMode } = useTheme();
 
   const isLocalMode = orderId === 'local';
 
@@ -157,126 +155,114 @@ export default function PaymentPage() {
     }
   };
 
-  const bg   = darkMode ? 'bg-gray-950 text-white'          : 'bg-gray-50 text-gray-900';
-  const card = darkMode ? 'bg-gray-900 border border-gray-700/40' : 'bg-white border border-gray-200 shadow-sm';
-
   if (loading) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center ${bg}`}>
-        <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <section className="stitch-page grid place-items-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" /></section>;
   }
 
   if (fetchError && !order) {
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center gap-4 ${bg}`}>
-        <p className="text-red-500 font-semibold">{fetchError}</p>
-        <button onClick={() => navigate(-1)} className="text-sm underline opacity-70">Quay lại</button>
-      </div>
+      <section className="stitch-page grid place-items-center">
+        <div className="stitch-card p-10 text-center max-w-lg">
+          <span className="material-symbols-outlined text-[52px]" style={{ color: 'var(--st-danger)' }}>error</span>
+          <p className="mt-3 mb-6" style={{ color: 'var(--st-danger)' }}>{fetchError}</p>
+          <button className="stitch-btn stitch-btn-outline" onClick={() => navigate(-1)}>Quay lại</button>
+        </div>
+      </section>
     );
   }
 
   const canPay = isLocalMode ? true : !!selectedMethod;
 
   return (
-    <div className={`min-h-screen ${bg}`}>
+    <section className="stitch-page">
       <LoadingOverlay isVisible={isProcessing} />
-
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="opacity-60 hover:opacity-100 transition">
-            ← Quay lại
-          </button>
-          <h1 className="text-xl font-bold">Thanh toán</h1>
+      <div className="stitch-payment-container">
+        <button type="button" onClick={() => navigate(-1)} className="stitch-kicker inline-flex items-center gap-2 mb-5 hover:text-secondary"><span className="material-symbols-outlined text-[18px]">arrow_back</span>Quay lại</button>
+        <div className="mb-10">
+          <p className="stitch-kicker mb-3">Secure checkout</p>
+          <h1 className="stitch-page-title">Thanh toán</h1>
+          <p className="stitch-muted mt-4">Vui lòng kiểm tra đơn hàng và chọn phương thức thanh toán.</p>
         </div>
 
-        {fetchError && (
-          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-            {fetchError}
-          </div>
-        )}
+        {fetchError && <div className="stitch-card px-5 py-4 mb-6" style={{ color: 'var(--st-danger)' }}>{fetchError}</div>}
+        {isExpired && <div className="stitch-card px-5 py-4 mb-6" style={{ color: 'var(--st-danger)' }}>Đơn hàng đã hết hạn. Vui lòng đặt lại.</div>}
 
-        {isExpired && (
-          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-semibold">
-            ⏰ Đơn hàng đã hết hạn. Vui lòng đặt lại.
-          </div>
-        )}
+        <div className="stitch-payment-grid">
+          <div className="grid gap-6 stitch-payment-methods">
+            <article className="stitch-card p-7">
+              <div className="flex items-center justify-between gap-4 pb-5 mb-6 border-b border-white/10">
+                <div><p className="stitch-kicker mb-2">Payment channel</p><h2 className="text-2xl font-extrabold">Phương thức thanh toán</h2></div>
+                <span className="material-symbols-outlined" style={{ color: 'var(--st-purple)' }}>encrypted</span>
+              </div>
+              <div className="grid gap-3">
+                {methods.map((method) => (
+                  <button
+                    key={method.code}
+                    type="button"
+                    onClick={() => setSelectedMethod(method.code)}
+                    className="w-full flex items-center gap-4 px-4 py-4 rounded-xl border text-left transition"
+                    style={selectedMethod === method.code
+                      ? { borderColor: 'var(--st-purple)', background: 'color-mix(in srgb,var(--st-purple) 12%,transparent)', boxShadow: '0 0 20px rgba(174,112,229,.13)' }
+                      : { borderColor: 'var(--st-line)', background: 'var(--st-panel-light)' }}
+                  >
+                    <span className="text-xl">{METHOD_ICONS[method.code] ?? '💰'}</span>
+                    <span className="font-semibold flex-1">{method.name}</span>
+                    <span className="w-5 h-5 rounded-full border grid place-items-center" style={{ borderColor: selectedMethod === method.code ? 'var(--st-purple)' : 'var(--st-line-strong)' }}>
+                      {selectedMethod === method.code && <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--st-purple)' }} />}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </article>
 
-        {order && (
-          <div className={`rounded-2xl p-5 space-y-3 ${card}`}>
-            <h2 className="font-bold text-lg">Thông tin đặt vé</h2>
-            <div className="space-y-1 text-sm">
-              <p><span className="opacity-60">Phim:</span> <span className="font-semibold">{order.movieTitle}</span></p>
-              {order.cinemaName && <p><span className="opacity-60">Rạp:</span> {order.cinemaName}</p>}
-              {order.roomName   && <p><span className="opacity-60">Phòng:</span> {order.roomName}</p>}
-              {order.showDate   && <p><span className="opacity-60">Ngày:</span> {order.showDate}</p>}
-              {order.showTime   && <p><span className="opacity-60">Giờ:</span> {order.showTime}</p>}
-              {order.seatCodes?.length ? (
-                <p><span className="opacity-60">Ghế:</span> {order.seatCodes.join(', ')}</p>
-              ) : null}
-              {order.orderCode  && <p><span className="opacity-60">Mã đơn:</span> <span className="font-mono">{order.orderCode}</span></p>}
+            <article className="stitch-card p-6 flex items-start gap-3 text-sm stitch-muted">
+              <span className="material-symbols-outlined" style={{ color: 'var(--st-cyan)' }}>verified_user</span>
+              <p>Thông tin thanh toán được xử lý qua kết nối bảo mật. Không đóng trình duyệt trong lúc hệ thống xác nhận giao dịch.</p>
+            </article>
+          </div>
+
+          <aside className="stitch-card p-7 stitch-payment-summary">
+            <div className="flex items-center justify-between pb-5 mb-5 border-b border-white/10">
+              <div><p className="stitch-kicker mb-2">Order summary</p><h2 className="text-xl font-extrabold">Chi tiết đơn hàng</h2></div>
+              <span className="material-symbols-outlined" style={{ color: 'var(--st-cyan)' }}>receipt_long</span>
             </div>
 
-            {order.expiresAt && (
-              <div className={`text-sm font-mono font-bold ${countdown < 60 ? 'text-red-500' : 'text-yellow-500'}`}>
-                ⏳ Hết hạn sau: {countdownDisplay}
+            {order && (
+              <div className="grid gap-5">
+                <div>
+                  <p className="stitch-kicker mb-2">Phim</p>
+                  <h3 className="text-xl font-extrabold">{order.movieTitle}</h3>
+                  {order.cinemaName && <p className="stitch-muted text-sm mt-2">{order.cinemaName}</p>}
+                  {order.roomName && <p className="stitch-muted text-sm">{order.roomName}</p>}
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div><p className="stitch-kicker mb-1">Ngày</p><p>{order.showDate || '—'}</p></div>
+                  <div><p className="stitch-kicker mb-1">Giờ</p><p>{order.showTime || '—'}</p></div>
+                </div>
+                {order.seatCodes?.length ? (
+                  <div><p className="stitch-kicker mb-2">Ghế</p><div className="flex flex-wrap gap-2">{order.seatCodes.map((seat) => <span key={seat} className="stitch-badge stitch-badge-cyan">{seat}</span>)}</div></div>
+                ) : null}
+                {order.orderCode && <div><p className="stitch-kicker mb-1">Mã đơn</p><p className="font-mono text-sm break-all">{order.orderCode}</p></div>}
+                {order.expiresAt && (
+                  <div className="rounded-xl border px-4 py-3 text-center" style={{ color: countdown < 60 ? 'var(--st-danger)' : 'var(--st-gold)', borderColor: countdown < 60 ? 'color-mix(in srgb,var(--st-danger) 40%,transparent)' : 'color-mix(in srgb,var(--st-gold) 40%,transparent)' }}>
+                    <p className="stitch-kicker mb-1">Hết hạn sau</p><strong className="font-mono text-xl">{countdownDisplay}</strong>
+                  </div>
+                )}
+                <div className="flex justify-between items-end pt-5 border-t border-white/10">
+                  <span className="font-semibold">Tổng cộng</span>
+                  <strong className="text-2xl" style={{ color: 'var(--st-purple)' }}>{order.totalAmount.toLocaleString('vi-VN')}₫</strong>
+                </div>
               </div>
             )}
 
-            <div className="pt-2 border-t border-current/10 flex justify-between items-center">
-              <span className="font-semibold">Tổng tiền</span>
-              <span className="text-xl font-bold text-red-500">
-                {order.totalAmount.toLocaleString('vi-VN')}₫
-              </span>
-            </div>
-          </div>
-        )}
-
-        {methods.length > 0 && (
-          <div className={`rounded-2xl p-5 space-y-3 ${card}`}>
-            <h2 className="font-bold text-lg">Phương thức thanh toán</h2>
-            <div className="space-y-2">
-              {methods.map((m) => (
-                <button
-                  key={m.code}
-                  onClick={() => setSelectedMethod(m.code)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition text-left ${
-                    selectedMethod === m.code
-                      ? 'border-red-500 bg-red-500/10'
-                      : darkMode
-                        ? 'border-gray-700 hover:border-gray-500'
-                        : 'border-gray-200 hover:border-gray-400'
-                  }`}
-                >
-                  <span className="text-lg">{METHOD_ICONS[m.code] ?? '💰'}</span>
-                  <span className="font-medium">{m.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {paymentError && (
-          <div className="rounded-xl px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-            {paymentError}
-          </div>
-        )}
-
-        {paymentStatus === 'SUCCESS' && (
-          <div className="rounded-xl px-4 py-3 bg-green-500/10 border border-green-500/20 text-green-500 text-sm font-semibold">
-            ✅ Thanh toán thành công!
-          </div>
-        )}
-
-        <button
-          onClick={() => { void handlePay(); }}
-          disabled={!canPay || !!isExpired || isProcessing}
-          className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition text-lg"
-        >
-          {isProcessing ? 'Đang xử lý...' : `Thanh toán ${order ? order.totalAmount.toLocaleString('vi-VN') + '₫' : ''}`}
-        </button>
+            {paymentError && <p className="mt-5 text-sm" style={{ color: 'var(--st-danger)' }}>{paymentError}</p>}
+            {paymentStatus === 'SUCCESS' && <p className="mt-5 text-sm" style={{ color: 'var(--st-success)' }}>Thanh toán thành công!</p>}
+            <button type="button" onClick={() => { void handlePay(); }} disabled={!canPay || !!isExpired || isProcessing} className="stitch-btn stitch-btn-primary w-full mt-6">
+              {isProcessing ? 'Đang xử lý...' : `Xác nhận thanh toán${order ? ` ${order.totalAmount.toLocaleString('vi-VN')}₫` : ''}`}
+            </button>
+          </aside>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

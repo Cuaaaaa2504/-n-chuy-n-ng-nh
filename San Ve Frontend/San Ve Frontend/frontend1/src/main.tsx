@@ -3,6 +3,8 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import "./light-theme.css";
+import "./cineglass-overrides.css";
+import "./stitch-exact-v2.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

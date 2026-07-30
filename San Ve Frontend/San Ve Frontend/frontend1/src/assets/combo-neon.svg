@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#160d22"/><stop offset=".52" stop-color="#071821"/><stop offset="1" stop-color="#0a0710"/></linearGradient>
+    <linearGradient id="cup" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#dcb8ff"/><stop offset="1" stop-color="#53d8f4"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="14" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="1200" height="700" fill="url(#bg)"/>
+  <circle cx="220" cy="100" r="210" fill="#a468dc" opacity=".18" filter="url(#glow)"/>
+  <circle cx="970" cy="520" r="250" fill="#35cde9" opacity=".16" filter="url(#glow)"/>
+  <g transform="translate(330 170)" filter="url(#glow)">
+    <path d="M100 150h260l-25 360H125z" fill="#19131f" stroke="url(#cup)" stroke-width="10"/>
+    <path d="M120 180h220l-12 55H132z" fill="url(#cup)" opacity=".75"/>
+    <g fill="#ffe58a" stroke="#d89a2d" stroke-width="4">
+      <circle cx="135" cy="110" r="43"/><circle cx="195" cy="85" r="47"/><circle cx="255" cy="112" r="46"/><circle cx="315" cy="86" r="44"/><circle cx="355" cy="135" r="39"/><circle cx="90" cy="145" r="38"/><circle cx="235" cy="145" r="44"/>
+    </g>
+    <text x="230" y="350" text-anchor="middle" fill="#f8edff" font-family="Arial,sans-serif" font-size="44" font-weight="700">CMC</text>
+    <text x="230" y="395" text-anchor="middle" fill="#53d8f4" font-family="Arial,sans-serif" font-size="28">CINEMA</text>
+  </g>
+  <g transform="translate(760 245) rotate(7)" filter="url(#glow)">
+    <path d="M0 0h150l-18 280H18z" fill="#17131d" stroke="#53d8f4" stroke-width="8"/>
+    <path d="M-12 0h174" stroke="#dcb8ff" stroke-width="12" stroke-linecap="round"/>
+    <path d="M95 0l70-150" stroke="#dcb8ff" stroke-width="10" stroke-linecap="round"/>
+    <text x="75" y="155" text-anchor="middle" fill="#f8edff" font-family="Arial,sans-serif" font-size="26" font-weight="700">CMC</text>
+  </g>
+  <text x="72" y="625" fill="#f5eaff" font-family="Arial,sans-serif" font-size="38" font-weight="700" letter-spacing="8">CINEGLASS COMBO</text>
+</svg>

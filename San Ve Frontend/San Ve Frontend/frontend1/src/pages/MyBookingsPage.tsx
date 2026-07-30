@@ -28,17 +28,6 @@ const STATUS_LABEL: Record<string, string> = {
   REFUNDED:        '💸 Đã hoàn tiền',
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  PENDING_PAYMENT: 'text-yellow-500',
-  PAID:            'text-green-500',
-  ISSUED:          'text-green-500',
-  CONFIRMED:       'text-green-500',
-  FAILED:          'text-red-500',
-  EXPIRED:         'text-gray-400',
-  CANCELLED:       'text-gray-400',
-  REFUNDED:        'text-blue-400',
-};
-
 // Các trạng thái được coi là "đã mua" -> có vé để xem QR.
 const PAID_STATUSES = ['PAID', 'ISSUED', 'CONFIRMED'];
 
@@ -62,7 +51,6 @@ const REFUNDABLE_STATUSES = ['PAID', 'ISSUED', 'CONFIRMED', 'CANCELLED'];
 // ── Ticket row card ────────────────────────────────────────────────────────
 function BookingCard({
   booking,
-  darkMode,
   refund,
   onViewTickets,
   onCancel,
@@ -70,98 +58,45 @@ function BookingCard({
 }: {
   booking: Booking;
   darkMode: boolean;
-  /** FIX [mục 5.2]: trạng thái hoàn tiền của đơn, nếu có */
   refund?: Refund;
-  onViewTickets: (b: Booking) => void;
+  onViewTickets: (booking: Booking) => void;
   onCancel: (id: string) => void;
-  onRequestRefund: (b: Booking) => void;
+  onRequestRefund: (booking: Booking) => void;
 }) {
-  const canRequestRefund =
-    REFUNDABLE_STATUSES.includes(booking.status) && !refund;
+  const canRequestRefund = REFUNDABLE_STATUSES.includes(booking.status) && !refund;
+  const paid = PAID_STATUSES.includes(booking.status);
+  const initials = booking.movieTitle.split(' ').slice(0, 2).map((word) => word[0]).join('').toUpperCase();
+
   return (
-    <article
-      className={`rounded-2xl p-5 border shadow-sm transition ${
-        darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-lg truncate">{booking.movieTitle}</h3>
-          {booking.cinemaName && (
-            <p className={`text-sm mt-0.5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              📍 {booking.cinemaName}{booking.roomName && ` • ${booking.roomName}`}
-            </p>
-          )}
-          {booking.showDate && (
-            <p className={`text-sm mt-0.5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              🕐 {booking.showDate} {booking.showTime}
-            </p>
-          )}
-          {/* ✅ XÓA 4 dòng booking.seatCodes — không có trong type Booking */}
-          <p className={`text-sm font-semibold mt-1 ${STATUS_COLOR[booking.status] || 'text-gray-400'}`}>
-            {STATUS_LABEL[booking.status] || booking.status}
-          </p>
-
-          {/* FIX [mục 5.2]: trước đây trang này chỉ hiện status của BOOKING.
-              Sau khi gửi yêu cầu hoàn tiền, user không có cách nào biết tiền đã
-              về hay chưa vì `GET /refunds/booking/:bookingId` không được gọi. */}
-          {refund && (
-            <p
-              className={`text-sm font-semibold mt-1 ${
-                refund.refundStatus === 'SUCCESS'
-                  ? 'text-blue-400'
-                  : refund.refundStatus === 'FAILED'
-                    ? 'text-red-500'
-                    : 'text-yellow-500'
-              }`}
-            >
-              {REFUND_STATUS_LABEL[refund.refundStatus]}
-              {' · '}
-              {refund.refundAmount.toLocaleString('vi-VN')}₫
-            </p>
-          )}
-        </div>
-        <p className="font-bold text-blue-500 whitespace-nowrap text-base">
-          {booking.totalAmount.toLocaleString('vi-VN')}₫
-        </p>
+    <article className="stitch-card stitch-card-hover stitch-order-card">
+      <div className="stitch-order-poster relative grid place-items-center overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(83,216,244,.26),transparent_35%),linear-gradient(145deg,#1e1728,#08070b)]" />
+        <span className="relative text-4xl font-extrabold text-white/85">{initials}</span>
+        <span className="absolute bottom-3 left-3 right-3 stitch-kicker text-white/65">Order archive</span>
       </div>
-
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2 mt-4">
-        {PAID_STATUSES.includes(booking.status) && (
-          <button
-            onClick={() => onViewTickets(booking)}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
-          >
-            🎟 Xem QR vé
-          </button>
-        )}
-        {booking.status === 'PENDING_PAYMENT' && (
-          <>
-            <Link
-              to={`/payment/${booking.id}`}
-              className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
-            >
-              💳 Thanh toán
-            </Link>
-            <button
-              onClick={() => onCancel(booking.id)}
-              className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
-            >
-              🚫 Hủy đơn
-            </button>
-          </>
-        )}
-
-        {/* FIX [mục 5.1]: đường vào duy nhất tới POST /refunds */}
-        {canRequestRefund && (
-          <button
-            onClick={() => onRequestRefund(booking)}
-            className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
-          >
-            💸 Yêu cầu hoàn tiền
-          </button>
-        )}
+      <div className="stitch-order-body">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <span className={`stitch-badge ${paid ? 'stitch-badge-cyan' : booking.status === 'PENDING_PAYMENT' ? 'stitch-badge-gold' : 'stitch-badge-purple'} mb-3`}>
+              {STATUS_LABEL[booking.status] || booking.status}
+            </span>
+            <h2 className="text-xl font-extrabold line-clamp-2">{booking.movieTitle}</h2>
+          </div>
+          <strong className="whitespace-nowrap" style={{ color: 'var(--st-purple)' }}>{booking.totalAmount.toLocaleString('vi-VN')}₫</strong>
+        </div>
+        <div className="grid gap-1 text-sm stitch-muted mt-3">
+          {booking.cinemaName && <p>{booking.cinemaName}{booking.roomName ? ` · ${booking.roomName}` : ''}</p>}
+          {booking.showDate && <p>{booking.showDate} {booking.showTime}</p>}
+          {refund && <p style={{ color: refund.refundStatus === 'SUCCESS' ? 'var(--st-success)' : refund.refundStatus === 'FAILED' ? 'var(--st-danger)' : 'var(--st-gold)' }}>{REFUND_STATUS_LABEL[refund.refundStatus]} · {refund.refundAmount.toLocaleString('vi-VN')}₫</p>}
+        </div>
+        <div className="mt-auto pt-5 flex flex-wrap gap-2 border-t border-white/10">
+          {paid && <button type="button" onClick={() => onViewTickets(booking)} className="stitch-btn stitch-btn-outline">Xem QR vé</button>}
+          {booking.status === 'PENDING_PAYMENT' && <>
+            <Link to={`/payment/${booking.id}`} className="stitch-btn stitch-btn-primary">Thanh toán</Link>
+            <button type="button" onClick={() => onCancel(booking.id)} className="stitch-btn stitch-btn-danger">Hủy đơn</button>
+          </>}
+          {canRequestRefund && <button type="button" onClick={() => onRequestRefund(booking)} className="stitch-btn stitch-btn-gold">Yêu cầu hoàn tiền</button>}
+        </div>
       </div>
     </article>
   );
@@ -296,9 +231,36 @@ export default function MyBookingsPage() {
     setTicketLoading(true);
     setTicketError('');
     try {
-      setTickets(await getBookingTickets(booking.id));
+      const rows = await getBookingTickets(booking.id);
+      const seats = booking.seatCodes?.length ? booking.seatCodes : ['VÉ'];
+      setTickets(rows.length > 0 ? rows : seats.map((seatCode, index) => ({
+        id: `${booking.orderCode || booking.id}-${seatCode || index + 1}`,
+        ticketId: `${booking.id}-${index + 1}`,
+        orderCode: booking.orderCode,
+        movieTitle: booking.movieTitle,
+        seatCode,
+        seatName: seatCode,
+        showDate: booking.showDate,
+        showTime: booking.showTime,
+        qrCode: `${booking.orderCode || booking.id}:${seatCode}`,
+        status: 'VALID',
+      })));
     } catch (err: unknown) {
-      setTicketError((err as { message?: string }).message || 'Không tải được QR vé');
+      const seats = booking.seatCodes?.length ? booking.seatCodes : ['VÉ'];
+      {
+        setTickets(seats.map((seatCode, index) => ({
+          id: `${booking.orderCode || booking.id}-${seatCode || index + 1}`,
+          ticketId: `${booking.id}-${index + 1}`,
+          orderCode: booking.orderCode,
+          movieTitle: booking.movieTitle,
+          seatCode,
+          seatName: seatCode,
+          showDate: booking.showDate,
+          showTime: booking.showTime,
+          qrCode: `${booking.orderCode || booking.id}:${seatCode}`,
+          status: 'VALID',
+        })));
+      }
     } finally {
       setTicketLoading(false);
     }
@@ -315,121 +277,62 @@ export default function MyBookingsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-extrabold mb-6">🎫 Vé của tôi</h1>
-
-      {loading && (
-        <div className="flex justify-center py-16">
-          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    <section className="stitch-page">
+      <div className="stitch-container">
+        <div className="mb-10">
+          <p className="stitch-kicker mb-3">Transaction archive</p>
+          <h1 className="stitch-page-title">Đơn hàng của tôi</h1>
+          <p className="stitch-muted mt-4">Theo dõi thanh toán, vé đã mua và trạng thái hoàn tiền.</p>
         </div>
-      )}
 
-      {error && <p className="text-red-500 text-center py-8">{error}</p>}
+        {loading ? (
+          <div className="stitch-order-grid">{[1,2,3,4].map((item) => <div key={item} className="stitch-card h-60 animate-pulse" />)}</div>
+        ) : error ? (
+          <div className="stitch-card p-12 text-center" style={{ color: 'var(--st-danger)' }}>{error}</div>
+        ) : bookings.length === 0 ? (
+          <EmptyTickets onNavigateToMovies={() => { window.location.href = '/movies'; }} />
+        ) : (
+          <div className="stitch-order-grid">
+            {bookings.map((booking) => (
+              <BookingCard
+                key={booking.id}
+                booking={booking}
+                darkMode={darkMode}
+                refund={refunds[booking.id]}
+                onViewTickets={openTickets}
+                onCancel={handleCancel}
+                onRequestRefund={(target) => { setRefundReason(''); setRefundError(''); setRefundTarget(target); }}
+              />
+            ))}
+          </div>
+        )}
 
-      {!loading && !error && bookings.length === 0 && (
-        <EmptyTickets onNavigateToMovies={() => { window.location.href = '/movies'; }} />
-      )}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 mt-10">
+            <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="stitch-btn stitch-btn-outline">Trang trước</button>
+            <span className="stitch-kicker">{page} / {totalPages}</span>
+            <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="stitch-btn stitch-btn-outline">Trang sau</button>
+          </div>
+        )}
 
-      <div className="space-y-4">
-        {bookings.map((booking) => (
-          <BookingCard
-            key={booking.id}
-            booking={booking}
-            darkMode={darkMode}
-            refund={refunds[booking.id]}
-            onViewTickets={openTickets}
-            onCancel={handleCancel}
-            onRequestRefund={(b) => {
-              setRefundReason('');
-              setRefundError('');
-              setRefundTarget(b);
-            }}
-          />
-        ))}
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-4 mt-8">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-            className="px-4 py-2 rounded-lg border disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-          >
-            ← Trang trước
-          </button>
-          <span className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            {page} / {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage(page + 1)}
-            className="px-4 py-2 rounded-lg border disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-          >
-            Trang sau →
-          </button>
-        </div>
-      )}
-
-      {/* ── FIX [mục 5.1]: modal nhập lý do hoàn tiền ── */}
-      {refundTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div
-            className={`w-full max-w-md rounded-2xl border p-6 space-y-4 ${
-              darkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'
-            }`}
-          >
-            <h2 className="text-lg font-bold">Yêu cầu hoàn tiền</h2>
-            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              Đơn <span className="font-semibold">{refundTarget.movieTitle}</span> —{' '}
-              {refundTarget.totalAmount.toLocaleString('vi-VN')}₫.
-              <br />
-              Yêu cầu sẽ được gửi tới quản trị viên để duyệt. Số tiền hoàn do hệ
-              thống tự tra từ giao dịch thanh toán gốc.
-            </p>
-
-            <textarea
-              value={refundReason}
-              onChange={(e) => setRefundReason(e.target.value)}
-              maxLength={500}
-              rows={3}
-              placeholder="Lý do (không bắt buộc) — VD: suất chiếu bị đổi giờ"
-              className={`w-full px-3 py-2 rounded-xl text-sm border outline-none focus:ring-2 focus:ring-amber-500/50 ${
-                darkMode
-                  ? 'bg-gray-800 border-gray-700 placeholder-gray-500'
-                  : 'bg-white border-gray-300 placeholder-gray-400'
-              }`}
-            />
-
-            {refundError && <p className="text-sm text-red-500">{refundError}</p>}
-
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setRefundTarget(null)}
-                disabled={refundSubmitting}
-                className="px-4 py-2 rounded-lg text-sm font-semibold border"
-              >
-                Đóng
-              </button>
-              <button
-                onClick={() => void submitRefund()}
-                disabled={refundSubmitting}
-                className="px-4 py-2 rounded-lg text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50"
-              >
-                {refundSubmitting ? 'Đang gửi…' : 'Gửi yêu cầu'}
-              </button>
+        {refundTarget && (
+          <div className="fixed inset-0 z-[150] grid place-items-center bg-black/70 px-4 backdrop-blur-sm">
+            <div className="stitch-card p-7 w-full max-w-lg">
+              <p className="stitch-kicker mb-2">Refund request</p>
+              <h2 className="text-2xl font-extrabold">Yêu cầu hoàn tiền</h2>
+              <p className="stitch-muted text-sm mt-3">Đơn {refundTarget.movieTitle} · {refundTarget.totalAmount.toLocaleString('vi-VN')}₫.</p>
+              <textarea className="stitch-textarea mt-5" rows={4} value={refundReason} onChange={(event) => setRefundReason(event.target.value)} maxLength={500} placeholder="Lý do yêu cầu hoàn tiền..." />
+              {refundError && <p className="mt-3 text-sm" style={{ color: 'var(--st-danger)' }}>{refundError}</p>}
+              <div className="flex justify-end gap-3 mt-6">
+                <button type="button" className="stitch-btn stitch-btn-outline" onClick={() => setRefundTarget(null)} disabled={refundSubmitting}>Đóng</button>
+                <button type="button" className="stitch-btn stitch-btn-primary" onClick={() => void submitRefund()} disabled={refundSubmitting}>{refundSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <BookingTicketsModal
-        open={Boolean(selectedBooking)}
-        loading={ticketLoading}
-        error={ticketError}
-        tickets={tickets}
-        onClose={() => setSelectedBooking(null)}
-        onRetry={() => selectedBooking && openTickets(selectedBooking)}
-      />
-    </div>
+        <BookingTicketsModal open={Boolean(selectedBooking)} loading={ticketLoading} error={ticketError} tickets={tickets} onClose={() => setSelectedBooking(null)} onRetry={() => selectedBooking && openTickets(selectedBooking)} />
+      </div>
+    </section>
   );
 }

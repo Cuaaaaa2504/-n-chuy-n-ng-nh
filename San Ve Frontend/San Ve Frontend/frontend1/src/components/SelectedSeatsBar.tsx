@@ -1,7 +1,6 @@
-import HoldCountdown from "./HoldCountdown";
-import type { Seat } from "../hooks/useSeatHold";
+import HoldCountdown from './HoldCountdown';
+import type { Seat } from '../hooks/useSeatHold';
 
-// Props gốc (dùng bởi các component khác)
 interface FullProps {
   selectedSeats: Seat[];
   totalPrice: number;
@@ -11,15 +10,12 @@ interface FullProps {
   error: string;
   heldSeatCodes: string[];
   onHold: () => void;
-  // FIX TS2322: thêm alias props để tương thích với SeatBookingPage
   seats?: never;
   total?: never;
 }
 
-// Props rút gọn dùng trong SeatBookingPage
 interface SimpleProps {
   seats: Seat[];
-  // FIX TS2322: totalPrice thay vì total để khớp với cách SeatBookingPage truyền vào
   totalPrice: number;
   holdCountdown?: number | null;
   onHold?: () => Promise<void>;
@@ -37,63 +33,110 @@ interface SimpleProps {
 
 type Props = FullProps | SimpleProps;
 
-export default function SelectedSeatsBar(props: Props) {
-  // Normalise: chấp nhận cả hai dạng props
-  const selectedSeats: Seat[] =
-    'seats' in props && props.seats ? props.seats : ((props as FullProps).selectedSeats ?? []);
-  const totalPrice: number =
-    'totalPrice' in props && props.totalPrice !== undefined ? props.totalPrice : 0;
-  const countdown   = 'countdown' in props ? ((props as FullProps).countdown ?? 0) : 0;
-  const loading     = 'loading'   in props ? ((props as FullProps).loading ?? false) : ((props as SimpleProps).holding ?? false);
-  const message     = 'message'   in props ? ((props as FullProps).message ?? '') : '';
-  const error       = 'error'     in props ? ((props as FullProps).error ?? '') : '';
-  const heldSeatCodes = 'heldSeatCodes' in props ? ((props as FullProps).heldSeatCodes ?? []) : [];
+const formatMoney = (value: number) => `${value.toLocaleString('vi-VN')} ₫`;
 
-  // SimpleProps actions
-  const holdCountdown = 'holdCountdown' in props ? (props as SimpleProps).holdCountdown ?? null : null;
-  const onHoldSimple  = 'onHold' in props && typeof (props as SimpleProps).onHold === 'function'
-    ? (props as SimpleProps).onHold!
-    : null;
-  const onProceed     = 'onProceed' in props ? (props as SimpleProps).onProceed : undefined;
-  const navigating    = 'navigating' in props ? (props as SimpleProps).navigating ?? false : false;
+export default function SelectedSeatsBar(props: Props) {
+  const selectedSeats: Seat[] =
+    'seats' in props && props.seats
+      ? props.seats
+      : ((props as FullProps).selectedSeats ?? []);
+
+  const totalPrice = props.totalPrice ?? 0;
+  const countdown =
+    'countdown' in props ? ((props as FullProps).countdown ?? 0) : 0;
+  const loading =
+    'loading' in props
+      ? ((props as FullProps).loading ?? false)
+      : ((props as SimpleProps).holding ?? false);
+  const message =
+    'message' in props ? ((props as FullProps).message ?? '') : '';
+  const error = 'error' in props ? ((props as FullProps).error ?? '') : '';
+  const heldSeatCodes =
+    'heldSeatCodes' in props
+      ? ((props as FullProps).heldSeatCodes ?? [])
+      : [];
+
+  const holdCountdown =
+    'holdCountdown' in props
+      ? ((props as SimpleProps).holdCountdown ?? null)
+      : null;
+  const onHoldSimple =
+    'onHold' in props && typeof (props as SimpleProps).onHold === 'function'
+      ? (props as SimpleProps).onHold!
+      : null;
+  const onProceed =
+    'onProceed' in props ? (props as SimpleProps).onProceed : undefined;
+  const navigating =
+    'navigating' in props
+      ? ((props as SimpleProps).navigating ?? false)
+      : false;
 
   const isSimple = 'seats' in props && props.seats !== undefined;
-
-  // Handler cho FullProps onHold (sync)
-  const onHoldFull = 'onHold' in props && !isSimple ? (props as FullProps).onHold : () => {};
+  const onHoldFull =
+    'onHold' in props && !isSimple ? (props as FullProps).onHold : () => {};
 
   if (isSimple) {
-    // ── Render đơn giản dùng trong SeatBookingPage ──────────────────
+    const selectedCodes = selectedSeats.map((seat) => seat.seatCode).filter(Boolean);
+
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 px-4 py-4">
-        <div className="max-w-5xl mx-auto space-y-3">
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-secondary/20 bg-[#05070d]/90 px-4 py-3 shadow-[0_-18px_55px_rgba(0,0,0,0.5)] backdrop-blur-2xl lg:hidden">
+        <div className="mx-auto max-w-container-max">
           {holdCountdown !== null && holdCountdown > 0 && (
-            <div className="text-sm text-amber-400 text-center">
-              ⏱ Giữ ghế còn: {Math.floor(holdCountdown / 60)}:{String(holdCountdown % 60).padStart(2, '0')}
+            <div className="mb-2 flex items-center justify-center gap-2 font-label-sm text-[11px] uppercase tracking-[0.14em] text-tertiary">
+              <span className="material-symbols-outlined text-[17px]">timer</span>
+              Giữ ghế còn {Math.floor(holdCountdown / 60)}:
+              {String(holdCountdown % 60).padStart(2, '0')}
             </div>
           )}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Đã chọn {selectedSeats.length} ghế</p>
-              <p className="text-lg font-bold text-amber-400">{totalPrice.toLocaleString('vi-VN')} đ</p>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-label-sm text-[10px] uppercase tracking-[0.14em] text-on-surface-variant">
+                {selectedSeats.length > 0
+                  ? `${selectedSeats.length} ghế đã chọn`
+                  : 'Chưa chọn ghế'}
+              </p>
+              {selectedCodes.length > 0 && (
+                <p className="max-w-[46vw] truncate text-xs text-secondary">
+                  {selectedCodes.join(', ')}
+                </p>
+              )}
+              <p className="text-lg font-extrabold text-tertiary drop-shadow-[0_0_9px_rgba(231,231,133,0.25)]">
+                {formatMoney(totalPrice)}
+              </p>
             </div>
-            <div className="flex gap-2">
+
+            <div className="flex shrink-0 items-center gap-2">
               {onHoldSimple && (
                 <button
-                  onClick={() => { void onHoldSimple(); }}
+                  type="button"
+                  onClick={() => {
+                    void onHoldSimple();
+                  }}
                   disabled={loading || selectedSeats.length === 0}
-                  className="px-4 py-2 rounded-xl bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white font-semibold text-sm transition-colors"
+                  className="btn-secondary min-h-11 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {loading ? 'Đang giữ…' : 'Giữ ghế'}
                 </button>
               )}
+
               {onProceed && (
                 <button
-                  onClick={() => { void onProceed(); }}
+                  type="button"
+                  onClick={() => {
+                    void onProceed();
+                  }}
                   disabled={navigating || selectedSeats.length === 0}
-                  className="px-6 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-900 font-bold text-sm transition-colors"
+                  className="btn-primary min-h-11 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {navigating ? 'Đang chuyển…' : 'Đặt vé →'}
+                  <span className="relative z-10 inline-flex items-center gap-1">
+                    {navigating ? 'Đang chuyển…' : 'Đặt vé'}
+                    {!navigating && (
+                      <span className="material-symbols-outlined text-[17px]">
+                        arrow_forward
+                      </span>
+                    )}
+                  </span>
                 </button>
               )}
             </div>
@@ -103,49 +146,84 @@ export default function SelectedSeatsBar(props: Props) {
     );
   }
 
-  // ── Render đầy đủ dùng bởi các component khác ──────────────────────
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border p-4">
-        <h2 className="font-bold mb-2">Ghế đã chọn</h2>
-        <div className="space-y-1 text-sm">
+    <aside className="space-y-4">
+      <section className="glass-card p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="font-label-sm text-[10px] uppercase tracking-[0.16em] text-secondary">
+              Lựa chọn của bạn
+            </p>
+            <h2 className="font-title-md text-lg font-bold text-on-surface">
+              Ghế đã chọn
+            </h2>
+          </div>
+          <span className="inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-primary/30 bg-primary/10 px-2 font-bold text-primary">
+            {selectedSeats.length}
+          </span>
+        </div>
+
+        <div className="space-y-2 text-sm">
           {selectedSeats.length > 0 ? (
-            selectedSeats.map((s) => (
-              <div key={s.seatId} className="flex justify-between">
-                <span>{s.seatCode}</span>
-                <span>{s.price.toLocaleString("vi-VN")} đ</span>
+            selectedSeats.map((seat) => (
+              <div
+                key={seat.seatId}
+                className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.025] px-3 py-2"
+              >
+                <span className="font-semibold text-secondary">{seat.seatCode}</span>
+                <span className="text-on-surface-variant">
+                  {formatMoney(seat.price)}
+                </span>
               </div>
             ))
           ) : (
-            <p className="text-gray-500">Chưa chọn ghế nào.</p>
+            <div className="rounded-lg border border-dashed border-outline-variant px-3 py-5 text-center text-on-surface-variant">
+              Chưa chọn ghế nào.
+            </div>
           )}
         </div>
-      </div>
+      </section>
 
-      <div className="rounded-2xl border p-4">
-        <h2 className="font-bold mb-2">Tổng tiền</h2>
-        <p className="text-2xl font-extrabold text-blue-600">
-          {totalPrice.toLocaleString("vi-VN")} đ
+      <section className="glass-card p-5">
+        <p className="font-label-sm text-[10px] uppercase tracking-[0.16em] text-on-surface-variant">
+          Tổng thanh toán
         </p>
-      </div>
+        <p className="mt-1 text-3xl font-extrabold text-tertiary drop-shadow-[0_0_12px_rgba(231,231,133,0.2)]">
+          {formatMoney(totalPrice)}
+        </p>
+      </section>
 
-      <HoldCountdown countdown={countdown} />
+      <div className="glass-card p-4">
+        <HoldCountdown countdown={countdown} />
+      </div>
 
       <button
+        type="button"
         onClick={onHoldFull}
         disabled={loading || selectedSeats.length === 0}
-        className="w-full rounded-xl bg-blue-600 text-white font-bold py-3 disabled:opacity-50"
+        className="btn-primary w-full rounded-xl py-3.5 font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {loading ? "Đang giữ ghế..." : "Giữ ghế"}
+        <span className="relative z-10 inline-flex items-center gap-2">
+          <span className="material-symbols-outlined text-[20px]">lock_clock</span>
+          {loading ? 'Đang giữ ghế...' : 'Giữ ghế'}
+        </span>
       </button>
 
-      {message && <p className="text-green-600 text-sm">{message}</p>}
-      {error   && <p className="text-red-600 text-sm">{error}</p>}
-      {heldSeatCodes.length > 0 && (
-        <p className="text-sm text-gray-600">
-          Đã giữ: {heldSeatCodes.join(", ")}
+      {message && (
+        <p className="rounded-lg border border-secondary/30 bg-secondary/10 px-3 py-2 text-sm text-secondary">
+          {message}
         </p>
       )}
-    </div>
+      {error && (
+        <p className="rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
+          {error}
+        </p>
+      )}
+      {heldSeatCodes.length > 0 && (
+        <p className="text-sm text-on-surface-variant">
+          Đã giữ: <span className="font-semibold text-tertiary">{heldSeatCodes.join(', ')}</span>
+        </p>
+      )}
+    </aside>
   );
 }

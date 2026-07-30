@@ -12,6 +12,7 @@ import axiosClient from "../api/axiosClient";
 // và lấy seatmap chỉ còn tồn tại ở MỘT nơi (src/api/seat.service.ts).
 import { seatService } from "../api/seat.service";
 import type { HoldItem } from "../api/seat.service";
+import { resolveAssetUrl } from "../utils/assetUrl";
 
 const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
 const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900";
@@ -281,7 +282,18 @@ export default function SeatBookingPage() {
               trailer_url:       m.trailer_url as string | undefined,
               age_rating:        m.age_rating  as string | undefined,
               duration_minutes:  Number(m.duration_minutes ?? 0),
-              genres:            Array.isArray(m.genres) ? (m.genres as string[]) : [],
+              genres:            Array.isArray(m.genres)
+                ? (m.genres as unknown[])
+                    .map((genre) => {
+                      if (typeof genre === 'string') return genre;
+                      if (genre && typeof genre === 'object') {
+                        const row = genre as Record<string, unknown>;
+                        return String(row.name ?? row.title ?? row.genreName ?? '');
+                      }
+                      return '';
+                    })
+                    .filter(Boolean)
+                : [],
               description:       m.description as string | undefined,
             });
           } catch {
@@ -474,17 +486,17 @@ export default function SeatBookingPage() {
   }
 
   return (
-    <div className={`min-h-screen ${bg}`}>
+    <div className={`min-h-screen stitch-flow-page ${bg}`}>
 
       {/* ── Backdrop ── */}
       {movie?.backdrop_url && (
         <div className="relative h-44 md:h-60 overflow-hidden">
-          <img src={movie.backdrop_url} alt="" className="w-full h-full object-cover opacity-40" />
+          <img src={resolveAssetUrl(movie.backdrop_url) || FALLBACK_BACKDROP} alt="" className="w-full h-full object-cover opacity-40" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/90" />
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+      <div className="stitch-container py-10 space-y-8">
 
         {/* ══════════════════════════════════════════════════════════════════
             SECTION 1 — Thông tin phim + Phòng chiếu + Ngày giờ (tích hợp)
@@ -497,7 +509,7 @@ export default function SeatBookingPage() {
               {movie?.poster_url && (
                 <div className="flex-shrink-0 md:w-36">
                   <img
-                    src={movie.poster_url}
+                    src={resolveAssetUrl(movie.poster_url) || FALLBACK_POSTER}
                     alt={movie?.title ?? ''}
                     className="w-full md:h-full object-cover max-h-52 md:max-h-none"
                   />

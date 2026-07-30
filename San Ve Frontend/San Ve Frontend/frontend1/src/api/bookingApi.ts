@@ -24,7 +24,8 @@ function normalizeTicket(item: Record<string, unknown>): BookingTicket {
     movieTitle: (item.movieTitle ?? (item.movie as Record<string, unknown>)?.title ?? 'Vé xem phim') as string,
     seatCode: (item.seatCode ?? item.seatName) as string | undefined,
     seatName: (item.seatName ?? item.seatCode) as string | undefined,
-    qrUrl: (item.qrUrl ?? item.qrCodeUrl ?? item.qrCode) as string | undefined,
+    qrCode: (item.qrCode ?? item.ticketCode ?? item.code) as string | undefined,
+    qrUrl: (item.qrUrl ?? item.qrCodeUrl) as string | undefined,
   };
 }
 
@@ -53,9 +54,18 @@ export async function getBookingTickets(bookingId: string): Promise<BookingTicke
   try {
     // FIX: route đúng là GET /bookings/:id/tickets (đã thêm route trong booking.controller.ts)
     const payload = await axiosClient.get(`/bookings/${bookingId}/tickets`) as Record<string, unknown>;
+    const data = payload.data as Record<string, unknown> | unknown[] | undefined;
     const rawItems = Array.isArray(payload)
       ? payload
-      : ((payload.data as unknown[]) ?? (payload.items as unknown[]) ?? []);
+      : Array.isArray(payload.tickets)
+        ? payload.tickets
+        : Array.isArray(data)
+          ? data
+          : Array.isArray((data as Record<string, unknown> | undefined)?.tickets)
+            ? ((data as Record<string, unknown>).tickets as unknown[])
+            : Array.isArray(payload.items)
+              ? payload.items
+              : [];
     return (rawItems as Record<string, unknown>[]).map(normalizeTicket);
   } catch (err: unknown) {
     const msg = (err as { message?: string })?.message ?? 'Không tải được vé';

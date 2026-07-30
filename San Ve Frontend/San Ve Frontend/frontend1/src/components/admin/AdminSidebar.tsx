@@ -1,43 +1,39 @@
 import { NavLink } from 'react-router-dom';
 
 const LINKS = [
-  { to: '/admin', label: '📊 Dashboard', end: true },
-  { to: '/admin/movies', label: '🎬 Phim' },
-  { to: '/admin/showtimes', label: '🕐 Suất chiếu' },
-  { to: '/admin/bookings', label: '🎫 Đặt vé' },
-  { to: '/admin/users', label: '👥 Người dùng' },
-  { to: '/admin/vouchers', label: '🎟️ Voucher' },
-  { to: '/admin/cinemas', label: '🏛️ Rạp & Phòng chiếu' },
-  { to: '/admin/products', label: '🍿 Sản phẩm & Combo' },
-  { to: '/admin/refunds', label: '💸 Hoàn tiền' },
-  { to: '/admin/reports', label: '📊 Báo cáo doanh thu' },
-  // FIX [mục 3.5]: lối vào form gửi thông báo cho admin
-  { to: '/admin/notifications', label: '🔔 Gửi thông báo' },
-  { to: '/admin/audit-logs', label: '📋 Nhật ký hệ thống' },
+  { to: '/admin', label: 'Tổng quan', icon: 'dashboard', end: true },
+  { to: '/admin/movies', label: 'Phim', icon: 'movie' },
+  { to: '/admin/showtimes', label: 'Suất chiếu', icon: 'schedule' },
+  { to: '/admin/bookings', label: 'Đặt vé', icon: 'confirmation_number' },
+  { to: '/admin/users', label: 'Người dùng', icon: 'group' },
+  { to: '/admin/vouchers', label: 'Voucher', icon: 'local_activity' },
+  { to: '/admin/cinemas', label: 'Rạp & Phòng chiếu', icon: 'theaters' },
+  { to: '/admin/products', label: 'Sản phẩm & Combo', icon: 'fastfood' },
+  { to: '/admin/refunds', label: 'Hoàn tiền', icon: 'currency_exchange' },
+  { to: '/admin/reports', label: 'Báo cáo doanh thu', icon: 'analytics' },
+  { to: '/admin/notifications', label: 'Gửi thông báo', icon: 'notifications_active' },
+  { to: '/admin/audit-logs', label: 'Nhật ký hệ thống', icon: 'history' },
 ];
 
 export default function AdminSidebar() {
   return (
-    <aside className="w-56 min-h-screen bg-gray-900 border-r border-gray-800 flex flex-col py-6 px-3 shrink-0">
-      <p className="text-blue-400 font-extrabold text-lg px-3 mb-8">⚙️ Admin Panel</p>
-      <nav className="flex flex-col gap-1">
-        {LINKS.map(({ to, label, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              `px-3 py-2.5 rounded-lg text-sm font-semibold transition ${
-                isActive
-                  ? 'bg-red-500/20 text-red-400'
-                  : 'text-gray-300 hover:bg-white/5 hover:text-white'
-              }`
-            }
-          >
-            {label}
+    <aside className="stitch-admin-sidebar">
+      <div className="stitch-admin-brand">
+        <span className="material-symbols-outlined">admin_panel_settings</span>
+        <div><strong>CMC Admin</strong><small>Control Center</small></div>
+      </div>
+      <nav>
+        {LINKS.map(({ to, label, icon, end }) => (
+          <NavLink key={to} to={to} end={end} className={({ isActive }) => `stitch-admin-link ${isActive ? 'active' : ''}`}>
+            <span className="material-symbols-outlined">{icon}</span>
+            <span>{label}</span>
           </NavLink>
         ))}
       </nav>
+      <div className="stitch-admin-sidebar-note">
+        <span className="material-symbols-outlined">shield</span>
+        <p>Chế độ quản trị<br /><small>Thao tác được ghi nhật ký</small></p>
+      </div>
     </aside>
   );
 }

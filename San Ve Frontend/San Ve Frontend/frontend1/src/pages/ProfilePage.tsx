@@ -1,17 +1,37 @@
-import React, { useState, useRef, useEffect, startTransition } from 'react';
+import React, { useState, useRef, useEffect, startTransition, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import type { User as AuthUser } from '../context/AuthContext';
 import userApi from '../api/userApi';
+import { useNavigate } from 'react-router-dom';
 import { resolveAssetUrl } from '../utils/assetUrl';
+import { useMovies } from '../hooks/useMovies';
+import {
+  canonicalGenreKey,
+  readFavoriteGenres,
+  writeFavoriteGenres,
+} from '../utils/moviePreferences';
 
 // FIX TS2339: mở rộng User local để có avatarUrl
 type User = AuthUser & { avatarUrl?: string };
 
 type Tab = 'info' | 'privacy';
 
+const DEFAULT_GENRES = [
+  'Hành động',
+  'Khoa học viễn tưởng',
+  'Kinh dị',
+  'Tâm lý',
+  'Hoạt hình',
+  'Hài',
+  'Tình cảm',
+  'Phiêu lưu',
+];
+
 export default function ProfilePage() {
-  const { user, login, token } = useAuth();
+  const { user, login, token, logout } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>('info');
+  const { movies } = useMovies();
 
   const typedUser = user as User | null;
 
@@ -35,6 +55,12 @@ export default function ProfilePage() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailMsg, setEmailMsg]       = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
+  const [favoriteGenres, setFavoriteGenres] = useState<string[]>(() =>
+    readFavoriteGenres(user?.id),
+  );
+  const [preferencesDirty, setPreferencesDirty] = useState(false);
+  const [preferenceMsg, setPreferenceMsg] = useState<string | null>(null);
+
   // Sync form fields khi user thay đổi (ví dụ sau login/logout).
   // Dùng startTransition để đánh dấu đây là update ưu tiên thấp,
   // tránh cascading renders và không vi phạm react-hooks/set-state-in-effect.
@@ -47,6 +73,14 @@ export default function ProfilePage() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    startTransition(() => {
+      setFavoriteGenres(readFavoriteGenres(user?.id));
+      setPreferencesDirty(false);
+      setPreferenceMsg(null);
+    });
+  }, [user?.id]);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -126,155 +160,257 @@ export default function ProfilePage() {
 
   const initials = typedUser?.fullName?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() ?? '?';
 
-  return (
-    <div className="min-h-screen bg-gray-950 text-white py-10 px-4">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold mb-8 text-amber-400">Tài khoản của tôi</h1>
+  const availableGenres = useMemo(() => {
+    const labels = new Map<string, string>();
+    DEFAULT_GENRES.forEach((genre) => labels.set(canonicalGenreKey(genre), genre));
+    movies.forEach((movie) => {
+      movie.genres.forEach((genre) => {
+        const key = canonicalGenreKey(genre);
+        if (key && !labels.has(key)) labels.set(key, genre);
+      });
+    });
+    return Array.from(labels.values()).slice(0, 12);
+  }, [movies]);
 
-        <div className="flex gap-2 mb-8 border-b border-gray-800">
-          {(['info', 'privacy'] as Tab[]).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-3 px-4 text-sm font-semibold transition-colors ${
-                activeTab === tab
-                  ? 'text-amber-400 border-b-2 border-amber-400'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {tab === 'info' ? '👤  Thông tin cá nhân' : '🔒  Quyền riêng tư'}
-            </button>
-          ))}
+  const isGenreSelected = (genre: string) =>
+    favoriteGenres.some((selected) => canonicalGenreKey(selected) === canonicalGenreKey(genre));
+
+  const toggleFavoriteGenre = (genre: string) => {
+    setFavoriteGenres((current) => {
+      const key = canonicalGenreKey(genre);
+      const exists = current.some((item) => canonicalGenreKey(item) === key);
+      return exists
+        ? current.filter((item) => canonicalGenreKey(item) !== key)
+        : [...current, genre];
+    });
+    setPreferencesDirty(true);
+    setPreferenceMsg(null);
+  };
+
+  const handleSavePreferences = () => {
+    writeFavoriteGenres(user?.id, favoriteGenres);
+    setPreferencesDirty(false);
+    setPreferenceMsg(
+      favoriteGenres.length > 0
+        ? 'Đã lưu sở thích. Gợi ý ở trang chủ sẽ ưu tiên các thể loại này.'
+        : 'Đã xóa lựa chọn thể loại. Gợi ý sẽ dựa chủ yếu vào lịch sử vé.',
+    );
+  };
+
+  return (
+    <section className="stitch-page">
+      <div className="stitch-container">
+        <div className="mb-12">
+          <p className="stitch-kicker mb-3">Member control center</p>
+          <h1 className="stitch-page-title">Hồ sơ cá nhân</h1>
+          <p className="stitch-muted mt-4">Quản lý thông tin và đặc quyền thành viên của bạn.</p>
         </div>
 
-        {activeTab === 'info' && (
-          <div className="space-y-8">
-            <div className="flex items-center gap-6">
-              <div className="relative">
+        <div className="stitch-profile-grid">
+          <aside className="grid gap-5 sticky top-28">
+            <div className="stitch-card stitch-profile-summary">
+              <div className="relative inline-flex mb-5">
                 {avatarPreview ? (
-                  <img src={resolveAssetUrl(avatarPreview)} alt="Avatar" className="w-24 h-24 rounded-full object-cover ring-2 ring-amber-400" />
+                  <img className="stitch-avatar" src={resolveAssetUrl(avatarPreview)} alt="Ảnh đại diện" />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-amber-500 flex items-center justify-center text-3xl font-bold text-gray-900 ring-2 ring-amber-400">
-                    {initials}
-                  </div>
+                  <div className="stitch-avatar-fallback">{initials}</div>
                 )}
-              </div>
-              <div>
-                <p className="text-sm text-gray-400 mb-2">Ảnh đại diện</p>
                 <button
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 py-2 rounded-lg transition-colors border border-gray-700"
+                  className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full grid place-items-center text-[#25172f] bg-gradient-to-br from-[#dcb8ff] to-[#53d8f4] border-2 border-[#151119] shadow-[0_0_18px_rgba(220,184,255,.35)]"
+                  aria-label="Đổi ảnh đại diện"
                 >
-                  <span>📷</span> Tải ảnh lên
+                  <span className="material-symbols-outlined text-[18px]">edit</span>
                 </button>
-                <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF — tối đa 5MB</p>
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAvatarChange} />
               </div>
-            </div>
+              <h2 className="text-2xl font-extrabold">{typedUser?.fullName || 'Thành viên CMC'}</h2>
+              <p className="stitch-muted mt-1">{typedUser?.email}</p>
 
-            <div className="space-y-5">
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Họ và tên</label>
-                <input value={fullName} onChange={e => setFullName(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Số điện thoại</label>
-                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Chưa cập nhật"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Email</label>
-                <input value={typedUser?.email ?? ''} readOnly
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-400 cursor-not-allowed" />
-                <p className="text-xs text-gray-500 mt-1">Đổi email trong tab Quyền riêng tư</p>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Mật khẩu</label>
-                <input value="••••••••" readOnly type="password"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-400 cursor-not-allowed" />
-                <p className="text-xs text-gray-500 mt-1">Đổi mật khẩu trong tab Quyền riêng tư</p>
-              </div>
-            </div>
-
-            {infoMsg && (
-              <div className={`text-sm px-4 py-2.5 rounded-lg ${
-                infoMsg.type === 'ok' ? 'bg-green-900/40 text-green-400 border border-green-800' : 'bg-red-900/40 text-red-400 border border-red-800'
-              }`}>{infoMsg.text}</div>
-            )}
-            <button onClick={handleSaveInfo} disabled={infoLoading}
-              className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-900 font-bold py-3 rounded-xl transition-colors">
-              {infoLoading ? 'Đang lưu…' : 'Lưu thông tin'}
-            </button>
-          </div>
-        )}
-
-        {activeTab === 'privacy' && (
-          <div className="space-y-10">
-            <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-amber-400 border-b border-gray-800 pb-2">Đổi mật khẩu</h2>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Mật khẩu hiện tại</label>
-                <div className="relative">
-                  <input type={showPwd ? 'text' : 'password'} value={pwdCurrent} onChange={e => setPwdCurrent(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white pr-12 focus:outline-none focus:border-amber-400 transition" />
-                  <button type="button" onClick={() => setShowPwd(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                    {showPwd ? '🙈' : '👁️'}
-                  </button>
+              <div className="stitch-member-card">
+                <p className="stitch-kicker">Hạng thẻ</p>
+                <div className="flex justify-center items-center gap-2 mt-2">
+                  <span className="material-symbols-outlined" style={{ color: 'var(--st-cyan)' }}>stars</span>
+                  <span className="text-2xl font-extrabold" style={{ color: 'var(--st-cyan)' }}>Platinum</span>
                 </div>
+                <div className="h-1.5 rounded-full bg-white/10 mt-4 overflow-hidden">
+                  <div className="h-full w-3/4 bg-gradient-to-r from-[#a56ee0] to-[#53d8f4] shadow-[0_0_12px_rgba(83,216,244,.4)]" />
+                </div>
+                <p className="text-xs stitch-muted mt-2">Còn 2.400 điểm để giữ hạng</p>
               </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Mật khẩu mới</label>
-                <input type="password" value={pwdNew} onChange={e => setPwdNew(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Xác nhận mật khẩu mới</label>
-                <input type="password" value={pwdConfirm} onChange={e => setPwdConfirm(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition" />
-              </div>
-              {pwdMsg && (
-                <div className={`text-sm px-4 py-2.5 rounded-lg ${
-                  pwdMsg.type === 'ok' ? 'bg-green-900/40 text-green-400 border border-green-800' : 'bg-red-900/40 text-red-400 border border-red-800'
-                }`}>{pwdMsg.text}</div>
-              )}
-              <button onClick={handleChangePassword} disabled={pwdLoading}
-                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-900 font-bold py-3 rounded-xl transition-colors">
-                {pwdLoading ? 'Đang đổi…' : 'Đổi mật khẩu'}
-              </button>
-            </section>
 
-            <section className="space-y-4">
-              <h2 className="text-lg font-semibold text-amber-400 border-b border-gray-800 pb-2">Đổi địa chỉ email</h2>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Email hiện tại</label>
-                <input value={typedUser?.email ?? ''} readOnly
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-400 cursor-not-allowed" />
+              <div className="flex justify-between items-center pt-6 mt-6 border-t border-white/10">
+                <span className="stitch-kicker">CMC Points</span>
+                <strong className="text-2xl" style={{ color: 'var(--st-purple)' }}>12.500</strong>
               </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Email mới</label>
-                <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="email@example.com"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Xác nhận bằng mật khẩu hiện tại</label>
-                <input type="password" value={emailPwd} onChange={e => setEmailPwd(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-amber-400 transition" />
-              </div>
-              {emailMsg && (
-                <div className={`text-sm px-4 py-2.5 rounded-lg ${
-                  emailMsg.type === 'ok' ? 'bg-green-900/40 text-green-400 border border-green-800' : 'bg-red-900/40 text-red-400 border border-red-800'
-                }`}>{emailMsg.text}</div>
-              )}
-              <button onClick={handleChangeEmail} disabled={emailLoading}
-                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-900 font-bold py-3 rounded-xl transition-colors">
-                {emailLoading ? 'Đang đổi…' : 'Đổi email'}
+            </div>
+
+            <nav className="stitch-card p-2 stitch-profile-nav">
+              <button type="button" onClick={() => setActiveTab('info')} className={activeTab === 'info' ? 'active' : ''}>
+                <span className="material-symbols-outlined">person</span>Thông tin tài khoản
               </button>
-            </section>
+              <button type="button" onClick={() => setActiveTab('privacy')} className={activeTab === 'privacy' ? 'active' : ''}>
+                <span className="material-symbols-outlined">lock</span>Thay đổi mật khẩu
+              </button>
+              <button type="button" onClick={() => navigate('/my-tickets?tab=paid')}>
+                <span className="material-symbols-outlined">confirmation_number</span>Vé của tôi
+              </button>
+              <button type="button" onClick={() => navigate('/my-bookings')}>
+                <span className="material-symbols-outlined">history</span>Lịch sử giao dịch
+              </button>
+              <button type="button" onClick={() => { logout(); navigate('/'); }} style={{ color: 'var(--st-danger)' }}>
+                <span className="material-symbols-outlined">logout</span>Đăng xuất
+              </button>
+            </nav>
+          </aside>
+
+          <div className="grid gap-6">
+            {activeTab === 'info' ? (
+              <>
+                <section className="stitch-card stitch-profile-panel">
+                  <div className="flex justify-between items-center pb-4 mb-7 border-b border-white/10">
+                    <div>
+                      <p className="stitch-kicker mb-2">Account data</p>
+                      <h2 className="text-2xl font-extrabold">Thông tin chi tiết</h2>
+                    </div>
+                    <button type="button" className="stitch-kicker" style={{ color: 'var(--st-cyan)' }} onClick={() => fileInputRef.current?.click()}>Chỉnh sửa ảnh</button>
+                  </div>
+
+                  <div className="stitch-form-grid">
+                    <div>
+                      <label className="stitch-label" htmlFor="profile-name">Họ và tên</label>
+                      <input id="profile-name" className="stitch-input" value={fullName} onChange={(event) => setFullName(event.target.value)} />
+                    </div>
+                    <div>
+                      <label className="stitch-label" htmlFor="profile-phone">Số điện thoại</label>
+                      <input id="profile-phone" className="stitch-input" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Chưa cập nhật" />
+                    </div>
+                    <div>
+                      <label className="stitch-label">Email</label>
+                      <input className="stitch-input" value={typedUser?.email ?? ''} readOnly />
+                    </div>
+                    <div>
+                      <label className="stitch-label">Vai trò</label>
+                      <input className="stitch-input" value={typedUser?.role || 'USER'} readOnly />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="stitch-label">Rạp yêu thích</label>
+                      <select className="stitch-select" defaultValue="hn">
+                        <option value="hn">CMC Cinema Hà Nội</option>
+                        <option value="hcm">CMC Cinema Hồ Chí Minh</option>
+                        <option value="dn">CMC Cinema Đà Nẵng</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {infoMsg && (
+                    <div className="mt-6 rounded-xl border px-4 py-3 text-sm" style={{ color: infoMsg.type === 'ok' ? 'var(--st-success)' : 'var(--st-danger)', borderColor: infoMsg.type === 'ok' ? 'color-mix(in srgb,var(--st-success) 40%,transparent)' : 'color-mix(in srgb,var(--st-danger) 40%,transparent)' }}>
+                      {infoMsg.text}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap justify-between gap-3 mt-7">
+                    <p className="text-xs stitch-muted self-center">JPG, PNG, GIF — tối đa 5MB</p>
+                    <button type="button" onClick={handleSaveInfo} disabled={infoLoading} className="stitch-btn stitch-btn-primary">
+                      <span className="material-symbols-outlined">save</span>{infoLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="stitch-card stitch-profile-panel">
+                  <div className="stitch-preference-header pb-5 mb-6 border-b border-white/10">
+                    <div>
+                      <p className="stitch-kicker mb-2">Preferences</p>
+                      <h2 className="text-2xl font-extrabold">Thể loại phim yêu thích</h2>
+                      <p className="stitch-muted text-sm mt-2 max-w-2xl">
+                        Chọn thể loại bạn thích. Trang chủ sẽ kết hợp lựa chọn này với lịch sử vé đã mua để xếp hạng phim gợi ý.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSavePreferences}
+                      disabled={!preferencesDirty}
+                      className="stitch-btn stitch-btn-outline stitch-preference-save"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">save</span>
+                      {preferencesDirty ? 'Lưu sở thích' : 'Đã lưu'}
+                    </button>
+                  </div>
+
+                  <div className="stitch-genre-grid" role="group" aria-label="Chọn thể loại phim yêu thích">
+                    {availableGenres.map((genre) => {
+                      const selected = isGenreSelected(genre);
+                      return (
+                        <button
+                          key={genre}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => toggleFavoriteGenre(genre)}
+                          className={`stitch-genre-toggle ${selected ? 'selected' : ''}`}
+                        >
+                          <span className="material-symbols-outlined text-[19px]">
+                            {selected ? 'check_circle' : 'add_circle'}
+                          </span>
+                          <span>{genre}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="stitch-preference-footer">
+                    <span className="stitch-muted text-sm">
+                      Đã chọn <strong style={{ color: 'var(--st-purple)' }}>{favoriteGenres.length}</strong> thể loại
+                    </span>
+                    {preferenceMsg && (
+                      <span className="text-sm" style={{ color: 'var(--st-success)' }}>{preferenceMsg}</span>
+                    )}
+                  </div>
+                </section>
+              </>
+            ) : (
+              <>
+                <section className="stitch-card stitch-profile-panel">
+                  <div className="pb-4 mb-7 border-b border-white/10">
+                    <p className="stitch-kicker mb-2">Security</p>
+                    <h2 className="text-2xl font-extrabold">Đổi mật khẩu</h2>
+                  </div>
+                  <div className="grid gap-5">
+                    <div>
+                      <label className="stitch-label">Mật khẩu hiện tại</label>
+                      <div className="relative">
+                        <input className="stitch-input pr-12" type={showPwd ? 'text' : 'password'} value={pwdCurrent} onChange={(event) => setPwdCurrent(event.target.value)} />
+                        <button type="button" onClick={() => setShowPwd((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 stitch-muted"><span className="material-symbols-outlined">{showPwd ? 'visibility_off' : 'visibility'}</span></button>
+                      </div>
+                    </div>
+                    <div className="stitch-form-grid">
+                      <div><label className="stitch-label">Mật khẩu mới</label><input className="stitch-input" type="password" value={pwdNew} onChange={(event) => setPwdNew(event.target.value)} /></div>
+                      <div><label className="stitch-label">Xác nhận mật khẩu</label><input className="stitch-input" type="password" value={pwdConfirm} onChange={(event) => setPwdConfirm(event.target.value)} /></div>
+                    </div>
+                    {pwdMsg && <p style={{ color: pwdMsg.type === 'ok' ? 'var(--st-success)' : 'var(--st-danger)' }}>{pwdMsg.text}</p>}
+                    <button type="button" onClick={handleChangePassword} disabled={pwdLoading} className="stitch-btn stitch-btn-primary justify-self-end">{pwdLoading ? 'Đang đổi...' : 'Đổi mật khẩu'}</button>
+                  </div>
+                </section>
+
+                <section className="stitch-card stitch-profile-panel">
+                  <div className="pb-4 mb-7 border-b border-white/10">
+                    <p className="stitch-kicker mb-2">Identity</p>
+                    <h2 className="text-2xl font-extrabold">Đổi địa chỉ email</h2>
+                  </div>
+                  <div className="grid gap-5">
+                    <div><label className="stitch-label">Email hiện tại</label><input className="stitch-input" value={typedUser?.email ?? ''} readOnly /></div>
+                    <div className="stitch-form-grid">
+                      <div><label className="stitch-label">Email mới</label><input className="stitch-input" type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="email@example.com" /></div>
+                      <div><label className="stitch-label">Mật khẩu hiện tại</label><input className="stitch-input" type="password" value={emailPwd} onChange={(event) => setEmailPwd(event.target.value)} /></div>
+                    </div>
+                    {emailMsg && <p style={{ color: emailMsg.type === 'ok' ? 'var(--st-success)' : 'var(--st-danger)' }}>{emailMsg.text}</p>}
+                    <button type="button" onClick={handleChangeEmail} disabled={emailLoading} className="stitch-btn stitch-btn-primary justify-self-end">{emailLoading ? 'Đang đổi...' : 'Đổi email'}</button>
+                  </div>
+                </section>
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

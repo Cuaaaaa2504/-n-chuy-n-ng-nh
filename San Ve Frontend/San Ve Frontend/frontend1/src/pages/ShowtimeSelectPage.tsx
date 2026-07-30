@@ -14,11 +14,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useTheme } from '../context/useTheme';
 import EmptyShowtime from '../components/showtime/EmptyShowtime';
 import { getMovieById } from '../api/movieApi';
 import { getShowtimesByMovie } from '../api/showtimeApi';
 import type { Movie } from '../types/movie';
+import { resolveAssetUrl } from '../utils/assetUrl';
 
 type UiShowtime = {
   showtimeId: number;
@@ -52,7 +52,6 @@ const isPast = (iso: string) => new Date(iso) < new Date();
 export default function ShowtimeSelectPage() {
   const { movieId } = useParams();
   const navigate = useNavigate();
-  const { darkMode } = useTheme();
 
   // ── Thông tin phim ───────────────────────────────────────────────────────
   const [movie, setMovie] = useState<Movie | null>(null);
@@ -189,146 +188,109 @@ export default function ShowtimeSelectPage() {
     );
   };
 
-  const bg = darkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900';
-  const card = darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white shadow';
-  const muted = darkMode ? 'text-gray-400' : 'text-gray-500';
-  const accent = 'text-amber-400';
+  const fallbackBackdrop = 'https://picsum.photos/seed/cmc-showtime/1800/900';
+  const backdrop = resolveAssetUrl(movie?.backdrop_url || movie?.poster_url) || fallbackBackdrop;
 
   return (
-    <div className={`min-h-screen ${bg}`}>
-      {movie?.backdrop_url && (
-        <div className="relative w-full h-48 md:h-72 overflow-hidden">
-          <img src={movie.backdrop_url} alt="" className="w-full h-full object-cover opacity-25" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-950" />
-        </div>
-      )}
-
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Thông tin phim */}
+    <section className="stitch-page">
+      <div className="stitch-container">
         {loadingMovie ? (
-          <div className="flex gap-4 animate-pulse">
-            <div className="w-24 h-36 rounded-xl bg-gray-800" />
-            <div className="flex-1 space-y-3 py-1">
-              <div className="h-6 bg-gray-800 rounded w-2/3" />
-              <div className="h-4 bg-gray-800 rounded w-1/3" />
-            </div>
-          </div>
+          <div className="stitch-card h-[430px] animate-pulse mb-10" />
         ) : movie ? (
-          <div className="flex gap-4 items-start">
-            {movie.poster_url && (
-              <img
-                src={movie.poster_url}
-                alt={movie.title}
-                className="w-24 rounded-xl shadow-lg flex-shrink-0"
-              />
-            )}
-            <div>
-              <h1 className={`text-2xl font-bold ${accent}`}>{movie.title}</h1>
-              {movie.age_rating && (
-                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-red-600 text-white font-semibold">
-                  {movie.age_rating}
-                </span>
-              )}
-              {movie.duration_minutes > 0 && (
-                <p className={`text-sm mt-1 ${muted}`}>{movie.duration_minutes} phút</p>
-              )}
-              {movie.genres.length > 0 && (
-                <p className={`text-xs mt-1 ${muted}`}>{movie.genres.join(' • ')}</p>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Chọn ngày */}
-        {loadingShowtimes ? (
-          <div className="flex gap-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="w-16 h-14 rounded-xl bg-gray-800 animate-pulse" />
-            ))}
-          </div>
-        ) : availableDates.length > 0 ? (
-          <div>
-            <h2 className="text-sm font-semibold mb-3 text-gray-400 uppercase tracking-wider">
-              Chọn ngày
-            </h2>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {availableDates.map((date) => (
-                <button
-                  key={date}
-                  onClick={() => setSelectedDate(date)}
-                  className={`flex-shrink-0 px-3 py-2 rounded-xl text-center transition-all ${
-                    selectedDate === date
-                      ? 'bg-amber-500 text-gray-950 font-semibold shadow-lg'
-                      : darkMode
-                        ? 'bg-gray-800 hover:bg-gray-700 text-gray-300'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  <div className="text-xs">{getDayLabel(date)}</div>
-                  <div className="text-sm font-medium">{formatDate(date)}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Danh sách suất chiếu theo rạp */}
-        {loadingShowtimes ? (
-          <div className="space-y-4">
-            {[1, 2].map((i) => (
-              <div key={i} className="rounded-2xl p-4 bg-gray-800 animate-pulse h-32" />
-            ))}
-          </div>
-        ) : showtimeError ? (
-          <div className="rounded-2xl px-4 py-6 bg-red-500/10 border border-red-500/25 text-center">
-            <p className="text-2xl mb-2">⚠️</p>
-            <p className="text-red-400 text-sm mb-4">{showtimeError}</p>
-            <button
-              onClick={() => {
-                const signal = { cancelled: false };
-                void loadShowtimes(signal);
-              }}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-gray-950 text-sm font-semibold transition"
-            >
-              Thử lại
-            </button>
-          </div>
-        ) : groupedByCinema.length === 0 ? (
-          <EmptyShowtime />
-        ) : (
-          <div className="space-y-6">
-            {groupedByCinema.map(([cinemaId, { cinemaName, showtimes }]) => (
-              <div key={cinemaId} className={`rounded-2xl p-4 md:p-6 ${card}`}>
-                <h3 className="font-semibold text-base mb-1">{cinemaName}</h3>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {showtimes.map((s) => {
-                    const past = isPast(s.startTime);
-                    return (
-                      <button
-                        key={s.showtimeId}
-                        onClick={() => handleSelectShowtime(s)}
-                        disabled={past}
-                        className={`flex flex-col items-center px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                          past
-                            ? 'bg-gray-800 text-gray-600 cursor-not-allowed line-through'
-                            : 'bg-amber-500 hover:bg-amber-400 text-gray-950 shadow hover:shadow-md active:scale-95'
-                        }`}
-                      >
-                        <span>{formatTime(s.startTime)}</span>
-                        <span
-                          className={`text-xs mt-0.5 ${past ? 'text-gray-600' : 'text-gray-800 opacity-70'}`}
-                        >
-                          {s.roomName}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+          <div className="stitch-showtime-hero">
+            <img src={backdrop} alt="" onError={(event) => { event.currentTarget.src = fallbackBackdrop; }} />
+            <div className="stitch-showtime-meta">
+              <div className="flex flex-wrap gap-2 mb-3">
+                {movie.genres?.slice(0, 2).map((genre) => <span key={genre} className="stitch-badge stitch-badge-gold">{genre}</span>)}
+                {movie.age_rating && <span className="stitch-badge stitch-badge-purple">{movie.age_rating}</span>}
               </div>
-            ))}
+              <h1 className="text-4xl md:text-6xl font-extrabold tracking-[-.05em] text-white">{movie.title}</h1>
+              <div className="flex flex-wrap gap-4 mt-4 text-sm text-white/75">
+                <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[18px]">schedule</span>{movie.duration_minutes} phút</span>
+                <span className="inline-flex items-center gap-1" style={{ color: 'var(--st-gold)' }}><span className="material-symbols-outlined text-[18px]">star</span>Đang mở bán</span>
+              </div>
+            </div>
           </div>
-        )}
+        ) : null}
+
+        <div className="stitch-showtime-layout">
+          <aside className="grid gap-5 sticky top-28">
+            <div className="stitch-card p-5">
+              <h2 className="text-xl font-extrabold mb-5">Ngày chiếu</h2>
+              {loadingShowtimes ? (
+                <div className="grid gap-3">{[1,2,3].map((item) => <div key={item} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}</div>
+              ) : (
+                <div className="stitch-date-list">
+                  {availableDates.map((date) => (
+                    <button key={date} type="button" className={`stitch-date-button ${selectedDate === date ? 'active' : ''}`} onClick={() => setSelectedDate(date)}>
+                      <strong className="block">{getDayLabel(date)}</strong>
+                      <span className="text-sm stitch-muted">{formatDate(date)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="stitch-card p-5">
+              <h2 className="text-xl font-extrabold mb-4">Định dạng</h2>
+              <div className="flex flex-wrap gap-2">
+                {['Tất cả', 'IMAX Laser', '4DX', '2D Phụ đề'].map((label, index) => (
+                  <span key={label} className={`stitch-badge ${index === 0 ? 'stitch-badge-purple' : ''} border border-white/10`} style={index ? { color: 'var(--st-muted)', background: 'var(--st-panel-light)' } : undefined}>{label}</span>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          <div>
+            {loadingShowtimes ? (
+              <div className="grid gap-6">{[1,2].map((item) => <div key={item} className="stitch-card h-64 animate-pulse" />)}</div>
+            ) : showtimeError ? (
+              <div className="stitch-card p-10 text-center">
+                <span className="material-symbols-outlined text-[50px]" style={{ color: 'var(--st-danger)' }}>error</span>
+                <p className="mt-3 mb-6" style={{ color: 'var(--st-danger)' }}>{showtimeError}</p>
+                <button className="stitch-btn stitch-btn-primary" onClick={() => { const signal = { cancelled: false }; void loadShowtimes(signal); }}>Thử lại</button>
+              </div>
+            ) : groupedByCinema.length === 0 ? (
+              <EmptyShowtime />
+            ) : (
+              <div className="grid gap-6">
+                {groupedByCinema.map(([cinemaId, cinema]) => (
+                  <article key={cinemaId} className="stitch-cinema-card">
+                    <header className="stitch-cinema-head">
+                      <div className="flex gap-3 items-start">
+                        <span className="material-symbols-outlined mt-1" style={{ color: 'var(--st-purple)' }}>location_on</span>
+                        <div>
+                          <h2 className="text-2xl font-extrabold">{cinema.cinemaName}</h2>
+                          <p className="stitch-muted text-sm mt-1">Hệ thống phòng chiếu CMC Cinema</p>
+                        </div>
+                      </div>
+                    </header>
+                    <div className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="stitch-badge stitch-badge-purple">2D</span>
+                        <span className="stitch-muted text-sm">Phụ đề tiếng Việt</span>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {cinema.showtimes.map((showtime) => (
+                          <button
+                            key={showtime.showtimeId}
+                            type="button"
+                            className="stitch-time-button"
+                            disabled={isPast(showtime.startTime)}
+                            onClick={() => handleSelectShowtime(showtime)}
+                          >
+                            <strong className="block">{formatTime(showtime.startTime)}</strong>
+                            <span className="text-[10px] stitch-muted">{showtime.roomName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
