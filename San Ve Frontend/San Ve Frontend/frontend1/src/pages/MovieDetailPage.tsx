@@ -77,9 +77,6 @@ export default function MovieDetailPage() {
         <div className="stitch-detail-content">
           <img className="stitch-detail-poster" src={poster} alt={movie.title} onError={(event) => { event.currentTarget.src = FALLBACK_POSTER; }} />
           <div>
-            <button type="button" onClick={() => navigate(-1)} className="stitch-kicker inline-flex items-center gap-2 mb-5 hover:text-secondary">
-              <span className="material-symbols-outlined text-[18px]">arrow_back</span>Quay lại
-            </button>
             <div className="flex flex-wrap gap-2 mb-4">
               {movie.age_rating && <span className="stitch-badge stitch-badge-purple">{movie.age_rating}</span>}
               <span className="stitch-badge stitch-badge-cyan">{STATUS_LABEL[movie.status] || movie.status}</span>
