@@ -380,3 +380,23 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #4dade8; }
       linear-gradient(180deg, rgba(248,252,255,.94) 0%, rgba(242,249,255,.88) 58%, rgba(239,248,255,.96) 100%) !important;
   }
 }
+/* ============================================================
+   LIGHT MODE — MOVIE CARD TITLE WHITE
+   Tên phim trắng giống Dark Mode.
+   ============================================================ */
+
+html.light .movie-card h2,
+html.light .movie-card h3,
+html.light .movie-card h4,
+html.light .stitch-card h2,
+html.light .stitch-card h3,
+html.light .stitch-card h4,
+html.light a[href^="/movies/"] h2,
+html.light a[href^="/movies/"] h3,
+html.light a[href^="/movies/"] h4 {
+  color: #ffffff !important;
+
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.85),
+    0 0 10px rgba(0, 0, 0, 0.45) !important;
+}
