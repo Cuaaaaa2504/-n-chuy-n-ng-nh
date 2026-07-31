@@ -21,9 +21,9 @@ export default function Footer() {
         <div>
           <p className="stitch-kicker mb-4">Hỗ trợ</p>
           <div className="grid gap-3 stitch-muted">
-            <span>Điều khoản sử dụng</span>
-            <span>Chính sách bảo mật</span>
-            <span>Chính sách hoàn vé</span>
+            <Link to="/terms" className="hover:text-secondary">Điều khoản sử dụng</Link>
+            <Link to="/terms#bao-mat" className="hover:text-secondary">Chính sách bảo mật</Link>
+            <Link to="/terms#huy-doi" className="hover:text-secondary">Chính sách hoàn vé</Link>
           </div>
         </div>
         <div>

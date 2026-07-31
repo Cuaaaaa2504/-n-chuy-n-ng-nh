@@ -1,0 +1,395 @@
+/* ============================================================
+   CMC CINEMA — Stronger text contrast for LIGHT MODE only
+   File này phải được import CUỐI CÙNG trong main.tsx.
+   Dark mode không bị ảnh hưởng.
+   ============================================================ */
+
+html.light {
+  /* Chữ chính/phụ tối hơn để không bị bạc màu trên nền sáng. */
+  --color-on-background: #0f172a;
+  --color-on-surface: #111827;
+  --color-on-surface-variant: #3f4b61;
+  --color-outline: #536078;
+
+  --st-text: #111827;
+  --st-muted: #435168;
+
+  /* Accent đậm hơn một nấc để đủ tương phản. */
+  --st-purple: #6238a7;
+  --st-purple-strong: #542e96;
+  --st-cyan: #006f86;
+  --st-gold: #795700;
+  --st-danger: #b4232d;
+  --st-success: #087249;
+
+  --color-primary: #6238a7;
+  --color-secondary: #006f86;
+}
+
+/* ---------- Typography cơ bản ---------- */
+html.light body,
+html.light .stitch-app,
+html.light .stitch-admin-shell {
+  color: var(--st-text);
+}
+
+html.light .stitch-muted,
+html.light .stitch-app .text-gray-600,
+html.light .stitch-app .text-gray-500,
+html.light .stitch-app .text-gray-400,
+html.light .stitch-app .text-gray-300,
+html.light .stitch-admin-shell .text-gray-600,
+html.light .stitch-admin-shell .text-gray-500,
+html.light .stitch-admin-shell .text-gray-400,
+html.light .stitch-admin-shell .text-gray-300 {
+  color: #435168 !important;
+  opacity: 1;
+}
+
+html.light h1,
+html.light h2,
+html.light h3,
+html.light h4,
+html.light h5,
+html.light h6 {
+  color: #111827;
+  font-weight: 800;
+}
+
+html.light p,
+html.light td,
+html.light label,
+html.light li {
+  text-rendering: optimizeLegibility;
+}
+
+html.light strong,
+html.light b {
+  color: #111827;
+}
+
+html.light .stitch-kicker {
+  color: #006f86;
+  font-weight: 750;
+  opacity: 1;
+}
+
+html.light .stitch-page-title {
+  color: #4f258f;
+  text-shadow: 0 2px 10px rgba(79, 37, 143, 0.12);
+}
+
+/* ---------- Navbar ---------- */
+html.light .stitch-brand {
+  color: #5c30a2;
+  text-shadow: 0 2px 10px rgba(92, 48, 162, 0.12);
+}
+
+html.light .stitch-nav-link {
+  color: #445168;
+  font-weight: 750;
+}
+
+html.light .stitch-nav-link:hover,
+html.light .stitch-nav-link.active {
+  color: #5c30a2;
+}
+
+html.light .stitch-location {
+  color: #3e4b61;
+  font-weight: 650;
+}
+
+html.light .stitch-location-select {
+  color: #1d293d !important;
+  font-weight: 650;
+}
+
+/* ---------- Cards / nội dung ---------- */
+html.light .stitch-card,
+html.light .stitch-glass,
+html.light .cyber-card,
+html.light .glass-card,
+html.light .glass-panel {
+  color: #172033;
+}
+
+html.light .stitch-card p,
+html.light .stitch-glass p {
+  color: #435168;
+}
+
+html.light .stitch-card h2,
+html.light .stitch-card h3,
+html.light .stitch-card h4 {
+  color: #172033;
+}
+
+/* ---------- Input / filter ---------- */
+html.light input,
+html.light select,
+html.light textarea,
+html.light .stitch-input,
+html.light .stitch-select,
+html.light .stitch-textarea {
+  color: #1c2638 !important;
+  font-weight: 550;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #66738a !important;
+  opacity: 1 !important;
+}
+
+html.light label {
+  color: #3e4b61;
+  font-weight: 650;
+}
+
+/* ---------- Tables / admin ---------- */
+html.light table {
+  color: #263247;
+}
+
+html.light thead th,
+html.light .stitch-admin-shell thead th {
+  color: #3d4860 !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+
+html.light tbody td,
+html.light .stitch-admin-shell tbody td {
+  color: #46546b;
+  font-weight: 520;
+}
+
+html.light tbody td strong,
+html.light .stitch-admin-shell tbody td strong {
+  color: #172033;
+  font-weight: 750;
+}
+
+/* Mã đơn/link trong bảng không còn xanh quá nhạt. */
+html.light .stitch-admin-shell td a {
+  color: #1769a6 !important;
+  font-weight: 650;
+}
+
+/* Sidebar admin. */
+html.light .stitch-admin-link {
+  color: #46546b;
+  font-weight: 700;
+}
+
+html.light .stitch-admin-link .material-symbols-outlined {
+  color: #526078;
+}
+
+html.light .stitch-admin-link:hover {
+  color: #172033;
+}
+
+html.light .stitch-admin-link.active {
+  color: #321c54;
+  font-weight: 800;
+}
+
+html.light .stitch-admin-link.active .material-symbols-outlined {
+  color: #542e96;
+}
+
+html.light .stitch-admin-sidebar-note,
+html.light .stitch-admin-header > div:first-child > p:last-child,
+html.light .stitch-admin-session {
+  color: #536078;
+  opacity: 1;
+}
+
+/* ---------- Semantic colors ----------
+   Nhiều page cũ dùng utility Tailwind. Làm màu đậm hơn nhưng vẫn giữ ý nghĩa.
+*/
+html.light [class*="text-green-"] {
+  color: #087249 !important;
+}
+
+html.light [class*="text-red-"] {
+  color: #b4232d !important;
+}
+
+html.light [class*="text-purple-"],
+html.light [class*="text-violet-"] {
+  color: #6436ac !important;
+}
+
+html.light [class*="text-blue-"],
+html.light [class*="text-cyan-"] {
+  color: #08758c !important;
+}
+
+html.light [class*="text-yellow-"],
+html.light [class*="text-amber-"] {
+  color: #795700 !important;
+}
+
+/* Badge/status pastel đang rất nhạt trong ảnh. */
+html.light [class*="bg-green-"][class*="/10"],
+html.light [class*="bg-green-"][class*="/20"] {
+  background-color: rgba(8, 114, 73, 0.12) !important;
+  border-color: rgba(8, 114, 73, 0.34) !important;
+}
+
+html.light [class*="bg-red-"][class*="/10"],
+html.light [class*="bg-red-"][class*="/20"] {
+  background-color: rgba(180, 35, 45, 0.10) !important;
+  border-color: rgba(180, 35, 45, 0.32) !important;
+}
+
+html.light [class*="bg-purple-"][class*="/10"],
+html.light [class*="bg-purple-"][class*="/20"],
+html.light [class*="bg-violet-"][class*="/10"],
+html.light [class*="bg-violet-"][class*="/20"] {
+  background-color: rgba(100, 54, 172, 0.11) !important;
+  border-color: rgba(100, 54, 172, 0.34) !important;
+}
+
+/* Các nút primary xanh trong admin trước đó bị chữ tối do rule text-white chung. */
+html.light .stitch-admin-shell button[class*="bg-blue-"][class*="text-white"],
+html.light .stitch-admin-shell a[class*="bg-blue-"][class*="text-white"],
+html.light .stitch-admin-shell button[class*="bg-indigo-"][class*="text-white"],
+html.light .stitch-admin-shell a[class*="bg-indigo-"][class*="text-white"] {
+  color: #ffffff !important;
+  font-weight: 750;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.14);
+}
+
+html.light .stitch-admin-shell button:not(:disabled) {
+  opacity: 1;
+}
+
+html.light .stitch-admin-shell button:disabled {
+  opacity: 0.52 !important;
+}
+
+/* Nút viền/tác vụ cần đọc rõ hơn. */
+html.light .stitch-btn,
+html.light .stitch-admin-home-button,
+html.light .stitch-admin-icon-button {
+  font-weight: 750;
+}
+
+html.light .stitch-btn-outline {
+  color: #006f86 !important;
+  border-color: rgba(0, 111, 134, 0.48) !important;
+}
+
+/* ---------- Home hero ----------
+   Hero vẫn có ảnh nền tối dù đang ở light mode, nên không dùng màu chữ tối ở đây.
+*/
+html.light .stitch-hero .stitch-hero-title {
+  color: #f0ddff !important;
+  text-shadow:
+    0 3px 20px rgba(0, 0, 0, 0.64),
+    0 0 20px rgba(220, 184, 255, 0.32) !important;
+}
+
+html.light .stitch-hero .stitch-kicker {
+  color: #70e7ff !important;
+  font-weight: 800;
+}
+
+html.light .stitch-hero .stitch-muted {
+  color: #d9dee8 !important;
+  opacity: 1 !important;
+}
+
+html.light .stitch-hero p {
+  color: #e0e4ec !important;
+  font-weight: 500;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Hai mũi tên trong hero đang chìm vào background. */
+html.light .stitch-hero-controls .stitch-icon-btn {
+  color: #ffffff !important;
+  background: rgba(11, 18, 30, 0.78) !important;
+  border-color: rgba(83, 216, 244, 0.58) !important;
+  box-shadow:
+    0 7px 20px rgba(0, 0, 0, 0.3),
+    0 0 0 2px rgba(83, 216, 244, 0.08);
+}
+
+html.light .stitch-hero-controls .stitch-icon-btn:hover {
+  color: #08131a !important;
+  background: #66def5 !important;
+  border-color: #8becff !important;
+}
+
+/* ---------- Movie detail hero ----------
+   Phần này cũng dùng nền ảnh tối nên cần text sáng riêng.
+*/
+html.light .stitch-detail-hero h1,
+html.light .stitch-detail-hero h2,
+html.light .stitch-detail-hero h3 {
+  color: #ffffff !important;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.62);
+}
+
+html.light .stitch-detail-hero .stitch-muted {
+  color: #d7dce6 !important;
+  opacity: 1 !important;
+}
+
+html.light .stitch-detail-hero .stitch-kicker {
+  color: #66def5 !important;
+}
+
+html.light .stitch-detail-hero .stitch-btn-outline {
+  color: #75e7ff !important;
+  background: rgba(5, 24, 33, 0.72) !important;
+  border-color: rgba(83, 216, 244, 0.72) !important;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.36);
+}
+
+html.light .stitch-detail-hero .stitch-btn-outline:hover {
+  color: #06151c !important;
+  background: #66def5 !important;
+  text-shadow: none;
+}
+
+/* ---------- Status/badge dùng Stitch ---------- */
+html.light .stitch-badge-purple {
+  color: #ffffff !important;
+  background: #6738ad !important;
+}
+
+html.light .stitch-badge-cyan {
+  color: #03242b !important;
+  background: #67d6e9 !important;
+}
+
+html.light .stitch-badge-gold {
+  color: #342700 !important;
+  background: #e8c454 !important;
+}
+
+/* ---------- Chatbot ----------
+   Giữ nút chat rõ, icon trắng, không bị hoà vào nền sáng.
+*/
+html.light .chatbot-fab,
+html.light button[aria-label*="chat" i],
+html.light button[title*="chat" i] {
+  color: #ffffff !important;
+  opacity: 1 !important;
+  filter: saturate(1.12) contrast(1.08) !important;
+}
+
+html.light .chatbot-fab svg,
+html.light .chatbot-fab .material-symbols-outlined,
+html.light button[aria-label*="chat" i] svg,
+html.light button[aria-label*="chat" i] .material-symbols-outlined {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}

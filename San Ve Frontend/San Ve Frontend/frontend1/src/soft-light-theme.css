@@ -1,0 +1,380 @@
+/* ============================================================
+   CMC CINEMA — Soft Light Theme
+   Chỉ áp dụng khi <html> có class "light".
+   Dark mode không bị thay đổi.
+   ============================================================ */
+
+html.light {
+  /* Nền sáng dịu, hơi ngả xám tím để tránh trắng gắt. */
+  --color-background: #e7eaf2;
+  --color-on-background: #172033;
+  --color-surface: #eef0f6;
+  --color-surface-dim: #d8dde8;
+  --color-surface-bright: #f4f5f9;
+  --color-surface-container-lowest: #f7f8fb;
+  --color-surface-container-low: #eef1f6;
+  --color-surface-container: #e8ebf2;
+  --color-surface-container-high: #e0e4ed;
+  --color-surface-container-highest: #d7dce7;
+  --color-surface-variant: #d7dce7;
+
+  /* Màu chữ rõ nhưng không đen tuyệt đối. */
+  --color-on-surface: #172033;
+  --color-on-surface-variant: #465169;
+  --color-outline: #68748d;
+  --color-outline-variant: #c1c8d6;
+  --color-inverse-surface: #252c3b;
+  --color-inverse-on-surface: #f2f4f8;
+
+  /* Giữ nhận diện tím + cyan, giảm độ neon trên nền sáng. */
+  --color-primary: #6d45b5;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #ddd1f5;
+  --color-on-primary-container: #2f1d50;
+  --color-inverse-primary: #c9b2ef;
+  --color-surface-tint: #6d45b5;
+
+  --color-secondary: #087f98;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #c7e8ee;
+  --color-on-secondary-container: #163f48;
+
+  --color-tertiary: #b95618;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #f4d5c1;
+  --color-on-tertiary-container: #4c230d;
+
+  --color-error: #b42318;
+  --color-on-error: #ffffff;
+  --color-error-container: #f8d5d1;
+  --color-on-error-container: #5b1711;
+
+  --color-ultra-dark-navy: #e7eaf2;
+  --color-glass-surface: rgba(242, 244, 249, 0.82);
+
+  /* CineGlass tokens. */
+  --cg-page: #e7eaf2;
+  --cg-page-soft: #dce1eb;
+  --cg-glass: rgba(242, 244, 249, 0.82);
+  --cg-glass-strong: rgba(247, 248, 251, 0.94);
+  --cg-border: rgba(39, 49, 68, 0.13);
+  --cg-border-strong: rgba(109, 69, 181, 0.28);
+  --cg-shadow: 0 18px 50px rgba(35, 45, 65, 0.12);
+  --cg-glow: 0 0 22px rgba(109, 69, 181, 0.09);
+
+  /* Stitch tokens. */
+  --st-bg: #e7eaf2;
+  --st-bg-soft: #dce1eb;
+  --st-panel: rgba(242, 244, 249, 0.84);
+  --st-panel-strong: rgba(247, 248, 251, 0.95);
+  --st-panel-light: rgba(109, 69, 181, 0.065);
+  --st-line: rgba(39, 49, 68, 0.14);
+  --st-line-strong: rgba(109, 69, 181, 0.3);
+  --st-text: #172033;
+  --st-muted: #526078;
+  --st-purple: #6d45b5;
+  --st-purple-strong: #5f38a2;
+  --st-cyan: #087f98;
+  --st-gold: #8f6a00;
+  --st-danger: #b42318;
+  --st-success: #137a50;
+  --st-shadow: 0 18px 48px rgba(35, 45, 65, 0.12);
+}
+
+html.light,
+html.light body {
+  background-color: #e7eaf2;
+}
+
+html.light body {
+  color: var(--color-on-surface);
+  background:
+    radial-gradient(circle at 10% 8%, rgba(109, 69, 181, 0.075), transparent 31%),
+    radial-gradient(circle at 88% 18%, rgba(8, 127, 152, 0.065), transparent 32%),
+    linear-gradient(180deg, #edf0f6 0%, #e4e8f0 52%, #dde2ec 100%);
+}
+
+html.light ::selection {
+  color: #172033;
+  background: rgba(199, 232, 238, 0.9);
+}
+
+html.light :focus-visible {
+  outline-color: var(--color-secondary);
+}
+
+/* Nền ứng dụng giảm vùng trắng lớn và giảm họa tiết phát sáng. */
+html.light .stitch-app {
+  color: var(--st-text);
+  background:
+    radial-gradient(circle at 8% 13%, rgba(109, 69, 181, 0.08), transparent 30rem),
+    radial-gradient(circle at 92% 62%, rgba(8, 127, 152, 0.065), transparent 31rem),
+    linear-gradient(135deg, #e9ecf3 0%, #e0e4ed 50%, #e8ebf2 100%);
+}
+
+html.light .stitch-app::before {
+  opacity: 0.055;
+  background-image:
+    linear-gradient(rgba(31, 41, 55, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 41, 55, 0.18) 1px, transparent 1px);
+}
+
+html.light .cineglass-app {
+  background:
+    linear-gradient(rgba(39, 49, 68, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39, 49, 68, 0.018) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+
+html.light .cineglass-grid {
+  opacity: 0.12;
+  background-image:
+    linear-gradient(rgba(8, 127, 152, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(109, 69, 181, 0.055) 1px, transparent 1px);
+}
+
+html.light .cineglass-noise {
+  opacity: 0.018;
+}
+
+html.light .cineglass-orb {
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+}
+
+/* Header và thanh điều hướng. */
+html.light .cineglass-app > header,
+html.light .stitch-nav,
+html.light .stitch-admin-header {
+  background: rgba(235, 238, 245, 0.88) !important;
+  border-color: rgba(39, 49, 68, 0.13) !important;
+  box-shadow: 0 10px 30px rgba(35, 45, 65, 0.09) !important;
+  backdrop-filter: blur(22px) saturate(115%) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(115%) !important;
+}
+
+html.light .stitch-brand,
+html.light .stitch-page-title,
+html.light .stitch-hero-title,
+html.light .neon-text-primary,
+html.light .nav-glow {
+  text-shadow: 0 2px 12px rgba(109, 69, 181, 0.16) !important;
+}
+
+html.light .neon-text-secondary,
+html.light .neon-text-glow,
+html.light .text-glow {
+  text-shadow: 0 2px 10px rgba(8, 127, 152, 0.14) !important;
+}
+
+/* Card, panel, modal và bảng: xám rất nhạt thay vì trắng tinh. */
+html.light .stitch-glass,
+html.light .stitch-card,
+html.light .glass-panel,
+html.light .glass-card,
+html.light .glass-modal,
+html.light .cyber-card,
+html.light .ticket-glass,
+html.light [role='dialog'],
+html.light table {
+  background:
+    linear-gradient(145deg, rgba(248, 249, 252, 0.7), rgba(232, 235, 242, 0.78)),
+    var(--st-panel) !important;
+  border-color: rgba(39, 49, 68, 0.13) !important;
+  box-shadow:
+    0 16px 42px rgba(35, 45, 65, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+}
+
+html.light .stitch-card::after {
+  background:
+    linear-gradient(
+      125deg,
+      rgba(255, 255, 255, 0.18),
+      transparent 30%,
+      transparent 72%,
+      rgba(8, 127, 152, 0.025)
+    );
+}
+
+html.light .stitch-card-hover:hover,
+html.light .glass-card:hover,
+html.light .cyber-card:hover,
+html.light .movie-card:hover {
+  border-color: rgba(109, 69, 181, 0.28) !important;
+  box-shadow:
+    0 20px 50px rgba(35, 45, 65, 0.14),
+    0 0 18px rgba(109, 69, 181, 0.08) !important;
+}
+
+/* Các lớp Tailwind cũ thường tạo mảng trắng quá lớn. */
+html.light .stitch-app .bg-white,
+html.light .stitch-app .bg-gray-50,
+html.light .stitch-app .bg-gray-100,
+html.light .stitch-admin-shell .bg-white,
+html.light .stitch-admin-shell .bg-gray-50,
+html.light .stitch-admin-shell .bg-gray-100 {
+  background-color: rgba(242, 244, 249, 0.88) !important;
+  border-color: rgba(39, 49, 68, 0.13) !important;
+}
+
+html.light .stitch-app .text-gray-900,
+html.light .stitch-app .text-gray-800,
+html.light .stitch-app .text-gray-700,
+html.light .stitch-admin-shell .text-gray-900,
+html.light .stitch-admin-shell .text-gray-800,
+html.light .stitch-admin-shell .text-gray-700 {
+  color: var(--color-on-surface) !important;
+}
+
+html.light .stitch-app .text-gray-600,
+html.light .stitch-app .text-gray-500,
+html.light .stitch-app .text-gray-400,
+html.light .stitch-admin-shell .text-gray-600,
+html.light .stitch-admin-shell .text-gray-500,
+html.light .stitch-admin-shell .text-gray-400 {
+  color: var(--color-on-surface-variant) !important;
+}
+
+/* Input sáng vừa đủ, không phải các ô trắng như đèn pha. */
+html.light .stitch-input,
+html.light .stitch-select,
+html.light .stitch-textarea,
+html.light .input-glass,
+html.light .input-cyber,
+html.light input:not([type='checkbox']):not([type='radio']):not([type='range']),
+html.light textarea,
+html.light select {
+  color: var(--color-on-surface) !important;
+  background-color: rgba(239, 242, 247, 0.94) !important;
+  border-color: rgba(39, 49, 68, 0.16) !important;
+  box-shadow: inset 0 1px 2px rgba(35, 45, 65, 0.035);
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #68748d !important;
+  opacity: 0.88;
+}
+
+html.light .stitch-input:focus,
+html.light .stitch-select:focus,
+html.light .stitch-textarea:focus,
+html.light .input-glass:focus,
+html.light .input-cyber:focus,
+html.light input:focus,
+html.light textarea:focus,
+html.light select:focus {
+  border-color: rgba(8, 127, 152, 0.72) !important;
+  box-shadow:
+    0 0 0 3px rgba(8, 127, 152, 0.1),
+    0 6px 18px rgba(35, 45, 65, 0.08) !important;
+}
+
+/* Nút giữ màu thương hiệu nhưng giảm độ rực và glow. */
+html.light .btn-primary,
+html.light .btn-primary-glow,
+html.light .stitch-btn-primary {
+  color: #241638 !important;
+  background:
+    linear-gradient(135deg, #d4c4ef 0%, #b7a0e1 50%, #a7d7df 100%) !important;
+  border-color: rgba(109, 69, 181, 0.2) !important;
+  box-shadow: 0 9px 22px rgba(74, 55, 105, 0.14) !important;
+}
+
+html.light .btn-primary:hover,
+html.light .btn-primary-glow:hover,
+html.light .stitch-btn-primary:hover {
+  filter: saturate(104%) brightness(1.015) !important;
+  box-shadow:
+    0 12px 28px rgba(74, 55, 105, 0.18),
+    0 0 14px rgba(8, 127, 152, 0.08) !important;
+}
+
+html.light .btn-secondary,
+html.light .secondary-btn,
+html.light .stitch-btn-outline {
+  color: var(--color-secondary) !important;
+  background: rgba(199, 232, 238, 0.28) !important;
+  border-color: rgba(8, 127, 152, 0.42) !important;
+  box-shadow: none !important;
+}
+
+html.light .neon-glow,
+html.light .neon-glow-primary,
+html.light .neon-glow-secondary,
+html.light .neon-border {
+  box-shadow: 0 8px 24px rgba(35, 45, 65, 0.1) !important;
+}
+
+/* Bảng và trạng thái. */
+html.light thead {
+  background: rgba(109, 69, 181, 0.075) !important;
+}
+
+html.light tbody tr:hover,
+html.light .table-row-hover:hover {
+  background: rgba(8, 127, 152, 0.055) !important;
+}
+
+html.light .sidenav-active {
+  color: var(--color-primary);
+  background: rgba(109, 69, 181, 0.095);
+  border-left-color: var(--color-primary);
+}
+
+html.light .status-badge-active,
+html.light .status-active,
+html.light .status-valid {
+  color: #08677c;
+  background: rgba(199, 232, 238, 0.55);
+  border-color: rgba(8, 127, 152, 0.32);
+}
+
+html.light .status-badge-inactive,
+html.light .status-ended {
+  color: #526078;
+  background: rgba(104, 116, 141, 0.1);
+  border-color: rgba(104, 116, 141, 0.24);
+}
+
+html.light .status-locked {
+  color: #9f2118;
+  background: rgba(248, 213, 209, 0.72);
+  border-color: rgba(180, 35, 24, 0.25);
+}
+
+/* Carousel: bóng đổ gọn hơn trên nền sáng. */
+html.light .carousel-card.active,
+html.light .stitch-poster-card.active {
+  box-shadow:
+    0 16px 36px rgba(35, 45, 65, 0.2),
+    0 0 18px rgba(109, 69, 181, 0.13) !important;
+}
+
+html.light .carousel-card.inactive,
+html.light .stitch-poster-card {
+  border-color: rgba(39, 49, 68, 0.16);
+  box-shadow: 0 12px 26px rgba(35, 45, 65, 0.15);
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: #dce1eb;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #aeb7c7;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #8f9aad;
+}
+
+@media (max-width: 767px) {
+  html.light .stitch-app,
+  html.light body {
+    background:
+      radial-gradient(circle at 12% 8%, rgba(109, 69, 181, 0.065), transparent 20rem),
+      linear-gradient(180deg, #eaedf3, #dfe4ed);
+  }
+}

@@ -19,6 +19,8 @@ import SchedulePage from '../pages/SchedulePage';
 import MovieDetailPage from '../pages/MovieDetailPage';
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
+// Trang Điều khoản sử dụng — mở từ checkbox ở RegisterPage và từ Footer
+import TermsPage from '../pages/TermsPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import ForbiddenPage from '../pages/ForbiddenPage';
 
@@ -71,6 +73,7 @@ export default function AppRouter() {
           <Route path="/movies/:id" element={<MovieDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/terms" element={<TermsPage />} />
           <Route path="/forbidden" element={<ForbiddenPage />} />
 
           {/* Protected (yêu cầu đăng nhập) */}

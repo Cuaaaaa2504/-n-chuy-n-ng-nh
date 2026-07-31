@@ -22,6 +22,51 @@ type Result =
   | { kind: 'error'; message: string }
   | null;
 
+type GroupQrPayload = {
+  type: 'CMC_BOOKING_TICKETS';
+  version?: number;
+  orderCode?: string;
+  seats?: string[];
+  ticketCodes: string[];
+};
+
+function parseGroupQrPayload(raw: string): GroupQrPayload | null {
+  try {
+    const payload = JSON.parse(raw) as Partial<GroupQrPayload>;
+
+    if (
+      payload.type !== 'CMC_BOOKING_TICKETS' ||
+      !Array.isArray(payload.ticketCodes) ||
+      payload.ticketCodes.length === 0
+    ) {
+      return null;
+    }
+
+    const ticketCodes = Array.from(
+      new Set(
+        payload.ticketCodes
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    );
+
+    if (!ticketCodes.length) return null;
+
+    return {
+      type: 'CMC_BOOKING_TICKETS',
+      version: payload.version,
+      orderCode: payload.orderCode,
+      seats: Array.isArray(payload.seats)
+        ? payload.seats.filter((seat): seat is string => typeof seat === 'string')
+        : [],
+      ticketCodes,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function StaffCheckinPage() {
   const { darkMode } = useTheme();
   const [code, setCode] = useState('');
@@ -40,18 +85,42 @@ export default function StaffCheckinPage() {
     setBusy(true);
     setPreview(null);
     try {
-      const res = await checkInTicket(value);
-      setResult({ kind: 'ok', code: res.ticketCode, at: res.checkedInAt });
-      setCode('');
+      const group = parseGroupQrPayload(value);
+
+      if (group) {
+        const results = await Promise.all(
+          group.ticketCodes.map((ticketCode) => checkInTicket(ticketCode)),
+        );
+
+        const lastResult = results[results.length - 1];
+        setResult({
+          kind: 'ok',
+          code:
+            group.orderCode ||
+            `Đã check-in ${results.length} vé${
+              group.seats?.length ? ` · Ghế ${group.seats.join(', ')}` : ''
+            }`,
+          at: lastResult?.checkedInAt || new Date().toISOString(),
+        });
+        setCode('');
+      } else {
+        const res = await checkInTicket(value);
+        setResult({ kind: 'ok', code: res.ticketCode, at: res.checkedInAt });
+        setCode('');
+      }
     } catch (err) {
       const message = (err as Error).message;
       setResult({ kind: 'error', message });
 
-      // Khi từ chối, cố tra thêm thông tin vé để nhân viên biết vé đó là gì
-      // (đã dùng lúc nào, trạng thái ra sao) thay vì chỉ thấy một dòng lỗi.
-      try {
-        setPreview(await getTicketByCode(value));
-      } catch {
+      // QR đơn vẫn có thể tra cứu chi tiết. Với QR nhóm thì không gửi cả JSON
+      // vào GET /tickets/:code vì endpoint chỉ nhận một mã vé.
+      if (!parseGroupQrPayload(value)) {
+        try {
+          setPreview(await getTicketByCode(value));
+        } catch {
+          setPreview(null);
+        }
+      } else {
         setPreview(null);
       }
     } finally {
