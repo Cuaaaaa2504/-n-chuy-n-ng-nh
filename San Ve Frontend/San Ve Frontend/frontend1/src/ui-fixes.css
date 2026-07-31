@@ -1,0 +1,276 @@
+/* ============================================================
+   CMC CINEMA — QR modal + location select + chatbot visibility
+   Import file này SAU stitch-exact-v2.css và soft-light-theme.css
+   ============================================================ */
+
+/* ---------- QR modal ---------- */
+.booking-ticket-overlay {
+  background: rgba(3, 5, 10, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.booking-ticket-modal {
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  border-radius: 22px;
+  color: var(--st-text);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), transparent 32%),
+    var(--st-panel-strong);
+  border: 1px solid var(--st-line-strong);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.56),
+    0 0 32px rgba(83, 216, 244, 0.08);
+  padding: 28px;
+}
+
+.booking-ticket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 20px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--st-line);
+}
+
+.booking-ticket-close {
+  flex: 0 0 auto;
+  border-color: var(--st-line) !important;
+}
+
+.booking-ticket-single {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  border-radius: 20px;
+  padding: 26px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.045), transparent 55%),
+    var(--st-panel);
+  border: 1px solid var(--st-line);
+}
+
+.booking-ticket-movie {
+  font-size: 1.35rem;
+  line-height: 1.3;
+  font-weight: 800;
+}
+
+.booking-ticket-showtime {
+  margin-top: 8px;
+  color: var(--st-muted);
+  font-size: 0.9rem;
+}
+
+.booking-ticket-seat-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+  color: var(--st-muted);
+}
+
+.booking-ticket-seat-row strong {
+  color: var(--st-cyan);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+
+.booking-ticket-qr {
+  width: fit-content;
+  margin: 0 auto;
+  padding: 10px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.25);
+}
+
+.booking-ticket-qr > div {
+  border: 0 !important;
+  padding: 0 !important;
+  background: #fff !important;
+}
+
+.booking-ticket-meta {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 18px;
+  color: var(--st-muted);
+  font-size: 0.8rem;
+}
+
+.booking-ticket-note {
+  margin-top: 10px;
+  color: var(--st-muted);
+  font-size: 0.75rem;
+}
+
+/* Portal ra body nên footer không thể đè lên modal nữa. */
+html.light .booking-ticket-overlay {
+  background: rgba(23, 32, 51, 0.62);
+}
+
+html.light .booking-ticket-modal {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.58), transparent 34%),
+    #e9edf4;
+  border-color: rgba(39, 49, 68, 0.18);
+  box-shadow:
+    0 28px 70px rgba(35, 45, 65, 0.22),
+    0 0 22px rgba(109, 69, 181, 0.08);
+}
+
+html.light .booking-ticket-single {
+  background: #f2f4f8;
+  border-color: rgba(39, 49, 68, 0.14);
+}
+
+html.light .booking-ticket-qr {
+  box-shadow: 0 12px 28px rgba(35, 45, 65, 0.16);
+}
+
+/* ---------- Location select ---------- */
+.stitch-location {
+  gap: 8px;
+}
+
+.stitch-location .material-symbols-outlined {
+  color: var(--st-cyan);
+}
+
+.stitch-location-select {
+  min-width: 184px;
+  max-width: 210px !important;
+  height: 38px;
+  padding: 0 34px 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 184, 255, 0.22);
+  color: #e7dfec !important;
+  background: #17131d !important;
+  outline: none;
+  color-scheme: dark;
+  cursor: pointer;
+  font-family: "Space Grotesk", ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.stitch-location-select:hover,
+.stitch-location-select:focus {
+  border-color: rgba(83, 216, 244, 0.52);
+  box-shadow: 0 0 0 3px rgba(83, 216, 244, 0.08);
+}
+
+.stitch-location-select option {
+  color: #e7dfec;
+  background: #17131d;
+}
+
+html.light .stitch-location-select {
+  color: #253047 !important;
+  background: #dfe4ed !important;
+  border-color: rgba(39, 49, 68, 0.18);
+  color-scheme: light;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+html.light .stitch-location-select:hover,
+html.light .stitch-location-select:focus {
+  background: #e7eaf1 !important;
+  border-color: rgba(8, 127, 152, 0.45);
+  box-shadow: 0 0 0 3px rgba(8, 127, 152, 0.08);
+}
+
+html.light .stitch-location-select option {
+  color: #172033;
+  background: #eef1f6;
+}
+
+/* ---------- Chatbot ----------
+   Thêm className="chatbot-fab" vào nút tròn mở chatbot.
+   Nếu có khung chat, thêm className="chatbot-panel" vào khung ngoài.
+*/
+html.light .chatbot-fab,
+html.light button[aria-label*="chat" i],
+html.light button[title*="chat" i],
+html.light button.fixed.bottom-4.right-4,
+html.light button.fixed.bottom-5.right-5,
+html.light button.fixed.bottom-6.right-6,
+html.light button.fixed.bottom-8.right-8 {
+  opacity: 1 !important;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #7650c7 0%, #3f8fc4 55%, #0aa4bb 100%) !important;
+  border: 1px solid rgba(63, 76, 108, 0.28) !important;
+  box-shadow:
+    0 12px 30px rgba(53, 67, 98, 0.24),
+    0 0 0 5px rgba(109, 69, 181, 0.08) !important;
+  filter: saturate(1.08) contrast(1.04) !important;
+}
+
+html.light .chatbot-fab:hover,
+html.light button[aria-label*="chat" i]:hover,
+html.light button[title*="chat" i]:hover,
+html.light button.fixed.bottom-4.right-4:hover,
+html.light button.fixed.bottom-5.right-5:hover,
+html.light button.fixed.bottom-6.right-6:hover,
+html.light button.fixed.bottom-8.right-8:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow:
+    0 16px 36px rgba(53, 67, 98, 0.28),
+    0 0 0 6px rgba(8, 127, 152, 0.1) !important;
+}
+
+html.light .chatbot-fab .material-symbols-outlined,
+html.light .chatbot-fab svg,
+html.light button[aria-label*="chat" i] .material-symbols-outlined,
+html.light button[aria-label*="chat" i] svg,
+html.light button[title*="chat" i] .material-symbols-outlined,
+html.light button[title*="chat" i] svg,
+html.light button.fixed.bottom-4.right-4 .material-symbols-outlined,
+html.light button.fixed.bottom-4.right-4 svg,
+html.light button.fixed.bottom-5.right-5 .material-symbols-outlined,
+html.light button.fixed.bottom-5.right-5 svg,
+html.light button.fixed.bottom-6.right-6 .material-symbols-outlined,
+html.light button.fixed.bottom-6.right-6 svg,
+html.light button.fixed.bottom-8.right-8 .material-symbols-outlined,
+html.light button.fixed.bottom-8.right-8 svg {
+  color: #ffffff !important;
+  stroke: currentColor;
+  opacity: 1 !important;
+}
+
+html.light .chatbot-panel {
+  color: #172033 !important;
+  background: #edf0f6 !important;
+  border: 1px solid rgba(39, 49, 68, 0.17) !important;
+  box-shadow: 0 24px 60px rgba(35, 45, 65, 0.22) !important;
+}
+
+@media (max-width: 700px) {
+  .booking-ticket-modal {
+    padding: 20px;
+  }
+
+  .booking-ticket-single {
+    padding: 20px 14px;
+  }
+
+  .booking-ticket-qr {
+    transform: scale(0.92);
+  }
+
+  .stitch-location-select {
+    min-width: 0;
+    width: 150px;
+  }
+}

@@ -81,7 +81,7 @@ export default function Navbar() {
         <div className="stitch-nav-actions">
           <label className="stitch-location" title="Chọn cụm rạp">
             <span className="material-symbols-outlined text-[21px]">location_on</span>
-            <select defaultValue="hn" aria-label="Chọn cụm rạp">
+            <select defaultValue="hn" aria-label="Chọn cụm rạp" className="stitch-location-select">
               <option value="hn">CMC Cinema Hà Nội</option>
               <option value="hcm">CMC Cinema HCM</option>
               <option value="dn">CMC Cinema Đà Nẵng</option>

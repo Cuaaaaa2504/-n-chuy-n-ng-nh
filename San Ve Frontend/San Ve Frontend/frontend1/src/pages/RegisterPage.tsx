@@ -112,10 +112,41 @@ export default function RegisterPage() {
                 </div>
               </div>
             ))}
-            <label className="flex items-start gap-3 text-sm stitch-muted cursor-pointer mt-1">
-              <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required className="mt-1 accent-purple-400" />
-              <span>Tôi đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của CMC Cinema.</span>
-            </label>
+            {/* Checkbox và text tách rời nhau: nếu bọc <Link> trong <label> thì
+                click vào link sẽ vô tình toggle luôn checkbox. */}
+            <div className="flex items-start gap-3 text-sm stitch-muted mt-1">
+              <input
+                id="acceptedTerms"
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                required
+                className="mt-1 accent-purple-400 cursor-pointer"
+              />
+              <span>
+                <label htmlFor="acceptedTerms" className="cursor-pointer">Tôi đồng ý với </label>
+                <Link
+                  to="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold underline underline-offset-2"
+                  style={{ color: 'var(--st-cyan)' }}
+                >
+                  Điều khoản dịch vụ
+                </Link>
+                <label htmlFor="acceptedTerms" className="cursor-pointer"> và </label>
+                <Link
+                  to="/terms#bao-mat"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold underline underline-offset-2"
+                  style={{ color: 'var(--st-cyan)' }}
+                >
+                  Chính sách bảo mật
+                </Link>
+                <label htmlFor="acceptedTerms" className="cursor-pointer"> của CMC Cinema.</label>
+              </span>
+            </div>
             <button type="submit" disabled={loading} className="stitch-btn stitch-btn-primary w-full mt-2"><span className="material-symbols-outlined">person_add</span>{loading ? 'Đang đăng ký...' : 'Tạo tài khoản'}</button>
           </form>
           <p className="stitch-muted text-center mt-7">Đã có tài khoản? <Link to="/login" className="font-semibold" style={{ color: 'var(--st-cyan)' }}>Đăng nhập</Link></p>
