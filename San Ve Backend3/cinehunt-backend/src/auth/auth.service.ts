@@ -298,6 +298,7 @@ export class AuthService {
 
   private toSafeUser(user: User) {
     return {
+      id: user.userId,
       userId: user.userId,
       fullName: user.fullName,
       email: user.email,

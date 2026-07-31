@@ -6,8 +6,9 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
+import { BookingOrder } from '../entities/booking-order.entity';
 import * as bcrypt from 'bcrypt';
 
 /** Role hợp lệ trong DB (SQL CHECK): CUSTOMER | STAFF | ADMIN */
@@ -18,6 +19,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(BookingOrder)
+    private readonly bookingRepo: Repository<BookingOrder>,
   ) {}
 
   async findById(userId: number): Promise<User> {
@@ -61,6 +64,75 @@ export class UsersService {
       if (err instanceof NotFoundException) throw err;
       throw new InternalServerErrorException('Không cập nhật được thông tin');
     }
+  }
+
+  async getMembershipStats(userId: number) {
+    // Dữ liệu cũ của dự án từng dùng ISSUED, bản mới dùng PAID.
+    // CONFIRMED được giữ để tương thích các seed/flow trước đây.
+    const successfulStatuses = ['PAID', 'CONFIRMED', 'ISSUED'];
+
+    const paidOrders = await this.bookingRepo.find({
+      where: {
+        userId,
+        status: In(successfulStatuses),
+      },
+      select: {
+        bookingId: true,
+        totalAmount: true,
+        status: true,
+      },
+    });
+
+    const totalSpent = paidOrders.reduce(
+      (sum, booking) => sum + Number(booking.totalAmount ?? 0),
+      0,
+    );
+    const paidBookings = paidOrders.length;
+
+    // Quy ước CineHunt: mỗi 1.000đ chi tiêu thành công = 1 CMC Point.
+    const points = Math.floor(totalSpent / 1000);
+
+    const tiers = [
+      { name: 'Member' as const, min: 0 },
+      { name: 'Silver' as const, min: 1000 },
+      { name: 'Gold' as const, min: 3000 },
+      { name: 'Platinum' as const, min: 7000 },
+    ];
+
+    let tierIndex = 0;
+    for (let index = tiers.length - 1; index >= 0; index -= 1) {
+      if (points >= tiers[index].min) {
+        tierIndex = index;
+        break;
+      }
+    }
+
+    const currentTier = tiers[tierIndex];
+    const nextTier = tiers[tierIndex + 1] ?? null;
+
+    const progressPercent = nextTier
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((points - currentTier.min) /
+              (nextTier.min - currentTier.min)) *
+              100,
+          ),
+        )
+      : 100;
+
+    return {
+      tier: currentTier.name,
+      points,
+      totalSpent,
+      paidBookings,
+      nextTier: nextTier?.name ?? null,
+      pointsToNextTier: nextTier
+        ? Math.max(0, nextTier.min - points)
+        : 0,
+      progressPercent: Math.round(progressPercent),
+    };
   }
 
   async changePassword(

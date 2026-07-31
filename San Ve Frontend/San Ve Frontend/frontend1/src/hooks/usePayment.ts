@@ -15,6 +15,8 @@ interface PaymentData {
 interface PaymentResult {
   status: PaymentStatus;
   redirectUrl?: string;
+  paymentId?: string;
+  transactionCode?: string;
 }
 
 export const usePayment = () => {
@@ -35,8 +37,15 @@ export const usePayment = () => {
         );
 
         if (result.success) {
-          setPaymentStatus('SUCCESS');
-          return { status: 'SUCCESS', redirectUrl: result.redirectUrl };
+          const nextStatus: PaymentStatus =
+            result.status === 'PENDING' ? 'PENDING' : 'SUCCESS';
+          setPaymentStatus(nextStatus);
+          return {
+            status: nextStatus,
+            redirectUrl: result.redirectUrl,
+            paymentId: result.paymentId,
+            transactionCode: result.transactionCode,
+          };
         }
         throw new Error('Payment failed');
       } catch (err: unknown) {

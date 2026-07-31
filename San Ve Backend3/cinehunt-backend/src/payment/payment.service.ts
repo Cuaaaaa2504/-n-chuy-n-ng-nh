@@ -40,7 +40,26 @@ export class PaymentService {
     const existingPending =
       await this.paymentRepository.findPendingByBookingId(bookingId);
     if (existingPending) {
-      throw new BadRequestException('Booking đã có payment đang chờ xử lý');
+      // Retry cùng phương thức: trả lại payment PENDING cũ để frontend có thể
+      // tiếp tục xác nhận thay vì chặn người dùng vĩnh viễn.
+      if (existingPending.paymentMethod === dto.paymentMethod) {
+        return {
+          paymentId: existingPending.paymentId,
+          bookingId: existingPending.bookingId,
+          amount: Number(existingPending.amount),
+          paymentMethod: existingPending.paymentMethod,
+          paymentStatus: existingPending.paymentStatus,
+          transactionCode: existingPending.transactionCode ?? '',
+          createdAt: existingPending.createdAt,
+        };
+      }
+
+      // Người dùng đổi phương thức: đóng payment cũ nhưng GIỮ booking ở
+      // PENDING_PAYMENT để có thể tạo payment mới.
+      await this.paymentRepository.updatePaymentFailed(
+        existingPending.paymentId,
+        `User switched payment method from ${existingPending.paymentMethod} to ${dto.paymentMethod}`,
+      );
     }
 
     const transactionCode = this.paymentRepository.generatePaymentCode();

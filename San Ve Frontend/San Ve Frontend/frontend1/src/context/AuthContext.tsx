@@ -11,6 +11,7 @@ import React, {
 // FIX TS2339: export User interface với avatarUrl để ProfilePage import được
 export interface User {
   id: number;
+  userId?: number;
   fullName: string;
   email: string;
   phone?: string;
@@ -31,6 +32,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function normalizeUser(
+  raw: User | (Omit<User, 'id'> & { id?: number; userId?: number }),
+): User {
+  const resolvedId = Number(raw.id ?? raw.userId);
+  return {
+    ...raw,
+    id: Number.isFinite(resolvedId) ? resolvedId : 0,
+    userId: Number.isFinite(resolvedId) ? resolvedId : raw.userId,
+  } as User;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() =>
     localStorage.getItem('accessToken')
@@ -38,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem('user');
-      return saved ? (JSON.parse(saved) as User) : null;
+      return saved ? normalizeUser(JSON.parse(saved) as User) : null;
     } catch {
       // Xóa dữ liệu corrupt để tránh crash lần sau
       localStorage.removeItem('user');
@@ -64,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         try {
-          setUser(JSON.parse(nextUserRaw) as User);
+          setUser(normalizeUser(JSON.parse(nextUserRaw) as User));
         } catch {
           localStorage.removeItem('user');
           setUser(null);
@@ -78,10 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback((newToken: string, newUser: User) => {
+    const normalizedUser = normalizeUser(newUser);
     localStorage.setItem('accessToken', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
+    localStorage.setItem('user', JSON.stringify(normalizedUser));
     setToken(newToken);
-    setUser(newUser);
+    setUser(normalizedUser);
     window.dispatchEvent(new Event('auth-changed'));
   }, []);
 
