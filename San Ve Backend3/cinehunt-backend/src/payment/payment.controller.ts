@@ -20,11 +20,26 @@ export class PaymentController {
   @Get('methods')
   getPaymentMethods() {
     return [
-      { code: 'MOMO',    name: 'Ví MoMo' },
-      { code: 'VNPAY',   name: 'VNPay' },
-      { code: 'BANKING', name: 'Chuyển khoản ngân hàng' },
-      { code: 'MOCK',    name: 'Thanh toán giả lập (Dev)' },
-      { code: 'CASH',    name: 'Tiền mặt tại quầy' },
+      {
+        code: 'MOMO',
+        name: 'Ví MoMo',
+        enabled: false,
+        note: 'Chưa cấu hình cổng MoMo',
+      },
+      {
+        code: 'VNPAY',
+        name: 'VNPay',
+        enabled: false,
+        note: 'Chưa cấu hình cổng VNPay',
+      },
+      {
+        code: 'BANKING',
+        name: 'Chuyển khoản ngân hàng',
+        enabled: true,
+        note: 'QR demo cho đồ án',
+      },
+      { code: 'MOCK', name: 'Thanh toán giả lập (Dev)', enabled: true },
+      { code: 'CASH', name: 'Tiền mặt tại quầy', enabled: true },
     ];
   }
 

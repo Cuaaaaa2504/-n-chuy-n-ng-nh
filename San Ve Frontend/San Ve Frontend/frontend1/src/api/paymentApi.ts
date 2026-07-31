@@ -9,6 +9,8 @@ export interface PaymentMethod {
   code: PaymentMethodCode;
   name: string;
   icon?: string;
+  enabled?: boolean;
+  note?: string;
 }
 
 export interface OrderDetail {
@@ -56,11 +58,11 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
     return list as PaymentMethod[];
   } catch {
     return [
-      { code: 'MOMO',    name: 'Ví MoMo' },
-      { code: 'VNPAY',   name: 'VNPay' },
-      { code: 'BANKING', name: 'Chuyển khoản ngân hàng' },
-      { code: 'MOCK',    name: 'Thanh toán giả lập (Dev)' },
-      { code: 'CASH',    name: 'Tiền mặt tại quầy' },
+      { code: 'MOMO', name: 'Ví MoMo', enabled: false, note: 'Chưa cấu hình cổng MoMo' },
+      { code: 'VNPAY', name: 'VNPay', enabled: false, note: 'Chưa cấu hình cổng VNPay' },
+      { code: 'BANKING', name: 'Chuyển khoản ngân hàng', enabled: true, note: 'QR demo cho đồ án' },
+      { code: 'MOCK', name: 'Thanh toán giả lập (Dev)', enabled: true },
+      { code: 'CASH', name: 'Tiền mặt tại quầy', enabled: true },
     ];
   }
 }
@@ -68,7 +70,13 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
 export async function payOrder(
   bookingId: string,
   method: PaymentMethodCode,
-): Promise<{ redirectUrl?: string; success: boolean; paymentId?: string }> {
+): Promise<{
+  redirectUrl?: string;
+  success: boolean;
+  paymentId?: string;
+  transactionCode?: string;
+  status: 'PENDING' | 'SUCCESS';
+}> {
   if (!bookingId) throw new Error('Thiếu mã đặt vé');
 
   // FIX [bookingId must be a UUID]: chặn ngay tại client nếu lỡ truyền bookingCode
@@ -89,13 +97,18 @@ export async function payOrder(
   const paymentId = String(created.paymentId ?? created.payment_id ?? '');
   if (!paymentId) throw new Error('Không lấy được paymentId từ backend');
 
-  // FIX BUG-04: chỉ auto-confirm với các phương thức thanh toán nội bộ (MOCK/CASH).
-  // MOMO/VNPAY/BANKING phải để cổng thanh toán callback về backend, FE tự gọi
-  // /success sẽ đánh dấu SUCCESS cho giao dịch chưa thực sự thanh toán.
+  const transactionCode = String(
+    created.transactionCode ?? created.transaction_code ?? '',
+  );
+
+  // MoMo/VNPay chỉ được coi là PENDING cho tới khi provider callback.
+  // Hai phương thức này đang bị disable trong danh sách nếu chưa cấu hình.
   if (!AUTO_CONFIRM_METHODS.includes(method)) {
     return {
       success: true,
+      status: 'PENDING',
       paymentId,
+      transactionCode,
       redirectUrl: (created.redirectUrl ?? created.payUrl) as string | undefined,
     };
   }
@@ -104,13 +117,16 @@ export async function payOrder(
 
   return {
     success: true,
+    status: 'SUCCESS',
     paymentId,
+    transactionCode,
     redirectUrl: undefined,
   };
 }
 
 /** Các phương thức backend tự xử lý ngay, không qua cổng thanh toán ngoài. */
-const AUTO_CONFIRM_METHODS: PaymentMethodCode[] = ['MOCK', 'CASH'];
+// BANKING hiện là QR demo cho đồ án, nên xác nhận nội bộ giống MOCK/CASH.
+const AUTO_CONFIRM_METHODS: PaymentMethodCode[] = ['BANKING', 'MOCK', 'CASH'];
 
 /**
  * FIX BUG-04: gọi /payments/:id/success một cách idempotent.

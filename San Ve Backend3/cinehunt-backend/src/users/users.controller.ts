@@ -69,6 +69,11 @@ export class UsersController {
     return this.usersService.updateProfile(user.userId, dto);
   }
 
+  @Get('me/membership')
+  getMyMembership(@CurrentUser() user: CurrentUserPayload) {
+    return this.usersService.getMembershipStats(user.userId);
+  }
+
   /**
    * FIX [mục 1.2 + 2.2 — 3 route cho 1 chức năng đổi mật khẩu]
    *

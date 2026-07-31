@@ -7,6 +7,16 @@ export interface UpdateUserRequest {
   role?: UserRole;
 }
 
+export interface MembershipStats {
+  tier: 'Member' | 'Silver' | 'Gold' | 'Platinum';
+  points: number;
+  totalSpent: number;
+  paidBookings: number;
+  nextTier: 'Silver' | 'Gold' | 'Platinum' | null;
+  pointsToNextTier: number;
+  progressPercent: number;
+}
+
 export interface UserListResponse {
   data: User[];
   total: number;
@@ -34,6 +44,11 @@ const userApi = {
   update: (id: number, data: UpdateUserRequest) =>
     axiosClient.put<User>(`/users/${id}`, data) as unknown as Promise<User>,
 
+  // Người dùng tự sửa hồ sơ của chính mình.
+  // PUT /users/:id là route ADMIN, không được dùng ở ProfilePage.
+  updateMe: (data: UpdateUserRequest) =>
+    axiosClient.patch<User>('/users/me', data) as unknown as Promise<User>,
+
   delete: (id: number) =>
     axiosClient.delete(`/users/${id}`),
 
@@ -60,6 +75,9 @@ const userApi = {
 
   changeEmail: (data: ChangeEmailRequest) =>
     axiosClient.patch<{ email: string; message: string }>('/users/me/email', data) as unknown as Promise<{ email: string; message: string }>,
+
+  getMembership: () =>
+    axiosClient.get<MembershipStats>('/users/me/membership') as unknown as Promise<MembershipStats>,
 };
 
 export default userApi;

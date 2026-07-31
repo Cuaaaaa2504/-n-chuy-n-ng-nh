@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getOrder, getPaymentMethods } from '../api/paymentApi';
 import { usePayment } from '../hooks/usePayment';
+import TicketQrCode from '../components/TicketQrCode';
 import type { OrderDetail, PaymentMethod, PaymentMethodCode } from '../api/paymentApi';
 
 const METHOD_ICONS: Record<string, string> = {
@@ -108,6 +109,7 @@ export default function PaymentPage() {
     const method = selectedMethod ?? (isLocalMode ? 'MOCK' : null);
     if (!method) return;
     resetPayment();
+    setFetchError('');
 
     if (isLocalMode) {
       setOrder((prev) => prev ? { ...prev, status: 'PAID' } : prev);
@@ -140,15 +142,21 @@ export default function PaymentPage() {
         totalAmount: order.totalAmount,
         method,
       });
-      if (result.status === 'SUCCESS') {
-        if (result.redirectUrl) {
-          window.location.href = result.redirectUrl;
-          return;
-        }
-        setOrder((prev) => (prev ? { ...prev, status: 'PAID' } : prev));
-        // FIX BUG-04: chuyển thẳng sang tab "Vé đã mua" sau khi thanh toán OK.
-        navigate('/my-tickets?tab=paid');
+      if (result.redirectUrl) {
+        window.location.href = result.redirectUrl;
+        return;
       }
+
+      if (result.status === 'SUCCESS') {
+        setOrder((prev) => (prev ? { ...prev, status: 'PAID' } : prev));
+        // Chỉ chuyển sang vé đã mua khi backend đã xác nhận SUCCESS thật.
+        navigate('/my-tickets?tab=paid');
+        return;
+      }
+
+      setFetchError(
+        'Giao dịch đã được tạo và đang chờ cổng thanh toán xác nhận.',
+      );
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Thanh toán thất bại';
       setFetchError(msg);
@@ -171,7 +179,12 @@ export default function PaymentPage() {
     );
   }
 
-  const canPay = isLocalMode ? true : !!selectedMethod;
+  const selectedPaymentMethod = methods.find(
+    (method) => method.code === selectedMethod,
+  );
+  const canPay = isLocalMode
+    ? true
+    : !!selectedMethod && selectedPaymentMethod?.enabled !== false;
 
   return (
     <section className="stitch-page">
@@ -199,14 +212,22 @@ export default function PaymentPage() {
                   <button
                     key={method.code}
                     type="button"
-                    onClick={() => setSelectedMethod(method.code)}
-                    className="w-full flex items-center gap-4 px-4 py-4 rounded-xl border text-left transition"
+                    onClick={() => {
+                      if (method.enabled !== false) setSelectedMethod(method.code);
+                    }}
+                    disabled={method.enabled === false}
+                    className="w-full flex items-center gap-4 px-4 py-4 rounded-xl border text-left transition disabled:cursor-not-allowed disabled:opacity-45"
                     style={selectedMethod === method.code
                       ? { borderColor: 'var(--st-purple)', background: 'color-mix(in srgb,var(--st-purple) 12%,transparent)', boxShadow: '0 0 20px rgba(174,112,229,.13)' }
                       : { borderColor: 'var(--st-line)', background: 'var(--st-panel-light)' }}
                   >
                     <span className="text-xl">{METHOD_ICONS[method.code] ?? '💰'}</span>
-                    <span className="font-semibold flex-1">{method.name}</span>
+                    <span className="flex-1">
+                      <span className="font-semibold block">{method.name}</span>
+                      {method.note && (
+                        <span className="text-xs stitch-muted mt-1 block">{method.note}</span>
+                      )}
+                    </span>
                     <span className="w-5 h-5 rounded-full border grid place-items-center" style={{ borderColor: selectedMethod === method.code ? 'var(--st-purple)' : 'var(--st-line-strong)' }}>
                       {selectedMethod === method.code && <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--st-purple)' }} />}
                     </span>
@@ -214,6 +235,36 @@ export default function PaymentPage() {
                 ))}
               </div>
             </article>
+
+            {selectedMethod === 'BANKING' && order && (
+              <article className="stitch-card p-7 text-center">
+                <p className="stitch-kicker mb-2">Bank transfer QR</p>
+                <h3 className="text-xl font-extrabold mb-5">QR chuyển khoản</h3>
+                <div className="flex justify-center">
+                  <TicketQrCode
+                    value={`CMC-CINEMA|BOOKING=${order.orderCode ?? order.id}|AMOUNT=${order.totalAmount}|CONTENT=${order.orderCode ?? order.id}`}
+                    size={220}
+                    alt="QR thanh toán chuyển khoản"
+                  />
+                </div>
+                <div className="mt-5 grid gap-1 text-sm">
+                  <p>
+                    Số tiền:{' '}
+                    <strong>{order.totalAmount.toLocaleString('vi-VN')}₫</strong>
+                  </p>
+                  <p>
+                    Nội dung:{' '}
+                    <strong className="font-mono">
+                      {order.orderCode ?? order.id}
+                    </strong>
+                  </p>
+                </div>
+                <p className="text-xs stitch-muted mt-4">
+                  QR này dùng cho luồng demo đồ án. Sau khi quét, bấm
+                  “Xác nhận thanh toán” để hệ thống mô phỏng ngân hàng xác nhận.
+                </p>
+              </article>
+            )}
 
             <article className="stitch-card p-6 flex items-start gap-3 text-sm stitch-muted">
               <span className="material-symbols-outlined" style={{ color: 'var(--st-cyan)' }}>verified_user</span>

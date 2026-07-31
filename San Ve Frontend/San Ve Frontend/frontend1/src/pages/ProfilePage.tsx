@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, startTransition, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import type { User as AuthUser } from '../context/AuthContext';
-import userApi from '../api/userApi';
+import userApi, { type MembershipStats } from '../api/userApi';
 import { useNavigate } from 'react-router-dom';
 import { resolveAssetUrl } from '../utils/assetUrl';
 import { useMovies } from '../hooks/useMovies';
@@ -12,7 +12,7 @@ import {
 } from '../utils/moviePreferences';
 
 // FIX TS2339: mở rộng User local để có avatarUrl
-type User = AuthUser & { avatarUrl?: string };
+type User = AuthUser & { avatarUrl?: string; userId?: number };
 
 type Tab = 'info' | 'privacy';
 
@@ -34,6 +34,7 @@ export default function ProfilePage() {
   const { movies } = useMovies();
 
   const typedUser = user as User | null;
+  const currentUserId = typedUser?.id ?? typedUser?.userId;
 
   const [fullName, setFullName]           = useState<string>(typedUser?.fullName ?? '');
   const [phone, setPhone]                 = useState<string>(typedUser?.phone ?? '');
@@ -41,6 +42,9 @@ export default function ProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string>(typedUser?.avatarUrl ?? '');
   const [infoLoading, setInfoLoading]     = useState(false);
   const [infoMsg, setInfoMsg]             = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [membership, setMembership]       = useState<MembershipStats | null>(null);
+  const [membershipLoading, setMembershipLoading] = useState(true);
+  const [membershipError, setMembershipError]   = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [pwdCurrent, setPwdCurrent]   = useState('');
@@ -56,7 +60,7 @@ export default function ProfilePage() {
   const [emailMsg, setEmailMsg]       = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const [favoriteGenres, setFavoriteGenres] = useState<string[]>(() =>
-    readFavoriteGenres(user?.id),
+    readFavoriteGenres(currentUserId),
   );
   const [preferencesDirty, setPreferencesDirty] = useState(false);
   const [preferenceMsg, setPreferenceMsg] = useState<string | null>(null);
@@ -76,11 +80,45 @@ export default function ProfilePage() {
 
   useEffect(() => {
     startTransition(() => {
-      setFavoriteGenres(readFavoriteGenres(user?.id));
+      setFavoriteGenres(readFavoriteGenres(currentUserId));
       setPreferencesDirty(false);
       setPreferenceMsg(null);
     });
-  }, [user?.id]);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setMembership(null);
+      setMembershipLoading(false);
+      setMembershipError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setMembershipLoading(true);
+    setMembershipError(null);
+
+    void userApi.getMembership()
+      .then((data) => {
+        if (cancelled) return;
+        setMembership(data);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setMembership(null);
+        const message =
+          (err as { message?: string })?.message ||
+          'Không tải được điểm thành viên';
+        setMembershipError(message);
+      })
+      .finally(() => {
+        if (!cancelled) setMembershipLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId]);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,7 +143,10 @@ export default function ProfilePage() {
     setInfoLoading(true);
     setInfoMsg(null);
     try {
-      const updated = await userApi.update((user as User).id, { fullName, phone });
+      const updated = await userApi.updateMe({
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+      });
       if (token) login(token, { ...(user as User), ...updated });
       setInfoMsg({ type: 'ok', text: 'Lưu thông tin thành công!' });
     } catch {
@@ -188,7 +229,7 @@ export default function ProfilePage() {
   };
 
   const handleSavePreferences = () => {
-    writeFavoriteGenres(user?.id, favoriteGenres);
+    writeFavoriteGenres(currentUserId, favoriteGenres);
     setPreferencesDirty(false);
     setPreferenceMsg(
       favoriteGenres.length > 0
@@ -232,17 +273,46 @@ export default function ProfilePage() {
                 <p className="stitch-kicker">Hạng thẻ</p>
                 <div className="flex justify-center items-center gap-2 mt-2">
                   <span className="material-symbols-outlined" style={{ color: 'var(--st-cyan)' }}>stars</span>
-                  <span className="text-2xl font-extrabold" style={{ color: 'var(--st-cyan)' }}>Platinum</span>
+                  <span className="text-2xl font-extrabold" style={{ color: 'var(--st-cyan)' }}>
+                    {membership?.tier ?? 'Member'}
+                  </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-white/10 mt-4 overflow-hidden">
-                  <div className="h-full w-3/4 bg-gradient-to-r from-[#a56ee0] to-[#53d8f4] shadow-[0_0_12px_rgba(83,216,244,.4)]" />
+                  <div
+                    className="h-full bg-gradient-to-r from-[#a56ee0] to-[#53d8f4] shadow-[0_0_12px_rgba(83,216,244,.4)] transition-[width] duration-500"
+                    style={{ width: `${membership?.progressPercent ?? 0}%` }}
+                  />
                 </div>
-                <p className="text-xs stitch-muted mt-2">Còn 2.400 điểm để giữ hạng</p>
+                <p
+                  className="text-xs mt-2"
+                  style={{
+                    color: membershipError
+                      ? 'var(--st-danger)'
+                      : undefined,
+                  }}
+                >
+                  {membershipLoading
+                    ? 'Đang tải hạng thành viên...'
+                    : membershipError
+                      ? membershipError
+                      : membership?.nextTier
+                        ? `Còn ${membership.pointsToNextTier.toLocaleString('vi-VN')} điểm để lên ${membership.nextTier}`
+                        : 'Bạn đang ở hạng cao nhất'}
+                </p>
               </div>
 
               <div className="flex justify-between items-center pt-6 mt-6 border-t border-white/10">
-                <span className="stitch-kicker">CMC Points</span>
-                <strong className="text-2xl" style={{ color: 'var(--st-purple)' }}>12.500</strong>
+                <div>
+                  <span className="stitch-kicker">CMC Points</span>
+                  <p className="text-xs stitch-muted mt-1">
+                    {membershipLoading
+                      ? 'Đang tải giao dịch...'
+                      : `${membership?.paidBookings ?? 0} giao dịch đã thanh toán`}
+                  </p>
+                </div>
+                <strong className="text-2xl" style={{ color: 'var(--st-purple)' }}>
+                  {(membership?.points ?? 0).toLocaleString('vi-VN')}
+                </strong>
               </div>
             </div>
 
