@@ -51,6 +51,9 @@ DROP PROCEDURE IF EXISTS dbo.sp_hold_seats;
 DROP PROCEDURE IF EXISTS dbo.sp_find_ticket_suggestions;
 DROP PROCEDURE IF EXISTS dbo.sp_create_showtime;
 DROP PROCEDURE IF EXISTS dbo.sp_generate_showtime_seats;
+DROP PROCEDURE IF EXISTS dbo.sp_delete_movie_rating;
+DROP PROCEDURE IF EXISTS dbo.sp_upsert_movie_rating;
+DROP PROCEDURE IF EXISTS dbo.sp_get_movie_rating;
 GO
 
 DROP TRIGGER IF EXISTS dbo.trg_users_sync_role;
@@ -60,6 +63,7 @@ DROP TRIGGER IF EXISTS dbo.trg_booking_orders_updated_at;
 DROP TRIGGER IF EXISTS dbo.trg_payments_updated_at;
 DROP TRIGGER IF EXISTS dbo.trg_showtimes_updated_at;
 DROP TRIGGER IF EXISTS dbo.trg_users_updated_at;
+DROP TRIGGER IF EXISTS dbo.trg_movie_ratings_sync_average;
 GO
 
 /* Xóa bảng theo thứ tự phụ thuộc khóa ngoại */
@@ -84,6 +88,7 @@ DROP TABLE IF EXISTS dbo.seat_types;
 DROP TABLE IF EXISTS dbo.rooms;
 DROP TABLE IF EXISTS dbo.cinemas;
 DROP TABLE IF EXISTS dbo.movie_genres;
+DROP TABLE IF EXISTS dbo.movie_ratings;
 DROP TABLE IF EXISTS dbo.genres;
 DROP TABLE IF EXISTS dbo.movies;
 DROP TABLE IF EXISTS dbo.refresh_tokens;
@@ -281,6 +286,40 @@ CREATE TABLE dbo.movie_genres (
     CONSTRAINT FK_movie_genres_genre FOREIGN KEY (genre_id)
         REFERENCES dbo.genres(genre_id) ON DELETE CASCADE
 );
+GO
+
+
+/* ============================================================================
+   3.1. ĐÁNH GIÁ PHIM THEO NGƯỜI DÙNG
+   Mỗi người dùng chỉ có một đánh giá cho mỗi phim.
+   Điểm trung bình được lưu tại movies.average_rating theo thang 5 sao.
+   ============================================================================ */
+
+CREATE TABLE dbo.movie_ratings (
+    rating_id   BIGINT IDENTITY(1,1) NOT NULL,
+    movie_id    INT NOT NULL,
+    user_id     INT NOT NULL,
+    stars       TINYINT NOT NULL,
+    created_at  DATETIME2(0) NOT NULL
+        CONSTRAINT DF_movie_ratings_created_at DEFAULT SYSDATETIME(),
+    updated_at  DATETIME2(0) NOT NULL
+        CONSTRAINT DF_movie_ratings_updated_at DEFAULT SYSDATETIME(),
+
+    CONSTRAINT PK_movie_ratings PRIMARY KEY (rating_id),
+    CONSTRAINT UQ_movie_ratings_movie_user UNIQUE (movie_id, user_id),
+    CONSTRAINT CK_movie_ratings_stars CHECK (stars BETWEEN 1 AND 5),
+
+    CONSTRAINT FK_movie_ratings_movie FOREIGN KEY (movie_id)
+        REFERENCES dbo.movies(movie_id) ON DELETE CASCADE,
+
+    CONSTRAINT FK_movie_ratings_user FOREIGN KEY (user_id)
+        REFERENCES dbo.users(user_id) ON DELETE CASCADE
+);
+GO
+
+CREATE INDEX IX_movie_ratings_user_updated
+ON dbo.movie_ratings(user_id, updated_at DESC)
+INCLUDE (movie_id, stars);
 GO
 
 /* ============================================================================
@@ -1004,6 +1043,157 @@ BEGIN
     BEGIN
         THROW 51001, N'Phòng chiếu bị trùng lịch trong khoảng thời gian đã chọn.', 1;
     END;
+END;
+GO
+
+
+/* ============================================================================
+   16A. TÍNH ĐIỂM TRUNG BÌNH VÀ QUẢN LÝ ĐÁNH GIÁ PHIM
+   ============================================================================ */
+
+/* Tự tính lại điểm trung bình khi có thêm, sửa hoặc xóa đánh giá. */
+CREATE TRIGGER dbo.trg_movie_ratings_sync_average
+ON dbo.movie_ratings
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    ;WITH changed_movies AS (
+        SELECT movie_id FROM inserted
+        UNION
+        SELECT movie_id FROM deleted
+    ),
+    rating_summary AS (
+        SELECT
+            mr.movie_id,
+            AVG(CAST(mr.stars AS DECIMAL(10,4))) AS average_stars
+        FROM dbo.movie_ratings AS mr
+        INNER JOIN changed_movies AS cm
+            ON cm.movie_id = mr.movie_id
+        GROUP BY mr.movie_id
+    )
+    UPDATE m
+    SET
+        m.average_rating = CAST(COALESCE(rs.average_stars, 0) AS DECIMAL(3,2)),
+        m.updated_at = SYSDATETIME()
+    FROM dbo.movies AS m
+    INNER JOIN changed_movies AS cm
+        ON cm.movie_id = m.movie_id
+    LEFT JOIN rating_summary AS rs
+        ON rs.movie_id = m.movie_id;
+END;
+GO
+
+/* Lấy điểm trung bình, số lượt và đánh giá của người đang đăng nhập. */
+CREATE PROCEDURE dbo.sp_get_movie_rating
+    @movie_id INT,
+    @user_id  INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM dbo.movies
+        WHERE movie_id = @movie_id
+    )
+        THROW 51050, N'Không tìm thấy phim.', 1;
+
+    SELECT
+        m.movie_id,
+        CAST(m.average_rating AS DECIMAL(3,2)) AS average_stars,
+        CAST(m.average_rating * 2 AS DECIMAL(4,2)) AS average_score,
+        COUNT(r.rating_id) AS rating_count,
+        MAX(
+            CASE
+                WHEN @user_id IS NOT NULL AND r.user_id = @user_id
+                THEN CAST(r.stars AS INT)
+                ELSE NULL
+            END
+        ) AS my_rating
+    FROM dbo.movies AS m
+    LEFT JOIN dbo.movie_ratings AS r
+        ON r.movie_id = m.movie_id
+    WHERE m.movie_id = @movie_id
+    GROUP BY m.movie_id, m.average_rating;
+END;
+GO
+
+/* Thêm mới hoặc cập nhật đánh giá hiện có của cùng người dùng. */
+CREATE PROCEDURE dbo.sp_upsert_movie_rating
+    @movie_id INT,
+    @user_id  INT,
+    @stars    TINYINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    IF @stars NOT BETWEEN 1 AND 5
+        THROW 51051, N'Số sao phải nằm trong khoảng từ 1 đến 5.', 1;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM dbo.movies
+        WHERE movie_id = @movie_id
+    )
+        THROW 51052, N'Không tìm thấy phim.', 1;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM dbo.users
+        WHERE user_id = @user_id
+          AND status <> 'DELETED'
+    )
+        THROW 51053, N'Không tìm thấy người dùng hợp lệ.', 1;
+
+    BEGIN TRANSACTION;
+
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.movie_ratings WITH (UPDLOCK, HOLDLOCK)
+        WHERE movie_id = @movie_id
+          AND user_id = @user_id
+    )
+    BEGIN
+        UPDATE dbo.movie_ratings
+        SET
+            stars = @stars,
+            updated_at = SYSDATETIME()
+        WHERE movie_id = @movie_id
+          AND user_id = @user_id;
+    END
+    ELSE
+    BEGIN
+        INSERT INTO dbo.movie_ratings(movie_id, user_id, stars)
+        VALUES (@movie_id, @user_id, @stars);
+    END;
+
+    COMMIT TRANSACTION;
+
+    EXEC dbo.sp_get_movie_rating
+        @movie_id = @movie_id,
+        @user_id = @user_id;
+END;
+GO
+
+/* Xóa đánh giá của một người dùng đối với một phim. */
+CREATE PROCEDURE dbo.sp_delete_movie_rating
+    @movie_id INT,
+    @user_id  INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DELETE FROM dbo.movie_ratings
+    WHERE movie_id = @movie_id
+      AND user_id = @user_id;
+
+    EXEC dbo.sp_get_movie_rating
+        @movie_id = @movie_id,
+        @user_id = @user_id;
 END;
 GO
 
@@ -2249,6 +2439,7 @@ SELECT 'cinemas' AS table_name, COUNT(*) AS row_count FROM dbo.cinemas
 UNION ALL SELECT 'rooms', COUNT(*) FROM dbo.rooms
 UNION ALL SELECT 'seats', COUNT(*) FROM dbo.seats
 UNION ALL SELECT 'movies', COUNT(*) FROM dbo.movies
+UNION ALL SELECT 'movie_ratings', COUNT(*) FROM dbo.movie_ratings
 UNION ALL SELECT 'showtimes', COUNT(*) FROM dbo.showtimes
 UNION ALL SELECT 'showtime_seats', COUNT(*) FROM dbo.showtime_seats;
 GO
@@ -3017,4 +3208,50 @@ GO
 SELECT 'cinemas' AS table_name, COUNT(*) AS row_count FROM dbo.cinemas
 UNION ALL SELECT 'rooms', COUNT(*) FROM dbo.rooms
 UNION ALL SELECT 'seats', COUNT(*) FROM dbo.seats;
+GO
+
+
+
+
+USE CineHuntDB;
+GO
+
+SELECT
+    movie_id,
+    title,
+    poster_url
+FROM movies
+WHERE poster_url IS NULL
+   OR LTRIM(RTRIM(poster_url)) = ''
+   OR poster_url LIKE 'https://example.com/%'
+ORDER BY movie_id;
+
+USE CineHuntDB;
+GO
+
+UPDATE movies
+SET poster_url = N'/posters/dai-chien-da-vu-tru.jpg'
+WHERE title = N'Đại Chiến Đa Vũ Trụ';
+
+UPDATE movies
+SET poster_url = N'/posters/hanh-tinh-xanh.jpg'
+WHERE title = N'Hành Tinh Xanh';
+
+UPDATE movies
+SET poster_url = N'/posters/ngoi-nha-sau-canh.jpg'
+WHERE title LIKE N'Ngôi Nhà Sau Cánh%';
+
+UPDATE movies
+SET poster_url = N'/posters/ky-nguyen-robot.jpg'
+WHERE title = N'Kỷ Nguyên Robot';
+GO
+/* ============================================================================
+   KIỂM TRA MODULE ĐÁNH GIÁ PHIM
+   ============================================================================ */
+SELECT
+    OBJECT_ID(N'dbo.movie_ratings', N'U') AS movie_ratings_table,
+    OBJECT_ID(N'dbo.trg_movie_ratings_sync_average', N'TR') AS rating_trigger,
+    OBJECT_ID(N'dbo.sp_get_movie_rating', N'P') AS get_rating_procedure,
+    OBJECT_ID(N'dbo.sp_upsert_movie_rating', N'P') AS upsert_rating_procedure,
+    OBJECT_ID(N'dbo.sp_delete_movie_rating', N'P') AS delete_rating_procedure;
 GO
