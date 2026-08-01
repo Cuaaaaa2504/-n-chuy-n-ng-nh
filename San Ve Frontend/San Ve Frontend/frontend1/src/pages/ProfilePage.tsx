@@ -39,6 +39,7 @@ export default function ProfilePage() {
 
   const typedUser = user as User | null;
   const currentUserId = typedUser?.id ?? typedUser?.userId;
+  const phoneLocked = Boolean(typedUser?.phone?.trim());
 
   const [fullName, setFullName]           = useState<string>(typedUser?.fullName ?? '');
   const [phone, setPhone]                 = useState<string>(typedUser?.phone ?? '');
@@ -109,15 +110,19 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!currentUserId) {
-      setMembership(null);
-      setMembershipLoading(false);
-      setMembershipError(null);
+      startTransition(() => {
+        setMembership(null);
+        setMembershipLoading(false);
+        setMembershipError(null);
+      });
       return;
     }
 
     let cancelled = false;
-    setMembershipLoading(true);
-    setMembershipError(null);
+    startTransition(() => {
+      setMembershipLoading(true);
+      setMembershipError(null);
+    });
 
     void userApi.getMembership()
       .then((data) => {
@@ -164,14 +169,24 @@ export default function ProfilePage() {
     setInfoLoading(true);
     setInfoMsg(null);
     try {
-      const updated = await userApi.updateMe({
+      const payload: { fullName: string; phone?: string } = {
         fullName: fullName.trim(),
-        phone: phone.trim(),
-      });
+      };
+
+      // Số điện thoại chỉ được liên kết một lần. Sau khi đã có số,
+      // frontend không gửi lại field này và backend cũng chặn thay đổi.
+      if (!phoneLocked && phone.trim()) {
+        payload.phone = phone.trim();
+      }
+
+      const updated = await userApi.updateMe(payload);
       if (token) login(token, { ...(user as User), ...updated });
       setInfoMsg({ type: 'ok', text: 'Lưu thông tin thành công!' });
-    } catch {
-      setInfoMsg({ type: 'err', text: 'Cập nhật thất bại. Vui lòng thử lại.' });
+    } catch (error: unknown) {
+      const message =
+        (error as { message?: string })?.message ||
+        'Cập nhật thất bại. Vui lòng thử lại.';
+      setInfoMsg({ type: 'err', text: message });
     } finally {
       setInfoLoading(false);
     }
@@ -394,7 +409,25 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <label className="stitch-label" htmlFor="profile-phone">Số điện thoại</label>
-                      <input id="profile-phone" className="stitch-input" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Chưa cập nhật" />
+                      <input
+                        id="profile-phone"
+                        className={`stitch-input ${phoneLocked ? 'cursor-not-allowed opacity-70' : ''}`}
+                        value={phone}
+                        onChange={(event) => setPhone(event.target.value)}
+                        placeholder="Chưa cập nhật"
+                        readOnly={phoneLocked}
+                        aria-readonly={phoneLocked}
+                        title={
+                          phoneLocked
+                            ? 'Số điện thoại đã liên kết và không thể thay đổi'
+                            : 'Số điện thoại chỉ được liên kết một lần'
+                        }
+                      />
+                      <p className="mt-2 text-xs stitch-muted">
+                        {phoneLocked
+                          ? 'Số điện thoại đã liên kết với tài khoản và không thể thay đổi.'
+                          : 'Bạn chỉ được thêm số điện thoại một lần.'}
+                      </p>
                     </div>
                     <div>
                       <label className="stitch-label">Email</label>

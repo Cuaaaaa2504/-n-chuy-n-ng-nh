@@ -28,6 +28,7 @@ export default function MoviesPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<Movie['status'] | 'ALL'>('ALL');
   const [topRatings, setTopRatings] = useState<MovieRatingSummary[]>([]);
+  const [hotMovieIds, setHotMovieIds] = useState<number[]>([]);
 
   const filtered = useMemo(() => movies.filter((movie) => {
     const matchStatus = status === 'ALL' ? movie.status !== 'HIDDEN' : movie.status === status;
@@ -37,7 +38,13 @@ export default function MoviesPage() {
 
   const loadTopRatings = useCallback(async () => {
     try {
-      setTopRatings(await getTopRatedMovies(3));
+      const ratings = await getTopRatedMovies(3);
+      setTopRatings(ratings);
+      setHotMovieIds((current) =>
+        current.length > 0
+          ? current
+          : ratings.map((rating) => rating.movieId).slice(0, 3),
+      );
     } catch (loadError) {
       console.error('[HOT MOVIES]', loadError);
       setTopRatings([]);
@@ -45,11 +52,18 @@ export default function MoviesPage() {
   }, []);
 
   useEffect(() => {
-    void loadTopRatings();
+    void Promise.resolve().then(loadTopRatings);
 
-    const handleRatingUpdated = () => {
-      // Sau mỗi lần có người chấm sao, hỏi lại backend để thứ hạng đổi ngay.
-      void loadTopRatings();
+    const handleRatingUpdated = (event: Event) => {
+      const updated = (event as CustomEvent<MovieRatingSummary>).detail;
+      if (!updated) return;
+
+      // Chỉ cập nhật điểm của phim đang hiển thị, không xếp lại vị trí sidebar.
+      setTopRatings((current) =>
+        current.map((rating) =>
+          rating.movieId === updated.movieId ? updated : rating,
+        ),
+      );
     };
 
     window.addEventListener(RATING_UPDATED_EVENT, handleRatingUpdated);
@@ -60,37 +74,45 @@ export default function MoviesPage() {
 
   const hotMovies = useMemo<HotMovieItem[]>(() => {
     const movieById = new Map(movies.map((movie) => [movie.movie_id, movie]));
-    const ranked: HotMovieItem[] = topRatings
-      .map((rating) => {
-        const movie = movieById.get(rating.movieId);
-        return movie ? { movie, rating } : null;
-      })
-      .filter((item): item is HotMovieItem => item !== null);
+    const ratingById = new Map(
+      topRatings.map((rating) => [rating.movieId, rating]),
+    );
+    const fixedIds = [...hotMovieIds];
+    const usedIds = new Set(fixedIds);
 
-    // Backend thường trả đủ 3 phim. Phần dự phòng này giúp sidebar không trống
-    // trong lúc API rating chưa sẵn sàng hoặc hệ thống chưa có đánh giá nào.
-    if (ranked.length < 3) {
-      const usedIds = new Set(ranked.map((item) => item.movie.movie_id));
-      const fallback = movies
-        .filter(
-          (movie) =>
-            movie.status === 'NOW_SHOWING' && !usedIds.has(movie.movie_id),
-        )
-        .map((movie) => ({
+    // Nếu API rating chưa sẵn sàng, chọn phim đang chiếu làm danh sách dự phòng.
+    // Danh sách chỉ phụ thuộc dữ liệu phim, không đổi vị trí sau mỗi lượt đánh giá.
+    for (const movie of movies) {
+      if (
+        fixedIds.length >= 3 ||
+        movie.status !== 'NOW_SHOWING' ||
+        usedIds.has(movie.movie_id)
+      ) {
+        continue;
+      }
+      fixedIds.push(movie.movie_id);
+      usedIds.add(movie.movie_id);
+    }
+
+    return fixedIds
+      .slice(0, 3)
+      .map((movieId) => {
+        const movie = movieById.get(movieId);
+        if (!movie) return null;
+
+        return {
           movie,
-          rating: {
-            movieId: movie.movie_id,
+          rating: ratingById.get(movieId) ?? {
+            movieId,
             averageStars: 0,
             averageScore: 0,
             ratingCount: 0,
             myRating: null,
           },
-        }));
-      ranked.push(...fallback);
-    }
-
-    return ranked.slice(0, 3);
-  }, [movies, topRatings]);
+        };
+      })
+      .filter((item): item is HotMovieItem => item !== null);
+  }, [hotMovieIds, movies, topRatings]);
 
   return (
     <section className="stitch-page">

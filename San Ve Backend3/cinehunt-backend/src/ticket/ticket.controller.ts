@@ -16,9 +16,12 @@ export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
   @Get(':code')
-  @ApiOperation({ summary: 'Tra cứu vé theo mã (dùng cho trang hiển thị QR)' })
-  findByCode(@Param('code') code: string) {
-    return this.ticketService.findByCode(code);
+  @ApiOperation({ summary: 'Tra cứu vé theo mã nếu có quyền truy cập' })
+  findByCode(
+    @Param('code') code: string,
+    @CurrentUser() requester: CurrentUserPayload,
+  ) {
+    return this.ticketService.findAccessibleByCode(code, requester);
   }
 
   /**

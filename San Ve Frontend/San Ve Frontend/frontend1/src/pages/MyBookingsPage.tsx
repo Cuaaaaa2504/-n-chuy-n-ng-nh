@@ -245,7 +245,7 @@ export default function MyBookingsPage() {
         qrCode: `${booking.orderCode || booking.id}:${seatCode}`,
         status: 'VALID',
       })));
-    } catch (err: unknown) {
+    } catch {
       const seats = booking.seatCodes?.length ? booking.seatCodes : ['VÉ'];
       {
         setTickets(seats.map((seatCode, index) => ({

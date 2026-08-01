@@ -146,7 +146,9 @@ export default function MyTicketsPage() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void fetchTickets(); }, [fetchTickets]);
+  useEffect(() => {
+    void Promise.resolve().then(fetchTickets);
+  }, [fetchTickets]);
 
   const holdingTickets = allTickets.filter((ticket) => HOLDING_STATUSES.includes(ticket.status));
   const paidTickets = allTickets.filter((ticket) => PAID_STATUSES.includes(ticket.status));

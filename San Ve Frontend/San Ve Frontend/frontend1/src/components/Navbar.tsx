@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/useTheme';
 import { useAuth } from '../context/AuthContext';
@@ -21,8 +21,10 @@ export default function Navbar() {
     path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`);
 
   useEffect(() => {
-    setMobileOpen(false);
-    setAccountOpen(false);
+    startTransition(() => {
+      setMobileOpen(false);
+      setAccountOpen(false);
+    });
   }, [pathname, hash]);
 
   useEffect(() => {
