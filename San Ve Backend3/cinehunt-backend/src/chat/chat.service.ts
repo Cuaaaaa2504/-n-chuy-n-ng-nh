@@ -1,13 +1,9 @@
 /**
  * ChatService — cầu nối giữa CineHunt và Gemini.
  *
- * Các lỗi được xử lý trong file này:
- *   CHAT-01  Lịch sử hội thoại bắt đầu bằng `assistant` -> Gemini trả 400.
- *   CHAT-03  Dùng model fallback còn hoạt động và hỗ trợ function calling.
- *   CHAT-04  Thiếu GEMINI_API_KEY -> thông báo phải nói rõ phải làm gì.
- *   CHAT-05  Chatbot không có dữ liệu thật -> bổ sung function calling.
- *   CHAT-06  Lỗi trả về phải phân biệt được loại (mã lỗi máy đọc được).
- *   CHAT-07  Hỗ trợ streaming + huỷ giữa chừng.
+ * Ngoài các công cụ đọc dữ liệu, service này cho phép người dùng đã đăng nhập
+ * giữ ghế, tạo booking và khởi tạo payment. Mọi thao tác ghi vẫn đi qua service
+ * nghiệp vụ hiện có, không cho model chạm trực tiếp vào repository hay SQL.
  */
 
 import {
@@ -20,36 +16,36 @@ import {
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosError } from 'axios';
 import type { Readable } from 'stream';
-import { ChatMessageDto } from './dto/chat-message.dto';
+import { ChatActionService } from './chat-action.service';
 import { ChatDataService } from './chat-data.service';
 import {
   CHAT_FUNCTION_DECLARATIONS,
   CHAT_TOOL_NAMES,
 } from './chat-tools';
+import { ChatMessageDto } from './dto/chat-message.dto';
 
-/* ==========================================================================
- * FIX CHAT-03 — TÊN MODEL
- *
- * Fallback phải trỏ tới model còn hoạt động và hỗ trợ function calling.
- * Tại thời điểm hợp nhất (29/07/2026), Gemini 2.0 Flash đã ngừng hoạt động;
- * Gemini 3.6 Flash là model ổn định phù hợp cho vòng gọi công cụ của CHAT-05.
- * ======================================================================== */
 const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
-
-/** Các model đã bị ngừng phục vụ, cảnh báo sớm lúc khởi động. */
-const KNOWN_SHUTDOWN_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-001'];
-
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-
-/** Số vòng gọi công cụ tối đa cho một câu hỏi. Chặn vòng lặp vô hạn. */
+const KNOWN_SHUTDOWN_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-001',
+];
+const GEMINI_BASE =
+  'https://generativelanguage.googleapis.com/v1beta/models';
 const MAX_TOOL_ROUNDS = 4;
-
 const REQUEST_TIMEOUT_MS = 30_000;
+const MAX_RATE_LIMIT_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 1_200;
 
 type GeminiPart = {
   text?: string;
-  functionCall?: { name: string; args?: Record<string, unknown> };
-  functionResponse?: { name: string; response: Record<string, unknown> };
+  functionCall?: {
+    name: string;
+    args?: Record<string, unknown>;
+  };
+  functionResponse?: {
+    name: string;
+    response: Record<string, unknown>;
+  };
 };
 
 type GeminiContent = {
@@ -59,13 +55,17 @@ type GeminiContent = {
 
 type GeminiResponse = {
   candidates?: Array<{
-    content?: { parts?: GeminiPart[]; role?: string };
+    content?: {
+      parts?: GeminiPart[];
+      role?: string;
+    };
     finishReason?: string;
   }>;
-  promptFeedback?: { blockReason?: string };
+  promptFeedback?: {
+    blockReason?: string;
+  };
 };
 
-/** Mã lỗi trả về cho frontend (FIX CHAT-06). */
 export type ChatErrorCode =
   | 'MISSING_API_KEY'
   | 'INVALID_REQUEST'
@@ -88,28 +88,49 @@ export interface ChatStreamEvent {
 const SYSTEM_PROMPT = `
 Bạn là trợ lý AI của CineHunt, nền tảng đặt vé xem phim trực tuyến.
 
-CÔNG CỤ TRUY VẤN DỮ LIỆU THẬT:
-Bạn được nối trực tiếp với cơ sở dữ liệu CineHunt qua các hàm search_movies,
-get_movie_detail, get_showtimes, check_seat_availability, list_combos,
-list_cinemas.
+CÔNG CỤ DỮ LIỆU THẬT:
+- Đọc dữ liệu: search_movies, get_movie_detail, get_showtimes,
+  check_seat_availability, list_combos, list_cinemas.
+- Thao tác đặt vé: hold_seats, create_booking, create_payment.
 
-QUY TẮC BẮT BUỘC:
-- Mọi câu hỏi về phim đang chiếu, lịch chiếu, giá vé, tình trạng ghế, combo hay
-  địa chỉ rạp PHẢI gọi hàm tương ứng trước khi trả lời. Không được trả lời từ
-  kiến thức nền của bạn — dữ liệu của CineHunt là nguồn duy nhất đúng.
-- Nếu hàm trả về danh sách rỗng, hãy nói thẳng là hiện chưa có dữ liệu phù hợp.
-  TUYỆT ĐỐI không bịa tên phim, giờ chiếu, giá vé hay mã ghế.
-- Muốn kiểm tra ghế thì phải có showtimeId; nếu chưa có, gọi get_showtimes trước.
-- Giá tiền do hàm trả về đã ở dạng VNĐ, giữ nguyên, không tự quy đổi hay làm tròn.
+QUY TẮC DỮ LIỆU:
+- Mọi câu hỏi về phim đang chiếu, lịch chiếu, giá vé, tình trạng ghế, combo
+  hoặc địa chỉ rạp PHẢI gọi công cụ tương ứng trước khi trả lời.
+- Dữ liệu CineHunt là nguồn duy nhất đúng. Không bịa tên phim, giờ chiếu,
+  giá vé, ID, mã ghế, holdId, bookingId hay trạng thái thanh toán.
+- Muốn kiểm tra ghế phải có showtimeId. Nếu chưa có, gọi get_showtimes trước.
+- Giá tiền do công cụ trả về đã là VNĐ, giữ nguyên và không tự quy đổi.
 
-NHIỆM VỤ KHÁC:
-- Hướng dẫn quy trình đặt vé: chọn phim → chọn suất → chọn ghế → chọn combo →
-  thanh toán.
-- Bạn KHÔNG thể tự đặt vé, giữ ghế hay thanh toán hộ. Khi người dùng muốn đặt,
-  hãy hướng dẫn họ thao tác trên giao diện CineHunt.
-- Không truy cập và không suy đoán thông tin cá nhân, lịch sử đặt vé hay thanh
-  toán của bất kỳ ai.
-- Trả lời ngắn gọn, thân thiện, bằng tiếng Việt. Ưu tiên gạch đầu dòng khi liệt kê.
+QUY TRÌNH ĐẶT VÉ QUA CHAT, PHẢI ĐÚNG THỨ TỰ:
+1. Xác định phim và gọi search_movies hoặc get_movie_detail.
+2. Gọi get_showtimes để người dùng chọn đúng rạp, ngày và giờ.
+3. Gọi check_seat_availability để kiểm tra ghế.
+4. Tóm tắt rõ: tên phim, rạp, phòng, giờ chiếu, MÃ SUẤT CHIẾU (showtimeId),
+   mã ghế, số lượng và giá. Dòng mã suất chiếu không được bỏ vì tin nhắn sau
+   cần dùng lại đúng suất. Hỏi người dùng XÁC NHẬN rồi dừng và chờ tin nhắn mới.
+5. Chỉ khi người dùng vừa xác nhận rõ ràng mới gọi hold_seats bằng đúng
+   showtimeId và seatLabels từ bản tóm tắt. Không truyền showtimeSeatIds.
+6. Dùng đúng holdIds mà hold_seats trả về để gọi create_booking.
+7. Sau khi booking thành công, hỏi người dùng chọn một phương thức:
+   MOMO, VNPAY, BANKING, CASH hoặc MOCK. Dừng lại và chờ câu trả lời mới.
+8. Chỉ khi người dùng vừa chọn rõ phương thức mới gọi create_payment.
+9. Trả paymentUrl cho người dùng. create_payment chỉ khởi tạo giao dịch;
+   tuyệt đối không nói đã thanh toán thành công và không tự gọi endpoint success.
+
+QUY TẮC AN TOÀN:
+- Không gọi hold_seats trước bước xác nhận.
+- Không đoán showtimeSeatId. Mã ghế như D3 có thể lặp ở nhiều suất; backend sẽ
+  tự phân giải bằng showtimeId + seatLabels.
+- Khi người dùng xác nhận, ưu tiên dùng lại showtimeId trong bản tóm tắt ngay
+  trước đó; không gọi lại chuỗi tìm phim/lịch/ghế nếu thông tin vẫn đầy đủ.
+- Không gọi create_booking nếu chưa có holdIds thật từ hold_seats.
+- Không gọi create_payment nếu chưa có booking thật và phương thức do user chọn.
+- Không dùng ID từ cuộc hội thoại khác hoặc hành động thay người dùng khác.
+- Nếu công cụ trả lỗi, nói đúng lỗi và hướng dẫn bước tiếp theo; không tự lặp
+  thao tác ghi nhiều lần.
+- Không truy cập hoặc suy đoán thông tin cá nhân, lịch sử đặt vé hay thanh toán
+  của người khác.
+- Trả lời ngắn gọn, thân thiện, bằng tiếng Việt.
 - Nếu câu hỏi ngoài phạm vi phim ảnh và đặt vé, lịch sự từ chối.
 `.trim();
 
@@ -120,15 +141,9 @@ export class ChatService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly chatData: ChatDataService,
+    private readonly chatActions: ChatActionService,
   ) {}
 
-  /* ======================================================================
-   * FIX CHAT-04 — phát hiện thiếu cấu hình NGAY LÚC KHỞI ĐỘNG
-   *
-   * Trước đây lỗi thiếu GEMINI_API_KEY chỉ lộ ra khi người dùng đầu tiên nhắn
-   * tin, dưới dạng một cục 500 ở frontend. Cả nhóm mất thời gian debug frontend
-   * trong khi vấn đề nằm ở một dòng .env. Giờ backend hét lên ngay lúc boot.
-   * ==================================================================== */
   onModuleInit(): void {
     const apiKey = this.apiKey;
     const model = this.model;
@@ -136,8 +151,7 @@ export class ChatService implements OnModuleInit {
     if (!apiKey) {
       this.logger.error(
         'CHƯA CÓ GEMINI_API_KEY -> chatbot sẽ không hoạt động. ' +
-          'Thêm dòng GEMINI_API_KEY=... vào cinehunt-backend/.env ' +
-          '(lấy key miễn phí tại https://aistudio.google.com/apikey) rồi khởi động lại.',
+          'Thêm GEMINI_API_KEY vào cinehunt-backend/.env rồi khởi động lại.',
       );
     } else {
       this.logger.log(`Chatbot Gemini sẵn sàng (model: ${model}).`);
@@ -145,8 +159,8 @@ export class ChatService implements OnModuleInit {
 
     if (KNOWN_SHUTDOWN_MODELS.includes(model)) {
       this.logger.error(
-        `GEMINI_MODEL="${model}" đã bị Google ngừng phục vụ, mọi request sẽ thất bại. ` +
-          `Đổi thành "${DEFAULT_GEMINI_MODEL}" trong .env.`,
+        `GEMINI_MODEL="${model}" đã bị đánh dấu ngừng phục vụ. ` +
+          `Hãy đổi GEMINI_MODEL trong .env.`,
       );
     }
   }
@@ -162,51 +176,41 @@ export class ChatService implements OnModuleInit {
     );
   }
 
-  /* ======================================================================
-   * FIX CHAT-01 — CHUẨN HOÁ LỊCH SỬ HỘI THOẠI
-   *
-   * Gemini bắt buộc `contents` phải bắt đầu bằng role `user` và luân phiên
-   * user/model. Frontend khởi tạo danh sách tin nhắn bằng một lời chào
-   * role='assistant' và gửi kèm nó lên -> phần tử đầu tiên là `model` ->
-   * 400 INVALID_ARGUMENT ngay ở tin nhắn đầu tiên.
-   *
-   * Frontend đã được sửa để không gửi lời chào nữa (xem useChat.ts), NHƯNG
-   * việc lọc vẫn phải làm lại ở đây. Lý do: backend là nơi duy nhất bắt buộc
-   * phải đúng. Client có thể là app khác, bản build cũ còn cache, hay Postman
-   * của người chấm đồ án — không thể tin client đã gửi đúng định dạng.
-   *
-   * Ba bước:
-   *   1. Bỏ mọi tin nhắn model ở ĐẦU danh sách (lời chào).
-   *   2. Gộp các tin nhắn liên tiếp cùng role (vi phạm quy tắc luân phiên).
-   *   3. Đảm bảo tin nhắn CUỐI là của user, nếu không thì không có gì để trả lời.
-   * ==================================================================== */
   private buildContents(messages: ChatMessageDto[]): GeminiContent[] {
     const mapped: GeminiContent[] = (messages ?? [])
-      .filter((m) => m && typeof m.content === 'string' && m.content.trim())
-      .map((m) => ({
-        role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
-        parts: [{ text: m.content.trim() }],
+      .filter(
+        (message) =>
+          message &&
+          typeof message.content === 'string' &&
+          message.content.trim(),
+      )
+      .map((message) => ({
+        role:
+          message.role === 'assistant'
+            ? ('model' as const)
+            : ('user' as const),
+        parts: [{ text: message.content.trim() }],
       }));
 
-    // Bước 1
     let start = 0;
     while (start < mapped.length && mapped[start].role === 'model') {
       start += 1;
     }
-    const trimmed = mapped.slice(start);
 
-    // Bước 2
     const merged: GeminiContent[] = [];
-    for (const item of trimmed) {
+    for (const item of mapped.slice(start)) {
       const last = merged[merged.length - 1];
+
       if (last && last.role === item.role) {
         last.parts[0].text = `${last.parts[0].text}\n\n${item.parts[0].text}`;
       } else {
-        merged.push({ role: item.role, parts: [{ text: item.parts[0].text }] });
+        merged.push({
+          role: item.role,
+          parts: [{ text: item.parts[0].text }],
+        });
       }
     }
 
-    // Bước 3
     if (merged.length === 0 || merged[merged.length - 1].role !== 'user') {
       throw new HttpException(
         {
@@ -223,66 +227,212 @@ export class ChatService implements OnModuleInit {
 
   private requireApiKey(): string {
     const apiKey = this.apiKey;
+
     if (!apiKey) {
       throw new HttpException(
         {
           statusCode: HttpStatus.SERVICE_UNAVAILABLE,
           code: 'MISSING_API_KEY' as ChatErrorCode,
           message:
-            'Backend chưa cấu hình GEMINI_API_KEY. Thêm biến này vào file .env rồi khởi động lại server.',
+            'Backend chưa cấu hình GEMINI_API_KEY. Thêm biến này vào .env rồi khởi động lại server.',
         },
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
+
     return apiKey;
   }
 
   private get requestBody() {
     return {
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      tools: [{ functionDeclarations: CHAT_FUNCTION_DECLARATIONS }],
+      systemInstruction: {
+        parts: [{ text: SYSTEM_PROMPT }],
+      },
+      tools: [
+        {
+          functionDeclarations: CHAT_FUNCTION_DECLARATIONS,
+        },
+      ],
       generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 1024,
+        temperature: 0.2,
+        maxOutputTokens: 768,
       },
     };
   }
 
-  /* ======================================================================
-   * FIX CHAT-05 (phần 3/3) — THỰC THI CÔNG CỤ
-   * ==================================================================== */
+  private latestUserMessage(messages: ChatMessageDto[]): string {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index]?.role === 'user') {
+        return messages[index].content.trim().toLowerCase();
+      }
+    }
+    return '';
+  }
+
+  private previousAssistantMessage(messages: ChatMessageDto[]): string {
+    let foundLatestUser = false;
+
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (!message) continue;
+
+      if (!foundLatestUser && message.role === 'user') {
+        foundLatestUser = true;
+        continue;
+      }
+
+      if (foundLatestUser && message.role === 'assistant') {
+        return message.content.trim().toLowerCase();
+      }
+    }
+
+    return '';
+  }
+
+  private hasExplicitSeatConfirmation(messages: ChatMessageDto[]): boolean {
+    const userText = this.latestUserMessage(messages);
+    const assistantText = this.previousAssistantMessage(messages);
+
+    const assistantAskedForConfirmation =
+      assistantText.includes('xác nhận') &&
+      assistantText.includes('ghế') &&
+      (assistantText.includes('giá') ||
+        assistantText.includes('tổng') ||
+        assistantText.includes('suất'));
+
+    const confirmationPhrases = [
+      'đồng ý',
+      'xác nhận',
+      'chốt',
+      'ok',
+      'okay',
+      'oke',
+      'yes',
+      'tiếp tục',
+      'giữ ghế',
+    ];
+
+    const userConfirmed = confirmationPhrases.some(
+      (phrase) =>
+        userText === phrase ||
+        userText.startsWith(`${phrase} `) ||
+        userText.startsWith(`${phrase},`) ||
+        userText.startsWith(`${phrase}.`) ||
+        userText.startsWith(`${phrase}!`),
+    );
+
+    return assistantAskedForConfirmation && userConfirmed;
+  }
+
+  private hasExplicitPaymentSelection(
+    messages: ChatMessageDto[],
+    args: Record<string, unknown>,
+  ): boolean {
+    const method = String(args.paymentMethod ?? '')
+      .trim()
+      .toUpperCase();
+    const userText = this.latestUserMessage(messages);
+
+    const aliases: Record<string, string[]> = {
+      MOMO: ['momo', 'mo mo'],
+      VNPAY: ['vnpay', 'vn pay'],
+      BANKING: ['banking', 'chuyển khoản', 'ngân hàng', 'qr'],
+      CASH: ['cash', 'tiền mặt', 'tại quầy'],
+      MOCK: ['mock', 'giả lập', 'demo'],
+    };
+
+    return (aliases[method] ?? [method.toLowerCase()]).some((alias) =>
+      userText.includes(alias),
+    );
+  }
+
+  private toolErrorMessage(error: unknown): string {
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+
+      if (typeof response === 'string') return response;
+
+      const message = (response as { message?: string | string[] })?.message;
+      if (Array.isArray(message)) return message.join('; ');
+      if (typeof message === 'string') return message;
+    }
+
+    return 'Không thể thực hiện thao tác CineHunt lúc này.';
+  }
+
   private async executeTool(
     name: string,
     args: Record<string, unknown>,
+    userId: number,
+    messages: ChatMessageDto[],
   ): Promise<Record<string, unknown>> {
     try {
       switch (name) {
         case CHAT_TOOL_NAMES.SEARCH_MOVIES:
           return (await this.chatData.searchMovies(args as any)) as any;
+
         case CHAT_TOOL_NAMES.GET_MOVIE_DETAIL:
           return (await this.chatData.getMovieDetail(args as any)) as any;
+
         case CHAT_TOOL_NAMES.GET_SHOWTIMES:
           return (await this.chatData.getShowtimes(args as any)) as any;
+
         case CHAT_TOOL_NAMES.CHECK_SEATS:
-          return (await this.chatData.checkSeatAvailability(args as any)) as any;
+          return (await this.chatData.checkSeatAvailability(
+            args as any,
+          )) as any;
+
         case CHAT_TOOL_NAMES.LIST_COMBOS:
           return (await this.chatData.listCombos(args as any)) as any;
+
         case CHAT_TOOL_NAMES.LIST_CINEMAS:
           return (await this.chatData.listCinemas(args as any)) as any;
+
+        case CHAT_TOOL_NAMES.HOLD_SEATS:
+          if (!this.hasExplicitSeatConfirmation(messages)) {
+            return {
+              success: false,
+              error:
+                'Chưa có xác nhận hợp lệ. Hãy tóm tắt phim, suất chiếu, ghế và giá; hỏi xác nhận rồi chờ tin nhắn mới.',
+              requiresConfirmation: true,
+            };
+          }
+          return this.chatActions.holdSeats(userId, args);
+
+        case CHAT_TOOL_NAMES.CREATE_BOOKING:
+          return this.chatActions.createBooking(userId, args);
+
+        case CHAT_TOOL_NAMES.CREATE_PAYMENT:
+          if (!this.hasExplicitPaymentSelection(messages, args)) {
+            return {
+              success: false,
+              error:
+                'Người dùng chưa chọn rõ phương thức thanh toán trong tin nhắn gần nhất.',
+              requiresPaymentMethod: true,
+            };
+          }
+          return this.chatActions.createPayment(userId, args);
+
         default:
           this.logger.warn(`Model gọi công cụ không tồn tại: ${name}`);
-          return { error: `Không có công cụ tên "${name}".` };
+          return {
+            success: false,
+            error: `Không có công cụ tên "${name}".`,
+          };
       }
     } catch (error) {
-      // Lỗi DB KHÔNG được làm sập cả câu trả lời. Trả lỗi vào functionResponse
-      // để model tự nói "hiện chưa tra được dữ liệu" thay vì im lặng hoặc bịa.
+      const message = this.toolErrorMessage(error);
+
       this.logger.error(
-        `Công cụ ${name} lỗi: ${(error as Error).message}`,
-        (error as Error).stack,
+        `Công cụ ${name} lỗi: ${(error as Error)?.message ?? message}`,
+        (error as Error)?.stack,
       );
+
       return {
-        error: 'Không truy vấn được dữ liệu CineHunt lúc này.',
-        hint: 'Hãy nói với người dùng rằng hệ thống đang bận và mời họ thử lại sau.',
+        success: false,
+        error: message,
+        hint:
+          'Không tự lặp lại thao tác ghi. Hãy giải thích lỗi và hỏi người dùng bước tiếp theo.',
       };
     }
   }
@@ -293,33 +443,166 @@ export class ChatService implements OnModuleInit {
 
   private partsToText(parts: GeminiPart[]): string {
     return parts
-      .map((p) => p.text ?? '')
+      .map((part) => part.text ?? '')
       .join('')
       .trim();
   }
 
   private buildFunctionResponseContent(
-    results: Array<{ name: string; response: Record<string, unknown> }>,
+    results: Array<{
+      name: string;
+      response: Record<string, unknown>;
+    }>,
   ): GeminiContent {
     return {
       role: 'user',
-      parts: results.map((r) => ({
-        functionResponse: { name: r.name, response: r.response },
+      parts: results.map((result) => ({
+        functionResponse: {
+          name: result.name,
+          response: result.response,
+        },
       })),
     };
   }
 
-  /* ======================================================================
-   * CHẾ ĐỘ 1 — TRẢ LỜI MỘT LẦN (endpoint POST /chat)
-   * ==================================================================== */
-  async reply(messages: ChatMessageDto[]): Promise<string> {
+  private formatVnd(value: unknown): string {
+    const amount = Number(value);
+    return Number.isFinite(amount)
+      ? `${amount.toLocaleString('vi-VN')} VNĐ`
+      : 'chưa xác định';
+  }
+
+  /**
+   * Với tool ghi, backend có thể tự trả câu kết luận thay vì gọi Gemini thêm
+   * một vòng chỉ để diễn đạt lại kết quả. Cách này giảm RPM và tránh trường hợp
+   * thao tác đã chạy xong nhưng lượt gọi AI kế tiếp lại dính 429.
+   */
+  private terminalToolReply(
+    results: Array<{
+      name: string;
+      response: Record<string, unknown>;
+    }>,
+  ): string | null {
+    const writeTools = new Set<string>([
+      CHAT_TOOL_NAMES.HOLD_SEATS,
+      CHAT_TOOL_NAMES.CREATE_BOOKING,
+      CHAT_TOOL_NAMES.CREATE_PAYMENT,
+    ]);
+
+    const failure = results.find(
+      (result) =>
+        writeTools.has(result.name) && result.response.success === false,
+    );
+
+    if (failure) {
+      const error = String(
+        failure.response.error ??
+          'Không thể thực hiện thao tác đặt vé lúc này.',
+      );
+      return `Không thể tiếp tục: ${error}`;
+    }
+
+    const paymentResult = results.find(
+      (result) =>
+        result.name === CHAT_TOOL_NAMES.CREATE_PAYMENT &&
+        result.response.success === true,
+    );
+
+    if (paymentResult) {
+      const payment =
+        (paymentResult.response.payment as Record<string, unknown>) ?? {};
+      const url = String(paymentResult.response.paymentUrl ?? '').trim();
+      const paymentId = String(payment.paymentId ?? '').trim();
+
+      return [
+        'Đã khởi tạo giao dịch thanh toán.',
+        paymentId ? `Mã giao dịch: ${paymentId}` : '',
+        url ? `Mở trang thanh toán: ${url}` : '',
+        'Trạng thái hiện tại vẫn là chờ thanh toán. Bạn cần hoàn tất trên trang thanh toán.',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    const bookingResult = results.find(
+      (result) =>
+        result.name === CHAT_TOOL_NAMES.CREATE_BOOKING &&
+        result.response.success === true,
+    );
+
+    if (bookingResult) {
+      const booking =
+        (bookingResult.response.booking as Record<string, unknown>) ?? {};
+      const bookingId = String(booking.bookingId ?? '').trim();
+      const bookingCode = String(booking.bookingCode ?? '').trim();
+      const expiresAt = booking.expiresAt
+        ? new Date(String(booking.expiresAt)).toLocaleString('vi-VN')
+        : '';
+
+      return [
+        'Đã giữ ghế và tạo đơn đặt vé thành công.',
+        bookingCode ? `Mã đơn: ${bookingCode}` : '',
+        bookingId ? `Booking ID: ${bookingId}` : '',
+        `Tổng tiền: ${this.formatVnd(booking.totalAmount)}`,
+        expiresAt ? `Hạn thanh toán: ${expiresAt}` : '',
+        'Chọn phương thức thanh toán: MOMO, VNPAY, BANKING, CASH hoặc MOCK.',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    return null;
+  }
+
+  private isRateLimited(error: unknown): boolean {
+    return (error as AxiosError)?.response?.status === 429;
+  }
+
+  private retryDelayMs(error: unknown, attempt: number): number {
+    const retryAfter = Number(
+      (error as AxiosError)?.response?.headers?.['retry-after'],
+    );
+
+    if (Number.isFinite(retryAfter) && retryAfter > 0) {
+      return Math.min(retryAfter * 1_000, 5_000);
+    }
+
+    return Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, 5_000);
+  }
+
+  private async waitBeforeRetry(
+    error: unknown,
+    attempt: number,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const delay = this.retryDelayMs(error, attempt);
+    this.logger.warn(
+      `Gemini trả 429, thử lại lần ${attempt + 1} sau ${delay}ms.`,
+    );
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, delay);
+      const abort = () => {
+        clearTimeout(timer);
+        reject(Object.assign(new Error('Request aborted'), { name: 'CanceledError' }));
+      };
+
+      if (signal?.aborted) return abort();
+      signal?.addEventListener('abort', abort, { once: true });
+    });
+  }
+
+  async reply(
+    messages: ChatMessageDto[],
+    userId: number,
+  ): Promise<string> {
     const apiKey = this.requireApiKey();
     const contents = this.buildContents(messages);
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
       const payload = await this.callGemini(apiKey, contents);
       const parts = this.extractParts(payload);
-      const calls = parts.filter((p) => p.functionCall);
+      const calls = parts.filter((part) => part.functionCall);
 
       if (calls.length === 0) {
         const text = this.partsToText(parts);
@@ -332,7 +615,9 @@ export class ChatService implements OnModuleInit {
         throw new HttpException(
           {
             statusCode: HttpStatus.BAD_GATEWAY,
-            code: (blockReason ? 'BLOCKED' : 'EMPTY_RESPONSE') as ChatErrorCode,
+            code: (blockReason
+              ? 'BLOCKED'
+              : 'EMPTY_RESPONSE') as ChatErrorCode,
             message: blockReason
               ? 'Nội dung bị bộ lọc an toàn của AI chặn. Hãy thử diễn đạt lại câu hỏi.'
               : 'AI không trả về nội dung nào.',
@@ -343,23 +628,45 @@ export class ChatService implements OnModuleInit {
 
       if (round === MAX_TOOL_ROUNDS) {
         this.logger.warn(
-          `Đạt trần ${MAX_TOOL_ROUNDS} vòng gọi công cụ, dừng và trả lời bằng dữ liệu đã có.`,
+          `Đạt trần ${MAX_TOOL_ROUNDS} vòng gọi công cụ.`,
         );
         return (
           this.partsToText(parts) ||
-          'Mình cần tra thêm dữ liệu nhưng chưa hoàn tất được. Bạn thử hỏi cụ thể hơn nhé.'
+          'Mình chưa hoàn tất được thao tác. Bạn thử lại từ bước gần nhất nhé.'
         );
       }
 
-      contents.push({ role: 'model', parts });
+      contents.push({
+        role: 'model',
+        parts,
+      });
 
-      const results = [];
+      const results: Array<{
+        name: string;
+        response: Record<string, unknown>;
+      }> = [];
+
       for (const part of calls) {
-        const name = part.functionCall.name;
-        const args = part.functionCall.args ?? {};
-        this.logger.debug(`Gọi công cụ ${name} với ${JSON.stringify(args)}`);
-        results.push({ name, response: await this.executeTool(name, args) });
+        const name = part.functionCall!.name;
+        const args = part.functionCall!.args ?? {};
+
+        this.logger.debug(
+          `Gọi công cụ ${name} với ${JSON.stringify(args)}`,
+        );
+
+        results.push({
+          name,
+          response: await this.executeTool(
+            name,
+            args,
+            userId,
+            messages,
+          ),
+        });
       }
+
+      const terminalReply = this.terminalToolReply(results);
+      if (terminalReply) return terminalReply;
 
       contents.push(this.buildFunctionResponseContent(results));
     }
@@ -378,34 +685,52 @@ export class ChatService implements OnModuleInit {
     apiKey: string,
     contents: GeminiContent[],
   ): Promise<GeminiResponse> {
-    try {
-      const response = await axios.post<GeminiResponse>(
-        `${GEMINI_BASE}/${encodeURIComponent(this.model)}:generateContent`,
-        { ...this.requestBody, contents },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
+    for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt += 1) {
+      try {
+        const response = await axios.post<GeminiResponse>(
+          `${GEMINI_BASE}/${encodeURIComponent(
+            this.model,
+          )}:generateContent`,
+          {
+            ...this.requestBody,
+            contents,
           },
-          timeout: REQUEST_TIMEOUT_MS,
-        },
-      );
-      return response.data;
-    } catch (error) {
-      throw this.toHttpException(error);
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            timeout: REQUEST_TIMEOUT_MS,
+          },
+        );
+
+        return response.data;
+      } catch (error) {
+        if (
+          this.isRateLimited(error) &&
+          attempt < MAX_RATE_LIMIT_RETRIES
+        ) {
+          await this.waitBeforeRetry(error, attempt);
+          continue;
+        }
+
+        throw this.toHttpException(error);
+      }
     }
+
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.TOO_MANY_REQUESTS,
+        code: 'RATE_LIMITED' as ChatErrorCode,
+        message: 'Đã vượt hạn mức gọi AI. Vui lòng đợi một lát rồi thử lại.',
+      },
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
   }
 
-  /* ======================================================================
-   * CHẾ ĐỘ 2 — STREAMING (FIX CHAT-07)
-   *
-   * Vòng lặp công cụ vẫn giữ nguyên, chỉ khác là mỗi lượt gọi
-   * `streamGenerateContent?alt=sse` để chữ hiện dần thay vì chờ đủ 30 giây.
-   * `signal` đến từ AbortController của controller: khi người dùng bấm "Dừng"
-   * hoặc đóng tab, request sang Google bị huỷ luôn chứ không chạy tiếp vô ích.
-   * ==================================================================== */
   async *streamReply(
     messages: ChatMessageDto[],
+    userId: number,
     signal?: AbortSignal,
   ): AsyncGenerator<ChatStreamEvent> {
     let apiKey: string;
@@ -424,18 +749,28 @@ export class ChatService implements OnModuleInit {
         const collectedParts: GeminiPart[] = [];
         let emittedText = false;
 
-        for await (const part of this.streamGeminiParts(apiKey, contents, signal)) {
+        for await (const part of this.streamGeminiParts(
+          apiKey,
+          contents,
+          signal,
+        )) {
           if (part.text) {
             emittedText = true;
             collectedParts.push(part);
-            yield { type: 'delta', text: part.text };
+            yield {
+              type: 'delta',
+              text: part.text,
+            };
           } else if (part.functionCall) {
             collectedParts.push(part);
-            yield { type: 'tool', tool: part.functionCall.name };
+            yield {
+              type: 'tool',
+              tool: part.functionCall.name,
+            };
           }
         }
 
-        const calls = collectedParts.filter((p) => p.functionCall);
+        const calls = collectedParts.filter((part) => part.functionCall);
 
         if (calls.length === 0) {
           if (!emittedText) {
@@ -446,6 +781,7 @@ export class ChatService implements OnModuleInit {
             };
             return;
           }
+
           yield { type: 'done' };
           return;
         }
@@ -455,61 +791,107 @@ export class ChatService implements OnModuleInit {
           return;
         }
 
-        contents.push({ role: 'model', parts: collectedParts });
+        contents.push({
+          role: 'model',
+          parts: collectedParts,
+        });
 
-        const results = [];
+        const results: Array<{
+          name: string;
+          response: Record<string, unknown>;
+        }> = [];
+
         for (const part of calls) {
-          const name = part.functionCall.name;
+          const name = part.functionCall!.name;
           results.push({
             name,
-            response: await this.executeTool(name, part.functionCall.args ?? {}),
+            response: await this.executeTool(
+              name,
+              part.functionCall!.args ?? {},
+              userId,
+              messages,
+            ),
           });
         }
+
+        const terminalReply = this.terminalToolReply(results);
+        if (terminalReply) {
+          yield { type: 'delta', text: terminalReply };
+          yield { type: 'done' };
+          return;
+        }
+
         contents.push(this.buildFunctionResponseContent(results));
       }
 
       yield { type: 'done' };
     } catch (error) {
-      // Người dùng tự huỷ thì không phải lỗi, đừng ghi log đỏ.
-      if (signal?.aborted || (error as Error)?.name === 'CanceledError') {
+      if (
+        signal?.aborted ||
+        (error as Error)?.name === 'CanceledError'
+      ) {
         return;
       }
+
       yield this.toStreamError(error);
     }
   }
 
-  /**
-   * Đọc luồng SSE của Gemini và bắn ra từng `part` một.
-   *
-   * Định dạng: mỗi sự kiện là một dòng `data: {...}` kết thúc bằng dòng trống.
-   * Chunk TCP KHÔNG trùng ranh giới sự kiện — một sự kiện có thể bị cắt làm đôi
-   * giữa hai chunk. Vì vậy phải giữ `buffer` và chỉ cắt tại `\n\n`; parse thẳng
-   * từng chunk là lỗi kinh điển khiến JSON.parse thất bại ngẫu nhiên.
-   */
   private async *streamGeminiParts(
     apiKey: string,
     contents: GeminiContent[],
     signal?: AbortSignal,
   ): AsyncGenerator<GeminiPart> {
-    let stream: Readable;
+    let stream: Readable | undefined;
 
-    try {
-      const response = await axios.post(
-        `${GEMINI_BASE}/${encodeURIComponent(this.model)}:streamGenerateContent?alt=sse`,
-        { ...this.requestBody, contents },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
+    for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt += 1) {
+      try {
+        const response = await axios.post(
+          `${GEMINI_BASE}/${encodeURIComponent(
+            this.model,
+          )}:streamGenerateContent?alt=sse`,
+          {
+            ...this.requestBody,
+            contents,
           },
-          responseType: 'stream',
-          timeout: REQUEST_TIMEOUT_MS,
-          signal,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            responseType: 'stream',
+            timeout: REQUEST_TIMEOUT_MS,
+            signal,
+          },
+        );
+
+        stream = response.data as Readable;
+        break;
+      } catch (error) {
+        if (
+          this.isRateLimited(error) &&
+          attempt < MAX_RATE_LIMIT_RETRIES &&
+          !signal?.aborted
+        ) {
+          // responseType=stream làm body lỗi thành Readable, nhưng status 429
+          // vẫn có ngay trong headers nên có thể retry mà chưa cần parse body.
+          await this.waitBeforeRetry(error, attempt, signal);
+          continue;
+        }
+
+        throw await this.toHttpExceptionFromStream(error);
+      }
+    }
+
+    if (!stream) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          code: 'RATE_LIMITED' as ChatErrorCode,
+          message: 'Đã vượt hạn mức gọi AI. Vui lòng đợi một lát rồi thử lại.',
         },
+        HttpStatus.TOO_MANY_REQUESTS,
       );
-      stream = response.data as Readable;
-    } catch (error) {
-      throw await this.toHttpExceptionFromStream(error);
     }
 
     let buffer = '';
@@ -519,6 +901,7 @@ export class ChatService implements OnModuleInit {
       buffer = buffer.replace(/\r\n/g, '\n');
 
       let boundary = buffer.indexOf('\n\n');
+
       while (boundary !== -1) {
         const rawEvent = buffer.slice(0, boundary);
         buffer = buffer.slice(boundary + 2);
@@ -527,6 +910,7 @@ export class ChatService implements OnModuleInit {
         const dataLine = rawEvent
           .split('\n')
           .find((line) => line.startsWith('data:'));
+
         if (!dataLine) continue;
 
         const json = dataLine.slice(5).trim();
@@ -536,7 +920,9 @@ export class ChatService implements OnModuleInit {
         try {
           parsed = JSON.parse(json);
         } catch {
-          this.logger.warn('Bỏ qua một sự kiện SSE không parse được.');
+          this.logger.warn(
+            'Bỏ qua một sự kiện SSE không parse được.',
+          );
           continue;
         }
 
@@ -549,31 +935,40 @@ export class ChatService implements OnModuleInit {
     }
   }
 
-  /* ======================================================================
-   * FIX CHAT-06 — PHÂN LOẠI LỖI
-   *
-   * Trả về mã lỗi máy đọc được để frontend hiện thông báo đúng trọng tâm,
-   * thay vì một chuỗi "Không thể nhận phản hồi..." cho cả 400, 404, 429 và 500.
-   * ==================================================================== */
   private toHttpException(error: unknown): HttpException {
     if (error instanceof HttpException) return error;
 
-    const axiosError = error as AxiosError<{ error?: { message?: string } }>;
+    const axiosError =
+      error as AxiosError<{ error?: { message?: string } }>;
     const upstreamStatus = axiosError.response?.status;
     const upstreamMessage =
-      axiosError.response?.data?.error?.message ?? axiosError.message;
+      axiosError.response?.data?.error?.message ??
+      axiosError.message;
 
     this.logger.error(
-      `Gemini lỗi [${upstreamStatus ?? axiosError.code ?? 'network'}]: ${upstreamMessage}`,
+      `Gemini lỗi [${
+        upstreamStatus ?? axiosError.code ?? 'network'
+      }]: ${upstreamMessage}`,
     );
 
     const build = (
       status: HttpStatus,
       code: ChatErrorCode,
       message: string,
-    ) => new HttpException({ statusCode: status, code, message }, status);
+    ) =>
+      new HttpException(
+        {
+          statusCode: status,
+          code,
+          message,
+        },
+        status,
+      );
 
-    if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
+    if (
+      axiosError.code === 'ECONNABORTED' ||
+      axiosError.code === 'ETIMEDOUT'
+    ) {
       return build(
         HttpStatus.GATEWAY_TIMEOUT,
         'TIMEOUT',
@@ -588,25 +983,29 @@ export class ChatService implements OnModuleInit {
           'INVALID_REQUEST',
           `Yêu cầu gửi lên AI không hợp lệ: ${upstreamMessage}`,
         );
+
       case 401:
       case 403:
         return build(
           HttpStatus.BAD_GATEWAY,
           'INVALID_API_KEY',
-          'GEMINI_API_KEY không hợp lệ hoặc chưa được kích hoạt. Kiểm tra lại key trong .env.',
+          'GEMINI_API_KEY không hợp lệ hoặc chưa được kích hoạt.',
         );
+
       case 404:
         return build(
           HttpStatus.BAD_GATEWAY,
           'MODEL_NOT_FOUND',
-          `Không tìm thấy model "${this.model}". Đặt GEMINI_MODEL=${DEFAULT_GEMINI_MODEL} trong .env.`,
+          `Không tìm thấy model "${this.model}". Kiểm tra GEMINI_MODEL trong .env.`,
         );
+
       case 429:
         return build(
           HttpStatus.TOO_MANY_REQUESTS,
           'RATE_LIMITED',
           'Đã vượt hạn mức gọi AI. Vui lòng đợi một lát rồi thử lại.',
         );
+
       default:
         return build(
           HttpStatus.BAD_GATEWAY,
@@ -616,26 +1015,25 @@ export class ChatService implements OnModuleInit {
     }
   }
 
-  /**
-   * Với `responseType: 'stream'`, body lỗi của axios là một Readable chứ không
-   * phải object đã parse -> `error.response.data.error.message` luôn undefined
-   * và mọi lỗi đều bị quy về UPSTREAM_ERROR. Đọc hết stream rồi mới phân loại.
-   */
-  private async toHttpExceptionFromStream(error: unknown): Promise<HttpException> {
+  private async toHttpExceptionFromStream(
+    error: unknown,
+  ): Promise<HttpException> {
     const axiosError = error as AxiosError;
     const data = axiosError?.response?.data as unknown;
 
     if (data && typeof (data as Readable).on === 'function') {
       try {
         const chunks: Buffer[] = [];
+
         for await (const chunk of data as Readable) {
           chunks.push(Buffer.from(chunk));
         }
-        (axiosError.response as any).data = JSON.parse(
+
+        (axiosError.response as { data: unknown }).data = JSON.parse(
           Buffer.concat(chunks).toString('utf8'),
         );
       } catch {
-        (axiosError.response as any).data = {};
+        (axiosError.response as { data: unknown }).data = {};
       }
     }
 
@@ -648,10 +1046,13 @@ export class ChatService implements OnModuleInit {
       code?: ChatErrorCode;
       message?: string;
     };
+
     return {
       type: 'error',
       code: body?.code ?? 'UPSTREAM_ERROR',
-      message: body?.message ?? 'Không thể nhận phản hồi từ trợ lý AI lúc này.',
+      message:
+        body?.message ??
+        'Không thể nhận phản hồi từ trợ lý AI lúc này.',
     };
   }
 }
