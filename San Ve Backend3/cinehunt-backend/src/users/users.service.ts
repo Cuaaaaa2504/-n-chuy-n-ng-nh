@@ -23,6 +23,59 @@ export class UsersService {
     private readonly bookingRepo: Repository<BookingOrder>,
   ) {}
 
+  private normalizePhone(phone: string): string {
+    const normalized = String(phone ?? '').replace(/[\s.-]/g, '');
+
+    if (!/^\+?\d{9,15}$/.test(normalized)) {
+      throw new BadRequestException('Số điện thoại không hợp lệ');
+    }
+
+    return normalized;
+  }
+
+  private async applyImmutablePhone(
+    user: User,
+    requestedPhone: string | undefined,
+  ): Promise<void> {
+    if (requestedPhone === undefined) return;
+
+    const raw = requestedPhone.trim();
+    const currentPhone = user.phone
+      ? String(user.phone).replace(/[\s.-]/g, '')
+      : null;
+
+    if (!raw) {
+      if (currentPhone) {
+        throw new BadRequestException(
+          'Số điện thoại đã liên kết không thể xoá hoặc thay đổi',
+        );
+      }
+      return;
+    }
+
+    const normalized = this.normalizePhone(raw);
+
+    if (currentPhone) {
+      if (currentPhone !== normalized) {
+        throw new BadRequestException(
+          'Mỗi tài khoản chỉ được liên kết một số điện thoại và không thể thay đổi',
+        );
+      }
+      return;
+    }
+
+    const existed = await this.userRepo.findOne({
+      where: { phone: normalized },
+    });
+    if (existed && existed.userId !== user.userId) {
+      throw new ConflictException(
+        'Số điện thoại này đã được sử dụng bởi tài khoản khác',
+      );
+    }
+
+    user.phone = normalized;
+  }
+
   async findById(userId: number): Promise<User> {
     // FIX [M-15]: dùng addSelect để lấy passwordHash chỉ khi cần
     // Các query thông thường KHÔNG lấy passwordHash nhờ select:false trên entity
@@ -54,14 +107,18 @@ export class UsersService {
       const user = await this.userRepo.findOne({ where: { userId } });
       if (!user) throw new NotFoundException('Không tìm thấy user');
       if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
-      // FIX: UpdateProfileDto có field `phone` nhưng service bỏ qua -> user sửa
-      // số điện thoại thì API trả 200 mà DB không đổi gì.
-      if (dto.phone !== undefined) user.phone = dto.phone?.trim() || null;
+      await this.applyImmutablePhone(user, dto.phone);
       if (dto.avatarUrl !== undefined) user.avatarUrl = dto.avatarUrl ?? null;
       await this.userRepo.save(user);
       return this.toProfile(user);
     } catch (err) {
-      if (err instanceof NotFoundException) throw err;
+      if (
+        err instanceof NotFoundException ||
+        err instanceof BadRequestException ||
+        err instanceof ConflictException
+      ) {
+        throw err;
+      }
       throw new InternalServerErrorException('Không cập nhật được thông tin');
     }
   }
@@ -314,7 +371,7 @@ export class UsersService {
     if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
 
     if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
-    if (dto.phone !== undefined) user.phone = dto.phone?.trim() || null;
+    await this.applyImmutablePhone(user, dto.phone);
     if (dto.role !== undefined) user.role = this.normalizeRole(dto.role);
     if (dto.status !== undefined) user.status = dto.status;
 

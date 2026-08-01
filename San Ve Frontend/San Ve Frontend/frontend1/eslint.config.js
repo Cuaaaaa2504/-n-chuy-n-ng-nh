@@ -6,7 +6,11 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores([
+    'dist',
+    '.stitch-v2.3-backup-*',
+    '**/.stitch-v2.3-backup-*/**',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
