@@ -155,7 +155,10 @@ export default function SeatBookingPage() {
   // FIX: ref phản chiếu heldIds — đọc được giá trị MỚI NHẤT ngay trong cùng tick,
   // không phải chờ React re-render. Chặn hoàn toàn việc hold lần 2 do state async.
   const heldIdsRef = useRef<string[]>([]);
-  // Chặn double-submit khi user bấm "Đặt vé" liên tục / bấm cả 2 nút cùng lúc.
+  // Lưu expiresAt đồng bộ để nút "Đặt vé" vừa giữ ghế xong có thể truyền ngay
+  // sang ComboPage, không phải chờ React cập nhật state ở render kế tiếp.
+  const holdExpiresAtRef = useRef<string | null>(null);
+  // Chặn double-submit khi user bấm "Đặt vé" liên tục.
   const inFlightRef = useRef(false);
 
   // ─── Countdown ───────────────────────────────────────────────────────────
@@ -167,8 +170,10 @@ export default function SeatBookingPage() {
     const deadline = expiresAt
       ? new Date(expiresAt).getTime()
       : Date.now() + HOLD_SECONDS * 1000;
+    const normalizedExpiresAt = expiresAt ?? new Date(deadline).toISOString();
 
-    setHoldExpiresAt(expiresAt ?? null);
+    holdExpiresAtRef.current = normalizedExpiresAt;
+    setHoldExpiresAt(normalizedExpiresAt);
     setHoldExpired(false);
 
     const tick = () => {
@@ -177,7 +182,9 @@ export default function SeatBookingPage() {
       if (left <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
         heldIdsRef.current = [];
+        holdExpiresAtRef.current = null;
         setHeldIds([]);
+        setHoldExpiresAt(null);
         setSelectedIds(new Set());
         setHoldExpired(true);
       }
@@ -197,6 +204,7 @@ export default function SeatBookingPage() {
       movieSetRef.current = false;
       setSelectedIds(new Set());
       heldIdsRef.current = [];
+      holdExpiresAtRef.current = null;
       setHeldIds([]);
       setHoldExpiresAt(null);
       setHoldCountdown(HOLD_SECONDS);
@@ -321,6 +329,12 @@ export default function SeatBookingPage() {
 
   // ─── Seat toggle ─────────────────────────────────────────────────────────
   const handleSeatToggle = (seatId: string) => {
+    if (holdExpired) {
+      setHoldExpired(false);
+      setHoldError(null);
+      setNavError('');
+    }
+
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(seatId)) { next.delete(seatId); }
@@ -377,7 +391,7 @@ export default function SeatBookingPage() {
   // ─── Proceed to payment ───────────────────────────────────────────────────
   const handleProceed = async () => {
     if (selectedIds.size === 0) return;
-    if (navigating) return; // chặn double-click
+    if (holding || navigating) return; // chặn double-click và gọi hold trùng
     setNavigating(true);
     setNavError('');
     const showtimeId = searchParams.get('showtimeId');
@@ -410,6 +424,7 @@ export default function SeatBookingPage() {
       // FIX: ưu tiên ref (giá trị mới nhất) thay vì state heldIds (bất đồng bộ).
       // Chỉ hold khi THỰC SỰ chưa hold — không còn cảnh gọi hold-many lần 2.
       let holdIds = heldIdsRef.current.length ? heldIdsRef.current : heldIds;
+      let activeHoldExpiresAt = holdExpiresAtRef.current ?? holdExpiresAt;
 
       if (!holdIds.length) {
         const newHoldIds = await handleHoldSeats();
@@ -421,6 +436,7 @@ export default function SeatBookingPage() {
           return;
         }
         holdIds = newHoldIds;
+        activeHoldExpiresAt = holdExpiresAtRef.current ?? holdExpiresAt;
       }
 
       // FIX LỖI 2 — luồng đúng: Chọn ghế → Giữ ghế → Đặt vé → COMBO → tạo booking → thanh toán.
@@ -429,7 +445,7 @@ export default function SeatBookingPage() {
       navigate('/combo', {
         state: {
           holdIds,
-          holdExpiresAt,
+          holdExpiresAt: activeHoldExpiresAt,
           showtimeId: Number(showtimeId),
           movieTitle: movie?.title ?? showtimeInfo?.movieTitle ?? 'Vé xem phim',
           posterUrl:  movie?.poster_url ?? null,
@@ -641,8 +657,10 @@ export default function SeatBookingPage() {
               <div className={`rounded-xl px-4 py-3 text-center text-sm border ${
                 darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-500'
               }`}>
-                <div>Chưa giữ ghế</div>
-                <div className="text-xs mt-0.5 opacity-60">Mặc định {HOLD_SECONDS / 60} phút sau khi nhấn giữ</div>
+                <div>Ghế sẽ được giữ khi đặt vé</div>
+                <div className="text-xs mt-0.5 opacity-60">
+                  Đồng hồ {HOLD_SECONDS / 60} phút tự chạy sau khi nhấn Đặt vé
+                </div>
               </div>
             )}
 
@@ -698,40 +716,25 @@ export default function SeatBookingPage() {
               </div>
             )}
 
-            {/* Button giữ ghế */}
-            {!heldIds.length && !usingMock && searchParams.get('showtimeId') && (
-              <button
-                onClick={handleHoldSeats}
-                disabled={holding || selectedIds.size === 0}
-                className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  selectedIds.size === 0 || holding
-                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95 shadow'
-                }`}
-              >
-                {holding ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Đang giữ…
-                  </span>
-                ) : '🔒 Giữ ghế (300s)'}
-              </button>
-            )}
-
             {/* Button đặt vé */}
             <button
               onClick={handleProceed}
-              disabled={navigating || selectedIds.size === 0}
+              disabled={holding || navigating || selectedIds.size === 0}
               className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${
-                selectedIds.size === 0 || navigating
+                selectedIds.size === 0 || holding || navigating
                   ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                   : 'bg-amber-500 hover:bg-amber-400 text-gray-950 active:scale-95 shadow-lg shadow-amber-500/20'
               }`}
             >
-              {navigating ? (
+              {holding ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-                  Đang xử lý…
+                  Đang giữ ghế…
+                </span>
+              ) : navigating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+                  Đang chuyển…
                 </span>
               ) : `Đặt vé →`}
             </button>

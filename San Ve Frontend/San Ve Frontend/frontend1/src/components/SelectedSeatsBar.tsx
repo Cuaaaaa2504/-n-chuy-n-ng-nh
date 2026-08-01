@@ -126,12 +126,12 @@ export default function SelectedSeatsBar(props: Props) {
                   onClick={() => {
                     void onProceed();
                   }}
-                  disabled={navigating || selectedSeats.length === 0}
+                  disabled={loading || navigating || selectedSeats.length === 0}
                   className="btn-primary min-h-11 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <span className="relative z-10 inline-flex items-center gap-1">
-                    {navigating ? 'Đang chuyển…' : 'Đặt vé'}
-                    {!navigating && (
+                    {loading ? 'Đang giữ…' : navigating ? 'Đang chuyển…' : 'Đặt vé'}
+                    {!loading && !navigating && (
                       <span className="material-symbols-outlined text-[17px]">
                         arrow_forward
                       </span>
