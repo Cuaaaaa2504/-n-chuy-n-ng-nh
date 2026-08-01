@@ -7,6 +7,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { BookingModule } from './booking/booking.module';
 import { ShowtimeSeatsModule } from './showtime-seats/showtime-seats.module';
 import { MovieModule } from './movie/movie.module';
+import { MovieRatingModule } from './movie-rating/movie-rating.module';
 import { RecommendationModule } from './recommendation/recommendation.module';
 import { GenreModule } from './genre/genre.module';
 import { CinemaModule } from './cinema/cinema.module';
@@ -91,6 +92,7 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
     BookingModule,
     ShowtimeSeatsModule,
     MovieModule,
+    MovieRatingModule,
     RecommendationModule,
     GenreModule,
     CinemaModule,

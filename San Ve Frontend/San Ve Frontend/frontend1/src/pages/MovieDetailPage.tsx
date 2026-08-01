@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getMovieById } from '../api/movieApi';
 import type { Movie } from '../types/movie';
 import { resolveAssetUrl } from '../utils/assetUrl';
+import FavoriteMovieButton from '../components/FavoriteMovieButton';
+import InteractiveMovieRating from '../components/InteractiveMovieRating';
 
 const FALLBACK_POSTER = 'https://picsum.photos/seed/cmc-detail-poster/600/900';
 const FALLBACK_BACKDROP = 'https://picsum.photos/seed/cmc-detail-backdrop/1800/1000';
@@ -63,11 +65,9 @@ export default function MovieDetailPage() {
 
   const trailerEmbedUrl = getYoutubeEmbedUrl(movie.trailer_url);
   const poster = resolveAssetUrl(movie.poster_url) || FALLBACK_POSTER;
-  const backdrop = resolveAssetUrl(movie.backdrop_url || movie.poster_url) || FALLBACK_BACKDROP;
+  const backdrop = resolveAssetUrl(movie.poster_url) || FALLBACK_BACKDROP;
   const year = movie.release_year || (movie.release_date ? movie.release_date.slice(0, 4) : null);
   const rawRating = movie.imdb_rating ?? movie.average_rating;
-  const numericRating = rawRating == null ? null : Number(rawRating);
-  const rating = numericRating !== null && Number.isFinite(numericRating) ? numericRating.toFixed(1) : '8.5';
 
   return (
     <div>
@@ -84,7 +84,11 @@ export default function MovieDetailPage() {
             </div>
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-[-.055em] leading-[.95] text-white max-w-4xl">{movie.title}</h1>
             <div className="flex flex-wrap items-center gap-4 mt-5 text-sm">
-              <span className="inline-flex items-center gap-1" style={{ color: 'var(--st-gold)' }}><span className="material-symbols-outlined text-[18px]">star</span>{rating}/10</span>
+              <InteractiveMovieRating
+                movieId={movie.movie_id}
+                score={rawRating}
+                fallbackScore={0}
+              />
               <span className="inline-flex items-center gap-1 text-white/75"><span className="material-symbols-outlined text-[18px]">schedule</span>{movie.duration_minutes} phút</span>
               <span className="text-white/65">{movie.genres?.join(' • ') || 'Đang cập nhật thể loại'}</span>
             </div>
@@ -98,7 +102,7 @@ export default function MovieDetailPage() {
                   <span className="material-symbols-outlined">play_circle</span>Xem trailer
                 </a>
               )}
-              <button type="button" className="stitch-btn stitch-btn-outline"><span className="material-symbols-outlined">favorite</span>Yêu thích</button>
+              <FavoriteMovieButton movieId={movie.movie_id} showLabel />
             </div>
           </div>
         </div>

@@ -3,13 +3,16 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/useTheme';
 import { useAuth } from '../context/AuthContext';
 import { resolveAssetUrl } from '../utils/assetUrl';
+import { useMovieEngagement } from '../hooks/useMovieEngagement';
 import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const { darkMode, toggleDarkMode } = useTheme();
   const { isLoggedIn, user, logout } = useAuth();
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname, hash } = location;
   const navigate = useNavigate();
+  const { favoriteIds } = useMovieEngagement();
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -20,7 +23,7 @@ export default function Navbar() {
   useEffect(() => {
     setMobileOpen(false);
     setAccountOpen(false);
-  }, [pathname]);
+  }, [pathname, hash]);
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -136,6 +139,20 @@ export default function Navbar() {
                       <span className="material-symbols-outlined">person</span>
                       Hồ sơ cá nhân
                     </Link>
+                    <Link className="stitch-account-item" to="/profile#favorite-movies">
+                      <span
+                        className="material-symbols-outlined"
+                        style={{ fontVariationSettings: favoriteIds.length ? '"FILL" 1, "wght" 500, "GRAD" 0, "opsz" 24' : undefined }}
+                      >
+                        favorite
+                      </span>
+                      <span className="flex-1">Yêu thích</span>
+                      {favoriteIds.length > 0 && (
+                        <span className="min-w-6 rounded-full bg-primary/15 px-2 py-0.5 text-center text-xs font-bold" style={{ color: 'var(--st-purple)' }}>
+                          {favoriteIds.length}
+                        </span>
+                      )}
+                    </Link>
                     <Link className="stitch-account-item" to="/my-tickets?tab=paid">
                       <span className="material-symbols-outlined">confirmation_number</span>
                       Vé của tôi
@@ -185,6 +202,7 @@ export default function Navbar() {
           {isLoggedIn ? (
             <>
               <Link to="/profile">Hồ sơ cá nhân</Link>
+              <Link to="/profile#favorite-movies">Yêu thích ({favoriteIds.length})</Link>
               <Link to="/my-tickets?tab=paid">Vé của tôi</Link>
               <Link to="/my-bookings">Đơn hàng của tôi</Link>
             </>

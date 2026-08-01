@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Movie } from '../types/movie';
 import { resolveAssetUrl } from '../utils/assetUrl';
+import FavoriteMovieButton from './FavoriteMovieButton';
+import InteractiveMovieRating from './InteractiveMovieRating';
 
 interface HeroBannerProps { movies: Movie[]; }
 
@@ -53,8 +55,6 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
   const movie = featured[current];
   const year = movie.release_year || (movie.release_date ? Number(movie.release_date.slice(0, 4)) : null);
   const rawRating = movie.imdb_rating ?? movie.average_rating;
-  const ratingValue = rawRating == null ? null : Number(rawRating);
-  const rating = ratingValue !== null && Number.isFinite(ratingValue) ? ratingValue.toFixed(1) : null;
 
   const positionClass = (index: number) => {
     const distance = (index - current + featured.length) % featured.length;
@@ -70,7 +70,7 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
       <img
         key={`bg-${movie.movie_id}`}
         className="stitch-hero-bg"
-        src={imageUrl(movie.backdrop_url || movie.poster_url, FALLBACK_BACKDROP)}
+        src={imageUrl(movie.poster_url, FALLBACK_BACKDROP)}
         alt=""
         onError={(event) => { event.currentTarget.src = FALLBACK_BACKDROP; }}
       />
@@ -87,8 +87,13 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
             {year && <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[18px]">calendar_month</span>{year}</span>}
             {year && <span className="stitch-muted">•</span>}
             <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[18px]">schedule</span>{movie.duration_minutes || 0} phút</span>
-            {rating && <span className="stitch-muted">•</span>}
-            {rating && <span className="inline-flex items-center gap-1" style={{ color: 'var(--st-gold)' }}><span className="material-symbols-outlined text-[18px]">star</span>{rating} IMDb</span>}
+            <span className="stitch-muted">•</span>
+            <InteractiveMovieRating
+              movieId={movie.movie_id}
+              score={rawRating}
+              fallbackScore={0}
+              suffix=" IMDb"
+            />
           </div>
           <div className="flex flex-wrap items-center gap-3 mb-6 stitch-muted">
             <span className="inline-flex items-center gap-2"><span className="material-symbols-outlined text-[19px]">theaters</span>{movie.genres?.join(', ') || 'Đang cập nhật thể loại'}</span>
@@ -104,6 +109,7 @@ export default function HeroBanner({ movies }: HeroBannerProps) {
                 <span className="material-symbols-outlined">play_circle</span>Xem trailer
               </a>
             )}
+            <FavoriteMovieButton movieId={movie.movie_id} showLabel />
           </div>
         </div>
 

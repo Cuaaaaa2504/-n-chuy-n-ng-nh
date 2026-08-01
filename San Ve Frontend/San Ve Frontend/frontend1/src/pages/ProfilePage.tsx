@@ -2,9 +2,11 @@ import React, { useState, useRef, useEffect, startTransition, useMemo } from 're
 import { useAuth } from '../context/AuthContext';
 import type { User as AuthUser } from '../context/AuthContext';
 import userApi, { type MembershipStats } from '../api/userApi';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { resolveAssetUrl } from '../utils/assetUrl';
 import { useMovies } from '../hooks/useMovies';
+import { useMovieEngagement } from '../hooks/useMovieEngagement';
+import MovieCard from '../components/MovieCard';
 import {
   canonicalGenreKey,
   readFavoriteGenres,
@@ -30,8 +32,10 @@ const DEFAULT_GENRES = [
 export default function ProfilePage() {
   const { user, login, token, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>('info');
   const { movies } = useMovies();
+  const { favoriteIds } = useMovieEngagement();
 
   const typedUser = user as User | null;
   const currentUserId = typedUser?.id ?? typedUser?.userId;
@@ -65,6 +69,11 @@ export default function ProfilePage() {
   const [preferencesDirty, setPreferencesDirty] = useState(false);
   const [preferenceMsg, setPreferenceMsg] = useState<string | null>(null);
 
+  const favoriteMovies = useMemo(
+    () => movies.filter((movie) => favoriteIds.includes(movie.movie_id)),
+    [favoriteIds, movies],
+  );
+
   // Sync form fields khi user thay đổi (ví dụ sau login/logout).
   // Dùng startTransition để đánh dấu đây là update ưu tiên thấp,
   // tránh cascading renders và không vi phạm react-hooks/set-state-in-effect.
@@ -85,6 +94,18 @@ export default function ProfilePage() {
       setPreferenceMsg(null);
     });
   }, [currentUserId]);
+
+  useEffect(() => {
+    if (location.hash !== '#favorite-movies') return;
+    startTransition(() => setActiveTab('info'));
+    const timer = window.setTimeout(() => {
+      document.getElementById('favorite-movies')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [location.hash, favoriteMovies.length]);
 
   useEffect(() => {
     if (!currentUserId) {
@@ -238,6 +259,16 @@ export default function ProfilePage() {
     );
   };
 
+  const scrollToFavorites = () => {
+    setActiveTab('info');
+    window.setTimeout(() => {
+      document.getElementById('favorite-movies')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 0);
+  };
+
   return (
     <section className="stitch-page">
       <div className="stitch-container">
@@ -319,6 +350,15 @@ export default function ProfilePage() {
             <nav className="stitch-card p-2 stitch-profile-nav">
               <button type="button" onClick={() => setActiveTab('info')} className={activeTab === 'info' ? 'active' : ''}>
                 <span className="material-symbols-outlined">person</span>Thông tin tài khoản
+              </button>
+              <button type="button" onClick={scrollToFavorites}>
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontVariationSettings: favoriteIds.length ? '"FILL" 1, "wght" 500, "GRAD" 0, "opsz" 24' : undefined }}
+                >
+                  favorite
+                </span>
+                Yêu thích ({favoriteIds.length})
               </button>
               <button type="button" onClick={() => setActiveTab('privacy')} className={activeTab === 'privacy' ? 'active' : ''}>
                 <span className="material-symbols-outlined">lock</span>Thay đổi mật khẩu
@@ -435,6 +475,38 @@ export default function ProfilePage() {
                       <span className="text-sm" style={{ color: 'var(--st-success)' }}>{preferenceMsg}</span>
                     )}
                   </div>
+                </section>
+
+                <section id="favorite-movies" className="stitch-card stitch-profile-panel scroll-mt-28">
+                  <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5 mb-6">
+                    <div>
+                      <p className="stitch-kicker mb-2">My favorites</p>
+                      <h2 className="text-2xl font-extrabold">Phim yêu thích</h2>
+                      <p className="stitch-muted text-sm mt-2">
+                        Các phim bạn đã bấm biểu tượng trái tim sẽ được lưu tại đây.
+                      </p>
+                    </div>
+                    <span className="stitch-badge stitch-badge-purple">{favoriteMovies.length} phim</span>
+                  </div>
+
+                  {favoriteMovies.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                      {favoriteMovies.map((movie) => (
+                        <MovieCard key={movie.movie_id} movie={movie} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid min-h-52 place-items-center rounded-2xl border border-dashed border-white/15 p-8 text-center">
+                      <div>
+                        <span className="material-symbols-outlined text-[52px] stitch-muted">favorite</span>
+                        <h3 className="mt-3 text-xl font-extrabold">Chưa có phim yêu thích</h3>
+                        <p className="stitch-muted mt-2">Mở một bộ phim và bấm “Yêu thích” để thêm phim vào danh sách của bạn.</p>
+                        <button type="button" onClick={() => navigate('/movies')} className="stitch-btn stitch-btn-primary mt-6">
+                          Khám phá phim
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </section>
               </>
             ) : (

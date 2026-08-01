@@ -1,8 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMovies } from '../hooks/useMovies';
 import type { Movie } from '../types/movie';
 import MovieCard from '../components/MovieCard';
+import InteractiveMovieRating from '../components/InteractiveMovieRating';
+import {
+  getTopRatedMovies,
+  type MovieRatingSummary,
+} from '../api/movieRatingApi';
 import { resolveAssetUrl } from '../utils/assetUrl';
 
 const STATUS_TABS: { key: Movie['status'] | 'ALL'; label: string }[] = [
@@ -11,11 +16,18 @@ const STATUS_TABS: { key: Movie['status'] | 'ALL'; label: string }[] = [
   { key: 'COMING_SOON', label: 'Sắp chiếu' },
 ];
 const FALLBACK_POSTER = 'https://picsum.photos/seed/hot-cmc/240/360';
+const RATING_UPDATED_EVENT = 'cinehunt-movie-rating-updated';
+
+interface HotMovieItem {
+  movie: Movie;
+  rating: MovieRatingSummary;
+}
 
 export default function MoviesPage() {
   const { movies, loading, error, fetchMovies } = useMovies();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<Movie['status'] | 'ALL'>('ALL');
+  const [topRatings, setTopRatings] = useState<MovieRatingSummary[]>([]);
 
   const filtered = useMemo(() => movies.filter((movie) => {
     const matchStatus = status === 'ALL' ? movie.status !== 'HIDDEN' : movie.status === status;
@@ -23,7 +35,62 @@ export default function MoviesPage() {
     return matchStatus && matchSearch;
   }), [movies, search, status]);
 
-  const hotMovies = useMemo(() => movies.filter((movie) => movie.status === 'NOW_SHOWING').slice(0, 3), [movies]);
+  const loadTopRatings = useCallback(async () => {
+    try {
+      setTopRatings(await getTopRatedMovies(3));
+    } catch (loadError) {
+      console.error('[HOT MOVIES]', loadError);
+      setTopRatings([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTopRatings();
+
+    const handleRatingUpdated = () => {
+      // Sau mỗi lần có người chấm sao, hỏi lại backend để thứ hạng đổi ngay.
+      void loadTopRatings();
+    };
+
+    window.addEventListener(RATING_UPDATED_EVENT, handleRatingUpdated);
+    return () => {
+      window.removeEventListener(RATING_UPDATED_EVENT, handleRatingUpdated);
+    };
+  }, [loadTopRatings]);
+
+  const hotMovies = useMemo<HotMovieItem[]>(() => {
+    const movieById = new Map(movies.map((movie) => [movie.movie_id, movie]));
+    const ranked: HotMovieItem[] = topRatings
+      .map((rating) => {
+        const movie = movieById.get(rating.movieId);
+        return movie ? { movie, rating } : null;
+      })
+      .filter((item): item is HotMovieItem => item !== null);
+
+    // Backend thường trả đủ 3 phim. Phần dự phòng này giúp sidebar không trống
+    // trong lúc API rating chưa sẵn sàng hoặc hệ thống chưa có đánh giá nào.
+    if (ranked.length < 3) {
+      const usedIds = new Set(ranked.map((item) => item.movie.movie_id));
+      const fallback = movies
+        .filter(
+          (movie) =>
+            movie.status === 'NOW_SHOWING' && !usedIds.has(movie.movie_id),
+        )
+        .map((movie) => ({
+          movie,
+          rating: {
+            movieId: movie.movie_id,
+            averageStars: 0,
+            averageScore: 0,
+            ratingCount: 0,
+            myRating: null,
+          },
+        }));
+      ranked.push(...fallback);
+    }
+
+    return ranked.slice(0, 3);
+  }, [movies, topRatings]);
 
   return (
     <section className="stitch-page">
@@ -65,14 +132,14 @@ export default function MoviesPage() {
               {filtered.map((movie) => <MovieCard key={movie.movie_id} movie={movie} />)}
             </div>
 
-            <aside className="stitch-movie-sidebar grid gap-6 sticky top-28">
+            <aside className="stitch-movie-sidebar grid self-start gap-6">
               <div className="stitch-card p-6">
                 <h2 className="text-2xl font-extrabold mb-6 flex items-center gap-2">
                   <span className="material-symbols-outlined" style={{ color: 'var(--st-purple)' }}>local_fire_department</span>
                   Phim đang hot
                 </h2>
                 <div className="grid gap-5">
-                  {hotMovies.map((movie, index) => (
+                  {hotMovies.map(({ movie, rating }) => (
                     <Link key={movie.movie_id} to={`/movies/${movie.movie_id}`} className="grid grid-cols-[62px_1fr] gap-3 items-center group">
                       <img
                         src={resolveAssetUrl(movie.poster_url) || FALLBACK_POSTER}
@@ -82,8 +149,18 @@ export default function MoviesPage() {
                       />
                       <div className="min-w-0">
                         <p className="font-semibold line-clamp-2 group-hover:text-secondary transition">{movie.title}</p>
-                        <p className="text-sm mt-1" style={{ color: 'var(--st-gold)' }}>★ {(9.2 - index * .3).toFixed(1)}/10</p>
-                        <p className="text-xs stitch-muted mt-1">Đang bán vé nhanh</p>
+                        <div className="mt-1">
+                          <InteractiveMovieRating
+                            movieId={movie.movie_id}
+                            score={rating.averageStars}
+                            fallbackScore={rating.averageScore}
+                          />
+                        </div>
+                        <p className="text-xs stitch-muted mt-1">
+                          {rating.ratingCount > 0
+                            ? `${rating.ratingCount} lượt đánh giá`
+                            : 'Chưa có đánh giá'}
+                        </p>
                       </div>
                     </Link>
                   ))}
