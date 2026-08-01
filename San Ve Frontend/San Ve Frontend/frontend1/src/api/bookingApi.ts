@@ -17,15 +17,22 @@ function normalizeBooking(item: Record<string, unknown>): Booking {
 }
 
 function normalizeTicket(item: Record<string, unknown>): BookingTicket {
+  const ticketCode = String(item.ticketCode ?? item.code ?? '').trim();
+
   return {
     ...(item as unknown as BookingTicket),
-    id: (item.id ?? item.ticketId ?? item.code ?? item.qrCode ?? '') as string,
+    id: (item.id ?? item.ticketId ?? ticketCode ?? item.qrCode ?? '') as string,
     ticketId: (item.ticketId ?? item.id) as number | string | undefined,
+    ticketCode: ticketCode || undefined,
+    orderCode: (item.orderCode ?? item.bookingCode) as string | undefined,
     movieTitle: (item.movieTitle ?? (item.movie as Record<string, unknown>)?.title ?? 'Vé xem phim') as string,
-    seatCode: (item.seatCode ?? item.seatName) as string | undefined,
-    seatName: (item.seatName ?? item.seatCode) as string | undefined,
-    qrCode: (item.qrCode ?? item.ticketCode ?? item.code) as string | undefined,
+    seatCode: (item.seatCode ?? item.seatName ?? item.seatLabel) as string | undefined,
+    seatName: (item.seatName ?? item.seatCode ?? item.seatLabel) as string | undefined,
+    showDate: item.showDate as string | undefined,
+    showTime: item.showTime as string | undefined,
+    qrCode: (item.qrCode ?? ticketCode) as string | undefined,
     qrUrl: (item.qrUrl ?? item.qrCodeUrl) as string | undefined,
+    status: (item.ticketStatus ?? item.status) as string | undefined,
   };
 }
 

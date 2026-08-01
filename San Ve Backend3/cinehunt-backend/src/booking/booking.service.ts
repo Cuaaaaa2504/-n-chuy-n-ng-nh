@@ -454,14 +454,16 @@ export class BookingService {
     });
   }
 
-  /** Lấy chi tiết booking kèm thông tin vé — dùng cho GET :id/tickets */
+  /** Lấy các vé điện tử thật của booking — dùng cho GET :id/tickets */
   async getBookingTickets(bookingRef: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
       where: { ...this.buildBookingRef(bookingRef), userId },
       relations: {
-        bookingDetails: { showtimeSeat: { seat: true } as any },
+        bookingDetails: {
+          ticket: true,
+          showtimeSeat: { seat: true } as any,
+        } as any,
         showtime: { movie: true, room: { cinema: true } as any } as any,
-        bookingCombos: { combo: true } as any,
       } as any,
     });
 
@@ -469,7 +471,47 @@ export class BookingService {
       throw new NotFoundException('Không tìm thấy booking');
     }
 
-    return booking;
+    const startTime = booking.showtime?.startTime
+      ? new Date(booking.showtime.startTime)
+      : null;
+
+    return (booking.bookingDetails ?? [])
+      .filter((detail) => Boolean(detail.ticket))
+      .map((detail) => ({
+        id: String(detail.ticket.ticketId),
+        ticketId: String(detail.ticket.ticketId),
+        ticketCode: detail.ticket.ticketCode,
+        qrCode: detail.ticket.qrCode,
+        ticketStatus: detail.ticket.ticketStatus,
+        status: detail.ticket.ticketStatus,
+        issuedAt: detail.ticket.issuedAt,
+        checkedInAt: detail.ticket.checkedInAt,
+        checkedInBy: detail.ticket.checkedInBy,
+        orderCode: booking.bookingCode,
+        movieTitle: booking.showtime?.movie?.title ?? 'Vé xem phim',
+        seatCode:
+          detail.showtimeSeat?.seat?.seatLabel ??
+          `${detail.showtimeSeat?.seat?.seatRow ?? ''}${
+            detail.showtimeSeat?.seat?.seatNumber ?? ''
+          }`,
+        seatName:
+          detail.showtimeSeat?.seat?.seatLabel ??
+          `${detail.showtimeSeat?.seat?.seatRow ?? ''}${
+            detail.showtimeSeat?.seat?.seatNumber ?? ''
+          }`,
+        showDate: startTime
+          ? startTime.toLocaleDateString('vi-VN', {
+              timeZone: 'Asia/Ho_Chi_Minh',
+            })
+          : undefined,
+        showTime: startTime
+          ? startTime.toLocaleTimeString('vi-VN', {
+              timeZone: 'Asia/Ho_Chi_Minh',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : undefined,
+      }));
   }
 
   async getBookingDetail(bookingRef: string, userId: number) {

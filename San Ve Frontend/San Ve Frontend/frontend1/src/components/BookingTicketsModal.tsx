@@ -66,7 +66,7 @@ export default function BookingTicketsModal({
       Array.from(
         new Set(
           tickets
-            .map((ticket) => ticket.qrCode)
+            .map((ticket) => ticket.ticketCode)
             .filter((code): code is string => Boolean(code?.trim()))
             .map((code) => code.trim()),
         ),
@@ -174,6 +174,21 @@ export default function BookingTicketsModal({
                 size={240}
                 alt={`QR cho các ghế ${seats.join(', ')}`}
               />
+            </div>
+
+            <div className="booking-ticket-codes">
+              <p className="text-xs stitch-muted mb-2">Mã vé dùng để soát tại rạp</p>
+              <div className="grid gap-1">
+                {tickets.map((ticket) => (
+                  <code
+                    key={String(ticket.ticketId ?? ticket.id)}
+                    className="text-xs break-all"
+                    style={{ color: 'var(--st-cyan)' }}
+                  >
+                    {ticket.seatCode || ticket.seatName || 'Vé'}: {ticket.ticketCode}
+                  </code>
+                ))}
+              </div>
             </div>
 
             <div className="booking-ticket-meta">

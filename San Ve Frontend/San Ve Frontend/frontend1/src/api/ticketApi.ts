@@ -28,6 +28,8 @@ export interface CheckInResult {
   message: string;
   ticketCode: string;
   checkedInAt: string;
+  ticketCount?: number;
+  ticketCodes?: string[];
 }
 
 function readErrorMessage(err: unknown, fallback: string): string {

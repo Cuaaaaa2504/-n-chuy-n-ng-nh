@@ -25,6 +25,7 @@ export interface Booking {
 export interface BookingTicket {
   id: string | number;
   ticketId?: number | string;
+  ticketCode?: string;
   orderCode?: string;
   movieTitle: string;
   seatCode?: string;

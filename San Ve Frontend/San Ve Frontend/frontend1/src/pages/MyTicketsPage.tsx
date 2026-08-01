@@ -66,7 +66,7 @@ function TicketCard({ ticket, onViewTickets }: { ticket: TicketItem; onViewTicke
           {ticket.seatCodes.length > 0 && <p className="font-mono" style={{ color: 'var(--st-cyan)' }}>Ghế {ticket.seatCodes.join(', ')}</p>}
         </div>
         <div className="mt-auto pt-5 flex items-end justify-between gap-4 border-t border-white/10">
-          <div><p className="text-xs stitch-muted font-mono">#{ticket.bookingCode}</p><strong className="text-xl" style={{ color: 'var(--st-purple)' }}>{ticket.totalAmount.toLocaleString('vi-VN')}₫</strong></div>
+          <div><p className="text-xs stitch-muted font-mono">Mã đơn #{ticket.bookingCode}</p><strong className="text-xl" style={{ color: 'var(--st-purple)' }}>{ticket.totalAmount.toLocaleString('vi-VN')}₫</strong></div>
           {isHolding ? (
             <button type="button" onClick={() => navigate(`/payment/${ticket.bookingId}`)} className="stitch-btn stitch-btn-primary">Thanh toán</button>
           ) : isPaid ? (
@@ -94,38 +94,25 @@ export default function MyTicketsPage() {
     setTicketRows([]);
     setTicketError('');
     setTicketLoading(true);
+
     try {
       const rows = await getBookingTickets(ticket.bookingId);
-      const fallbackSeats = ticket.seatCodes.length > 0 ? ticket.seatCodes : ['VÉ'];
-      setTicketRows(rows.length > 0 ? rows : fallbackSeats.map((seatCode, index) => ({
-        id: `${ticket.bookingCode || ticket.bookingId}-${seatCode || index + 1}`,
-        ticketId: `${ticket.bookingId}-${index + 1}`,
-        orderCode: ticket.bookingCode,
-        movieTitle: ticket.movieTitle,
-        seatCode,
-        seatName: seatCode,
-        showDate: ticket.showDate,
-        showTime: ticket.showTime,
-        qrCode: `${ticket.bookingCode || ticket.bookingId}:${seatCode}`,
-        status: 'VALID',
-      })));
-    } catch (reason: unknown) {
-      {
-        const fallbackSeats = ticket.seatCodes.length > 0 ? ticket.seatCodes : ['VÉ'];
-        setTicketRows(fallbackSeats.map((seatCode, index) => ({
-          id: `${ticket.bookingCode || ticket.bookingId}-${seatCode || index + 1}`,
-          ticketId: `${ticket.bookingId}-${index + 1}`,
-          orderCode: ticket.bookingCode,
-          movieTitle: ticket.movieTitle,
-          seatCode,
-          seatName: seatCode,
-          showDate: ticket.showDate,
-          showTime: ticket.showTime,
-          qrCode: `${ticket.bookingCode || ticket.bookingId}:${seatCode}`,
-          status: 'VALID',
-        })));
+
+      if (!rows.length) {
+        throw new Error(
+          'Đơn đã thanh toán nhưng chưa có vé điện tử. Hãy kiểm tra bước xác nhận thanh toán.',
+        );
       }
-    } finally { setTicketLoading(false); }
+
+      setTicketRows(rows);
+    } catch (reason: unknown) {
+      const message =
+        (reason as { message?: string })?.message ||
+        'Không tải được vé điện tử.';
+      setTicketError(message);
+    } finally {
+      setTicketLoading(false);
+    }
   }, []);
 
   const fetchTickets = useCallback(async () => {

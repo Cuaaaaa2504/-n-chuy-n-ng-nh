@@ -138,7 +138,7 @@ export default function StaffCheckinPage() {
         <div>
           <h1 className="text-2xl font-bold">✅ Soát vé tại rạp</h1>
           <p className={`text-sm mt-1 ${muted}`}>
-            Quét mã vạch trên vé hoặc nhập tay mã vé, rồi nhấn Enter.
+            Quét QR, nhập mã vé TICKET-... hoặc mã đơn BK-..., rồi nhấn Enter.
           </p>
         </div>
 
@@ -152,7 +152,7 @@ export default function StaffCheckinPage() {
               value={code}
               onChange={(e) => setCode(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }}
-              placeholder="VD: TK-2024-000123"
+              placeholder="TICKET-... hoặc BK-..."
               disabled={busy}
               className={`flex-1 min-w-0 px-3 py-3 rounded-xl font-mono text-sm border outline-none focus:ring-2 focus:ring-green-500/50 ${
                 darkMode
