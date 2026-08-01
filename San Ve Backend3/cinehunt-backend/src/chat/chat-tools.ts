@@ -1,15 +1,3 @@
-/**
- * FIX CHAT-05 (phần 2/3) — khai báo công cụ cho Gemini function calling.
- *
- * Gemini không tự biết CineHuntDB có gì. Nó chỉ thấy đúng những mô tả dưới đây,
- * nên phần `description` KHÔNG phải chú thích cho người đọc — nó là prompt thật
- * sự quyết định model gọi đúng hay sai hàm. Viết mơ hồ ở đây thì model sẽ đoán,
- * và đoán sai chính là thứ CHAT-05 đang cố loại bỏ.
- *
- * Schema dùng subset OpenAPI 3.0 mà Gemini chấp nhận: type phải VIẾT HOA
- * ('STRING', 'INTEGER', 'ARRAY'...). Viết thường sẽ nhận 400 INVALID_ARGUMENT.
- */
-
 export interface GeminiFunctionDeclaration {
   name: string;
   description: string;
@@ -27,6 +15,9 @@ export const CHAT_TOOL_NAMES = {
   CHECK_SEATS: 'check_seat_availability',
   LIST_COMBOS: 'list_combos',
   LIST_CINEMAS: 'list_cinemas',
+  HOLD_SEATS: 'hold_seats',
+  CREATE_BOOKING: 'create_booking',
+  CREATE_PAYMENT: 'create_payment',
 } as const;
 
 export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
@@ -42,7 +33,8 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
       properties: {
         query: {
           type: 'STRING',
-          description: 'Từ khoá tên phim, đạo diễn hoặc diễn viên. Bỏ trống để lấy danh sách chung.',
+          description:
+            'Từ khoá tên phim, đạo diễn hoặc diễn viên. Bỏ trống để lấy danh sách chung.',
         },
         status: {
           type: 'STRING',
@@ -51,7 +43,8 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
         },
         genre: {
           type: 'STRING',
-          description: 'Tên thể loại, ví dụ: Hành động, Kinh dị, Hoạt hình, Tình cảm.',
+          description:
+            'Tên thể loại, ví dụ: Hành động, Kinh dị, Hoạt hình, Tình cảm.',
         },
         limit: {
           type: 'INTEGER',
@@ -60,7 +53,6 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
       },
     },
   },
-
   {
     name: CHAT_TOOL_NAMES.GET_MOVIE_DETAIL,
     description:
@@ -71,7 +63,8 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
       properties: {
         movieId: {
           type: 'INTEGER',
-          description: 'ID phim, lấy từ kết quả search_movies. Ưu tiên dùng nếu đã biết.',
+          description:
+            'ID phim, lấy từ kết quả search_movies. Ưu tiên dùng nếu đã biết.',
         },
         title: {
           type: 'STRING',
@@ -80,38 +73,44 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
       },
     },
   },
-
   {
     name: CHAT_TOOL_NAMES.GET_SHOWTIMES,
     description:
-      'Lấy lịch chiếu THẬT còn mở bán, kèm giá vé cơ bản, rạp, phòng và showtimeId. ' +
-      'Bắt buộc gọi khi người dùng hỏi giờ chiếu, suất chiếu, "tối nay chiếu gì", ' +
-      '"mấy giờ có suất", hoặc trước khi kiểm tra ghế. Hàm chỉ trả các suất chưa ' +
-      'bắt đầu — nếu count = 0 thì thực sự không còn suất, tuyệt đối không tự bịa.',
+      'Lấy lịch chiếu thật còn mở bán, kèm giá vé cơ bản, rạp, phòng và showtimeId. ' +
+      'Bắt buộc gọi khi người dùng hỏi giờ chiếu, suất chiếu hoặc trước khi kiểm tra ghế.',
     parameters: {
       type: 'OBJECT',
       properties: {
-        movieId: { type: 'INTEGER', description: 'ID phim (ưu tiên).' },
-        movieTitle: { type: 'STRING', description: 'Tên phim nếu chưa biết movieId.' },
+        movieId: { type: 'INTEGER', description: 'ID phim, ưu tiên dùng.' },
+        movieTitle: {
+          type: 'STRING',
+          description: 'Tên phim nếu chưa biết movieId.',
+        },
         date: {
           type: 'STRING',
           description:
-            'Ngày muốn xem, dạng yyyy-mm-dd hoặc dd/mm/yyyy, hoặc "hôm nay" / "ngày mai". ' +
-            'Bỏ trống để lấy tất cả suất sắp tới.',
+            'Ngày muốn xem, dạng yyyy-mm-dd, dd/mm/yyyy, "hôm nay" hoặc "ngày mai".',
         },
-        cinemaName: { type: 'STRING', description: 'Lọc theo tên rạp.' },
-        city: { type: 'STRING', description: 'Lọc theo thành phố.' },
-        limit: { type: 'INTEGER', description: 'Số suất tối đa (1-20, mặc định 12).' },
+        cinemaName: {
+          type: 'STRING',
+          description: 'Lọc theo tên rạp.',
+        },
+        city: {
+          type: 'STRING',
+          description: 'Lọc theo thành phố.',
+        },
+        limit: {
+          type: 'INTEGER',
+          description: 'Số suất tối đa (1-20, mặc định 12).',
+        },
       },
     },
   },
-
   {
     name: CHAT_TOOL_NAMES.CHECK_SEATS,
     description:
-      'Kiểm tra tình trạng ghế của MỘT suất chiếu: tổng ghế, số ghế trống, và trạng ' +
-      'thái của những ghế cụ thể người dùng hỏi (ví dụ A5, B7). Phải có showtimeId — ' +
-      'nếu chưa có thì gọi get_showtimes trước. Không bao giờ đoán tình trạng ghế.',
+      'Kiểm tra tình trạng ghế của một suất chiếu. Phải có showtimeId; nếu chưa có ' +
+      'thì gọi get_showtimes trước. Không bao giờ đoán tình trạng ghế.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -122,37 +121,142 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
         seatLabels: {
           type: 'ARRAY',
           items: { type: 'STRING' },
-          description: 'Danh sách mã ghế cần kiểm tra, ví dụ ["A5", "A6"]. Tối đa 10 ghế.',
+          description:
+            'Danh sách mã ghế cần kiểm tra, ví dụ ["A5", "A6"]. Tối đa 10 ghế.',
         },
       },
       required: ['showtimeId'],
     },
   },
-
   {
     name: CHAT_TOOL_NAMES.LIST_COMBOS,
     description:
-      'Danh sách combo bắp nước đang bán kèm giá thật. Dùng khi người dùng hỏi về ' +
-      'combo, bắp rang, nước ngọt, đồ ăn tại rạp.',
+      'Danh sách combo bắp nước đang bán kèm giá thật. Dùng khi người dùng hỏi về combo.',
     parameters: {
       type: 'OBJECT',
       properties: {
-        limit: { type: 'INTEGER', description: 'Số combo tối đa (1-20, mặc định 10).' },
+        limit: {
+          type: 'INTEGER',
+          description: 'Số combo tối đa (1-20, mặc định 10).',
+        },
       },
     },
   },
-
   {
     name: CHAT_TOOL_NAMES.LIST_CINEMAS,
     description:
-      'Danh sách rạp CineHunt đang hoạt động kèm địa chỉ và số điện thoại. Dùng khi ' +
-      'người dùng hỏi "có rạp nào ở Hà Nội", "địa chỉ rạp", "rạp gần đây".',
+      'Danh sách rạp CineHunt đang hoạt động kèm địa chỉ và số điện thoại.',
     parameters: {
       type: 'OBJECT',
       properties: {
-        city: { type: 'STRING', description: 'Lọc theo thành phố, ví dụ: Hà Nội, Hồ Chí Minh.' },
-        limit: { type: 'INTEGER', description: 'Số rạp tối đa (1-20, mặc định 15).' },
+        city: {
+          type: 'STRING',
+          description: 'Lọc theo thành phố.',
+        },
+        limit: {
+          type: 'INTEGER',
+          description: 'Số rạp tối đa (1-20, mặc định 15).',
+        },
       },
+    },
+  },
+  {
+    name: CHAT_TOOL_NAMES.HOLD_SEATS,
+    description:
+      'Giữ tạm ghế sau khi chatbot đã nêu rõ phim, rạp, mã suất chiếu, mã ghế, ' +
+      'giá tiền và người dùng vừa xác nhận đồng ý. Truyền showtimeId cùng mã ghế ' +
+      'hiển thị như D3, D4; backend sẽ tự tìm showtimeSeatId chính xác. Tuyệt đối ' +
+      'không đoán hoặc tự tạo ID ghế trong cơ sở dữ liệu.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        showtimeId: {
+          type: 'INTEGER',
+          description:
+            'Mã suất chiếu lấy từ get_showtimes và đã được ghi trong bản tóm tắt xác nhận.',
+        },
+        seatLabels: {
+          type: 'ARRAY',
+          items: { type: 'STRING' },
+          description:
+            'Danh sách mã ghế hiển thị, ví dụ ["D3", "D4"]. Từ 1 đến 8 ghế.',
+        },
+        holdMinutes: {
+          type: 'INTEGER',
+          description: 'Thời gian giữ ghế, mặc định 5 phút, tối đa 10 phút.',
+        },
+      },
+      required: ['showtimeId', 'seatLabels'],
+    },
+  },
+  {
+    name: CHAT_TOOL_NAMES.CREATE_BOOKING,
+    description:
+      'Tạo đơn đặt vé từ các holdIds vừa được hold_seats trả về. Chỉ gọi sau khi ' +
+      'hold_seats thành công. Không tự bịa holdId và không dùng hold của người khác.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        holdIds: {
+          type: 'ARRAY',
+          items: { type: 'STRING' },
+          description:
+            'Danh sách holdId dạng chuỗi số, lấy nguyên vẹn từ hold_seats.',
+        },
+        voucherCode: {
+          type: 'STRING',
+          description: 'Mã voucher nếu người dùng có cung cấp.',
+        },
+        promotionId: {
+          type: 'INTEGER',
+          description: 'ID khuyến mãi nếu đã có từ dữ liệu hệ thống.',
+        },
+        idempotencyKey: {
+          type: 'STRING',
+          description:
+            'Khoá chống tạo trùng do client cung cấp. Bỏ trống nếu không có.',
+        },
+        products: {
+          type: 'ARRAY',
+          description: 'Combo bắp nước người dùng đã chọn.',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              productId: { type: 'INTEGER' },
+              quantity: { type: 'INTEGER' },
+            },
+            required: ['productId', 'quantity'],
+          },
+        },
+      },
+      required: ['holdIds'],
+    },
+  },
+  {
+    name: CHAT_TOOL_NAMES.CREATE_PAYMENT,
+    description:
+      'Khởi tạo giao dịch thanh toán cho booking thuộc người dùng đang đăng nhập. ' +
+      'Chỉ gọi sau khi create_booking thành công và người dùng đã chọn rõ phương thức. ' +
+      'Công cụ chỉ tạo giao dịch và trả đường dẫn; không tự xác nhận thanh toán thành công.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        bookingId: {
+          type: 'STRING',
+          description:
+            'bookingId số hoặc bookingCode dạng BK-..., lấy từ create_booking.',
+        },
+        paymentMethod: {
+          type: 'STRING',
+          enum: ['MOMO', 'VNPAY', 'BANKING', 'CASH', 'MOCK'],
+          description: 'Phương thức do người dùng vừa chọn.',
+        },
+        provider: {
+          type: 'STRING',
+          description: 'Tên nhà cung cấp nếu hệ thống yêu cầu.',
+        },
+      },
+      required: ['bookingId', 'paymentMethod'],
     },
   },
 ];

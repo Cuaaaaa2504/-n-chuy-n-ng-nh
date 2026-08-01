@@ -40,7 +40,29 @@ const TOOL_LABELS: Record<string, string> = {
   check_seat_availability: 'Đang kiểm tra ghế trống…',
   list_combos: 'Đang xem bảng giá combo…',
   list_cinemas: 'Đang tra danh sách rạp…',
+  hold_seats: 'Đang giữ ghế…',
+  create_booking: 'Đang tạo đơn đặt vé…',
+  create_payment: 'Đang khởi tạo thanh toán…',
 };
+
+/**
+ * Chat bubble hiện dùng text thuần, không phải Markdown renderer. Chuẩn hoá
+ * câu trả lời sau khi stream kết thúc để không còn hiện **, # hoặc backtick.
+ */
+function plainTextFromMarkdown(value: string): string {
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/\*\*([\s\S]*?)\*\*/g, '$1')
+    .replace(/__([\s\S]*?)__/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/_([^_\n]+)_/g, '$1')
+    .replace(/`([^`\n]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 function createId(role: Message['role']): string {
   return `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -91,7 +113,7 @@ export function useChat() {
               isStreaming: false,
               // Giữ lại phần chữ đã nhận được — người dùng bấm dừng vì đã đọc
               // đủ, xoá đi là phản tác dụng.
-              content: m.content.trim() || 'Đã dừng câu trả lời.',
+              content: plainTextFromMarkdown(m.content) || 'Đã dừng câu trả lời.',
             }
           : m,
       ),
@@ -140,9 +162,19 @@ export function useChat() {
 
       const finish = (patch: Partial<Message>) => {
         setMessages((current) =>
-          current.map((m) =>
-            m.id === assistantId ? { ...m, isStreaming: false, ...patch } : m,
-          ),
+          current.map((m) => {
+            if (m.id !== assistantId) return m;
+
+            const nextContent = patch.content ?? m.content;
+            return {
+              ...m,
+              isStreaming: false,
+              ...patch,
+              content: patch.isError
+                ? nextContent
+                : plainTextFromMarkdown(nextContent),
+            };
+          }),
         );
       };
 
