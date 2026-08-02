@@ -4,6 +4,8 @@ export class HardenOtpCodes1785605000000 implements MigrationInterface {
   name = 'HardenOtpCodes1785605000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // SQL Server resolves column names per batch. End the schema-changing batch
+    // before a later query references `used_at`.
     await queryRunner.query(`
       IF OBJECT_ID(N'dbo.otp_codes', N'U') IS NULL
       BEGIN
@@ -23,7 +25,9 @@ export class HardenOtpCodes1785605000000 implements MigrationInterface {
       BEGIN
         ALTER TABLE dbo.otp_codes ADD used_at DATETIME2(0) NULL;
       END;
+    `);
 
+    await queryRunner.query(`
       UPDATE dbo.otp_codes
       SET is_used = 1,
           used_at = COALESCE(used_at, SYSDATETIME())

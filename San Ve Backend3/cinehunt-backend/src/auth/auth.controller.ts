@@ -46,10 +46,16 @@ function parseDurationMs(rawValue: string | undefined): number {
 
 function refreshCookieOptions(): CookieOptions {
   const isProduction = process.env.NODE_ENV === 'production';
+  const configured = process.env.REFRESH_COOKIE_SAME_SITE?.trim().toLowerCase();
+  const sameSite: CookieOptions['sameSite'] =
+    configured === 'none' || configured === 'strict' || configured === 'lax'
+      ? configured
+      : 'lax';
+
   return {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax',
+    secure: isProduction || sameSite === 'none',
+    sameSite,
     path: '/auth',
     maxAge: parseDurationMs(process.env.JWT_REFRESH_EXPIRES_IN),
   };

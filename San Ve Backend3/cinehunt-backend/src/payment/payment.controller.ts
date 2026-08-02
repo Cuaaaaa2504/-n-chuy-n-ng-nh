@@ -10,15 +10,21 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaymentService } from './payment.service';
 import { CreatePaymentDto } from './dto';
+import {
+  PaymentAccess,
+  PaymentAccessGuard,
+} from './payment-access.guard';
 
 @Controller('payments')
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
-  // GET /payments/methods — public, không cần auth
-  // Phải đặt TRƯỚC các route có :id để NestJS không nhầm 'methods' là :id
   @Get('methods')
   getPaymentMethods() {
+    const demoEnabled =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ALLOW_DEMO_PAYMENT === 'true';
+
     return [
       {
         code: 'MOMO',
@@ -36,10 +42,20 @@ export class PaymentController {
         code: 'BANKING',
         name: 'Chuyển khoản ngân hàng',
         enabled: true,
-        note: 'QR demo cho đồ án',
+        note: 'Tạo giao dịch chờ STAFF/ADMIN xác nhận',
       },
-      { code: 'MOCK', name: 'Thanh toán giả lập (Dev)', enabled: true },
-      { code: 'CASH', name: 'Tiền mặt tại quầy', enabled: true },
+      {
+        code: 'MOCK',
+        name: 'Thanh toán giả lập (Dev)',
+        enabled: demoEnabled,
+        note: demoEnabled ? 'Chỉ dùng trong môi trường phát triển' : 'Đã tắt',
+      },
+      {
+        code: 'CASH',
+        name: 'Tiền mặt tại quầy',
+        enabled: true,
+        note: 'Tạo giao dịch chờ nhân viên tại quầy xác nhận',
+      },
     ];
   }
 
@@ -50,19 +66,22 @@ export class PaymentController {
     return this.paymentService.createPayment(userId, dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PaymentAccessGuard)
+  @PaymentAccess('CONFIRM_PAYMENT')
   @Post(':id/success')
   async paymentSuccess(@Param('id') id: string) {
     return this.paymentService.processPaymentSuccess(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PaymentAccessGuard)
+  @PaymentAccess('FAIL_PAYMENT')
   @Post(':id/failed')
   async paymentFailed(@Param('id') id: string) {
     return this.paymentService.processPaymentFailed(id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PaymentAccessGuard)
+  @PaymentAccess('READ_BOOKING')
   @Get('booking/:bookingId')
   async getPaymentByBooking(@Param('bookingId') bookingId: string) {
     return this.paymentService.getPaymentByBookingId(bookingId);

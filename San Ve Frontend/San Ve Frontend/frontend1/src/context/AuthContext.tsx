@@ -7,6 +7,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { clearMovieRatingCache } from '../api/movieRatingApi';
 
 // FIX TS2339: export User interface với avatarUrl để ProfilePage import được
 export interface User {
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const handler = () => {
+      clearMovieRatingCache();
       setLoading(true);
       try {
         const nextToken = localStorage.getItem('accessToken');
@@ -90,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback((newToken: string, newUser: User) => {
+    clearMovieRatingCache();
     const normalizedUser = normalizeUser(newUser);
     localStorage.setItem('accessToken', newToken);
     localStorage.setItem('user', JSON.stringify(normalizedUser));
@@ -99,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    clearMovieRatingCache();
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     setToken(null);

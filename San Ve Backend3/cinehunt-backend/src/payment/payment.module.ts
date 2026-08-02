@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
 import { PaymentRepository } from './payment.repository';
+import { PaymentAccessGuard } from './payment-access.guard';
 import { BookingModule } from '../booking/booking.module';
 import { Payment } from '../entities/payment.entity';
 import { Ticket } from '../entities/ticket.entity';
@@ -15,7 +16,7 @@ import { ShowtimeSeat } from '../entities/showtime-seat.entity';
     BookingModule,
   ],
   controllers: [PaymentController],
-  providers: [PaymentService, PaymentRepository],
+  providers: [PaymentService, PaymentRepository, PaymentAccessGuard],
   exports: [PaymentService],
 })
 export class PaymentModule {}

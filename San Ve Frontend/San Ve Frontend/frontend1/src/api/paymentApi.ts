@@ -125,8 +125,8 @@ export async function payOrder(
 }
 
 /** Các phương thức backend tự xử lý ngay, không qua cổng thanh toán ngoài. */
-// BANKING hiện là QR demo cho đồ án, nên xác nhận nội bộ giống MOCK/CASH.
-const AUTO_CONFIRM_METHODS: PaymentMethodCode[] = ['BANKING', 'MOCK', 'CASH'];
+// Chỉ MOCK được trình duyệt tự xác nhận; BANKING/CASH phải chờ backend hoặc nhân viên.
+const AUTO_CONFIRM_METHODS: PaymentMethodCode[] = ['MOCK'];
 
 /**
  * FIX BUG-04: gọi /payments/:id/success một cách idempotent.

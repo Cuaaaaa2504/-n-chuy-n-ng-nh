@@ -9,7 +9,9 @@ export default function PrivateRoute() {
   const location = useLocation();
 
   // ✅ Bypass auth khi test local — check sau hooks
-  if (import.meta.env.VITE_BYPASS_AUTH === 'true') return <Outlet />;
+  const bypassAuth =
+    import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true';
+  if (bypassAuth) return <Outlet />;
 
   if (!isLoggedIn)
     return <Navigate to="/login" replace state={{ from: location }} />;

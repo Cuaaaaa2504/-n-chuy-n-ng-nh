@@ -16,10 +16,11 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { memoryStorage } from 'multer';
+import { join } from 'path';
+import { mkdir, unlink, writeFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
+import { detectAvatarExtension } from './avatar-file.util';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -104,16 +105,7 @@ export class UsersController {
   @Post('me/avatar')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          // Tự tạo thư mục nếu chưa có, tránh lỗi ENOENT ở máy mới clone repo về
-          if (!existsSync(AVATAR_DIR)) mkdirSync(AVATAR_DIR, { recursive: true });
-          cb(null, AVATAR_DIR);
-        },
-        filename: (_req, file, cb) => {
-          cb(null, `${randomUUID()}${extname(file.originalname).toLowerCase()}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: MAX_AVATAR_BYTES },
       fileFilter: (_req, file, cb) => {
         if (!ALLOWED_AVATAR_MIME.includes(file.mimetype)) {
@@ -132,10 +124,24 @@ export class UsersController {
   ) {
     if (!file) throw new BadRequestException('Không nhận được file ảnh');
 
-    const avatarUrl = `/uploads/avatars/${file.filename}`;
-    await this.usersService.updateProfile(user.userId, { avatarUrl });
+    const extension = detectAvatarExtension(file.buffer);
+    if (!extension) {
+      throw new BadRequestException('Nội dung file không phải ảnh JPEG, PNG, WEBP hoặc GIF hợp lệ');
+    }
 
-    // Frontend đọc res.avatarUrl -> trả đúng shape { avatarUrl }
+    await mkdir(AVATAR_DIR, { recursive: true });
+    const filename = `${randomUUID()}${extension}`;
+    const absolutePath = join(AVATAR_DIR, filename);
+    const avatarUrl = `/uploads/avatars/${filename}`;
+
+    await writeFile(absolutePath, file.buffer, { flag: 'wx' });
+    try {
+      await this.usersService.updateProfile(user.userId, { avatarUrl });
+    } catch (error) {
+      await unlink(absolutePath).catch(() => undefined);
+      throw error;
+    }
+
     return { avatarUrl };
   }
 
@@ -187,7 +193,11 @@ export class UsersController {
   setUserStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body('status') status: 'ACTIVE' | 'BANNED' | 'DELETED',
+    @CurrentUser() actor: CurrentUserPayload,
   ) {
+    if (actor.userId === id && status !== 'ACTIVE') {
+      throw new BadRequestException('Bạn không thể tự khóa hoặc xóa tài khoản của chính mình');
+    }
     return this.usersService.setUserStatus(id, status);
   }
 
