@@ -7,6 +7,25 @@ import { API_BASE_URL } from '../config/env';
 // với `strict: true` không còn báo lỗi TS2339.
 type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
+let refreshPromise: Promise<string | null> | null = null;
+
+async function requestNewAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post(
+        API_BASE_URL + '/auth/refresh',
+        {},
+        { withCredentials: true },
+      )
+      .then((response) => response.data?.accessToken ?? null)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
 // NOTE: interceptor response unwrap response.data một lần duy nhất.
 // Tất cả các nơi gọi axiosClient KHÔNG được unwrap thêm lần nào nữa.
 const axiosClient = axios.create({
@@ -14,6 +33,7 @@ const axiosClient = axios.create({
   // đều thất bại. Giá trị lấy từ config/env.ts (nguồn duy nhất).
   baseURL: API_BASE_URL,
   timeout: 10000,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -35,12 +55,7 @@ axiosClient.interceptors.response.use(
     if (status === 401 && originalRequest && !originalRequest._retry) {
       try {
         originalRequest._retry = true;
-        const res = await axios.post(
-          API_BASE_URL + '/auth/refresh',
-          {},
-          { withCredentials: true },
-        );
-        const newToken = res.data?.accessToken;
+        const newToken = await requestNewAccessToken();
         if (newToken) {
           localStorage.setItem('accessToken', newToken);
           originalRequest.headers.Authorization = 'Bearer ' + newToken;

@@ -324,12 +324,8 @@ export class EnsureMovieRatingsSchema1785604117884
   }
 
   public async down(_queryRunner: QueryRunner): Promise<void> {
-    /*
-     * Cố ý không tự động DROP.
-     *
-     * Migration này có thể chạy trên database mà movie_ratings,
-     * trigger và procedure đã tồn tại trước đó. Nếu down() xóa chúng,
-     * việc revert có thể làm mất dữ liệu rating hiện có.
-     */
+    throw new Error(
+      'EnsureMovieRatingsSchema là migration dữ liệu không thể revert tự động an toàn.',
+    );
   }
 }

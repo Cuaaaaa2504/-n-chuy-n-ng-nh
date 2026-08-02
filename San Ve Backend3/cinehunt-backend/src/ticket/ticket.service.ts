@@ -123,7 +123,7 @@ export class TicketService {
             t.ticket_status,
             CAST(
               CASE
-                WHEN SYSDATETIME() BETWEEN DATEADD(MINUTE, -30, st.start_time)
+                WHEN CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time' AS DATETIME2) BETWEEN DATEADD(MINUTE, -30, st.start_time)
                   AND DATEADD(MINUTE, 30, st.start_time)
                 THEN 1 ELSE 0
               END
@@ -192,7 +192,7 @@ export class TicketService {
             t.ticket_status,
             CAST(
               CASE
-                WHEN SYSDATETIME() BETWEEN DATEADD(MINUTE, -30, st.start_time)
+                WHEN CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time' AS DATETIME2) BETWEEN DATEADD(MINUTE, -30, st.start_time)
                   AND DATEADD(MINUTE, 30, st.start_time)
                 THEN 1 ELSE 0
               END

@@ -4,9 +4,10 @@ import {
   Get,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import type { CookieOptions, Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -14,34 +15,59 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
-import { CurrentUser, CurrentUserPayload } from './decorators/current-user.decorator';
+import {
+  CurrentUser,
+  CurrentUserPayload,
+} from './decorators/current-user.decorator';
 import {
   AUTH_THROTTLE,
   REFRESH_THROTTLE,
 } from '../common/constants/throttle.constants';
+import {
+  extractRefreshTokenFromCookie,
+  REFRESH_COOKIE_NAME,
+} from './strategies/jwt-refresh.strategy';
 
-/**
- * FIX [Dọn dẹp endpoint trùng lặp — mục 1.1 → 1.6 của báo cáo]
- *
- * Controller này TRƯỚC ĐÂY còn 6 route trùng/thừa, nay đã bị gỡ bỏ:
- *
- *  | Route đã xoá                    | Route thay thế (duy nhất)          |
- *  |---------------------------------|------------------------------------|
- *  | PATCH /auth/me                  | PATCH /users/me                    |
- *  | POST  /auth/me/change-password  | POST  /users/me/change-password    |
- *  | GET   /auth/users               | GET   /users                       |
- *  | PATCH /auth/users/:id/status    | PATCH /users/:id/status            |
- *  | GET   /auth/admin-only          | (endpoint test — xoá hẳn)          |
- *  | GET   /auth/staff-or-admin      | (endpoint test — xoá hẳn)          |
- *
- * Lý do: mỗi chức năng chỉ nên có MỘT đường vào. Khi tồn tại 2–3 route cho cùng
- * một hành động, guard/validation/throttle rất dễ lệch nhau giữa các route và
- * kẻ tấn công sẽ chọn đúng route yếu nhất để đi (xem mục 1.2 của báo cáo).
- *
- * `AuthController` từ nay chỉ giữ đúng phạm vi của nó: đăng ký, đăng nhập,
- * refresh, logout và đọc phiên hiện tại. Mọi thao tác trên *tài nguyên user*
- * đều nằm ở `UsersController`.
- */
+function parseDurationMs(rawValue: string | undefined): number {
+  const raw = (rawValue || '7d').trim();
+  const match = raw.match(/^(\d+(?:\.\d+)?)(d|h|m|w)?$/i);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+
+  const value = Number(match[1]);
+  const unit = (match[2] || 'd').toLowerCase();
+  const units: Record<string, number> = {
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+    w: 7 * 24 * 60 * 60 * 1000,
+  };
+  return Math.max(60_000, value * (units[unit] ?? units.d));
+}
+
+function refreshCookieOptions(): CookieOptions {
+  const isProduction = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/auth',
+    maxAge: parseDurationMs(process.env.JWT_REFRESH_EXPIRES_IN),
+  };
+}
+
+function setRefreshCookie(response: Response, refreshToken: string): void {
+  response.cookie(
+    REFRESH_COOKIE_NAME,
+    refreshToken,
+    refreshCookieOptions(),
+  );
+}
+
+function clearRefreshCookie(response: Response): void {
+  const { maxAge: _maxAge, ...options } = refreshCookieOptions();
+  response.clearCookie(REFRESH_COOKIE_NAME, options);
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -49,54 +75,66 @@ export class AuthController {
     private readonly usersService: UsersService,
   ) {}
 
-  // Siết chặt: 5 lần / 60s — chống spam tạo tài khoản ảo.
   @Throttle(AUTH_THROTTLE)
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
-  // Siết chặt: 5 lần / 60s — chống brute-force mật khẩu.
   @Throttle(AUTH_THROTTLE)
   @Post('login')
-  async login(@Body() dto: LoginDto, @Req() req: Request) {
-    return this.authService.login(dto, {
-      deviceInfo: req.headers['user-agent'],
-      ipAddress: req.ip,
+  async login(
+    @Body() dto: LoginDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.login(dto, {
+      deviceInfo: request.headers['user-agent'],
+      ipAddress: request.ip,
     });
+
+    setRefreshCookie(response, result.refreshToken);
+    const { refreshToken: _refreshToken, ...safeResult } = result;
+    return safeResult;
   }
 
-  // FIX [#2]: /refresh được FE gọi TỰ ĐỘNG khi access token hết hạn
-  // (silent refresh). User mở nhiều tab => nhiều request gần như đồng thời,
-  // dễ đụng trần limit mặc định và văng 429 oan, khiến user bị đăng xuất
-  // ngoài ý muốn. Vì vậy nới riêng cho route này (30 lần / 60s).
   @Throttle(REFRESH_THROTTLE)
   @Post('refresh')
   @UseGuards(JwtRefreshGuard)
-  async refresh(@CurrentUser() user: any) {
-    return this.authService.refresh(user.userId, user.refreshToken);
+  async refresh(
+    @CurrentUser() user: any,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.refresh(
+      user.userId,
+      user.refreshToken,
+      {
+        deviceInfo: request.headers['user-agent'],
+        ipAddress: request.ip,
+      },
+    );
+
+    setRefreshCookie(response, result.refreshToken);
+    const { refreshToken: _refreshToken, ...safeResult } = result;
+    return safeResult;
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   async logout(
     @CurrentUser() user: CurrentUserPayload,
-    @Body('refreshToken') refreshToken?: string,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+    @Body('refreshToken') bodyRefreshToken?: string,
   ) {
-    return this.authService.logout(user.userId, refreshToken);
+    const refreshToken =
+      bodyRefreshToken || extractRefreshTokenFromCookie(request) || undefined;
+    const result = await this.authService.logout(user.userId, refreshToken);
+    clearRefreshCookie(response);
+    return result;
   }
 
-  /**
-   * FIX [mục 2.1 — hai `getProfile` khác shape]:
-   * `AuthService.getProfile()` (toSafeUser) và `UsersService.getProfile()`
-   * (toProfile) trả về hai object KHÁC NHAU — `toProfile` có thêm field `id`
-   * mà frontend đang đọc. Trước đây GET /auth/me dùng bản của AuthService còn
-   * PATCH /users/me lại trả bản của UsersService, nên cùng một user sẽ có shape
-   * khác nhau tuỳ endpoint.
-   *
-   * Nay GET /auth/me uỷ quyền thẳng cho UsersService -> chỉ còn MỘT nguồn sự
-   * thật cho hồ sơ người dùng.
-   */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@CurrentUser() user: CurrentUserPayload) {

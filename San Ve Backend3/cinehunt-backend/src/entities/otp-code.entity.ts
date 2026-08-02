@@ -16,7 +16,7 @@ export class OtpCode {
   @Column({ name: 'user_id', type: 'int' })
   userId: number;
 
-  @Column({ name: 'code', type: 'varchar', length: 10 })
+  @Column({ name: 'code', type: 'varchar', length: 64 })
   code: string;
 
   @Column({ name: 'purpose', type: 'varchar', length: 30 })
