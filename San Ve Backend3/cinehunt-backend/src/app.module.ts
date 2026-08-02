@@ -80,8 +80,14 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
           ),
           synchronize: false,
           options: {
-            encrypt: false,
-            trustServerCertificate: true,
+            encrypt: parseBoolean(
+              configService.get<string>('DB_ENCRYPT'),
+              isProduction,
+            ),
+            trustServerCertificate: parseBoolean(
+              configService.get<string>('DB_TRUST_SERVER_CERTIFICATE'),
+              !isProduction,
+            ),
             ...(configService.get<string>('DB_INSTANCE')
               ? { instanceName: configService.get<string>('DB_INSTANCE') }
               : {}),

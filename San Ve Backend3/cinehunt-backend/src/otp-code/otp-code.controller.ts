@@ -2,35 +2,41 @@ import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { OtpCodeService } from './otp-code.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser, CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  CurrentUserPayload,
+} from '../auth/decorators/current-user.decorator';
 import {
   OTP_VERIFY_THROTTLE,
   SENSITIVE_THROTTLE,
 } from '../common/constants/throttle.constants';
+import { GenerateOtpDto } from './dto/generate-otp.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 @Controller('otp')
+@UseGuards(JwtAuthGuard)
 export class OtpCodeController {
   constructor(private readonly otpCodeService: OtpCodeService) {}
 
-  // Siết chặt: 3 lần / 60s — chống spam gửi OTP (tốn SMS/email + DoS).
   @Throttle(SENSITIVE_THROTTLE)
   @Post('generate')
-  @UseGuards(JwtAuthGuard)
   generate(
     @CurrentUser() user: CurrentUserPayload,
-    @Body('purpose') purpose: 'VERIFY_EMAIL' | 'RESET_PASSWORD' | 'CHANGE_PHONE',
+    @Body() dto: GenerateOtpDto,
   ) {
-    return this.otpCodeService.generateOtp(user.userId, purpose);
+    return this.otpCodeService.generateOtp(user.userId, dto.purpose);
   }
 
-  // Siết chặt: 5 lần / 60s — chống brute-force dò mã OTP 6 số.
   @Throttle(OTP_VERIFY_THROTTLE)
   @Post('verify')
-  @UseGuards(JwtAuthGuard)
   verify(
     @CurrentUser() user: CurrentUserPayload,
-    @Body() body: { code: string; purpose: 'VERIFY_EMAIL' | 'RESET_PASSWORD' | 'CHANGE_PHONE' },
+    @Body() dto: VerifyOtpDto,
   ) {
-    return this.otpCodeService.verifyOtp(user.userId, body.code, body.purpose);
+    return this.otpCodeService.verifyOtp(
+      user.userId,
+      dto.code,
+      dto.purpose,
+    );
   }
 }

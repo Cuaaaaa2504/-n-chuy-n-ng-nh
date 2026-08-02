@@ -201,9 +201,26 @@ export class UsersService {
       const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
       if (!valid)
         throw new BadRequestException('Mật khẩu hiện tại không đúng');
+      if (dto.currentPassword === dto.newPassword) {
+        throw new BadRequestException(
+          'Mật khẩu mới không được trùng mật khẩu hiện tại',
+        );
+      }
+
       user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
-      await this.userRepo.save(user);
-      return { message: 'Đổi mật khẩu thành công' };
+      await this.userRepo.manager.transaction(async (manager) => {
+        await manager.save(user);
+        await manager.query(
+          `UPDATE dbo.refresh_tokens
+           SET revoked_at = SYSDATETIME()
+           WHERE user_id = @0 AND revoked_at IS NULL`,
+          [userId],
+        );
+      });
+
+      return {
+        message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.',
+      };
     } catch (err) {
       if (err instanceof NotFoundException || err instanceof BadRequestException) throw err;
       throw new InternalServerErrorException('Không đổi được mật khẩu');
