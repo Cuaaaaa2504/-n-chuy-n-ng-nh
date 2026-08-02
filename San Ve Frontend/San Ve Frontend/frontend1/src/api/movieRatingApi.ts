@@ -13,6 +13,11 @@ type RawSummary = Record<string, unknown>;
 const cache = new Map<string, MovieRatingSummary>();
 const inflight = new Map<string, Promise<MovieRatingSummary>>();
 
+export function clearMovieRatingCache(): void {
+  cache.clear();
+  inflight.clear();
+}
+
 function normalizeSummary(raw: RawSummary, movieId: number): MovieRatingSummary {
   const averageStars = Number(raw.averageStars ?? raw.average_stars ?? 0);
   const averageScore = Number(raw.averageScore ?? raw.average_score ?? averageStars * 2);
@@ -143,4 +148,3 @@ export async function getTopRatedMovies(
     throw apiError(error, 'Không tải được danh sách phim đánh giá cao nhất');
   }
 }
-

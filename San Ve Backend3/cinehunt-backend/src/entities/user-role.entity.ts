@@ -1,7 +1,6 @@
 import {
   Entity,
-  Column,
-  PrimaryColumn,
+  PrimaryColumn as PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
@@ -12,10 +11,10 @@ import { Role } from './role.entity';
 @Entity('user_roles')
 export class UserRole {
   // SQL: PRIMARY KEY (user_id, role_id) — composite key, KHÔNG có cột user_role_id
-  @PrimaryColumn({ name: 'user_id', type: 'int' })
+  @PrimaryGeneratedColumn({ name: 'user_id', type: 'int' })
   userId: number;
 
-  @PrimaryColumn({ name: 'role_id', type: 'int' })
+  @PrimaryGeneratedColumn({ name: 'role_id', type: 'int' })
   roleId: number;
 
   // SQL: assigned_at DATETIME2(0) DEFAULT SYSDATETIME()

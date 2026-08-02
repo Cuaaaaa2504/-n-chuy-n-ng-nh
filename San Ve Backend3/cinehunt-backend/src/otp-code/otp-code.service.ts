@@ -4,10 +4,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHmac, randomInt, timingSafeEqual } from 'crypto';
 import { LessThan, Repository } from 'typeorm';
 import { OtpCode } from '../entities/otp-code.entity';
+import { User } from '../entities/user.entity';
 
 export interface OtpGenerationResult {
   expiresAt: Date;
   code?: string;
+}
+
+export interface OtpVerificationResult {
+  verified: true;
+  purpose: string;
+  verifiedAt: Date;
 }
 
 @Injectable()
@@ -18,7 +25,7 @@ export class OtpCodeService {
   constructor(
     @InjectRepository(OtpCode)
     private readonly repo: Repository<OtpCode>,
-    configService: ConfigService,
+    private readonly configService: ConfigService,
   ) {
     this.hashSecret = configService.getOrThrow<string>('OTP_HASH_SECRET');
     this.exposeCodeInDevelopment =
@@ -83,7 +90,7 @@ export class OtpCodeService {
     userId: number,
     code: string,
     purpose: string,
-  ): Promise<OtpCode> {
+  ): Promise<OtpVerificationResult> {
     return this.repo.manager.transaction(async (manager) => {
       const otp = await manager.findOne(OtpCode, {
         where: { userId, purpose, isUsed: false },
@@ -117,7 +124,12 @@ export class OtpCodeService {
       otp.isUsed = true;
       otp.usedAt = now;
       await manager.save(otp);
-      return otp;
+
+      if (purpose === 'VERIFY_EMAIL') {
+        await manager.update(User, { userId }, { emailVerified: true });
+      }
+
+      return { verified: true, purpose, verifiedAt: now };
     });
   }
 
@@ -125,7 +137,7 @@ export class OtpCodeService {
     userId: number,
     code: string,
     purpose: string,
-  ): Promise<OtpCode> {
+  ): Promise<OtpVerificationResult> {
     return this.verifyOtp(userId, code, purpose);
   }
 
