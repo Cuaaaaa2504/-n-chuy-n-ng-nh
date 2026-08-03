@@ -326,6 +326,41 @@ export class ChatService implements OnModuleInit {
     return assistantAskedForConfirmation && userConfirmed;
   }
 
+  /**
+   * Đọc showtimeId và mã ghế từ bản tóm tắt ngay trước tin nhắn xác nhận.
+   * Nhờ đó câu "Xác nhận" không cần gọi Gemini thêm lần nữa, tránh 429 xảy ra
+   * trước khi model kịp gọi hold_seats.
+   */
+  private confirmedSeatActionArgs(
+    messages: ChatMessageDto[],
+  ): Record<string, unknown> | null {
+    if (!this.hasExplicitSeatConfirmation(messages)) return null;
+
+    const summary = this.previousAssistantMessage(messages);
+
+    const showtimeMatch =
+      summary.match(/showtimeid\)?\s*[:#-]?\s*(\d+)/i) ??
+      summary.match(/mã suất chiếu[^0-9]*(\d+)/i);
+
+    const seatLine = summary.match(/mã ghế\s*:\s*([^\n\r]+)/i);
+    const seatLabels = seatLine?.[1]?.match(/[a-z]{1,3}\d{1,3}/gi) ?? [];
+
+    const showtimeId = Number(showtimeMatch?.[1]);
+
+    if (
+      !Number.isInteger(showtimeId) ||
+      showtimeId <= 0 ||
+      seatLabels.length === 0
+    ) {
+      return null;
+    }
+
+    return {
+      showtimeId,
+      seatLabels: [...new Set(seatLabels.map((label) => label.toUpperCase()))],
+    };
+  }
+
   private hasExplicitPaymentSelection(
     messages: ChatMessageDto[],
     args: Record<string, unknown>,
@@ -600,6 +635,23 @@ export class ChatService implements OnModuleInit {
     messages: ChatMessageDto[],
     userId: number,
   ): Promise<string> {
+    const confirmedArgs = this.confirmedSeatActionArgs(messages);
+
+    if (confirmedArgs) {
+      const response = await this.executeTool(
+        CHAT_TOOL_NAMES.HOLD_SEATS,
+        confirmedArgs,
+        userId,
+        messages,
+      );
+
+      return (
+        this.terminalToolReply([
+          { name: CHAT_TOOL_NAMES.HOLD_SEATS, response },
+        ]) ?? 'Không thể hoàn tất thao tác giữ ghế.'
+      );
+    }
+
     const apiKey = this.requireApiKey();
     const contents = this.buildContents(messages);
 
@@ -737,6 +789,28 @@ export class ChatService implements OnModuleInit {
     userId: number,
     signal?: AbortSignal,
   ): AsyncGenerator<ChatStreamEvent> {
+    const confirmedArgs = this.confirmedSeatActionArgs(messages);
+
+    if (confirmedArgs) {
+      yield { type: 'tool', tool: CHAT_TOOL_NAMES.HOLD_SEATS };
+
+      const response = await this.executeTool(
+        CHAT_TOOL_NAMES.HOLD_SEATS,
+        confirmedArgs,
+        userId,
+        messages,
+      );
+
+      const reply =
+        this.terminalToolReply([
+          { name: CHAT_TOOL_NAMES.HOLD_SEATS, response },
+        ]) ?? 'Không thể hoàn tất thao tác giữ ghế.';
+
+      yield { type: 'delta', text: reply };
+      yield { type: 'done' };
+      return;
+    }
+
     let apiKey: string;
     let contents: GeminiContent[];
 
