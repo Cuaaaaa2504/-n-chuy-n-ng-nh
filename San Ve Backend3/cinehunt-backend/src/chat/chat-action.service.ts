@@ -18,7 +18,7 @@ import { SeatHoldService } from '../showtime-seats/seat-hold/seat-hold.service';
 import { ShowtimeSeatsService } from '../showtime-seats/showtime-seats.service';
 
 const MAX_SEATS_PER_BOOKING = 8;
-const DEFAULT_HOLD_MINUTES = 5;
+const DEFAULT_HOLD_MINUTES = 10;
 const MAX_HOLD_MINUTES = 10;
 const MAX_PRODUCTS = 20;
 
@@ -263,6 +263,45 @@ export class ChatActionService {
         expiresAt: hold.expiresAt,
       })),
       nextAction: 'Gọi create_booking bằng đúng holdIds vừa trả về.',
+    };
+  }
+
+  /**
+   * Giữ ghế và tạo booking trong cùng một lượt backend.
+   *
+   * Trước đây chatbot giữ ghế xong phải gọi Gemini thêm một vòng để model
+   * gọi create_booking. Nếu vòng AI đó timeout/429, ghế bị HELD nhưng không có
+   * booking PENDING_PAYMENT, nên mục "Vé đang giữ" trống.
+   *
+   * Nay không còn khoảng hở đó: hold thành công thì tạo booking ngay; nếu tạo
+   * booking lỗi, createBooking() bên dưới tự giải phóng toàn bộ hold vừa tạo.
+   */
+  async holdSeatsAndCreateBooking(
+    userId: number,
+    args: ToolArgs,
+  ): Promise<Record<string, unknown>> {
+    const holdResult = await this.holdSeats(userId, args);
+    const rawHoldIds = holdResult.holdIds;
+
+    const holdIds = Array.isArray(rawHoldIds)
+      ? rawHoldIds
+          .map((id) => String(id ?? '').trim())
+          .filter((id) => /^\d+$/.test(id))
+      : [];
+
+    if (!holdIds.length) {
+      throw new BadRequestException(
+        'Không lấy được holdIds sau khi giữ ghế',
+      );
+    }
+
+    const bookingResult = await this.createBooking(userId, { holdIds });
+
+    return {
+      ...holdResult,
+      booking: bookingResult.booking,
+      nextAction:
+        'Hỏi người dùng chọn MOMO, VNPAY, BANKING, CASH hoặc MOCK trước khi tạo thanh toán.',
     };
   }
 

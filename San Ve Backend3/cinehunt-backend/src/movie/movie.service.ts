@@ -210,17 +210,18 @@ export class MovieService {
     return this.movieRepo.save(movie);
   }
 
-  async remove(id: number) {
-    const movie = await this.findOne(id);
-    movie.status = MovieStatus.ENDED;
-    await this.movieRepo.save(movie);
+ async remove(id: number) {
+  const movie = await this.findOne(id);
 
-    return {
-      message: 'Đã xóa phim khỏi danh sách đang hoạt động',
-      movieId: id,
-      status: MovieStatus.ENDED,
-    };
-  }
+  movie.status = MovieStatus.HIDDEN;
+  await this.movieRepo.save(movie);
+
+  return {
+    message: 'Đã ẩn phim khỏi hệ thống',
+    movieId: id,
+    status: MovieStatus.HIDDEN,
+  };
+}
 
   private async resolveGenres(genreIds?: number[]) {
     if (!genreIds || genreIds.length === 0) return [];

@@ -91,7 +91,8 @@ Bạn là trợ lý AI của CineHunt, nền tảng đặt vé xem phim trực t
 CÔNG CỤ DỮ LIỆU THẬT:
 - Đọc dữ liệu: search_movies, get_movie_detail, get_showtimes,
   check_seat_availability, list_combos, list_cinemas.
-- Thao tác đặt vé: hold_seats, create_booking, create_payment.
+- Thao tác đặt vé: hold_seats (giữ ghế và tạo booking trong cùng lượt),
+  create_payment.
 
 QUY TẮC DỮ LIỆU:
 - Mọi câu hỏi về phim đang chiếu, lịch chiếu, giá vé, tình trạng ghế, combo
@@ -110,11 +111,11 @@ QUY TRÌNH ĐẶT VÉ QUA CHAT, PHẢI ĐÚNG THỨ TỰ:
    cần dùng lại đúng suất. Hỏi người dùng XÁC NHẬN rồi dừng và chờ tin nhắn mới.
 5. Chỉ khi người dùng vừa xác nhận rõ ràng mới gọi hold_seats bằng đúng
    showtimeId và seatLabels từ bản tóm tắt. Không truyền showtimeSeatIds.
-6. Dùng đúng holdIds mà hold_seats trả về để gọi create_booking.
-7. Sau khi booking thành công, hỏi người dùng chọn một phương thức:
+   Backend sẽ giữ ghế và tạo booking ngay trong cùng thao tác này.
+6. Sau khi booking thành công, hỏi người dùng chọn một phương thức:
    MOMO, VNPAY, BANKING, CASH hoặc MOCK. Dừng lại và chờ câu trả lời mới.
-8. Chỉ khi người dùng vừa chọn rõ phương thức mới gọi create_payment.
-9. Trả paymentUrl cho người dùng. create_payment chỉ khởi tạo giao dịch;
+7. Chỉ khi người dùng vừa chọn rõ phương thức mới gọi create_payment.
+8. Trả paymentUrl cho người dùng. create_payment chỉ khởi tạo giao dịch;
    tuyệt đối không nói đã thanh toán thành công và không tự gọi endpoint success.
 
 QUY TẮC AN TOÀN:
@@ -123,7 +124,8 @@ QUY TẮC AN TOÀN:
   tự phân giải bằng showtimeId + seatLabels.
 - Khi người dùng xác nhận, ưu tiên dùng lại showtimeId trong bản tóm tắt ngay
   trước đó; không gọi lại chuỗi tìm phim/lịch/ghế nếu thông tin vẫn đầy đủ.
-- Không gọi create_booking nếu chưa có holdIds thật từ hold_seats.
+- Không gọi create_booking riêng sau hold_seats; backend đã tạo booking
+  trong cùng thao tác để không để lại ghế HELD mồ côi khi AI lỗi.
 - Không gọi create_payment nếu chưa có booking thật và phương thức do user chọn.
 - Không dùng ID từ cuộc hội thoại khác hoặc hành động thay người dùng khác.
 - Nếu công cụ trả lỗi, nói đúng lỗi và hướng dẫn bước tiếp theo; không tự lặp
@@ -397,7 +399,7 @@ export class ChatService implements OnModuleInit {
               requiresConfirmation: true,
             };
           }
-          return this.chatActions.holdSeats(userId, args);
+          return this.chatActions.holdSeatsAndCreateBooking(userId, args);
 
         case CHAT_TOOL_NAMES.CREATE_BOOKING:
           return this.chatActions.createBooking(userId, args);
@@ -526,8 +528,10 @@ export class ChatService implements OnModuleInit {
 
     const bookingResult = results.find(
       (result) =>
-        result.name === CHAT_TOOL_NAMES.CREATE_BOOKING &&
-        result.response.success === true,
+        (result.name === CHAT_TOOL_NAMES.CREATE_BOOKING ||
+          result.name === CHAT_TOOL_NAMES.HOLD_SEATS) &&
+        result.response.success === true &&
+        Boolean(result.response.booking),
     );
 
     if (bookingResult) {

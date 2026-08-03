@@ -291,11 +291,17 @@ const AdminMoviesPage: React.FC = () => {
   const [editTarget, setEditTarget]     = useState<Movie | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Movie | null>(null);
 
-  const filtered = movies.filter(m => {
-    const matchSearch = m.title.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter ? m.status === statusFilter : true;
-    return matchSearch && matchStatus;
-  });
+const filtered = movies.filter(m => {
+  const matchSearch = m.title
+    .toLowerCase()
+    .includes(search.trim().toLowerCase());
+
+  const matchStatus = statusFilter
+    ? m.status === statusFilter
+    : m.status !== 'HIDDEN';
+
+  return matchSearch && matchStatus;
+});
 
   const handleOpenAdd  = () => { setEditTarget(null); setFormOpen(true); };
   const handleOpenEdit = (m: Movie) => { setEditTarget(m); setFormOpen(true); };

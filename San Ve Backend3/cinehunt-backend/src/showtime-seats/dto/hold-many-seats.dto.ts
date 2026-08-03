@@ -15,14 +15,14 @@ export class HoldManySeatsDto {
   showtimeSeatIds: number[];
 
   @ApiProperty({
-    example: 5,
+    example: 10,
     description: 'Số phút giữ ghế',
     required: false,
-    default: 5,
+    default: 10,
   })
   @IsOptional()
   @IsInt()
   @Type(() => Number)
   @Min(1)
-  holdMinutes?: number = 5;
+  holdMinutes?: number = 10;
 }

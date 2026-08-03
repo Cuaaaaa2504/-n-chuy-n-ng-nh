@@ -150,6 +150,25 @@ export default function MyTicketsPage() {
     void Promise.resolve().then(fetchTickets);
   }, [fetchTickets]);
 
+  // Trang vé có thể đang mở ở tab khác trong lúc chatbot tạo/hủy booking.
+  // Làm mới khi người dùng quay lại tab để số "Vé đang giữ" không bị cũ.
+  useEffect(() => {
+    const refresh = () => {
+      void fetchTickets();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [fetchTickets]);
+
   const holdingTickets = allTickets.filter((ticket) => HOLDING_STATUSES.includes(ticket.status));
   const paidTickets = allTickets.filter((ticket) => PAID_STATUSES.includes(ticket.status));
   const displayed = activeTab === 'holding' ? holdingTickets : paidTickets;

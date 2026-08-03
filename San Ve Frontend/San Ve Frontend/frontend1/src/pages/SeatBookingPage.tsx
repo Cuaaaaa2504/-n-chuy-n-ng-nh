@@ -1,6 +1,6 @@
 // src/pages/SeatBookingPage.tsx
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SeatMap from "../components/seat/SeatMap";
 import SelectedSeatsBar from "../components/SelectedSeatsBar";
@@ -18,7 +18,7 @@ const FALLBACK_POSTER   = "https://picsum.photos/seed/fallbackposter/500/750";
 const FALLBACK_BACKDROP = "https://picsum.photos/seed/fallbackbackdrop/1600/900";
 
 const MAX_SEATS    = 8;
-const HOLD_SECONDS = 300;
+const HOLD_SECONDS = 600;
 
 function generateMockSeats(showtimeId?: string): SeatDto[] {
   void showtimeId;
@@ -326,6 +326,45 @@ export default function SeatBookingPage() {
     void load();
     return () => clearTimeout(id);
   }, [movieId, searchParams]);
+
+  // Đồng bộ sơ đồ ghế khi thao tác giữ/hủy diễn ra ở tab khác hoặc qua AI.
+  // Trước đây trang chỉ fetch lúc mount nên dữ liệu HELD/AVAILABLE bị cũ cho
+  // tới khi người dùng tự F5.
+  const refreshSeatStatuses = useCallback(async () => {
+    const showtimeId = searchParams.get('showtimeId');
+    if (!showtimeId || usingMock || loading) return;
+
+    try {
+      const data = await seatService.getSeatMap(showtimeId);
+      if (data.seats.length > 0) {
+        setSeats(data.seats);
+      }
+    } catch (reason) {
+      console.warn('[SeatBookingPage] Không làm mới được trạng thái ghế', reason);
+    }
+  }, [loading, searchParams, usingMock]);
+
+  useEffect(() => {
+    const showtimeId = searchParams.get('showtimeId');
+    if (!showtimeId || usingMock || loading) return;
+
+    const refresh = () => {
+      void refreshSeatStatuses();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+
+    const intervalId = window.setInterval(refresh, 5000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [loading, refreshSeatStatuses, searchParams, usingMock]);
 
   // ─── Seat toggle ─────────────────────────────────────────────────────────
   const handleSeatToggle = (seatId: string) => {

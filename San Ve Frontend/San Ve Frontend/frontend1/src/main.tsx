@@ -9,6 +9,7 @@ import "./soft-light-theme.css";
 import "./ui-fixes.css";
 import "./light-contrast.css";
 import "./light-neon-blue.css";
+import "./hero-banner-clarity.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
