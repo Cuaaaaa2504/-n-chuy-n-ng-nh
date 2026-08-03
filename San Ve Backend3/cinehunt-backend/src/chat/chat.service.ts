@@ -22,6 +22,7 @@ import {
   CHAT_FUNCTION_DECLARATIONS,
   CHAT_TOOL_NAMES,
 } from './chat-tools';
+import { runGroqFallback } from './groq-fallback';
 import { ChatMessageDto } from './dto/chat-message.dto';
 
 const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
@@ -33,7 +34,7 @@ const GEMINI_BASE =
   'https://generativelanguage.googleapis.com/v1beta/models';
 const MAX_TOOL_ROUNDS = 4;
 const REQUEST_TIMEOUT_MS = 30_000;
-const MAX_RATE_LIMIT_RETRIES = 2;
+const MAX_RATE_LIMIT_RETRIES = 0;
 const RETRY_BASE_DELAY_MS = 1_200;
 
 type GeminiPart = {
@@ -159,6 +160,16 @@ export class ChatService implements OnModuleInit {
       this.logger.log(`Chatbot Gemini sẵn sàng (model: ${model}).`);
     }
 
+    if (this.groqApiKey) {
+      this.logger.log(
+        `Chatbot Groq fallback sẵn sàng (model: ${this.groqModel}).`,
+      );
+    } else {
+      this.logger.warn(
+        'Chưa có GROQ_API_KEY -> khi Gemini bị 429 chatbot sẽ chuyển sang chế độ đặt vé thủ công.',
+      );
+    }
+
     if (KNOWN_SHUTDOWN_MODELS.includes(model)) {
       this.logger.error(
         `GEMINI_MODEL="${model}" đã bị đánh dấu ngừng phục vụ. ` +
@@ -176,6 +187,88 @@ export class ChatService implements OnModuleInit {
       this.configService.get<string>('GEMINI_MODEL')?.trim() ||
       DEFAULT_GEMINI_MODEL
     );
+  }
+
+  private get groqApiKey(): string {
+    return this.configService.get<string>('GROQ_API_KEY')?.trim() ?? '';
+  }
+
+  private get groqModel(): string {
+    return (
+      this.configService.get<string>('GROQ_MODEL')?.trim() ||
+      'openai/gpt-oss-20b'
+    );
+  }
+
+  private shouldFallbackToGroq(error: unknown): boolean {
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+
+      if (
+        response &&
+        typeof response === 'object' &&
+        (response as { code?: string }).code === 'RATE_LIMITED'
+      ) {
+        return true;
+      }
+
+      return error.getStatus() === HttpStatus.TOO_MANY_REQUESTS;
+    }
+
+    return this.isRateLimited(error);
+  }
+
+  private allProvidersUnavailable(reason?: unknown): HttpException {
+    const detail =
+      reason instanceof Error
+        ? reason.message
+        : typeof reason === 'string'
+          ? reason
+          : 'Không xác định';
+
+    this.logger.error(
+      `Cả Gemini và Groq đều không khả dụng: ${detail}`,
+    );
+
+    return new HttpException(
+      {
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        code: 'UPSTREAM_ERROR' as ChatErrorCode,
+        message:
+          'Trợ lý AI đang tạm quá tải. Bạn vẫn có thể đặt vé trực tiếp tại mục Phim hoặc Lịch chiếu.',
+      },
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+
+  private async replyWithGroq(
+    messages: ChatMessageDto[],
+    userId: number,
+  ): Promise<string> {
+    const apiKey = this.groqApiKey;
+
+    if (!apiKey) {
+      throw this.allProvidersUnavailable(
+        'Backend chưa cấu hình GROQ_API_KEY.',
+      );
+    }
+
+    try {
+      return await runGroqFallback({
+        apiKey,
+        model: this.groqModel,
+        systemPrompt: SYSTEM_PROMPT,
+        messages,
+        declarations: CHAT_FUNCTION_DECLARATIONS,
+        executeTool: (name, args) =>
+          this.executeTool(name, args, userId, messages),
+        terminalToolReply: (results) =>
+          this.terminalToolReply(results),
+        log: (message) => this.logger.warn(message),
+      });
+    } catch (error) {
+      throw this.allProvidersUnavailable(error);
+    }
   }
 
   private buildContents(messages: ChatMessageDto[]): GeminiContent[] {
@@ -656,7 +749,16 @@ export class ChatService implements OnModuleInit {
     const contents = this.buildContents(messages);
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
-      const payload = await this.callGemini(apiKey, contents);
+      let payload: GeminiResponse;
+
+      try {
+        payload = await this.callGemini(apiKey, contents);
+      } catch (error) {
+        if (this.shouldFallbackToGroq(error)) {
+          return this.replyWithGroq(messages, userId);
+        }
+        throw error;
+      }
       const parts = this.extractParts(payload);
       const calls = parts.filter((part) => part.functionCall);
 
@@ -908,6 +1010,20 @@ export class ChatService implements OnModuleInit {
         signal?.aborted ||
         (error as Error)?.name === 'CanceledError'
       ) {
+        return;
+      }
+
+      if (this.shouldFallbackToGroq(error)) {
+        try {
+          const fallbackReply = await this.replyWithGroq(
+            messages,
+            userId,
+          );
+          yield { type: 'delta', text: fallbackReply };
+          yield { type: 'done' };
+        } catch (fallbackError) {
+          yield this.toStreamError(fallbackError);
+        }
         return;
       }
 
