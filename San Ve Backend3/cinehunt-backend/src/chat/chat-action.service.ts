@@ -226,8 +226,24 @@ export class ChatActionService {
     }
 
     const selectedSeats = seatLabels.map((label) => seatsByLabel.get(label)!);
+    const now = new Date();
+
+    const reusableSeats = selectedSeats.filter(
+      (seat) =>
+        seat.status === 'HELD' &&
+        seat.heldByUserId === userId &&
+        Boolean(seat.holdExpiresAt) &&
+        new Date(seat.holdExpiresAt as Date).getTime() > now.getTime(),
+    );
+
     const unavailableLabels = selectedSeats
-      .filter((seat) => seat.status !== 'AVAILABLE')
+      .filter((seat) => {
+        if (seat.status === 'AVAILABLE') return false;
+        return !reusableSeats.some(
+          (reusable) =>
+            reusable.showtimeSeatId === seat.showtimeSeatId,
+        );
+      })
       .map((seat) =>
         normalizeSeatLabel(
           seat.seat?.seatLabel ??
@@ -241,20 +257,72 @@ export class ChatActionService {
       );
     }
 
-    const showtimeSeatIds = selectedSeats.map(
-      (seat) => seat.showtimeSeatId,
+    // Nếu lượt chat trước đã giữ ghế của chính user nhưng AI bị 429/timeout,
+    // dùng lại hold đó thay vì báo "ghế không còn trống".
+    const reusableHolds =
+      await this.seatHoldService.getActiveHoldsForSeats(
+        userId,
+        reusableSeats.map((seat) => seat.showtimeSeatId),
+      );
+
+    if (reusableHolds.length !== reusableSeats.length) {
+      const foundSeatIds = new Set(
+        reusableHolds.map((hold) => hold.showtimeSeatId),
+      );
+      const inconsistentLabels = reusableSeats
+        .filter((seat) => !foundSeatIds.has(seat.showtimeSeatId))
+        .map((seat) =>
+          normalizeSeatLabel(
+            seat.seat?.seatLabel ??
+              `${seat.seat?.seatRow ?? ''}${seat.seat?.seatNumber ?? ''}`,
+          ),
+        );
+
+      throw new BadRequestException(
+        `Trạng thái giữ ghế chưa đồng bộ: ${inconsistentLabels.join(', ')}. ` +
+          'Vui lòng đợi hết hạn giữ ghế hoặc tải lại sơ đồ.',
+      );
+    }
+
+    const availableSeats = selectedSeats.filter(
+      (seat) => seat.status === 'AVAILABLE',
     );
 
-    const holds = await this.showtimeSeatsService.holdManySeats(userId, {
-      showtimeSeatIds,
-      holdMinutes,
+    const newHolds = availableSeats.length
+      ? await this.showtimeSeatsService.holdManySeats(userId, {
+          showtimeSeatIds: availableSeats.map(
+            (seat) => seat.showtimeSeatId,
+          ),
+          holdMinutes,
+        })
+      : [];
+
+    const reusableResponses = reusableHolds.map((hold) => {
+      const seat = selectedSeats.find(
+        (item) => item.showtimeSeatId === hold.showtimeSeatId,
+      )!;
+
+      return {
+        holdId: hold.holdId,
+        expiresAt: hold.expiresAt,
+        showtimeSeatId: hold.showtimeSeatId,
+        seatLabel: normalizeSeatLabel(
+          seat.seat?.seatLabel ??
+            `${seat.seat?.seatRow ?? ''}${seat.seat?.seatNumber ?? ''}`,
+        ),
+        price: Number(seat.price),
+      };
     });
+
+    const holds = [...reusableResponses, ...newHolds];
 
     return {
       success: true,
       showtimeId,
       holdIds: holds.map((hold) => String(hold.holdId)),
-      expiresAt: holds[0]?.expiresAt ?? null,
+      expiresAt: holds
+        .map((hold) => new Date(hold.expiresAt))
+        .sort((a, b) => a.getTime() - b.getTime())[0] ?? null,
       seats: holds.map((hold) => ({
         holdId: String(hold.holdId),
         showtimeSeatId: hold.showtimeSeatId,
@@ -262,7 +330,8 @@ export class ChatActionService {
         price: hold.price,
         expiresAt: hold.expiresAt,
       })),
-      nextAction: 'Gọi create_booking bằng đúng holdIds vừa trả về.',
+      reusedExistingHolds: reusableResponses.length,
+      nextAction: 'Tạo booking ngay từ holdIds vừa nhận.',
     };
   }
 

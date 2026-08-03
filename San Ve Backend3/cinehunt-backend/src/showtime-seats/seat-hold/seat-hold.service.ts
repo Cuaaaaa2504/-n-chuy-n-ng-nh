@@ -227,6 +227,38 @@ export class SeatHoldService {
     }));
   }
 
+  /**
+   * Tìm các hold ACTIVE chưa hết hạn của chính user cho một nhóm ghế.
+   * Dùng để khôi phục lượt đặt qua chat nếu AI/request trước đã giữ ghế
+   * thành công nhưng chưa kịp tạo booking.
+   */
+  async getActiveHoldsForSeats(
+    userId: number,
+    showtimeSeatIds: number[],
+  ): Promise<SeatHold[]> {
+    if (!showtimeSeatIds.length) return [];
+
+    const now = new Date();
+    const holds = await this.seatHoldRepository.find({
+      where: {
+        userId,
+        showtimeSeatId: In(showtimeSeatIds),
+        status: SeatHoldStatus.ACTIVE,
+      },
+      order: { createdAt: 'DESC' },
+    });
+
+    const latestBySeat = new Map<number, SeatHold>();
+    for (const hold of holds) {
+      if (new Date(hold.expiresAt) <= now) continue;
+      if (!latestBySeat.has(hold.showtimeSeatId)) {
+        latestBySeat.set(hold.showtimeSeatId, hold);
+      }
+    }
+
+    return [...latestBySeat.values()];
+  }
+
   async getHoldDetails(holdId: string, userId: number) {
     const hold = await this.seatHoldRepository.findOne({
       where: { holdId, userId },
