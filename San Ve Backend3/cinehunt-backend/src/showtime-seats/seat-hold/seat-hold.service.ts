@@ -26,7 +26,7 @@ export class SeatHoldService {
     await queryRunner.startTransaction();
 
     try {
-      const { showtimeSeatId, holdMinutes = 5 } = dto;
+      const { showtimeSeatId, holdMinutes = 10 } = dto;
 
       // FIX: dùng pessimistic_write lock để tránh race condition double-booking
       const showtimeSeat = await queryRunner.manager.findOne(ShowtimeSeat, {
@@ -100,7 +100,7 @@ export class SeatHoldService {
     await queryRunner.startTransaction();
 
     try {
-      const { showtimeSeatIds, holdMinutes = 5 } = dto;
+      const { showtimeSeatIds, holdMinutes = 10 } = dto;
 
       if (!showtimeSeatIds || showtimeSeatIds.length === 0) {
         throw new BadRequestException('Danh sách ghế không hợp lệ');

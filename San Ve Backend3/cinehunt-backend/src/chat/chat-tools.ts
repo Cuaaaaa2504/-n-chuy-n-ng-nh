@@ -20,7 +20,7 @@ export const CHAT_TOOL_NAMES = {
   CREATE_PAYMENT: 'create_payment',
 } as const;
 
-export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
+const ALL_CHAT_FUNCTION_DECLARATIONS = [
   {
     name: CHAT_TOOL_NAMES.SEARCH_MOVIES,
     description:
@@ -163,10 +163,10 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
   {
     name: CHAT_TOOL_NAMES.HOLD_SEATS,
     description:
-      'Giữ tạm ghế sau khi chatbot đã nêu rõ phim, rạp, mã suất chiếu, mã ghế, ' +
-      'giá tiền và người dùng vừa xác nhận đồng ý. Truyền showtimeId cùng mã ghế ' +
-      'hiển thị như D3, D4; backend sẽ tự tìm showtimeSeatId chính xác. Tuyệt đối ' +
-      'không đoán hoặc tự tạo ID ghế trong cơ sở dữ liệu.',
+      'Giữ ghế và tạo booking ngay trong cùng một thao tác sau khi chatbot đã ' +
+      'nêu rõ phim, rạp, mã suất chiếu, mã ghế, giá tiền và người dùng vừa xác nhận. ' +
+      'Truyền showtimeId cùng mã ghế hiển thị như D3, D4; backend tự tìm ' +
+      'showtimeSeatId chính xác và tự giải phóng hold nếu tạo booking thất bại.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -183,7 +183,7 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
         },
         holdMinutes: {
           type: 'INTEGER',
-          description: 'Thời gian giữ ghế, mặc định 5 phút, tối đa 10 phút.',
+          description: 'Thời gian giữ ghế, mặc định 10 phút, tối đa 10 phút.',
         },
       },
       required: ['showtimeId', 'seatLabels'],
@@ -236,7 +236,7 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
     name: CHAT_TOOL_NAMES.CREATE_PAYMENT,
     description:
       'Khởi tạo giao dịch thanh toán cho booking thuộc người dùng đang đăng nhập. ' +
-      'Chỉ gọi sau khi create_booking thành công và người dùng đã chọn rõ phương thức. ' +
+      'Chỉ gọi sau khi hold_seats trả về booking thành công và người dùng đã chọn rõ phương thức. ' +
       'Công cụ chỉ tạo giao dịch và trả đường dẫn; không tự xác nhận thanh toán thành công.',
     parameters: {
       type: 'OBJECT',
@@ -259,4 +259,9 @@ export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] = [
       required: ['bookingId', 'paymentMethod'],
     },
   },
-];
+] satisfies GeminiFunctionDeclaration[];
+
+export const CHAT_FUNCTION_DECLARATIONS: GeminiFunctionDeclaration[] =
+  ALL_CHAT_FUNCTION_DECLARATIONS.filter(
+    (tool) => tool.name !== CHAT_TOOL_NAMES.CREATE_BOOKING,
+  );
