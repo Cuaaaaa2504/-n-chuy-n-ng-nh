@@ -1,9 +1,4 @@
-/*
-   CMC CINEMA — Hero banner clarity
-   Làm ảnh nền hero rõ hơn nhưng vẫn giữ nội dung dễ đọc.
-   */
 
-/* Dark mode */
 .stitch-hero-bg {
   opacity: 0.78;
   filter: saturate(1.08) contrast(1.12) brightness(0.92);
@@ -25,7 +20,6 @@
     );
 }
 
-/* Light mode */
 html.light .stitch-hero-bg {
   opacity: 0.52 !important;
   filter:

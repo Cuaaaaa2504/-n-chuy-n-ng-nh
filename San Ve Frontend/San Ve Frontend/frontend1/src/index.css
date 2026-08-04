@@ -1,15 +1,7 @@
 @import "tailwindcss";
 
-/*
-   CMC CINEMA — Design tokens ("Cyber Neon Cinema")
-   Nguồn: Demo UI/cyber_neon_cinema/DESIGN.md
-   Demo UI dùng Tailwind v3 (CDN + tailwind.config).
-   Project này dùng Tailwind v4 -> mọi token phải khai báo trong
-   @theme, KHÔNG dùng tailwind.config.js.
-   */
 
 @theme {
-  /* ---------- Colors (Material 3 dark scheme) ---------- */
   --color-surface: #151217;
   --color-surface-dim: #151217;
   --color-surface-bright: #3b383d;
@@ -68,7 +60,6 @@
   --color-neon-pink: #ffb1c4;
   --color-glass-surface: rgba(17, 19, 26, 0.6);
 
-  /* ---------- Font families ---------- */
   --font-display-lg: "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-headline-lg: "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-headline-lg-mobile: "Montserrat", ui-sans-serif, system-ui, sans-serif;
@@ -76,7 +67,6 @@
   --font-body-md: "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-label-sm: "Space Grotesk", ui-monospace, monospace;
 
-  /* ---------- Font sizes ---------- */
   --text-display-lg: 48px;
   --text-display-lg--line-height: 56px;
   --text-display-lg--letter-spacing: -0.02em;
@@ -104,7 +94,6 @@
   --text-label-sm--letter-spacing: 0.05em;
   --text-label-sm--font-weight: 500;
 
-  /* ---------- Spacing riêng của Demo UI ---------- */
   --spacing-baseline: 4px;
   --spacing-gutter-mobile: 16px;
   --spacing-gutter-desktop: 24px;
@@ -112,10 +101,8 @@
   --spacing-margin-desktop: 64px;
   --spacing-container-max: 1280px;
 
-  /* max-w-container-max: v4 đọc max-w-* từ namespace --container-* */
   --container-container-max: 1280px;
 
-  /* ---------- Radius ---------- */
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
 }
@@ -140,9 +127,6 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--color-secondary-container); }
 }
 
-/*
-   Component classes dùng chung (trích từ <style> của Demo UI)
-   */
 @layer components {
   .glass-panel {
     background: var(--color-glass-surface);
@@ -318,7 +302,7 @@
   }
 }
 
-/* ===== Hero card stack carousel (Demo UI sync) ===== */
+/* Hero card stack carousel (Demo UI sync) */
 @layer components {
   .carousel-stack {
     isolation: isolate;

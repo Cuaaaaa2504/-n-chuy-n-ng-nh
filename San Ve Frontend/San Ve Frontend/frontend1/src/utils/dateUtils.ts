@@ -1,4 +1,3 @@
-// src/utils/dateUtils.ts
 
 export const formatTime = (dateTime: string): string => {
   if (!dateTime) return '';
@@ -15,7 +14,6 @@ export const getAvailableDates = (showtimes: { startTime: string }[]): string[] 
   return Array.from(new Set(showtimes.map(s => s.startTime.split('T')[0]))).sort();
 };
 
-// ✅ thay any[] → { startTime: string }[]
 export const filterShowtimesByDate = (
   showtimes: { startTime: string }[],
   selectedDate: string | null

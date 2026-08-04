@@ -1,13 +1,3 @@
-// src/pages/ShowtimeSelectPage.tsx
-// FIX Lỗi 2: bỏ `mockMovies` — trang không còn tra cứu phim trong mảng giả trước
-//   rồi mới gọi API. Luồng nay đúng chiều: API là nguồn duy nhất.
-// FIX Lỗi 3: bỏ hoàn toàn `buildMockShowtimes()` và mảng `cinemas` hardcode.
-//   Trước đây khi API trả [] (phim chưa có suất chiếu) trang tự dựng suất chiếu
-//   giả với showtimeId đếm từ 1 — người dùng bấm "Mua vé" là gặp lỗi vì id đó
-//   không tồn tại trong DB. Nay không có suất chiếu thì hiển thị EmptyShowtime.
-// FIX Lỗi 5: bỏ đoạn tự unwrap `raw?.data ?? res` + map key snake_case từ
-//   response camelCase (khiến poster/age rating/trailer luôn undefined).
-//   Dùng `getMovieById()` — đã normalize sẵn trong movieApi.ts.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -50,7 +40,6 @@ export default function ShowtimeSelectPage() {
   const { movieId } = useParams();
   const navigate = useNavigate();
 
-  // ── Thông tin phim ───────────────────────────────────────────────────────
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loadingMovie, setLoadingMovie] = useState(true);
 
@@ -76,7 +65,7 @@ export default function ShowtimeSelectPage() {
     };
   }, [movieId]);
 
-  // ── Suất chiếu ───────────────────────────────────────────────────────────
+  // Suất chiếu
   const [allShowtimes, setAllShowtimes] = useState<UiShowtime[]>([]);
   const [loadingShowtimes, setLoadingShowtimes] = useState(true);
   const [showtimeError, setShowtimeError] = useState<string | null>(null);
@@ -95,11 +84,6 @@ export default function ShowtimeSelectPage() {
         if (signal.cancelled) return;
         setAllShowtimes(
           apiList
-            // Suất chiếu đã huỷ không được bán vé.
-            // Lọc luôn suất đã qua giờ bắt đầu. Trước đây chúng vẫn
-            // nằm trong danh sách, chỉ bị disable + gạch ngang -> với phim chiếu
-            // nhiều ngày thì giao diện đầy nút chết, user phải tự đoán nút nào
-            // còn bấm được. Ngày nào hết suất thì cũng không còn hiện ở thanh chọn ngày.
             .filter((s) => s.status !== 'CANCELLED' && s.id > 0 && !isPast(s.startTime))
             .map((s) => ({
               showtimeId: s.id,
@@ -112,7 +96,6 @@ export default function ShowtimeSelectPage() {
         );
       } catch (err) {
         if (signal.cancelled) return;
-        // FIX Lỗi 3: lỗi mạng thì báo lỗi thật, KHÔNG dựng suất chiếu giả
         setShowtimeError(
           (err as { message?: string })?.message || 'Không tải được lịch chiếu. Vui lòng thử lại.',
         );
@@ -159,7 +142,6 @@ export default function ShowtimeSelectPage() {
     [allShowtimes, selectedDate],
   );
 
-  // Group theo cinemaId (ổn định) thay vì cinemaName — tránh gộp nhầm khi trùng tên
   const groupedByCinema = useMemo(() => {
     const map = new Map<number, { cinemaName: string; showtimes: UiShowtime[] }>();
     filtered.forEach((s) => {

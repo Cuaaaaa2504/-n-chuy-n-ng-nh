@@ -11,7 +11,6 @@ import { User } from '../entities/user.entity';
 import { BookingOrder } from '../entities/booking-order.entity';
 import * as bcrypt from 'bcrypt';
 
-/** Role hợp lệ trong DB (SQL CHECK): CUSTOMER | STAFF | ADMIN */
 export const DB_ROLES = ['CUSTOMER', 'STAFF', 'ADMIN'] as const;
 
 @Injectable()
@@ -77,8 +76,6 @@ export class UsersService {
   }
 
   async findById(userId: number): Promise<User> {
-    // FIX [M-15]: dùng addSelect để lấy passwordHash chỉ khi cần
-    // Các query thông thường KHÔNG lấy passwordHash nhờ select:false trên entity
     const user = await this.userRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
@@ -124,8 +121,6 @@ export class UsersService {
   }
 
   async getMembershipStats(userId: number) {
-    // Dữ liệu cũ của dự án từng dùng ISSUED, bản mới dùng PAID.
-    // CONFIRMED được giữ để tương thích các seed/flow trước đây.
     const successfulStatuses = ['PAID', 'CONFIRMED', 'ISSUED'];
 
     const paidOrders = await this.bookingRepo.find({
@@ -146,7 +141,6 @@ export class UsersService {
     );
     const paidBookings = paidOrders.length;
 
-    // Quy ước CineHunt: mỗi 1.000đ chi tiêu thành công = 1 CMC Point.
     const points = Math.floor(totalSpent / 1000);
 
     const tiers = [
@@ -227,11 +221,6 @@ export class UsersService {
     }
   }
 
-  /*
-   * PATCH /users/me/email — trước đây backend không có method này,
-   * frontend gọi vào là 404.
-   * Luồng: xác minh mật khẩu hiện tại -> kiểm tra email mới chưa ai dùng -> cập nhật.
-   */
   async changeEmail(
     userId: number,
     dto: { newEmail: string; currentPassword: string },
@@ -253,7 +242,6 @@ export class UsersService {
       }
 
       user.email = newEmail;
-      // Email mới chưa được xác minh lại -> reset cờ emailVerified
       user.emailVerified = false;
       await this.userRepo.save(user);
 
@@ -269,10 +257,6 @@ export class UsersService {
     }
   }
 
-  /*
-   * Frontend (userApi.getAll) mong đợi shape { data, total, page, limit }.
-   * crash tại users.filter(). Nay trả đúng shape + hỗ trợ phân trang & tìm kiếm.
-   */
   async getAllUsers(page = 1, limit = 20, search?: string) {
     try {
       const safePage = Math.max(1, Number(page) || 1);
@@ -347,10 +331,6 @@ export class UsersService {
     }
   }
 
-  /*
-   * FIX [Critical]: Frontend gọi PATCH /users/:id/role nhưng backend không có.
-   * Frontend dùng nhãn 'USER', DB dùng 'CUSTOMER' -> chuẩn hoá 2 chiều tại đây.
-   */
   async adminUpdateRole(targetId: number, role: string, actorId?: number) {
     const normalized = this.normalizeRole(role);
 
@@ -361,7 +341,6 @@ export class UsersService {
     const user = await this.userRepo.findOne({ where: { userId: targetId } });
     if (!user) throw new NotFoundException(`User #${targetId} không tồn tại`);
 
-    // Không cho phép hạ quyền admin cuối cùng của hệ thống
     if (user.role === 'ADMIN' && normalized !== 'ADMIN') {
       const adminCount = await this.userRepo.count({
         where: { role: 'ADMIN', status: 'ACTIVE' },
@@ -378,7 +357,6 @@ export class UsersService {
     return this.toProfile(user);
   }
 
-  /** PUT /users/:id — admin sửa thông tin cơ bản của user */
   async adminUpdateUser(
     targetId: number,
     dto: { fullName?: string; phone?: string; role?: string; status?: string },
@@ -395,10 +373,6 @@ export class UsersService {
     return this.toProfile(user);
   }
 
-  /*
-   * DELETE /users/:id — soft delete (status = DELETED).
-   * Không xoá cứng vì user còn ràng buộc FK với booking_orders, payments...
-   */
   async adminDeleteUser(targetId: number, actorId?: number) {
     if (actorId && actorId === targetId) {
       throw new BadRequestException('Bạn không thể tự xoá tài khoản của chính mình');
@@ -413,7 +387,6 @@ export class UsersService {
 
   private normalizeRole(role: string): string {
     const value = String(role ?? '').trim().toUpperCase();
-    // Frontend gửi 'USER', DB lưu 'CUSTOMER'
     const mapped = value === 'USER' ? 'CUSTOMER' : value;
     if (!DB_ROLES.includes(mapped as (typeof DB_ROLES)[number])) {
       throw new BadRequestException(
@@ -425,7 +398,6 @@ export class UsersService {
 
   private toProfile(user: User) {
     return {
-      // Frontend dùng `user.id`, backend trả `userId` -> trả cả hai để tương thích
       id: user.userId,
       userId: user.userId,
       email: user.email,
@@ -438,7 +410,6 @@ export class UsersService {
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      // passwordHash KHÔNG có trong toProfile — không bao giờ trả ra ngoài
     };
   }
 }

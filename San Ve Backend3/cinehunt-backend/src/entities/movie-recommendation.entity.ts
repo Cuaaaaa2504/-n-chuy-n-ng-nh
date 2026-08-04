@@ -1,8 +1,3 @@
-// src/entities/movie-recommendation.entity.ts
-// Entity map 1-1 với bảng do migration 1722200000000 tạo ra.
-// Khai báo tên cột tường minh (name: 'snake_case') giống hệt các entity còn
-// lại của project — app.module.ts KHÔNG dùng SnakeNamingStrategy, nên bỏ
-// `name` sẽ khiến TypeORM tìm cột "userId" và query lỗi ngay.
 
 import {
   Column,
@@ -39,7 +34,6 @@ export class MovieRecommendation {
   @Column({ name: 'movie_id', type: 'int' })
   movieId: number;
 
-  /** Điểm dự đoán từ model. DECIMAL nên driver mssql trả về string. */
   @Column({
     name: 'score',
     type: 'decimal',
@@ -49,7 +43,6 @@ export class MovieRecommendation {
   })
   score: string;
 
-  /** Thứ hạng trong danh sách top-N (0 = cao nhất). */
   @Column({ name: 'rank_order', type: 'int', default: 0 })
   rankOrder: number;
 

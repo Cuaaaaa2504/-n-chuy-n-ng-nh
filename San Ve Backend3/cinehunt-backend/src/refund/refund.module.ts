@@ -9,8 +9,6 @@ import { RefundService } from './refund.service';
 import { RefundController } from './refund.controller';
 
 @Module({
-  // FIX [mục 5.1]: RefundService nay cần đọc booking + payment để tự xác thực
-  // quyền sở hữu và tự tính số tiền hoàn, thay vì tin vào body của client.
   imports: [TypeOrmModule.forFeature([
     Refund,
     BookingOrder,

@@ -1,11 +1,3 @@
-// src/pages/ComboPage.tsx
-// Bước "Chọn combo bắp nước" — nằm GIỮA SeatBookingPage và PaymentPage.
-// Luồng đúng: Chọn ghế → Giữ ghế → Đặt vé → [ComboPage] → tạo booking → Thanh toán.
-// Booking được tạo TẠI ĐÂY (không phải ở SeatBookingPage) để vé và bắp nước nằm
-// trong cùng một đơn hàng: POST /bookings { holdIds, products }.
-// ⚠️ Backend resolve `products[].productId` theo bảng `concession_combos`
-// (BookingService dùng Repository<ConcessionCombo>, khớp `comboId`), nên trang này
-// đọc từ GET /concession-combos chứ KHÔNG phải GET /products.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -16,7 +8,7 @@ import type { VoucherPreview } from '../api/voucherApi';
 import comboFallback from '../assets/combo-neon.svg';
 import { resolveAssetUrl } from '../utils/assetUrl';
 
-// ===== Types =====
+// Types
 interface ComboItem {
   comboId: number;
   name: string;
@@ -40,9 +32,7 @@ interface CreateBookingResponse {
   bookingCode: string;
 }
 
-/** State được SeatBookingPage đẩy sang qua navigate('/combo', { state }) */
 interface ComboNavState {
-  // FIX [BUG-03]: hold_id là BIGINT ở DB -> giữ nguyên dạng string, KHÔNG ép về number.
   holdIds: string[];
   holdExpiresAt?: string | null;
   showtimeId?: number;
@@ -69,8 +59,6 @@ export default function ComboPage() {
 
   const navState = (location.state ?? null) as ComboNavState | null;
 
-  // FIX [BUG-03]: holdIds là string[] (BIGINT). Ép sang number có thể mất chính xác
-  // khi id vượt Number.MAX_SAFE_INTEGER (2^53-1) -> backend không tìm thấy hold -> 400/500.
   const [holdIds, setHoldIds]     = useState<string[]>(
     (navState?.holdIds ?? []).map((id) => String(id)),
   );
@@ -87,18 +75,13 @@ export default function ComboPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
-  // FIX [mục 4.1]: state cho ô nhập mã giảm giá — trước đây trang này hoàn toàn
-  // không có khái niệm voucher.
   const [voucherInput, setVoucherInput]     = useState('');
   const [voucher, setVoucher]               = useState<VoucherPreview | null>(null);
   const [voucherError, setVoucherError]     = useState<string | null>(null);
   const [checkingVoucher, setCheckingVoucher] = useState(false);
 
-  // Chặn double-submit: user bấm "Thanh toán" 2 lần sẽ tạo 2 booking trên cùng holdIds,
-  // lần 2 chắc chắn fail (hold đã CONVERTED) và làm người dùng hoang mang.
   const submittingRef = useRef(false);
 
-  // ─── Khôi phục hold khi state bị mất (F5 / mở link trực tiếp) ───────────
   useEffect(() => {
     let cancelled = false;
 
@@ -120,7 +103,6 @@ export default function ComboPage() {
           return;
         }
 
-        // FIX [BUG-03]: giữ nguyên chuỗi, chỉ lọc bỏ giá trị rỗng/không phải số.
         setHoldIds(
           active
             .map((h) => String(h.holdId ?? '').trim())
@@ -142,7 +124,6 @@ export default function ComboPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Load danh sách combo ───────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
@@ -168,8 +149,6 @@ export default function ComboPage() {
 
         setCombos(list);
       } catch {
-        // Không có combo cũng không được chặn người dùng thanh toán —
-        // đây là bước TÙY CHỌN, chỉ hiện thông báo nhẹ.
         if (!cancelled) setCombos([]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -180,7 +159,6 @@ export default function ComboPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // ─── Countdown theo expiresAt thật của hold ─────────────────────────────
   useEffect(() => {
     if (!expiresAt) return;
     const deadline = new Date(expiresAt).getTime();
@@ -195,14 +173,11 @@ export default function ComboPage() {
 
   const expired = secondsLeft !== null && secondsLeft <= 0;
 
-  // ─── Derived ────────────────────────────────────────────────────────────
   const comboTotal = useMemo(
     () =>
       combos.reduce((sum, c) => sum + c.price * (qty[c.comboId] ?? 0), 0),
     [combos, qty],
   );
-  // Tổng TRƯỚC giảm giá — đây chính là con số backend dùng làm `orderAmount`
-  // khi kiểm tra minOrderAmount và khi tính giảm giá phần trăm.
   const orderAmount = seatTotal + comboTotal;
   const discount    = Math.min(voucher?.discountAmount ?? 0, orderAmount);
   const grandTotal  = Math.max(0, orderAmount - discount);
@@ -216,25 +191,13 @@ export default function ComboPage() {
       return copy;
     });
 
-    // FIX [mục 4.1]: PHẢI gỡ mã đã áp dụng khi giỏ hàng đổi.
-    // `discountAmount` được backend tính theo orderAmount tại thời điểm bấm
-    // "Áp dụng". Nếu user thêm/bớt combo sau đó mà vẫn giữ con số cũ, tổng tiền
-    // hiển thị sẽ lệch với tổng tiền backend tính lúc POST /bookings — user
-    // thấy một giá, bị trừ một giá khác.
-    // Xử lý ngay trong handler thay vì dùng useEffect theo dõi orderAmount:
-    // setState đồng bộ trong thân effect vi phạm rule react-hooks của dự án và
-    // gây cascading render không cần thiết.
     if (voucher) {
       setVoucher(null);
       setVoucherError('Giỏ hàng đã thay đổi — vui lòng áp dụng lại mã giảm giá.');
     }
   };
 
-  // ─── Voucher ────────────────────────────────────────────────────────────
-  // Mã đã áp dụng phải bị GỠ khi giỏ hàng thay đổi: số tiền giảm được tính
-  // theo orderAmount tại thời điểm bấm "Áp dụng". Nếu user thêm/bớt combo sau
-  // đó mà vẫn giữ nguyên con số cũ thì tổng tiền hiển thị sẽ lệch với tổng tiền
-  // backend tính lúc tạo booking -> user thấy một giá, bị trừ một giá khác.
+  // Voucher
   const applyVoucher = useCallback(async () => {
     if (checkingVoucher) return;
     setCheckingVoucher(true);
@@ -259,7 +222,6 @@ export default function ComboPage() {
     setVoucherError(null);
   }, []);
 
-  // ─── Tạo booking rồi sang thanh toán ────────────────────────────────────
   const createBookingAndPay = useCallback(async () => {
     if (submittingRef.current) return;
     if (!holdIds.length) {
@@ -280,18 +242,9 @@ export default function ComboPage() {
         .filter(([, q]) => q > 0)
         .map(([id, q]) => ({ productId: Number(id), quantity: q }));
 
-      // CreateBookingRequest: { holdIds, voucherCode?, promotionId?, idempotencyKey?, products? }
-      // forbidNonWhitelisted đang bật -> tuyệt đối không gửi field thừa.
       const body: Record<string, unknown> = { holdIds };
       if (products.length) body.products = products;
 
-      // FIX [mục 4.1 — LỖI CỐT LÕI]: dòng dưới đây trước đây KHÔNG TỒN TẠI.
-      // Comment ngay phía trên đã ghi rõ schema có `voucherCode?`, backend đã
-      // implement đầy đủ logic giảm giá, nhưng field này chưa bao giờ được gửi
-      // đi -> tính năng voucher chết từ đầu đến cuối.
-      // Chỉ gửi mã ĐÃ validate thành công (`voucher.code`) chứ không gửi thẳng
-      // `voucherInput`: nếu user gõ dở dang rồi bấm thanh toán luôn, gửi chuỗi
-      // rác lên sẽ khiến backend ném 400 và chặn cả đơn hàng.
       if (voucher?.code) body.voucherCode = voucher.code;
 
       const booking = (await axiosClient.post(
@@ -306,9 +259,6 @@ export default function ComboPage() {
 
       navigate(`/payment/${booking.bookingId}`, { replace: true });
     } catch (err: unknown) {
-      // FIX [BUG-04]: đọc message theo đúng thứ tự ưu tiên.
-      // axiosClient đã reject { status, message, raw }, nhưng nếu lỗi đến từ nơi khác
-      // (axios thô, network error) thì message thật nằm ở err.response.data.message.
       const e = err as {
         message?: string;
         response?: { data?: { message?: string | string[] } };
@@ -330,7 +280,6 @@ export default function ComboPage() {
     }
   }, [holdIds, qty, expired, navigate, voucher]);
 
-  // ─── Theme tokens ───────────────────────────────────────────────────────
   const bg        = darkMode ? 'bg-gray-950 text-white'      : 'bg-gray-50 text-gray-900';
   const card      = darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200';
   const cardMuted = darkMode ? 'text-gray-400'               : 'text-gray-500';
@@ -339,7 +288,6 @@ export default function ComboPage() {
   const mm = secondsLeft !== null ? String(Math.floor(secondsLeft / 60)).padStart(2, '0') : '--';
   const ss = secondsLeft !== null ? String(secondsLeft % 60).padStart(2, '0') : '--';
 
-  // ─── Không có hold hợp lệ ───────────────────────────────────────────────
   if (error && !holdIds.length) {
     return (
       <div className={`min-h-screen flex items-center justify-center px-4 ${bg}`}>
@@ -361,7 +309,7 @@ export default function ComboPage() {
     <div className={`min-h-screen stitch-flow-page ${bg}`}>
       <div className="stitch-container py-10 space-y-8">
 
-        {/* ── Header: các bước ── */}
+        {/* Header: các bước */}
         <div className="flex items-center gap-2 text-xs font-semibold flex-wrap">
           <span className={cardMuted}>1. Chọn ghế</span>
           <span className={cardMuted}>›</span>
@@ -372,7 +320,6 @@ export default function ComboPage() {
 
         <div className="flex flex-col lg:flex-row gap-6 items-start">
 
-          {/* ── Danh sách combo ── */}
           <div className="flex-1 min-w-0 space-y-4">
             <div>
               <h1 className="text-xl md:text-2xl font-bold">Chọn combo bắp nước</h1>
@@ -444,11 +391,9 @@ export default function ComboPage() {
             )}
           </div>
 
-          {/* ── Panel tóm tắt ── */}
           <div className={`w-full lg:w-80 rounded-2xl border ${card} p-5 space-y-4 sticky top-4`}>
             <h2 className="text-base font-bold">Tóm tắt đơn hàng</h2>
 
-            {/* Countdown giữ ghế */}
             <div
               className={`rounded-xl px-4 py-3 text-center font-mono font-bold text-lg border ${
                 expired
@@ -499,7 +444,6 @@ export default function ComboPage() {
 
             <div className={`border-t ${divider}`} />
 
-            {/* ── FIX [mục 4.1]: ô nhập mã giảm giá ── */}
             <div className="space-y-2">
               <div className={`text-xs uppercase tracking-wider font-semibold ${cardMuted}`}>
                 Mã giảm giá

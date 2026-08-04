@@ -1,5 +1,3 @@
-// src/pages/admin/AdminAuditLogPage.tsx
-// Xem nhật ký thao tác hệ thống (audit logs)
 import { useCallback, useEffect, useState } from 'react';
 import { auditLogApi } from '../../api/adminApi';
 import type { AuditLog } from '../../types/admin';
@@ -20,7 +18,6 @@ import {
 
 const LIMIT = 20;
 
-/** Tô màu theo loại hành động để dễ quét mắt */
 function actionColor(action: string): 'green' | 'red' | 'yellow' | 'blue' | 'gray' {
   const a = (action || '').toUpperCase();
   if (a.includes('CREATE') || a.includes('LOGIN') || a.includes('ADD')) return 'green';
@@ -30,7 +27,6 @@ function actionColor(action: string): 'green' | 'red' | 'yellow' | 'blue' | 'gra
   return 'gray';
 }
 
-/** Định dạng JSON lưu dạng chuỗi cho dễ đọc */
 function prettyJson(value: string | null) {
   if (!value) return '—';
   try {
@@ -69,7 +65,6 @@ export default function AdminAuditLogPage() {
     return () => window.clearTimeout(timer);
   }, [fetchData]);
 
-  // Lọc phía client trên trang hiện tại
   const filtered = keyword.trim()
     ? items.filter((l) => {
         const k = keyword.trim().toLowerCase();

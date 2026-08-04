@@ -1,22 +1,8 @@
-// src/api/movieApi.ts
 import axiosClient from './axiosClient';
 import type { Genre, Movie } from '../types/movie';
 
-/*
- * Normalize: response backend (camelCase, genres là object) -> Movie (snake_case)
- */
 
-/*
- * FIX (mục #3 báo cáo): hàm này trước đây là `function` private của module.
- * `recommendationApi.ts` cần đúng phép chuyển đổi này — endpoint
- * `GET /movies/recommendations` trả về nguyên entity `Movie` camelCase kèm
- * relation `genres`, y hệt `GET /movies`.
- * Copy-paste sang file mới là cách sai: hai bản normalize sẽ trôi dạt khỏi
- * nhau ngay lần đầu backend đổi tên field, và bug chỉ xuất hiện ở MỘT trong
- * hai màn hình -> rất khó lần ra. Export ra dùng chung.
- */
 export function normalizeMovie(item: Record<string, unknown>): Movie {
-  // Backend trả genres qua relation ManyToMany: [{ genreId, genreName, slug }]
   const rawGenres = Array.isArray(item.genres) ? (item.genres as unknown[]) : [];
   const genreObjs = rawGenres.map((g) =>
     typeof g === 'string'
@@ -57,27 +43,9 @@ export function normalizeMovie(item: Record<string, unknown>): Movie {
   };
 }
 
-/*
- * Build payload gửi lên backend
- */
 
 type MovieInput = Partial<Omit<Movie, 'movie_id'>>;
 
-/*
- * FIX Lỗi 2 & 3 — chuẩn hoá payload trước khi gửi.
- * Backend bật `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`
- * nên MỌI field không có trong `CreateMovieDto` đều làm request fail 400.
- * đầu tiên. Ba nhóm vấn đề được xử lý ở đây:
- *  1. Đổi tên field sang camelCase đúng DTO:
- *     duration_minutes -> durationMinutes, age_rating -> ageRating,
- *     poster_url -> posterUrl, trailer_url -> trailerUrl,
- *     release_date -> releaseDate.
- *  2. Loại bỏ field backend không hề có: `featured` (không tồn tại trong entity
- *     lẫn bảng `movies`), `backdrop_url`, và `genres` (mảng tên).
- *  3. `posterUrl` / `trailerUrl` được validate bằng `@IsUrl()` — chuỗi rỗng KHÔNG
- *     phải URL hợp lệ nên sẽ bị từ chối. Field rỗng phải được bỏ hẳn khỏi payload,
- *     không được gửi ''.
- */
 function toMoviePayload(data: MovieInput): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
 
@@ -89,14 +57,11 @@ function toMoviePayload(data: MovieInput): Record<string, unknown> {
   if (data.age_rating) payload.ageRating = data.age_rating;
   if (data.status !== undefined) payload.status = data.status;
 
-  // @IsUrl() -> bỏ hẳn field nếu rỗng, đừng gửi chuỗi rỗng
   if (data.poster_url?.trim()) payload.posterUrl = data.poster_url.trim();
   if (data.trailer_url?.trim()) payload.trailerUrl = data.trailer_url.trim();
 
-  // @IsDateString() -> tương tự
   if (data.release_date?.trim()) payload.releaseDate = data.release_date.trim();
 
-  // Mảng ID số nguyên, KHÔNG phải mảng tên thể loại
   if (data.genre_ids !== undefined) {
     payload.genreIds = data.genre_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0);
   }
@@ -111,7 +76,6 @@ function unwrapList(payload: unknown): Record<string, unknown>[] {
   return Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
 }
 
-/** Lấy message lỗi từ backend (ValidationPipe trả message dạng mảng) */
 function apiError(err: unknown, fallback: string): Error {
   const e = err as { message?: unknown; raw?: { response?: { data?: { message?: unknown } } } };
   const backendMsg = e?.raw?.response?.data?.message ?? e?.message;
@@ -119,11 +83,8 @@ function apiError(err: unknown, fallback: string): Error {
   return new Error(typeof msg === 'string' && msg ? msg : fallback, { cause: err });
 }
 
-/*
- * CRUD
- */
+/* CRUD */
 
-/** GET /movies — `limit` bị backend giới hạn @Max(50), không được vượt quá */
 export async function getMovies(params?: {
   status?: Movie['status'];
   search?: string;
@@ -146,7 +107,6 @@ export async function getMovies(params?: {
   }
 }
 
-/** GET /movies/:id */
 export async function getMovieById(id: number): Promise<Movie> {
   try {
     const payload = (await axiosClient.get(`/movies/${id}`)) as unknown;
@@ -157,7 +117,6 @@ export async function getMovieById(id: number): Promise<Movie> {
   }
 }
 
-/** POST /movies (admin) */
 export async function createMovie(data: MovieInput): Promise<Movie> {
   try {
     const res = (await axiosClient.post('/movies', toMoviePayload(data))) as unknown;
@@ -168,11 +127,6 @@ export async function createMovie(data: MovieInput): Promise<Movie> {
   }
 }
 
-/*
- * PATCH /movies/:id (admin)
- * FIX Lỗi 3 (tầng 1): trước đây gọi `axiosClient.put(...)` nhưng
- * `MovieController` khai báo `@Patch(':id')` -> 404 / 405 Method Not Allowed.
- */
 export async function updateMovie(id: number, data: MovieInput): Promise<Movie> {
   try {
     const res = (await axiosClient.patch(`/movies/${id}`, toMoviePayload(data))) as unknown;
@@ -183,7 +137,6 @@ export async function updateMovie(id: number, data: MovieInput): Promise<Movie> 
   }
 }
 
-/** DELETE /movies/:id (admin) — backend soft-delete: chuyển status sang ENDED */
 export async function deleteMovie(id: number): Promise<void> {
   try {
     await axiosClient.delete(`/movies/${id}`);
@@ -192,17 +145,7 @@ export async function deleteMovie(id: number): Promise<void> {
   }
 }
 
-/*
- * Thể loại
- */
 
-/*
- * GET /genres — danh sách thể loại kèm ID, dùng cho multi-select trong form phim.
- * Nếu backend chưa được deploy lại (endpoint này mới được thêm), hàm sẽ tự động
- * fallback: gom thể loại từ chính danh sách phim đang có (response GET /movies
- * đã join sẵn relation `genres`). Nhờ đó form vẫn dùng được, chỉ là chỉ hiện
- * những thể loại đã được gán cho ít nhất một phim.
- */
 export async function getGenres(): Promise<Genre[]> {
   try {
     const payload = (await axiosClient.get('/genres')) as unknown;
@@ -215,7 +158,6 @@ export async function getGenres(): Promise<Genre[]> {
     if (list.length > 0) return list;
     throw new Error('empty');
   } catch {
-    // Fallback: suy ra từ danh sách phim
     try {
       const { items } = await getMovies({ page: 1, limit: 50 });
       const seen = new Map<number, string>();

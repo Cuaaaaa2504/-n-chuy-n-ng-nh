@@ -21,8 +21,6 @@ export class User {
   @Column({ name: 'phone', type: 'varchar', length: 20, nullable: true })
   phone: string | null;
 
-  // FIX [M-15]: thêm select: false để passwordHash không bao giờ bị trả về
-  // trong các query thông thường — phải dùng addSelect() rõ ràng mới lấy được
   @Column({ name: 'password_hash', type: 'varchar', length: 255, select: false })
   passwordHash: string;
 

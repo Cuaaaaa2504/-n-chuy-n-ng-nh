@@ -1,9 +1,4 @@
-/*
-   CMC CINEMA — QR modal + location select + chatbot visibility
-   Import file này SAU stitch-exact-v2.css và soft-light-theme.css
-   */
 
-/* ---------- QR modal ---------- */
 .booking-ticket-overlay {
   background: rgba(3, 5, 10, 0.78);
   backdrop-filter: blur(12px);
@@ -111,7 +106,6 @@
   font-size: 0.75rem;
 }
 
-/* Portal ra body nên footer không thể đè lên modal nữa. */
 html.light .booking-ticket-overlay {
   background: rgba(23, 32, 51, 0.62);
 }
@@ -135,7 +129,6 @@ html.light .booking-ticket-qr {
   box-shadow: 0 12px 28px rgba(35, 45, 65, 0.16);
 }
 
-/* ---------- Location select ---------- */
 .stitch-location {
   gap: 8px;
 }
@@ -196,10 +189,6 @@ html.light .stitch-location-select option {
   background: #eef1f6;
 }
 
-/* ---------- Chatbot ----------
-   Thêm className="chatbot-fab" vào nút tròn mở chatbot.
-   Nếu có khung chat, thêm className="chatbot-panel" vào khung ngoài.
-*/
 html.light .chatbot-fab,
 html.light button[aria-label*="chat" i],
 html.light button[title*="chat" i],

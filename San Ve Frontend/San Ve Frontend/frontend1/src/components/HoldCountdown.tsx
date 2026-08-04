@@ -6,7 +6,6 @@ interface Props {
 
 export default function HoldCountdown({ countdown }: Props) {
   const [display, setDisplay] = useState(countdown);
-  // FIX react-hooks/set-state-in-effect: reset khi prop đổi bằng key-pattern thay vì setState trong effect
   const [prevCountdown, setPrevCountdown] = useState(countdown);
   if (prevCountdown !== countdown) {
     setPrevCountdown(countdown);

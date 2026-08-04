@@ -1,11 +1,5 @@
-/*
-   CMC CINEMA — Soft Light Theme
-   Chỉ áp dụng khi <html> có class "light".
-   Dark mode không bị thay đổi.
-   */
 
 html.light {
-  /* Nền sáng dịu, hơi ngả xám tím để tránh trắng gắt. */
   --color-background: #e7eaf2;
   --color-on-background: #172033;
   --color-surface: #eef0f6;
@@ -18,7 +12,6 @@ html.light {
   --color-surface-container-highest: #d7dce7;
   --color-surface-variant: #d7dce7;
 
-  /* Màu chữ rõ nhưng không đen tuyệt đối. */
   --color-on-surface: #172033;
   --color-on-surface-variant: #465169;
   --color-outline: #68748d;
@@ -26,7 +19,6 @@ html.light {
   --color-inverse-surface: #252c3b;
   --color-inverse-on-surface: #f2f4f8;
 
-  /* Giữ nhận diện tím + cyan, giảm độ neon trên nền sáng. */
   --color-primary: #6d45b5;
   --color-on-primary: #ffffff;
   --color-primary-container: #ddd1f5;
@@ -52,7 +44,6 @@ html.light {
   --color-ultra-dark-navy: #e7eaf2;
   --color-glass-surface: rgba(242, 244, 249, 0.82);
 
-  /* CineGlass tokens. */
   --cg-page: #e7eaf2;
   --cg-page-soft: #dce1eb;
   --cg-glass: rgba(242, 244, 249, 0.82);
@@ -62,7 +53,6 @@ html.light {
   --cg-shadow: 0 18px 50px rgba(35, 45, 65, 0.12);
   --cg-glow: 0 0 22px rgba(109, 69, 181, 0.09);
 
-  /* Stitch tokens. */
   --st-bg: #e7eaf2;
   --st-bg-soft: #dce1eb;
   --st-panel: rgba(242, 244, 249, 0.84);
@@ -103,7 +93,6 @@ html.light :focus-visible {
   outline-color: var(--color-secondary);
 }
 
-/* Nền ứng dụng giảm vùng trắng lớn và giảm họa tiết phát sáng. */
 html.light .stitch-app {
   color: var(--st-text);
   background:
@@ -142,7 +131,7 @@ html.light .cineglass-orb {
   mix-blend-mode: multiply;
 }
 
-/* Header và thanh điều hướng. */
+/* Header và thanh điều hướng */
 html.light .cineglass-app > header,
 html.light .stitch-nav,
 html.light .stitch-admin-header {
@@ -167,7 +156,6 @@ html.light .text-glow {
   text-shadow: 0 2px 10px rgba(8, 127, 152, 0.14) !important;
 }
 
-/* Card, panel, modal và bảng: xám rất nhạt thay vì trắng tinh. */
 html.light .stitch-glass,
 html.light .stitch-card,
 html.light .glass-panel,
@@ -207,7 +195,6 @@ html.light .movie-card:hover {
     0 0 18px rgba(109, 69, 181, 0.08) !important;
 }
 
-/* Các lớp Tailwind cũ thường tạo mảng trắng quá lớn. */
 html.light .stitch-app .bg-white,
 html.light .stitch-app .bg-gray-50,
 html.light .stitch-app .bg-gray-100,
@@ -236,7 +223,6 @@ html.light .stitch-admin-shell .text-gray-400 {
   color: var(--color-on-surface-variant) !important;
 }
 
-/* Input sáng vừa đủ, không phải các ô trắng như đèn pha. */
 html.light .stitch-input,
 html.light .stitch-select,
 html.light .stitch-textarea,
@@ -271,7 +257,6 @@ html.light select:focus {
     0 6px 18px rgba(35, 45, 65, 0.08) !important;
 }
 
-/* Nút giữ màu thương hiệu nhưng giảm độ rực và glow. */
 html.light .btn-primary,
 html.light .btn-primary-glow,
 html.light .stitch-btn-primary {
@@ -307,7 +292,6 @@ html.light .neon-border {
   box-shadow: 0 8px 24px rgba(35, 45, 65, 0.1) !important;
 }
 
-/* Bảng và trạng thái. */
 html.light thead {
   background: rgba(109, 69, 181, 0.075) !important;
 }
@@ -344,7 +328,6 @@ html.light .status-locked {
   border-color: rgba(180, 35, 24, 0.25);
 }
 
-/* Carousel: bóng đổ gọn hơn trên nền sáng. */
 html.light .carousel-card.active,
 html.light .stitch-poster-card.active {
   box-shadow:

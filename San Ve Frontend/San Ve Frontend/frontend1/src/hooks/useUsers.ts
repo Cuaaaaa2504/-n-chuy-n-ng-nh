@@ -51,10 +51,6 @@ export function useUsers() {
     }
   }, []);
 
-  // Bỏ auto-fetch không tham số ở đây.
-  // Trang gọi fetchUsers({ page, limit, search }) và tự điều khiển vòng đời,
-  // nếu hook cũng tự fetch thì mỗi lần mount sẽ có 2 request (một cái thừa,
-  // lại còn load toàn bộ user không phân trang).
 
   return { users, total, loading, error, fetchUsers, updateUser, deleteUser, changeRole };
 }

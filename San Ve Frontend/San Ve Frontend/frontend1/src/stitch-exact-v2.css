@@ -1,8 +1,3 @@
-/*
-   CMC Cinema — Stitch Exact V2
-   Chuyển các màn hình React hiện tại sang ngôn ngữ Cyber Neon Adaptive
-   của bộ Stitch, không thay đổi API/route/logic nghiệp vụ.
-   */
 
 :root {
   --st-bg: #0b0910;
@@ -181,7 +176,6 @@ body { overflow-x: hidden; }
   color: var(--st-muted);
 }
 
-/* Navbar */
 .stitch-nav {
   position: sticky;
   top: 0;
@@ -293,7 +287,6 @@ body { overflow-x: hidden; }
 .stitch-badge-cyan { color: #03242b; background: var(--st-cyan); }
 .stitch-badge-gold { color: #211b00; background: #f2ce55; }
 
-/* Detail */
 .stitch-detail-hero { position: relative; min-height: 680px; overflow: hidden; display: flex; align-items: flex-end; }
 .stitch-detail-hero img.backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .58; }
 .stitch-detail-overlay { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7,6,10,.97), rgba(7,6,10,.77) 48%, rgba(7,6,10,.46)), linear-gradient(0deg, var(--st-bg), transparent 55%); }
@@ -315,7 +308,6 @@ body { overflow-x: hidden; }
 .stitch-time-button { min-width: 74px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--st-line-strong); color: var(--st-text); background: rgba(255,255,255,.025); transition: border-color .2s ease, color .2s ease, box-shadow .2s ease; }
 .stitch-time-button:hover { border-color: var(--st-purple); color: var(--st-purple); box-shadow: 0 0 15px rgba(174,112,229,.17); }
 
-/* Profile */
 .stitch-profile-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 34px; align-items: start; }
 .stitch-profile-summary { padding: 28px; text-align: center; }
 .stitch-avatar { width: 104px; height: 104px; border-radius: 50%; object-fit: cover; border: 2px solid var(--st-purple); box-shadow: 0 0 24px rgba(220,184,255,.32); }
@@ -345,7 +337,6 @@ body { overflow-x: hidden; }
 .stitch-auth-copy { position: absolute; z-index: 2; left: 42px; right: 42px; bottom: 42px; }
 .stitch-auth-card { padding: 38px; border-radius: 18px; }
 
-/* Generic restyling for existing flow pages */
 .stitch-app .bg-gray-950,
 .stitch-app .bg-gray-900,
 .stitch-app .bg-gray-800 { background-color: transparent !important; }
@@ -437,14 +428,12 @@ body { overflow-x: hidden; }
   .stitch-footer-grid { grid-template-columns: 1fr; gap: 30px; }
 }
 
-/* Booking flow pages kept functionally intact, restyled to Stitch. */
 .stitch-flow-page { background: transparent !important; color: var(--st-text) !important; }
 .stitch-flow-page > .relative:first-child img { filter: saturate(.75) contrast(1.08); }
 .stitch-flow-page .sticky { top: 104px; }
 .stitch-flow-page .ring-amber-500 { --tw-ring-color: var(--st-purple) !important; }
 .stitch-flow-page img { color: var(--st-muted); }
 
-/* Input có icon: tách khỏi utility Tailwind để không bị .stitch-input ghi đè padding. */
 .stitch-input-icon-wrap {
   position: relative;
 }
@@ -516,7 +505,6 @@ body { overflow-x: hidden; }
   .stitch-input.stitch-input-with-icon { padding-left: 3.25rem !important; }
 }
 
-/* Payment V2.2 — hai cột luôn bắt đầu cùng một hàng và có tỷ lệ cân bằng. */
 .stitch-payment-container {
   width: min(1180px, calc(100% - 32px));
   margin-inline: auto;
@@ -538,7 +526,6 @@ body { overflow-x: hidden; }
   height: fit-content;
 }
 
-/* Profile preferences V2.2 */
 .stitch-preference-header {
   display: flex;
   align-items: flex-start;
@@ -610,11 +597,7 @@ body { overflow-x: hidden; }
   .stitch-genre-grid { grid-template-columns: 1fr; }
 }
 
-/*
-   V2.3 — CGV-inspired schedule, balanced light mode and admin shell
-   */
 
-/* CGV-inspired schedule, adapted to the CineGlass design language. */
 .cgv-date-strip {
   display: flex;
   gap: 8px;
@@ -688,7 +671,6 @@ body { overflow-x: hidden; }
 .stitch-admin-icon-button:hover, .stitch-admin-home-button:hover { background: color-mix(in srgb, var(--st-cyan) 15%, transparent); box-shadow: 0 0 20px color-mix(in srgb, var(--st-cyan) 18%, transparent); }
 .stitch-admin-main { flex: 1; padding: 28px; overflow-x: hidden; }
 
-/* Make legacy admin cards/tables inherit the same visual system. */
 .stitch-admin-shell .bg-gray-950, .stitch-admin-shell .bg-gray-900, .stitch-admin-shell .bg-gray-800 { background-color: var(--st-panel-strong) !important; }
 .stitch-admin-shell .border-gray-800, .stitch-admin-shell .border-gray-700 { border-color: var(--st-line) !important; }
 .stitch-admin-shell .text-white, .stitch-admin-shell .text-gray-100, .stitch-admin-shell .text-gray-200 { color: var(--st-text) !important; }
@@ -697,7 +679,6 @@ body { overflow-x: hidden; }
 .stitch-admin-shell table { overflow: hidden; border-radius: 14px; }
 .stitch-admin-shell thead { background: var(--st-panel-light) !important; }
 
-/* Light mode: calm, warm and still recognisably CineGlass. */
 html.light .stitch-app,
 html.light .stitch-admin-shell {
   background:

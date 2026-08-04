@@ -10,9 +10,6 @@ import { Showtime } from '../entities/showtime.entity';
 
 @Module({
   imports: [
-    // 07 (cùng loại): bỏ `Seat` — không provider nào trong module này
-    // inject repository của nó. SeatHoldService dùng repo riêng đăng ký trong
-    // SeatHoldModule. Entity thừa ở đây chỉ gây hiểu nhầm khi đọc code.
     TypeOrmModule.forFeature([ShowtimeSeat, SeatHold, Showtime]),
     SeatHoldModule,
   ],

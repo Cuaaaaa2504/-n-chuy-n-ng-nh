@@ -1,5 +1,3 @@
-// src/components/admin/BookingStatusBadge.tsx
-// 02/WARN-02: class `status-badge status-paid`... không tồn tại -> dùng Pill của AdminUI.
 import React from 'react';
 import { Pill } from './AdminUI';
 import type { AdminPaymentStatus } from '../../types/admin';

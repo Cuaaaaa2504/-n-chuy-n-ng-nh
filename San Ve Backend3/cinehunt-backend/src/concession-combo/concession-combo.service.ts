@@ -21,7 +21,6 @@ export class ConcessionComboService {
     }
   }
 
-  /** Admin cần thấy cả combo đã ẩn */
   adminFindAll(): Promise<ConcessionCombo[]> {
     return this.repo.find({ order: { comboId: 'ASC' } });
   }
@@ -41,7 +40,6 @@ export class ConcessionComboService {
     try {
       return await this.repo.save(this.repo.create(data));
     } catch (err: any) {
-      // SQL Server unique constraint violation: error number 2627 hoặc 2601
       if (err?.number === 2627 || err?.number === 2601 || err?.code === '23505') {
         throw new ConflictException('Combo đã tồn tại');
       }

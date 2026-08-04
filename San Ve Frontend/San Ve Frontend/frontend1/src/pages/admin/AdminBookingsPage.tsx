@@ -1,13 +1,3 @@
-// src/pages/admin/AdminBookingsPage.tsx
-// Bỏ toàn bộ class không tồn tại (admin-page, page-header,
-//   filter-section, filter-grid, filter-item, filter-actions, btn btn-secondary,
-//   loading-state, error-state, empty-state) -> Tailwind + AdminUI (WARN-02).
-// UseEffect không còn phụ thuộc trực tiếp vào `fetchBookings`.
-//   Reference của hàm được giữ trong ref nên dù hook có đổi cách implement
-//   (bỏ useCallback, đổi deps...) effect cũng không thể chạy lặp vô hạn.
-// FIX phụ: trước đây `if (loading) return <div>...` unmount cả khối filter mỗi
-//   lần gọi API -> input mất focus khi đang gõ. Nay filter luôn được render,
-//   chỉ vùng bảng đổi trạng thái.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import BookingTable from '../../components/admin/BookingTable';
 import {
@@ -36,7 +26,6 @@ const AdminBookingsPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const { bookings, total, loading, error, fetchBookings } = useBookings();
 
-  // Giữ hàm fetch trong ref -> effect bên dưới chỉ phụ thuộc [filters, page]
   const fetchRef = useRef(fetchBookings);
   useEffect(() => {
     fetchRef.current = fetchBookings;
@@ -83,7 +72,6 @@ const AdminBookingsPage: React.FC = () => {
         }
       />
 
-      {/* Bộ lọc */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Field label="Mã đơn">

@@ -16,8 +16,6 @@ function buildSharedEnvironment(backendDir) {
   const backendEnv = readEnvFile(path.join(backendDir, '.env'));
   const recommendationEnv = readEnvFile(path.join(recommendationDir, '.env'));
 
-  // Ưu tiên biến đã export trong terminal, sau đó backend .env, rồi Python .env.
-  // Như vậy DB chỉ cần cấu hình ở backend .env mà service Python vẫn dùng cùng DB.
   const shared = {
     ...recommendationEnv,
     ...backendEnv,

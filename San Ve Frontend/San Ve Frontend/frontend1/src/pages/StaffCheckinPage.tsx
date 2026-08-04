@@ -1,13 +1,3 @@
-// src/pages/StaffCheckinPage.tsx
-// FIX [mục 7.2 của báo cáo] — trang này TRƯỚC ĐÂY KHÔNG TỒN TẠI.
-// Báo cáo gọi đây là "lỗ hổng nghiệp vụ cốt lõi", và đúng như vậy: backend có
-// `POST /tickets/:code/checkin` với guard STAFF/ADMIN đầy đủ, nhưng không có
-// màn hình nào gọi tới. Nhân viên tại rạp không có công cụ xác minh vé — vé in
-// ra không ai soát được, và trạng thái vé vĩnh viễn nằm ở VALID.
-// Thiết kế cho hoàn cảnh dùng thật ở quầy: một ô nhập duy nhất luôn được
-// autofocus, Enter là gửi, kết quả to rõ, và tự dọn ô để quét vé tiếp theo.
-// Máy quét mã vạch cầm tay hoạt động như bàn phím + Enter, nên form này chạy
-// được với máy quét mà không cần thêm gì.
 
 import { useEffect, useRef, useState } from 'react';
 import { checkInTicket, getTicketByCode } from '../api/ticketApi';
@@ -72,7 +62,6 @@ export default function StaffCheckinPage() {
   const [preview, setPreview] = useState<TicketDetail | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Luôn trả focus về ô nhập — nhân viên quét liên tục, không nên phải click.
   useEffect(() => { inputRef.current?.focus(); }, [result]);
 
   const submit = async () => {
@@ -109,8 +98,6 @@ export default function StaffCheckinPage() {
       const message = (err as Error).message;
       setResult({ kind: 'error', message });
 
-      // QR đơn vẫn có thể tra cứu chi tiết. Với QR nhóm thì không gửi cả JSON
-      // vào GET /tickets/:code vì endpoint chỉ nhận một mã vé.
       if (!parseGroupQrPayload(value)) {
         try {
           setPreview(await getTicketByCode(value));
@@ -197,9 +184,6 @@ export default function StaffCheckinPage() {
                     <strong>{new Date(preview.checkedInAt).toLocaleString('vi-VN')}</strong>
                   </p>
                 )}
-                {/* checked_in_by trước đây LUÔN null vì backend đọc nhầm
-                    req.user.user_id (payload thật là userId). Đã sửa ở
-                    ticket.controller.ts — vé soát từ nay có truy vết nhân viên. */}
                 {preview.checkedInBy != null && (
                   <p>Nhân viên soát: <strong>#{preview.checkedInBy}</strong></p>
                 )}

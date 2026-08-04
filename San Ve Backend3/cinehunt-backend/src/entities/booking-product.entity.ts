@@ -25,7 +25,6 @@ export class BookingProduct {
   @Column({ name: 'unit_price', type: 'decimal', precision: 12, scale: 2 })
   unitPrice: number;
 
-  // SQL: total_price AS (CONVERT(..., quantity * unit_price)) PERSISTED — computed column
   @Column({
     name: 'total_price',
     type: 'decimal',

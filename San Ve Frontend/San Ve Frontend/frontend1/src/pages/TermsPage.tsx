@@ -1,7 +1,3 @@
-// src/pages/TermsPage.tsx
-// Trang Điều khoản sử dụng của CMC Cinema.
-// Được liên kết từ checkbox "Tôi đồng ý với Điều khoản dịch vụ" ở RegisterPage
-// và từ mục Hỗ trợ trong Footer.
 
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -10,9 +6,6 @@ const HOTLINE = '1900 636807';
 const SUPPORT_EMAIL = 'support@cmccinema.vn';
 const LAST_UPDATED = '31/07/2026';
 
-/*
- * Nội dung điều khoản — khai báo dưới dạng dữ liệu để JSX gọn.
- */
 
 type Block =
   | { kind: 'p'; text: string }
@@ -402,9 +395,6 @@ const SECTIONS: Section[] = [
   },
 ];
 
-/*
- * Render helpers
- */
 
 function BlockView({ block }: { block: Block }) {
   switch (block.kind) {
@@ -488,15 +478,12 @@ function BlockView({ block }: { block: Block }) {
   }
 }
 
-/*
- * Page
- */
+/* Page */
 
 export default function TermsPage() {
   const { hash } = useLocation();
   const [activeId, setActiveId] = useState<string>(SECTIONS[0].id);
 
-  // Cuộn tới đúng mục khi vào bằng link dạng /terms#thanh-toan
   useEffect(() => {
     if (!hash) {
       window.scrollTo({ top: 0 });
@@ -506,7 +493,6 @@ export default function TermsPage() {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [hash]);
 
-  // Highlight mục đang đọc trên mục lục
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -528,7 +514,7 @@ export default function TermsPage() {
   return (
     <section className="stitch-page">
       <div className="stitch-container">
-        {/* ── Hero ── */}
+        {/* Hero */}
         <header className="stitch-card p-8 md:p-12 mb-10">
           <div className="absolute inset-0 opacity-60 bg-[radial-gradient(circle_at_82%_18%,rgba(220,184,255,.24),transparent_20rem),radial-gradient(circle_at_10%_88%,rgba(83,216,244,.18),transparent_18rem)]" />
           <div className="relative">
@@ -565,9 +551,7 @@ export default function TermsPage() {
           </div>
         </header>
 
-        {/* ── Nội dung + mục lục ── */}
         <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
-          {/* Mục lục */}
           <aside className="hidden lg:block">
             <nav className="stitch-card p-5 sticky top-24">
               <p className="stitch-kicker mb-4">Mục lục</p>
@@ -594,7 +578,6 @@ export default function TermsPage() {
             </nav>
           </aside>
 
-          {/* Các mục điều khoản */}
           <div className="grid gap-6">
             {SECTIONS.map((section) => (
               <article
@@ -619,7 +602,6 @@ export default function TermsPage() {
               </article>
             ))}
 
-            {/* Kết + liên hệ */}
             <article className="stitch-card p-7 md:p-9 text-center">
               <div className="relative">
                 <span

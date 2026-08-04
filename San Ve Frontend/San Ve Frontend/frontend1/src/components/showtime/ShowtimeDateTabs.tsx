@@ -1,4 +1,3 @@
-// src/components/showtime/ShowtimeDateTabs.tsx
 
 import React from 'react';
 

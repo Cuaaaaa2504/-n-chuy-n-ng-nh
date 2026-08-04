@@ -1,5 +1,3 @@
-// src/pages/admin/AdminRevenueReportPage.tsx
-// Báo cáo doanh thu theo ngày / tháng / phim / rạp
 import { useCallback, useEffect, useState } from 'react';
 import { statsApi } from '../../api/adminApi';
 import type { RevenueGroupBy, RevenueReport } from '../../types/admin';
@@ -24,7 +22,6 @@ const GROUP_OPTIONS: { value: RevenueGroupBy; label: string }[] = [
   { value: 'cinema', label: 'Theo rạp' },
 ];
 
-/** Mặc định: 30 ngày gần nhất */
 function defaultRange() {
   const to = new Date();
   const from = new Date();
@@ -67,7 +64,6 @@ export default function AdminRevenueReportPage() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-    // chỉ tự động tải lại khi đổi cách nhóm; ngày do người dùng bấm "Xem báo cáo"
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupBy]);
 
@@ -101,7 +97,6 @@ export default function AdminRevenueReportPage() {
         }
       />
 
-      {/* Bộ lọc */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6 grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
         <Field label="Nhóm theo">
           <select
@@ -139,7 +134,6 @@ export default function AdminRevenueReportPage() {
 
       <ErrorBanner message={error} />
 
-      {/* Thẻ tổng quan */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <SummaryCard
           icon="💰"

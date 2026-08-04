@@ -1,11 +1,5 @@
-/*
-   CMC CINEMA — Stronger text contrast for LIGHT MODE only
-   File này phải được import CUỐI CÙNG trong main.tsx.
-   Dark mode không bị ảnh hưởng.
-   */
 
 html.light {
-  /* Chữ chính/phụ tối hơn để không bị bạc màu trên nền sáng. */
   --color-on-background: #0f172a;
   --color-on-surface: #111827;
   --color-on-surface-variant: #3f4b61;
@@ -14,7 +8,6 @@ html.light {
   --st-text: #111827;
   --st-muted: #435168;
 
-  /* Accent đậm hơn một nấc để đủ tương phản. */
   --st-purple: #6238a7;
   --st-purple-strong: #542e96;
   --st-cyan: #006f86;
@@ -26,7 +19,6 @@ html.light {
   --color-secondary: #006f86;
 }
 
-/* ---------- Typography cơ bản ---------- */
 html.light body,
 html.light .stitch-app,
 html.light .stitch-admin-shell {
@@ -79,7 +71,6 @@ html.light .stitch-page-title {
   text-shadow: 0 2px 10px rgba(79, 37, 143, 0.12);
 }
 
-/* ---------- Navbar ---------- */
 html.light .stitch-brand {
   color: #5c30a2;
   text-shadow: 0 2px 10px rgba(92, 48, 162, 0.12);
@@ -105,7 +96,6 @@ html.light .stitch-location-select {
   font-weight: 650;
 }
 
-/* ---------- Cards / nội dung ---------- */
 html.light .stitch-card,
 html.light .stitch-glass,
 html.light .cyber-card,
@@ -125,7 +115,6 @@ html.light .stitch-card h4 {
   color: #172033;
 }
 
-/* ---------- Input / filter ---------- */
 html.light input,
 html.light select,
 html.light textarea,
@@ -147,7 +136,6 @@ html.light label {
   font-weight: 650;
 }
 
-/* ---------- Tables / admin ---------- */
 html.light table {
   color: #263247;
 }
@@ -171,13 +159,11 @@ html.light .stitch-admin-shell tbody td strong {
   font-weight: 750;
 }
 
-/* Mã đơn/link trong bảng không còn xanh quá nhạt. */
 html.light .stitch-admin-shell td a {
   color: #1769a6 !important;
   font-weight: 650;
 }
 
-/* Sidebar admin. */
 html.light .stitch-admin-link {
   color: #46546b;
   font-weight: 700;
@@ -207,9 +193,6 @@ html.light .stitch-admin-session {
   opacity: 1;
 }
 
-/* ---------- Semantic colors ----------
-   Nhiều page cũ dùng utility Tailwind. Làm màu đậm hơn nhưng vẫn giữ ý nghĩa.
-*/
 html.light [class*="text-green-"] {
   color: #087249 !important;
 }
@@ -233,7 +216,6 @@ html.light [class*="text-amber-"] {
   color: #795700 !important;
 }
 
-/* Badge/status pastel đang rất nhạt trong ảnh. */
 html.light [class*="bg-green-"][class*="/10"],
 html.light [class*="bg-green-"][class*="/20"] {
   background-color: rgba(8, 114, 73, 0.12) !important;
@@ -254,7 +236,6 @@ html.light [class*="bg-violet-"][class*="/20"] {
   border-color: rgba(100, 54, 172, 0.34) !important;
 }
 
-/* Các nút primary xanh trong admin trước đó bị chữ tối do rule text-white chung. */
 html.light .stitch-admin-shell button[class*="bg-blue-"][class*="text-white"],
 html.light .stitch-admin-shell a[class*="bg-blue-"][class*="text-white"],
 html.light .stitch-admin-shell button[class*="bg-indigo-"][class*="text-white"],
@@ -272,7 +253,6 @@ html.light .stitch-admin-shell button:disabled {
   opacity: 0.52 !important;
 }
 
-/* Nút viền/tác vụ cần đọc rõ hơn. */
 html.light .stitch-btn,
 html.light .stitch-admin-home-button,
 html.light .stitch-admin-icon-button {
@@ -284,9 +264,6 @@ html.light .stitch-btn-outline {
   border-color: rgba(0, 111, 134, 0.48) !important;
 }
 
-/* ---------- Home hero ----------
-   Hero vẫn có ảnh nền tối dù đang ở light mode, nên không dùng màu chữ tối ở đây.
-*/
 html.light .stitch-hero .stitch-hero-title {
   color: #f0ddff !important;
   text-shadow:
@@ -310,7 +287,6 @@ html.light .stitch-hero p {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
-/* Hai mũi tên trong hero đang chìm vào background. */
 html.light .stitch-hero-controls .stitch-icon-btn {
   color: #ffffff !important;
   background: rgba(11, 18, 30, 0.78) !important;
@@ -326,9 +302,6 @@ html.light .stitch-hero-controls .stitch-icon-btn:hover {
   border-color: #8becff !important;
 }
 
-/* ---------- Movie detail hero ----------
-   Phần này cũng dùng nền ảnh tối nên cần text sáng riêng.
-*/
 html.light .stitch-detail-hero h1,
 html.light .stitch-detail-hero h2,
 html.light .stitch-detail-hero h3 {
@@ -359,7 +332,6 @@ html.light .stitch-detail-hero .stitch-btn-outline:hover {
   text-shadow: none;
 }
 
-/* ---------- Status/badge dùng Stitch ---------- */
 html.light .stitch-badge-purple {
   color: #ffffff !important;
   background: #6738ad !important;
@@ -375,9 +347,6 @@ html.light .stitch-badge-gold {
   background: #e8c454 !important;
 }
 
-/* ---------- Chatbot ----------
-   Giữ nút chat rõ, icon trắng, không bị hoà vào nền sáng.
-*/
 html.light .chatbot-fab,
 html.light button[aria-label*="chat" i],
 html.light button[title*="chat" i] {

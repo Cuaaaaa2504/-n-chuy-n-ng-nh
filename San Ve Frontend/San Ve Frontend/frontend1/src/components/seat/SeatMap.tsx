@@ -1,4 +1,3 @@
-// src/components/seat/SeatMap.tsx
 import React, { useMemo, useState } from 'react';
 import type { SeatMapProps, GroupedSeats, SeatId } from '../../types/seat.types';
 import { UNSELECTABLE_STATUSES } from '../../types/seat.types';
@@ -37,7 +36,6 @@ const SeatMap: React.FC<SeatMapProps> = ({
 
   const isSelected = (seatId: SeatId): boolean => selected.has(String(seatId));
 
-  // Giữ nguyên id (number | string), KHÔNG ép Number() — id mock dạng "A1" sẽ thành NaN
   const handleSeatClick = (seatId: SeatId) => {
     const seat = seats.find((s) => String(s.id) === String(seatId));
     if (!seat || isDisabled(seat.id, seat.status)) return;

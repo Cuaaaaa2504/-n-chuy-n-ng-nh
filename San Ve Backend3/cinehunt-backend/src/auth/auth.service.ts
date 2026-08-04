@@ -58,7 +58,6 @@ export class AuthService {
   async login(dto: LoginDto, meta?: { deviceInfo?: string; ipAddress?: string }) {
     const normalizedEmail = dto.email.trim().toLowerCase();
 
-    // Dùng tên property TypeScript 'user.passwordHash' (không phải tên cột SQL)
     const user = await this.userRepository
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
@@ -181,7 +180,6 @@ export class AuthService {
     userId: number,
     dto: { currentPassword: string; newPassword: string },
   ) {
-    // Dùng tên property TypeScript 'user.passwordHash'
     const user = await this.userRepository
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')

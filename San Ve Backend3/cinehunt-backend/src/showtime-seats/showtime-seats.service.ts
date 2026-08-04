@@ -26,8 +26,6 @@ export class ShowtimeSeatsService {
     private readonly showtimeSeatRepository: Repository<ShowtimeSeat>,
     @InjectRepository(SeatHold)
     private readonly seatHoldRepository: Repository<SeatHold>,
-    // Cần Showtime để phân biệt "suất chiếu không tồn tại" (404 thật)
-    // với "suất chiếu tồn tại nhưng chưa sinh ghế" (200 + seats: []).
     @InjectRepository(Showtime)
     private readonly showtimeRepository: Repository<Showtime>,
     private readonly seatHoldService: SeatHoldService,
@@ -39,8 +37,6 @@ export class ShowtimeSeatsService {
   }
 
   async getSeatMap(showtimeId: number): Promise<SeatMapResponseDto> {
-    // Kiểm tra sự tồn tại của suất chiếu TRƯỚC.
-    // 404 giờ chỉ có đúng MỘT ý nghĩa: showtimeId không có thật.
     const showtime = await this.showtimeRepository.findOne({
       where: { showtimeId },
       relations: ['room', 'room.cinema'],
@@ -50,16 +46,12 @@ export class ShowtimeSeatsService {
       throw new NotFoundException(`Không tìm thấy suất chiếu #${showtimeId}`);
     }
 
-    // Không join showtime.movie qua TypeORM vì sẽ SELECT movies.cast
-    // (reserved keyword, TypeORM không tự escape → QueryFailedError 500)
-    // Thay vào đó: chỉ join những thứ cần, lấy movieTitle bằng raw query riêng
     const seats = await this.showtimeSeatRepository.find({
       where: { showtimeId },
       relations: [
         'seat',
         'seat.seatType',
         'showtime',
-        // KHOÂNG join showtime.movie — tránh SELECT movies.[cast] / movies.cast
         'showtime.room',
         'showtime.room.cinema',
       ],
@@ -68,7 +60,6 @@ export class ShowtimeSeatsService {
       },
     });
 
-    // Lấy movieTitle bằng raw query — chỉ chọn cột title, không SELECT *
     let movieTitle: string | null = null;
     try {
       const rows = await this.dataSource.query(
@@ -80,12 +71,9 @@ export class ShowtimeSeatsService {
       ) as Array<{ title: string }>;
       movieTitle = rows[0]?.title ?? null;
     } catch {
-      // Nếu không lấy được movieTitle thì bỏ qua, không fail toàn bộ request
       movieTitle = null;
     }
 
-    // Metadata lấy từ chính bản ghi showtime (không phụ thuộc vào việc có ghế
-    // hay không) -> suất chiếu 0 ghế vẫn trả đủ tên rạp / phòng / giờ chiếu.
     return {
       showtimeId,
       movieTitle,
@@ -95,12 +83,8 @@ export class ShowtimeSeatsService {
       endTime:    showtime.endTime ?? null,
 
       totalSeats: seats.length,
-      // False = suất chiếu có thật nhưng CHƯA được sinh ghế.
-      // Admin cần gọi POST /showtimes/admin/:id/generate-seats để vá.
       seatsGenerated: seats.length > 0,
 
-      // Trả về đúng tên field mà frontend dùng (id/rowName/type/status),
-      // các tên cũ giữ lại làm alias @deprecated để deploy lệch phiên bản không vỡ.
       seats: seats.map((item) => {
         const status = item.status as SeatMapSeatStatus;
         const rowName = item.seat?.seatRow ?? null;
@@ -121,7 +105,6 @@ export class ShowtimeSeatsService {
           heldByUserId:  item.heldByUserId,
           holdExpiresAt: item.holdExpiresAt,
 
-          // alias tương thích ngược
           showtimeSeatId: item.showtimeSeatId,
           seatRow:        rowName,
           seatTypeCode:   typeCode,
@@ -155,15 +138,6 @@ export class ShowtimeSeatsService {
     return { message: 'Release hold thành công', holdId };
   }
 
-  /*
-   * Giải phóng ghế giữ đã hết hạn.
-   * Trước đây hàm chỉ `EXEC sp_release_expired_holds` rồi nuốt mọi lỗi thành
-   * một `InternalServerErrorException` chung chung. Trên môi trường dev mới
-   * setup (chưa chạy file SQL tạo procedure), scheduler chạy mỗi phút sẽ fail
-   * âm thầm và ghế HELD hết hạn KHÔNG BAO GIỜ được trả lại — ghế bị kẹt vĩnh viễn.
-   * Nay: thử stored procedure trước (nhanh, chạy trong 1 transaction ở DB);
-   * nếu procedure không tồn tại thì tự chạy logic tương đương bằng TypeORM.
-   */
   async expireSeatHolds(): Promise<{
     message: string;
     strategy: 'stored-procedure' | 'fallback';
@@ -176,7 +150,6 @@ export class ShowtimeSeatsService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
-      // SQL Server: 2812 = "Could not find stored procedure"
       const procedureMissing =
         (error as { number?: number })?.number === 2812 ||
         /could not find stored procedure|kh(ô|o)ng t(ì|i)m th(ấ|a)y th(ủ|u) t(ụ|u)c/i.test(
@@ -198,11 +171,6 @@ export class ShowtimeSeatsService {
     }
   }
 
-  /*
-   * Bản TypeORM tương đương phần cốt lõi của `sp_release_expired_holds`:
-   * trả ghế HELD quá hạn về AVAILABLE và đánh dấu seat_holds tương ứng EXPIRED.
-   * Chạy trong transaction để hai bảng không bị lệch nhau.
-   */
   private async expireSeatHoldsFallback(): Promise<{
     message: string;
     strategy: 'fallback';

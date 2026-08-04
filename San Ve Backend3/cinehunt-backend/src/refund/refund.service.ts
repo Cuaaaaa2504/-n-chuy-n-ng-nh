@@ -14,7 +14,6 @@ import { Payment } from '../entities/payment.entity';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 
-/** Đơn ở các trạng thái này thì tiền đã thực sự vào hệ thống -> mới hoàn được. */
 const REFUNDABLE_BOOKING_STATUS = ['PAID', 'ISSUED', 'CONFIRMED', 'CANCELLED'];
 
 @Injectable()
@@ -29,12 +28,8 @@ export class RefundService {
     private readonly dataSource: DataSource,
   ) {}
 
-  // ── Helper ──────────────────────────────────────────────────────────────
+  // Helper
 
-  /*
-   * Tham số vào có thể là booking_id (BIGINT dạng chuỗi) HOẶC mã hiển thị
-   * BK-xxxx. MyBookingsPage đang cầm cả hai nên chấp nhận cả hai cho chắc.
-   */
   private async resolveBooking(bookingRef: string): Promise<BookingOrder> {
     const where = /^\d+$/.test(bookingRef)
       ? { bookingId: bookingRef }
@@ -48,16 +43,10 @@ export class RefundService {
   private assertCanRead(booking: BookingOrder, user: CurrentUserPayload) {
     if (user.role === 'ADMIN') return;
     if (Number(booking.userId) !== Number(user.userId)) {
-      // Dùng 404 thay vì 403 để không tiết lộ đơn đó có tồn tại hay không.
       throw new NotFoundException('Không tìm thấy đơn hàng');
     }
   }
 
-  /*
-   * FIX [bảo mật]: trước đây hàm này nhận thẳng bookingId từ URL và trả về
-   * toàn bộ refund của đơn đó, không hề biết người gọi là ai. Nay bắt buộc
-   * truyền `user` và kiểm tra quyền sở hữu trước.
-   */
   async findByBooking(
     bookingRef: string,
     user: CurrentUserPayload,
@@ -75,7 +64,6 @@ export class RefundService {
     }
   }
 
-  /** Xem chi tiết 1 refund — chỉ chủ đơn hoặc ADMIN. */
   async findOneForUser(id: string, user: CurrentUserPayload): Promise<Refund> {
     const refund = await this.findOne(id);
     const booking = await this.resolveBooking(String(refund.bookingId));
@@ -94,19 +82,6 @@ export class RefundService {
     }
   }
 
-  /*
-   * FIX [mục 5.1 — lỗi nghiêm trọng nhất của module này]
-   * `create(data: Partial<Refund>)` cũ lưu thẳng mọi field client gửi lên, kể
-   * cả `refundAmount`, `refundStatus` và `completedAt`. Bất kỳ tài khoản nào
-   * cũng tự "duyệt" cho mình một khoản hoàn tiền tuỳ ý trên đơn của người khác.
-   * Bản mới CHỈ nhận { bookingId, reason } và tự kiểm tra đủ 5 điều kiện:
-   *   1. Đơn có tồn tại không.
-   *   2. Đơn có thuộc về người đang gọi không.
-   *   3. Đơn đã thực sự thanh toán chưa (phải có payment SUCCESS).
-   *   4. Đã có yêu cầu hoàn tiền nào đang chờ / đã hoàn cho đơn này chưa
-   *      (chặn spam tạo trùng -> chặn hoàn tiền 2 lần cho 1 đơn).
-   *   5. Số tiền hoàn = số tiền ĐÃ TRẢ, lấy từ bảng payments, không lấy từ client.
-   */
   async createForUser(dto: CreateRefundDto, userId: number): Promise<Refund> {
     const booking = await this.resolveBooking(dto.bookingId);
 
@@ -147,7 +122,6 @@ export class RefundService {
     }
 
     const amount = Number(payment.amount ?? 0);
-    // CK_refunds_amount CHECK (refund_amount > 0)
     if (!(amount > 0)) {
       throw new BadRequestException('Số tiền đã thanh toán không hợp lệ');
     }
@@ -159,7 +133,6 @@ export class RefundService {
           paymentId: String(payment.paymentId),
           refundAmount: amount,
           reason: dto.reason?.trim() || null,
-          // Luôn khởi tạo ở PENDING — chỉ ADMIN mới chuyển được sang SUCCESS/FAILED.
           refundStatus: 'PENDING',
           completedAt: null,
         }),
@@ -169,10 +142,8 @@ export class RefundService {
     }
   }
 
-  // ── ADMIN ───────────────────────────────────────────────────────────────
-  // Trước đây không có endpoint nào cho admin xem/duyệt yêu cầu hoàn tiền.
+  // ADMIN
 
-  /** Danh sách tất cả yêu cầu hoàn tiền + filter + phân trang */
   async adminFindAll(filters: {
     status?: string;
     page?: number;
@@ -218,19 +189,6 @@ export class RefundService {
     };
   }
 
-  /*
-   * Admin duyệt yêu cầu hoàn tiền.
-   * FIX [báo cáo bỏ sót — hoàn tiền xong ghế vẫn kẹt]
-   * Bản cũ CHỈ đổi `refunds.refund_status` sang SUCCESS rồi dừng. Đơn hàng vẫn
-   * mang status PAID, payment vẫn SUCCESS, `booking_details` vẫn ACTIVE và ghế
-   * trong `showtime_seats` vẫn SOLD.
-   * Hệ quả: tiền đã trả lại cho khách nhưng ghế KHÔNG BAO GIỜ được bán lại —
-   * rạp mất doanh thu của đúng ghế đó ở suất chiếu đó. Tệ hơn nữa, filtered
-   * unique index `UX_booking_details_active_seat` vẫn thấy dòng ACTIVE cũ, nên
-   * người khác đặt lại chính ghế ấy sẽ đâm vào duplicate key -> lỗi 500.
-   * Nay toàn bộ 5 bước chạy trong MỘT transaction, đồng bộ với cách
-   * `BookingService.cancelBooking()` đang giải phóng ghế.
-   */
   async approve(id: string, providerRef?: string): Promise<Refund> {
     const refund = await this.findOne(id);
     if (refund.refundStatus !== 'PENDING') {
@@ -249,8 +207,6 @@ export class RefundService {
     const showtimeSeatIds = details.map((d) => d.showtimeSeatId);
 
     await this.dataSource.transaction(async (manager) => {
-      // 1. Chốt refund. CK_refunds_completed yêu cầu completed_at NOT NULL khi
-      //    status = 'SUCCESS' -> phải set cùng lúc.
       await manager.update(
         Refund,
         { refundId: id },
@@ -261,26 +217,20 @@ export class RefundService {
         },
       );
 
-      // 2. Đơn hàng chuyển sang REFUNDED (nằm trong CHECK constraint của
-      //    booking_orders.status).
       await manager.update(BookingOrder, { bookingId }, { status: 'REFUNDED' });
 
-      // 3. Giao dịch thanh toán gốc cũng phải phản ánh việc đã hoàn tiền,
-      //    nếu không báo cáo doanh thu vẫn đếm nó là SUCCESS.
       await manager.update(
         Payment,
         { paymentId: String(refund.paymentId) },
         { paymentStatus: 'REFUNDED' },
       );
 
-      // 4. Đóng booking_details để giải phóng filtered unique index.
       await manager.update(
         BookingDetail,
         { bookingId, status: 'ACTIVE' },
         { status: 'CANCELLED' },
       );
 
-      // 5. Trả ghế về AVAILABLE để bán lại.
       if (showtimeSeatIds.length) {
         await manager.update(
           ShowtimeSeat,
@@ -293,7 +243,7 @@ export class RefundService {
     return this.findOne(id);
   }
 
-  /** Admin từ chối yêu cầu hoàn tiền */
+  /* Admin từ chối yêu cầu hoàn tiền */
   async reject(id: string, reason?: string): Promise<Refund> {
     const refund = await this.findOne(id);
     if (refund.refundStatus !== 'PENDING') {

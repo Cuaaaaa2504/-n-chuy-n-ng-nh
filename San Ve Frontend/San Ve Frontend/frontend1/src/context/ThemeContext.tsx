@@ -14,16 +14,12 @@ function getSystemPrefersDark(): boolean {
 
 function getInitialDarkMode(): boolean {
   const saved = localStorage.getItem(THEME_STORAGE_KEY);
-  // Nếu người dùng đã có lựa chọn trước đó, tôn trọng lựa chọn đó.
-  // Nếu chưa có lịch sử, fallback theo cài đặt hệ thống (prefers-color-scheme).
   return saved ? saved === "dark" : getSystemPrefersDark();
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [darkMode, setDarkMode] = useState<boolean>(getInitialDarkMode);
 
-  // Gắn/gỡ class "dark"/"light" lên <html> và cập nhật colorScheme +
-  // localStorage mỗi khi darkMode thay đổi.
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("dark", darkMode);
@@ -32,8 +28,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(THEME_STORAGE_KEY, darkMode ? "dark" : "light");
   }, [darkMode]);
 
-  // Đồng bộ theme giữa các tab: khi tab khác đổi theme (localStorage thay đổi),
-  // tab hiện tại cập nhật theo mà không cần reload.
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
       if (event.key !== THEME_STORAGE_KEY || event.newValue === null) return;

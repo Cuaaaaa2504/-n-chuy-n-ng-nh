@@ -1,4 +1,3 @@
-// src/components/showtime/ShowtimeButton.tsx
 
 import React from 'react';
 

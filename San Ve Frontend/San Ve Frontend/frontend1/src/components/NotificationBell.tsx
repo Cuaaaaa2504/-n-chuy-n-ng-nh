@@ -1,9 +1,3 @@
-// src/components/NotificationBell.tsx
-// FIX [mục 3.1 → 3.4 của báo cáo] — component này TRƯỚC ĐÂY KHÔNG TỒN TẠI.
-// Báo cáo viết: "Chuông thông báo trên navbar (nếu có render) chỉ là UI tĩnh".
-// Kiểm tra lại `Navbar.tsx` thì thậm chí KHÔNG hề có icon chuông nào — không
-// phải UI tĩnh, mà là không có gì cả. Toàn bộ 4 endpoint phía user của module
-// notifications chưa từng được gọi một lần nào.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -15,7 +9,6 @@ import {
 } from '../api/notificationApi';
 import type { AppNotification } from '../api/notificationApi';
 
-/** Chu kỳ poll badge. Backend chưa có WebSocket nên tạm poll; 60s đủ nhẹ. */
 const POLL_MS = 60_000;
 
 function timeAgo(iso: string): string {
@@ -39,10 +32,6 @@ export default function NotificationBell({ darkMode }: { darkMode: boolean }) {
     setUnread(await getUnreadCount());
   }, []);
 
-  // Poll badge kể cả khi panel đang đóng — đó chính là mục đích của badge.
-  // Lưu ý: mọi setState ở đây đều nằm trong callback bất đồng bộ, KHÔNG gọi
-  // thẳng trong thân effect. Rule `react-hooks/set-state-in-effect` của dự án
-  // chặn kiểu gọi đồng bộ vì nó gây cascading render.
   useEffect(() => {
     let cancelled = false;
     const tick = () => {
@@ -53,7 +42,6 @@ export default function NotificationBell({ darkMode }: { darkMode: boolean }) {
     return () => { cancelled = true; clearInterval(t); };
   }, []);
 
-  // Chỉ tải danh sách khi user thực sự mở panel, tránh kéo về mỗi lần đổi trang.
   const loadList = useCallback(() => {
     setLoading(true);
     return getMyNotifications()
@@ -71,7 +59,6 @@ export default function NotificationBell({ darkMode }: { darkMode: boolean }) {
 
   const handleRead = async (n: AppNotification) => {
     if (n.isRead) return;
-    // Cập nhật lạc quan để UI phản hồi tức thì; nếu API fail thì đồng bộ lại.
     setItems((prev) =>
       prev.map((x) => (x.notificationId === n.notificationId ? { ...x, isRead: true } : x)),
     );
@@ -105,8 +92,6 @@ export default function NotificationBell({ darkMode }: { darkMode: boolean }) {
         className="relative w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/20 transition text-lg"
       >
         🔔
-        {/* FIX [mục 3.2]: badge số đỏ — trước đây không tồn tại nên user không
-            bao giờ biết có thông báo mới. */}
         {unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
             {unread > 99 ? '99+' : unread}

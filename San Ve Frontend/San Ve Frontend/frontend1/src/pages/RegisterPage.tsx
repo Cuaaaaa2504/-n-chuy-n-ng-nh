@@ -63,7 +63,6 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      // Chỉ gửi các trường backend cần, không gửi confirmPassword lên server.
       const { fullName, email, phone, password } = formData;
       await axiosClient.post('/auth/register', {
         fullName: fullName.trim(),
@@ -112,8 +111,6 @@ export default function RegisterPage() {
                 </div>
               </div>
             ))}
-            {/* Checkbox và text tách rời nhau: nếu bọc <Link> trong <label> thì
-                click vào link sẽ vô tình toggle luôn checkbox. */}
             <div className="flex items-start gap-3 text-sm stitch-muted mt-1">
               <input
                 id="acceptedTerms"

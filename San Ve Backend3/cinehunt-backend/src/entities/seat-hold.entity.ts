@@ -9,14 +9,6 @@ import {
 import { User } from './user.entity';
 import { ShowtimeSeat } from './showtime-seat.entity';
 
-/*
- * Trạng thái của bản ghi seat_holds.
- * Trước đây file này khai báo TRÙNG tên `enum SeatHoldStatus` và
- * `type SeatHoldStatus` -> TS2567. Nay chỉ giữ DUY NHẤT enum làm nguồn sự thật.
- * Danh sách phải khớp với CK_seat_holds_status trong SQL:
- *   CHECK (status IN ('ACTIVE', 'CONFIRMED', 'CONVERTED', 'EXPIRED', 'CANCELLED'))
- * Vì vậy giá trị 'RELEASED' (không có trong DB) đã bị loại bỏ.
- */
 export enum SeatHoldStatus {
   ACTIVE = 'ACTIVE',
   CONFIRMED = 'CONFIRMED',
@@ -25,14 +17,11 @@ export enum SeatHoldStatus {
   CANCELLED = 'CANCELLED',
 }
 
-/** Mảng giá trị hợp lệ, dùng cho validation (class-validator @IsIn, ...). */
 export const SEAT_HOLD_STATUS: readonly SeatHoldStatus[] =
   Object.values(SeatHoldStatus);
 
 @Entity('seat_holds')
 export class SeatHold {
-  // FIX [M-11]: holdId BIGINT → typed string để tránh mất an toàn số học
-  // JS number chỉ an toàn đến 2^53-1, BIGINT DB có thể vượt qua ngưỡng đó
   @PrimaryGeneratedColumn({ type: 'bigint', name: 'hold_id' })
   holdId: string;
 

@@ -1,4 +1,3 @@
-// src/pages/TicketPage.tsx
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';

@@ -47,7 +47,6 @@ function DebugBadge({ debug }: { debug: RecommendationDebug | null }) {
 
 interface Props {
   limit?: number;
-  /** Toàn bộ phim công khai để xếp hạng thêm theo sở thích và lịch sử vé. */
   fallbackMovies?: Movie[];
 }
 

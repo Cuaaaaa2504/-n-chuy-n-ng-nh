@@ -1,7 +1,3 @@
-// src/hooks/useShowtimes.ts
-// Hook này trước đây trả về mảng mock hardcode 2 phần tử và mọi
-// thao tác thêm/sửa/hủy chỉ đổi state trong bộ nhớ -> refresh là mất sạch.
-// Nay toàn bộ CRUD đi qua `showtimeApi` (axiosClient), giống useMovies/useBookings/useUsers.
 import { useCallback, useEffect, useState } from 'react';
 import {
   cancelShowtime as apiCancelShowtime,
@@ -19,7 +15,6 @@ import type {
   ShowtimeStatus,
 } from '../types/showtime';
 
-// Re-export để các component cũ (ShowtimeTable / ShowtimeForm) không phải đổi import
 export type { MovieOption, RoomOption, Showtime, ShowtimeFormData, ShowtimeStatus };
 
 const errMsg = (err: unknown, fallback: string) =>
@@ -32,12 +27,6 @@ export const useShowtimes = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /*
-   * Nạp suất chiếu + danh mục phim/phòng.
-   * Backend `findAll` chỉ join ['room', 'room.cinema'] nên không có
-   * movie.title. Thay vì hardcode MOVIE_ID_MAP, ta lấy danh sách phim thật rồi
-   * đối chiếu theo movieId — thêm phim mới cũng luôn hiển thị đúng.
-   */
   const fetchShowtimes = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -92,7 +81,6 @@ export const useShowtimes = () => {
     async (
       id: number,
       data: ShowtimeFormData,
-      // FIX [mục 6.2]: mốc updatedAt của bản ghi form đang sửa.
       expectedUpdatedAt?: string,
     ): Promise<boolean> => {
       setError(null);
@@ -101,8 +89,6 @@ export const useShowtimes = () => {
         await fetchShowtimes();
         return true;
       } catch (err) {
-        // 409 = có người khác vừa sửa. Tải lại danh sách để admin thấy ngay bản
-        // mới nhất, thay vì để họ bấm lưu lại lần nữa trên dữ liệu vẫn cũ.
         if ((err as { status?: number })?.status === 409) {
           await fetchShowtimes();
         }
@@ -128,8 +114,6 @@ export const useShowtimes = () => {
     [fetchShowtimes],
   );
 
-  // Wrap trong async IIFE giống useUsers/AdminDashboardPage để không vi phạm
-  // rule react-hooks/set-state-in-effect
   useEffect(() => {
     void (async () => {
       await fetchShowtimes();

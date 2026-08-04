@@ -1,7 +1,3 @@
-// src/migrations/1722200000000-AddMovieRecommendations.ts
-// Số 1722200000000 ở đầu tên file là timestamp milliseconds — TypeORM dùng số
-// này để sắp thứ tự chạy. Tên class BẮT BUỘC phải kết thúc bằng đúng con số đó,
-// nếu lệch thì TypeORM báo "Migration class name should have a timestamp".
 
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
@@ -9,13 +5,6 @@ export class AddMovieRecommendations1722200000000 implements MigrationInterface 
   name = 'AddMovieRecommendations1722200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    /*
-     * Lỗi FK khi tạo bảng.
-     * Nếu chạy migration TRƯỚC file SQL V6.3 thì dbo.users / dbo.movies chưa
-     * tồn tại, SQL Server ném lỗi 1767 ("Foreign key references invalid table")
-     * — thông báo này không nói cho sinh viên biết phải làm gì. Ở đây kiểm tra
-     * trước và ném lỗi tiếng Việt chỉ rõ cách khắc phục.
-     */
     const [check] = await queryRunner.query(`
       SELECT
         CASE WHEN OBJECT_ID('dbo.users',  'U') IS NULL THEN 1 ELSE 0 END AS missing_users,
@@ -34,8 +23,6 @@ export class AddMovieRecommendations1722200000000 implements MigrationInterface 
       );
     }
 
-    // Bọc trong IF OBJECT_ID ... IS NULL để an toàn khi bảng đã được tạo tay
-    // từ trước (chạy lại migration không làm hỏng gì).
     await queryRunner.query(`
       IF OBJECT_ID('dbo.movie_recommendations', 'U') IS NULL
       BEGIN
@@ -78,7 +65,6 @@ export class AddMovieRecommendations1722200000000 implements MigrationInterface 
       END
     `);
 
-    // Index phục vụ truy vấn chính: lấy top-N phim gợi ý của 1 user theo thứ hạng.
     await queryRunner.query(`
       IF OBJECT_ID('dbo.movie_recommendations', 'U') IS NOT NULL
          AND NOT EXISTS (
@@ -93,8 +79,6 @@ export class AddMovieRecommendations1722200000000 implements MigrationInterface 
       END
     `);
 
-    // SQL Server KHÔNG tự tạo index cho cột FK — thiếu index này thì mỗi lần
-    // xoá 1 phim sẽ quét toàn bảng để kiểm tra cascade.
     await queryRunner.query(`
       IF OBJECT_ID('dbo.movie_recommendations', 'U') IS NOT NULL
          AND NOT EXISTS (
@@ -109,13 +93,6 @@ export class AddMovieRecommendations1722200000000 implements MigrationInterface 
     `);
   }
 
-  /*
-   * down() bắt buộc phải viết. Bỏ trống thì "npm run migration:revert" chạy
-   * xong không làm gì cả nhưng vẫn xoá dòng khỏi bảng typeorm_migrations —
-   * DB và lịch sử migration lệch nhau mà không ai biết.
-   * DROP TABLE tự xoá luôn index, FK và constraint của bảng đó nên không cần
-   * drop riêng từng cái.
-   */
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       IF OBJECT_ID('dbo.movie_recommendations', 'U') IS NOT NULL

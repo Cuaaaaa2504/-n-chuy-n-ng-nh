@@ -6,10 +6,6 @@ export class EnsureMovieRatingsSchema1785604117884
   name = 'EnsureMovieRatingsSchema1785604117884';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    /*
-     * Kiểm tra các bảng/cột nền tảng.
-     * Migration sẽ dừng thay vì tạo schema nửa vời.
-     */
     await queryRunner.query(`
       IF OBJECT_ID(N'dbo.movies', N'U') IS NULL
       BEGIN
@@ -33,10 +29,6 @@ export class EnsureMovieRatingsSchema1785604117884
       END;
     `);
 
-    /*
-     * Chỉ tạo bảng trên database cũ chưa có tính năng rating.
-     * Database hiện tại của bạn đã có bảng nên đoạn này sẽ được bỏ qua.
-     */
     await queryRunner.query(`
       IF OBJECT_ID(N'dbo.movie_ratings', N'U') IS NULL
       BEGIN
@@ -76,9 +68,6 @@ export class EnsureMovieRatingsSchema1785604117884
       END;
     `);
 
-    /*
-     * Tạo index nếu chưa có.
-     */
     await queryRunner.query(`
       IF NOT EXISTS (
         SELECT 1
@@ -93,10 +82,6 @@ export class EnsureMovieRatingsSchema1785604117884
       END;
     `);
 
-    /*
-     * Trigger phải nằm trong một query riêng vì SQL Server yêu cầu
-     * CREATE OR ALTER TRIGGER là câu lệnh đầu tiên trong batch.
-     */
     await queryRunner.query(`
       CREATE OR ALTER TRIGGER dbo.trg_movie_ratings_sync_average
       ON dbo.movie_ratings
@@ -140,9 +125,6 @@ export class EnsureMovieRatingsSchema1785604117884
       END;
     `);
 
-    /*
-     * Đồng bộ lại average_rating cho dữ liệu rating đã tồn tại.
-     */
     await queryRunner.query(`
       ;WITH rating_summary AS (
         SELECT
@@ -165,9 +147,6 @@ export class EnsureMovieRatingsSchema1785604117884
         ON rs.movie_id = m.movie_id;
     `);
 
-    /*
-     * Lấy điểm trung bình, tổng lượt đánh giá và điểm của user hiện tại.
-     */
     await queryRunner.query(`
       CREATE OR ALTER PROCEDURE dbo.sp_get_movie_rating
         @movie_id INT,
@@ -220,9 +199,6 @@ export class EnsureMovieRatingsSchema1785604117884
       END;
     `);
 
-    /*
-     * Thêm mới hoặc cập nhật rating trong transaction.
-     */
     await queryRunner.query(`
       CREATE OR ALTER PROCEDURE dbo.sp_upsert_movie_rating
         @movie_id INT,
@@ -300,9 +276,6 @@ export class EnsureMovieRatingsSchema1785604117884
       END;
     `);
 
-    /*
-     * Xóa rating của user.
-     */
     await queryRunner.query(`
       CREATE OR ALTER PROCEDURE dbo.sp_delete_movie_rating
         @movie_id INT,

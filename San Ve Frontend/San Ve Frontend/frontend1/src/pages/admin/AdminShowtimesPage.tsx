@@ -1,10 +1,3 @@
-// src/pages/admin/AdminShowtimesPage.tsx
-// Bỏ toàn bộ class cũ không tồn tại (admin-page, page-header,
-//   btn btn-primary, loading-state, error-state, empty-state, modal-overlay,
-//   modal-content) — dùng Tailwind + component dùng chung trong AdminUI,
-//   thống nhất với các trang admin còn lại (WARN-02).
-// Xoá MOVIE_ID_MAP / ROOM_ID_MAP hardcode. Showtime trả về từ API
-//   giờ đã có sẵn movieId / roomId thật nên không cần "dò ngược" theo tên nữa.
 import React, { useMemo, useState } from 'react';
 import ShowtimeTable from '../../components/admin/ShowtimeTable';
 import ShowtimeForm from '../../components/admin/ShowtimeForm';
@@ -25,7 +18,6 @@ import { useShowtimes } from '../../hooks/useShowtimes';
 import { generateSeats, getShowtimeById, toLocalTime } from '../../api/showtimeApi';
 import type { Showtime, ShowtimeFormData } from '../../types/showtime';
 
-/** Showtime (dữ liệu thật) -> ShowtimeFormData, không còn map tên cứng */
 const toFormData = (s: Showtime): ShowtimeFormData => ({
   movieId: String(s.movieId ?? ''),
   roomId: String(s.roomId ?? ''),
@@ -41,7 +33,6 @@ const AdminShowtimesPage: React.FC = () => {
   const [cancelingShowtime, setCancelingShowtime] = useState<Showtime | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // FIX Lỗi 7: bảng phẳng không có filter -> càng nhiều suất chiếu càng khó dùng
   const [filterDate, setFilterDate] = useState('');
   const [filterMovieId, setFilterMovieId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -59,15 +50,8 @@ const AdminShowtimesPage: React.FC = () => {
   } = useShowtimes();
   const { toast, showToast } = useToast();
 
-  // FIX [mục 6.3]: state cho thao tác sinh ghế bù.
   const [generatingId, setGeneratingId] = useState<number | null>(null);
 
-  /*
-   * Vá dữ liệu cũ: suất chiếu tạo TRƯỚC khi backend có auto-seed vẫn đang có
-   * bảng showtime_seats rỗng. SeatBookingPage phát hiện được và hiện cảnh báo
-   * "Suất chiếu này chưa có sơ đồ ghế", nhưng trước đây admin không có nút nào
-   * để sửa. Endpoint idempotent nên bấm lại nhiều lần không gây hại.
-   */
   const handleGenerateSeats = async (showtimeId: number) => {
     setGeneratingId(showtimeId);
     try {
@@ -106,7 +90,6 @@ const AdminShowtimesPage: React.FC = () => {
     setFilterStatus('');
   };
 
-  /** Chỉ liệt kê phim thực sự có suất chiếu — dropdown gọn hơn nhiều */
   const moviesWithShowtimes = useMemo(() => {
     const ids = new Set(showtimes.map((s) => s.movieId));
     return movies.filter((m) => ids.has(m.id));
@@ -177,7 +160,6 @@ const AdminShowtimesPage: React.FC = () => {
 
       <ErrorBanner message={error} />
 
-      {/* Bộ lọc (FIX Lỗi 7) */}
       {!loading && showtimes.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -234,10 +216,6 @@ const AdminShowtimesPage: React.FC = () => {
         <ShowtimeTable
           showtimes={visibleShowtimes}
           onEdit={(s) => {
-            // FIX [mục 6.2]: mở form trên bản MỚI NHẤT từ server, không phải
-            // bản đã cache trong danh sách. Nếu fetch lỗi thì vẫn mở bằng dữ
-            // liệu cache — thà sửa được còn hơn chặn admin làm việc; lớp bảo
-            // vệ thật là expectedUpdatedAt gửi kèm lúc lưu.
             setEditingShowtime(s);
             setIsFormOpen(true);
             void getShowtimeById(s.id)

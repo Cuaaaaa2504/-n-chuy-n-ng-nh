@@ -1,7 +1,3 @@
-// src/components/admin/ShowtimeForm.tsx
-// 01/WARN-02: chuyển sang Tailwind, dùng chung Field/inputClass/Btn của AdminUI.
-// Dropdown Phim / Phòng đổ từ dữ liệu thật (props movies, rooms),
-//             không còn 3 option hardcode 'Avengers Endgame' / 'Room 1'.
 import React, { useMemo, useState } from 'react';
 import { Btn, Field, inputClass } from './AdminUI';
 import type { MovieOption, RoomOption, ShowtimeFormData } from '../../types/showtime';
@@ -37,7 +33,6 @@ const ShowtimeForm: React.FC<Props> = ({
   const [formData, setFormData] = useState<ShowtimeFormData>({ ...EMPTY, ...showtime });
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // Nhóm phòng theo rạp để admin không bị rối khi có nhiều rạp
   const roomsByCinema = useMemo(() => {
     const map = new Map<string, RoomOption[]>();
     rooms.forEach((r) => {
@@ -55,8 +50,6 @@ const ShowtimeForm: React.FC<Props> = ({
     if (!formData.startTime) next.startTime = 'Vui lòng chọn giờ bắt đầu';
     if (!formData.endTime) next.endTime = 'Vui lòng chọn giờ kết thúc';
 
-    // BasePrice là cột NOT NULL ở backend — trước đây form không hề có ô này
-    // nên mọi request tạo suất chiếu đều bị ValidationPipe từ chối.
     if (formData.basePrice === '' || Number.isNaN(Number(formData.basePrice))) {
       next.basePrice = 'Vui lòng nhập giá vé cơ bản';
     } else if (Number(formData.basePrice) <= 0) {

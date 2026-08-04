@@ -1,5 +1,3 @@
-// src/context/useTheme.ts
-// FIX react-refresh/only-export-components: tách context object + hook ra khỏi file component
 import { createContext, useContext } from "react";
 
 export type ThemeContextType = {

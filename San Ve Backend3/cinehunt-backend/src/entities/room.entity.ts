@@ -21,7 +21,6 @@ export class Room {
   @Column({ name: 'room_name', type: 'nvarchar', length: 100 })
   roomName: string;
 
-  // SQL CHECK: ('STANDARD','VIP','IMAX','4DX') — entity cũ thiếu cột này
   @Column({ name: 'room_type', type: 'varchar', length: 30, default: 'STANDARD' })
   roomType: string;
 

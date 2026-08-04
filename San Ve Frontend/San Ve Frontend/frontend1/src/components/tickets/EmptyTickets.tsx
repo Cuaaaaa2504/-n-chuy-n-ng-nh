@@ -1,4 +1,3 @@
-// src/components/tickets/EmptyTickets.tsx
 
 import React from 'react';
 

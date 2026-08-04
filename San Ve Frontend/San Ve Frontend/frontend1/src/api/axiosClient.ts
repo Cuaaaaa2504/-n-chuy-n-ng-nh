@@ -2,9 +2,6 @@ import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../config/env';
 
-// `_retry` không tồn tại trong InternalAxiosRequestConfig.
-// Khai báo type mở rộng thay vì truy cập field "lậu" trên object -> build production
-// với `strict: true` không còn báo lỗi TS2339.
 type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
 let refreshPromise: Promise<string | null> | null = null;
@@ -86,19 +83,11 @@ async function requestNewAccessToken(): Promise<string | null> {
   return refreshPromise;
 }
 
-/*
- * Chat streaming dùng fetch nên không đi qua interceptor của axiosClient.
- * Dùng chung đúng cơ chế refresh để không nhân đôi logic token.
- */
 export async function refreshAccessToken(): Promise<string | null> {
   return requestNewAccessToken();
 }
 
-// NOTE: interceptor response unwrap response.data một lần duy nhất.
-// Tất cả các nơi gọi axiosClient KHÔNG được unwrap thêm lần nào nữa.
 const axiosClient = axios.create({
-  // FIX Lỗi 1: fallback cũ là port 3002 nhưng backend chạy ở 3000 -> mọi request
-  // đều thất bại. Giá trị lấy từ config/env.ts (nguồn duy nhất).
   baseURL: API_BASE_URL,
   timeout: 10000,
   withCredentials: true,
@@ -128,8 +117,6 @@ axiosClient.interceptors.response.use(
           const expectedUserId = getStoredUserId();
           const refreshedUserId = getJwtSubject(newToken);
 
-          // Refresh cookie là cookie theo origin và có thể bị một tab khác ghi đè.
-          // Không bao giờ nhận token của tài khoản khác rồi tiếp tục request.
           if (
             expectedUserId &&
             refreshedUserId &&
@@ -144,7 +131,6 @@ axiosClient.interceptors.response.use(
           return axiosClient(originalRequest);
         }
       } catch {
-        // refresh thất bại → clear và redirect
       }
       clearStoredAuth();
       window.dispatchEvent(new Event('auth-changed'));

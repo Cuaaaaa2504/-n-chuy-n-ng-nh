@@ -35,11 +35,8 @@ export class BookingController {
     return this.bookingService.createBooking(userId, request);
   }
 
-  // ── ADMIN ───────────────────────────────────────────────────────────────
-  // FIX [Critical]: các route 'admin/...' phải khai báo TRƯỚC @Get(':id')
-  // để NestJS không match nhầm 'admin' thành :id.
+  // ADMIN
 
-  /** Toàn bộ đơn đặt vé + filter + phân trang (chỉ ADMIN) */
   @Get('admin/all')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
@@ -47,7 +44,7 @@ export class BookingController {
     return this.bookingService.adminFindAll(query);
   }
 
-  /** Admin xem chi tiết bất kỳ booking nào */
+  /* Admin xem chi tiết bất kỳ booking nào */
   @Get('admin/:id')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
@@ -55,7 +52,6 @@ export class BookingController {
     return this.bookingService.adminGetBookingDetail(id);
   }
 
-  /** Admin chủ động cập nhật trạng thái đơn hàng */
   @Patch('admin/:id/status')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
@@ -66,9 +62,8 @@ export class BookingController {
     return this.bookingService.adminUpdateStatus(id, dto.status);
   }
 
-  // ── USER ────────────────────────────────────────────────────────────────
+  // USER
 
-  // MUST be before @Get(':id') to avoid NestJS matching 'my' as :id
   @Get('my')
   @Header('Cache-Control', 'private, no-store, max-age=0')
   async getMyBookings(@Request() req) {
@@ -76,8 +71,6 @@ export class BookingController {
     return this.bookingService.getMyBookings(userId);
   }
 
-  // Thêm route GET :id/tickets cho MyTicketsPage
-  // Route literal '/tickets' phải đặt TRƯỚC @Get(':id') để NestJS ưu tiên match đúng
   @Get(':id/tickets')
   async getBookingTickets(@Request() req, @Param('id') id: string) {
     const userId = req.user.userId;

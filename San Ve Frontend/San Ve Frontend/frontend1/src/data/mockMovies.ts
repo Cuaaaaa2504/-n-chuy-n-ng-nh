@@ -1,8 +1,3 @@
-// FIX [lỗi biên dịch có sẵn]: đã gỡ field `featured` khỏi mock data.
-// `types/movie.ts` đã cố ý xoá field này (xem comment ở đó: bảng `movies`,
-// entity và DTO đều không có cột tương ứng), nhưng mock data vẫn giữ lại nên
-// `tsc` báo TS2353 ở mọi object có nó. Mock phải khớp type thật, nếu không nó
-// mô tả một API không tồn tại.
 import type { Movie } from "../types/movie";
 
 export const mockMovies: Movie[] = [

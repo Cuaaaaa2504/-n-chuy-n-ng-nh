@@ -10,7 +10,6 @@ import React, {
 import { clearMovieRatingCache } from '../api/movieRatingApi';
 import authApi from '../api/authApi';
 
-// Export User interface với avatarUrl để ProfilePage import được
 export interface User {
   id: number;
   userId?: number;
@@ -25,8 +24,6 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoggedIn: boolean;
-  // FIX [H-03]: export loading state để PrivateRoute và AdminRouteGuard
-  // đợi verify xong mới quyết định redirect — tránh logout nhầm sau page refresh
   loading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
@@ -37,16 +34,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const ACCESS_TOKEN_KEY = 'accessToken';
 const USER_KEY = 'user';
 
-/*
- * Access token và user dùng sessionStorage để mỗi tab có một phiên riêng.
- * localStorage trước đây dùng chung cho mọi tab cùng origin, khiến tab A có thể
- * hiển thị avatar tài khoản A nhưng request thực tế lại dùng token tài khoản B.
- */
 function readAuthStorage(key: string): string | null {
   const sessionValue = sessionStorage.getItem(key);
   if (sessionValue) return sessionValue;
 
-  // Tự di chuyển phiên cũ từ localStorage sang sessionStorage một lần.
   const legacyValue = localStorage.getItem(key);
   if (legacyValue) {
     sessionStorage.setItem(key, legacyValue);
@@ -63,7 +54,6 @@ function writeAuthStorage(key: string, value: string): void {
 function clearAuthStorage(): void {
   sessionStorage.removeItem(ACCESS_TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
-  // Dọn dữ liệu cũ để interceptor không bao giờ đọc nhầm token của tab khác.
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
@@ -88,17 +78,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const saved = readAuthStorage(USER_KEY);
       return saved ? normalizeUser(JSON.parse(saved) as User) : null;
     } catch {
-      // Xóa dữ liệu corrupt để tránh crash lần sau
       sessionStorage.removeItem(USER_KEY);
       localStorage.removeItem(USER_KEY);
       return null;
     }
   });
-  // Dùng useState thay vì hằng số `const loading = false`.
-  // Hiện tại state được hydrate ĐỒNG BỘ từ localStorage trong useState() initializer
-  // nên giá trị khởi tạo vẫn là false — hành vi không đổi. Nhưng khi thêm bước
-  // verify bằng GET /auth/me sau này, chỉ cần setLoading(true/false) là chạy đúng,
-  // không còn nguy cơ quên đổi kiểu và mất loading spinner một cách âm thầm.
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -146,9 +130,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new Event('auth-changed'));
   }, []);
 
-  // Xác minh token và user phía server khi mở tab.
-  // Nếu UI lưu user A nhưng access token thực tế thuộc user B, server là nguồn
-  // đúng duy nhất và giao diện phải đồng bộ lại, không được hiển thị nhầm vé.
   useEffect(() => {
     let cancelled = false;
 

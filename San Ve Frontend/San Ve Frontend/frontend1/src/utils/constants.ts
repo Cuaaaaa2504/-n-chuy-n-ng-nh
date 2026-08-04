@@ -1,6 +1,5 @@
-// src/utils/constants.ts
 
-// ── Booking status labels ──────────────────────────────────────────────────
+// Booking status labels
 export const BOOKING_STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: 'Chờ thanh toán',
   PAID:            'Đã thanh toán',
@@ -17,7 +16,7 @@ export const BOOKING_STATUS_COLOR: Record<string, string> = {
   CANCELLED:       'text-red-400',
 };
 
-// ── Showtime status labels ─────────────────────────────────────────────────
+// Showtime status labels
 export const SHOWTIME_STATUS_LABEL: Record<string, string> = {
   ACTIVE:    'Đang chiếu',
   CANCELLED: 'Đã hủy',
@@ -30,7 +29,7 @@ export const SHOWTIME_STATUS_COLOR: Record<string, string> = {
   FINISHED:  'text-gray-400',
 };
 
-// ── Movie status labels ────────────────────────────────────────────────────
+// Movie status labels
 export const MOVIE_STATUS_LABEL: Record<string, string> = {
   NOW_SHOWING: 'Đang chiếu',
   COMING_SOON: 'Sắp chiếu',
@@ -43,7 +42,7 @@ export const MOVIE_STATUS_COLOR: Record<string, string> = {
   ENDED:       'text-gray-400',
 };
 
-// ── Payment methods ────────────────────────────────────────────────────────
+// Payment methods
 export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   VNPAY:   'VNPay',
   MOMO:    'MoMo',
@@ -51,7 +50,6 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   CASH:    'Tiền mặt',
 };
 
-// ── App routes ─────────────────────────────────────────────────────────────
 export const ROUTES = {
   HOME:          '/',
   LOGIN:         '/login',
@@ -78,8 +76,8 @@ export const ROUTES = {
   ADMIN_AUDIT_LOGS:  '/admin/audit-logs',
 } as const;
 
-// ── Pagination ─────────────────────────────────────────────────────────────
+// Pagination
 export const DEFAULT_PAGE_SIZE = 10;
 
-// ── Seat hold timeout (giây) ───────────────────────────────────────────────
+// Seat hold timeout (giây)
 export const SEAT_HOLD_TIMEOUT_SECONDS = 600; // 10 phút

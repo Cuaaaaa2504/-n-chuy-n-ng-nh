@@ -1,4 +1,3 @@
-// src/pages/PaymentPage.tsx
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -125,22 +124,12 @@ export default function PaymentPage() {
 
     if (isLocalMode) {
       setOrder((prev) => prev ? { ...prev, status: 'PAID' } : prev);
-      // Thêm ?tab=paid, nếu không MyTicketsPage mở mặc định tab
-      // "Vé đang giữ" (rỗng) -> người dùng tưởng thanh toán thất bại.
       navigate('/my-tickets?tab=paid');
       return;
     }
 
     if (!orderId) return;
 
-    // FIX [bookingId must be a UUID]: KHÔNG dùng `orderId` lấy từ URL để gọi
-    // /payments. URL có thể chứa bookingCode (BK-xxx) tuỳ theo trang điều hướng
-    // sang (MyBookings / MyTickets / ComboPage). `order.id` là booking_id thật đã
-    // được backend trả về qua GET /bookings/:id và đã được normalizeBooking xác thực.
-    // FIX [lỗi biên dịch có sẵn]: `order.id` có kiểu `string | number` nên
-    // truyền thẳng vào RegExp.test() (nhận `string`) làm tsc báo TS2345.
-    // Ép về chuỗi trước khi kiểm tra thay vì nới lỏng type — chính cái regex
-    // này là thứ chặn bookingCode 'BK-xxx' lọt xuống POST /payments.
     const realBookingId = String(order.id ?? '');
     if (!realBookingId || !/^\d+$/.test(realBookingId)) {
       setFetchError('Không xác định được mã đơn hàng. Vui lòng tải lại trang.');
@@ -148,7 +137,6 @@ export default function PaymentPage() {
     }
 
     try {
-      // Gọi qua usePayment để isProcessing / paymentStatus được cập nhật
       const result = await handlePayment({
         bookingId: realBookingId,
         totalAmount: order.totalAmount,
@@ -161,7 +149,6 @@ export default function PaymentPage() {
 
       if (result.status === 'SUCCESS') {
         setOrder((prev) => (prev ? { ...prev, status: 'PAID' } : prev));
-        // Chỉ chuyển sang vé đã mua khi backend đã xác nhận SUCCESS thật.
         navigate('/my-tickets?tab=paid');
         return;
       }

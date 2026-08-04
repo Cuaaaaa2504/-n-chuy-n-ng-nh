@@ -1,12 +1,4 @@
-// src/pages/admin/AdminNotificationsPage.tsx
-// FIX [mục 3.5 của báo cáo] — trang này TRƯỚC ĐÂY KHÔNG TỒN TẠI.
-// `POST /notifications/admin/push` có sẵn ở backend nhưng "không có form nào
-// trong admin dashboard". Hệ quả: admin không có bất kỳ cách nào liên lạc với
-// người dùng qua hệ thống thông báo, dù đây là tính năng cốt lõi của một hệ
-// quản trị.
-// Trang này cố tình giữ tối giản: chọn người nhận từ danh sách user có sẵn
-// (tránh gõ tay userId sai và gửi nhầm người), soạn tiêu đề + nội dung, chọn
-// loại thông báo trong đúng danh sách backend chấp nhận.
+// quản trị
 
 import { useEffect, useMemo, useState } from 'react';
 import userApi from '../../api/userApi';
@@ -44,8 +36,6 @@ export default function AdminNotificationsPage() {
       .getAll({ page: 1, limit: 100 })
       .then((res) => {
         if (cancelled) return;
-        // Backend phân trang trả { data, total, page, limit }; phòng trường hợp
-        // trả mảng trần thì vẫn đọc được.
         const rows = Array.isArray(res) ? res : (res?.data ?? []);
         setUsers(rows as User[]);
       })
@@ -128,8 +118,6 @@ export default function AdminNotificationsPage() {
             value={type}
             onChange={(e) => setType(e.target.value as NotificationType)}
           >
-            {/* Danh sách này phải khớp @IsIn của CreateNotificationDto, nếu
-                không backend sẽ trả 400 mà UI không rõ vì sao. */}
             {NOTIFICATION_TYPES.map((t) => (
               <option key={t} value={t}>
                 {NOTIFICATION_ICON[t]} {t}

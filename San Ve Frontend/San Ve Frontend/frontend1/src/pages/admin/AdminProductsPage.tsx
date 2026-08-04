@@ -1,5 +1,3 @@
-// src/pages/admin/AdminProductsPage.tsx
-// Quản lý sản phẩm bắp nước (products) và combo (concession-combos)
 import { useCallback, useEffect, useState } from 'react';
 import { comboApi, productApi } from '../../api/adminApi';
 import type { ConcessionCombo, Product } from '../../types/admin';
@@ -99,7 +97,6 @@ export default function AdminProductsPage() {
     return () => window.clearTimeout(timer);
   }, [fetchData]);
 
-  // ── Sản phẩm ─────────────────────────────────────────────────────────────
   const openCreateProduct = () => {
     setEditingProduct(null);
     setProductForm(emptyProduct);
@@ -158,7 +155,6 @@ export default function AdminProductsPage() {
     }
   };
 
-  // ── Combo ────────────────────────────────────────────────────────────────
   const openCreateCombo = () => {
     setEditingCombo(null);
     setComboForm(emptyCombo);
@@ -233,7 +229,6 @@ export default function AdminProductsPage() {
         }
       />
 
-      {/* Tab chuyển đổi */}
       <div className="flex gap-2 mb-5">
         <Btn
           variant={tab === 'products' ? 'primary' : 'ghost'}

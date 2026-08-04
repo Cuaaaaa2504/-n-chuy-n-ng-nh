@@ -26,13 +26,11 @@ type AuthenticatedRequest = Request & {
 export class MovieRatingController {
   constructor(private readonly movieRatingService: MovieRatingService) {}
 
-  /** Điểm trung bình công khai của phim. */
   @Get()
   getSummary(@Param('movieId', ParseIntPipe) movieId: number) {
     return this.movieRatingService.getSummary(movieId);
   }
 
-  /** Điểm trung bình kèm số sao người đang đăng nhập đã chọn. */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getMySummary(
@@ -42,7 +40,6 @@ export class MovieRatingController {
     return this.movieRatingService.getSummary(movieId, request.user.userId);
   }
 
-  /** Thêm đánh giá hoặc cập nhật đánh giá cũ của chính tài khoản này. */
   @Put()
   @UseGuards(JwtAuthGuard)
   rateMovie(
@@ -57,7 +54,6 @@ export class MovieRatingController {
     );
   }
 
-  /** Bỏ đánh giá của chính tài khoản này. */
   @Delete()
   @UseGuards(JwtAuthGuard)
   removeRating(

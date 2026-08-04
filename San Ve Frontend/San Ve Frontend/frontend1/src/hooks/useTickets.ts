@@ -1,4 +1,3 @@
-// src/hooks/useTickets.ts
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
@@ -36,7 +35,6 @@ const useTickets = () => {
     }
   }, []);
 
-  // ✅ Dùng ref guard — fetchTickets chạy trong Promise, không phải sync body
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;

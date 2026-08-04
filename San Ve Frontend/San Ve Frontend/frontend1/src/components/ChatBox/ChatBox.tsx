@@ -18,8 +18,6 @@ export default function ChatBox() {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
-  // Esc để dừng câu trả lời đang chạy. Người dùng quen phím này
-  // hơn là đi tìm nút bấm, nhất là khi câu trả lời dài đang đẩy nút xuống.
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -102,8 +100,6 @@ export default function ChatBox() {
                     ) : (
                       <>
                         {message.content}
-                        {/* Con trỏ nhấp nháy cho biết chữ vẫn đang chảy về,
-                            phân biệt với câu trả lời đã xong. */}
                         {message.isStreaming && (
                           <span className={styles.caret} aria-hidden="true" />
                         )}
@@ -114,8 +110,6 @@ export default function ChatBox() {
               );
             })}
 
-            {/* 05 + CHAT-07: nói rõ chatbot đang tra dữ liệu thật,
-                thay vì để người dùng nhìn ba chấm suốt 30 giây. */}
             {status && (
               <div className={styles.statusLine}>
                 <span className="material-symbols-outlined">database</span>
@@ -136,8 +130,6 @@ export default function ChatBox() {
               aria-label="Tin nhắn"
             />
 
-            {/* Khi đang chờ, nút Gửi biến thành nút Dừng.
-                Trước đây người dùng bị khoá cứng 30 giây không làm gì được. */}
             {isLoading ? (
               <button
                 type="button"

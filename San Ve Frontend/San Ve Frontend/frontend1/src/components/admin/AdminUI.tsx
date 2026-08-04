@@ -1,9 +1,6 @@
-// src/components/admin/AdminUI.tsx
-// Các mảnh UI dùng chung cho toàn bộ trang /admin (Tailwind, dark theme).
 import type { ReactNode } from 'react';
 import type { ToastState } from './adminUiHelpers';
 
-// ── Toast ──────────────────────────────────────────────────────────────────
 export function Toast({ toast }: { toast: ToastState | null }) {
   if (!toast) return null;
   return (
@@ -17,7 +14,7 @@ export function Toast({ toast }: { toast: ToastState | null }) {
   );
 }
 
-// ── Header trang ───────────────────────────────────────────────────────────
+// Header trang
 export function PageHeader({
   title,
   subtitle,
@@ -38,7 +35,7 @@ export function PageHeader({
   );
 }
 
-// ── Trạng thái tải / rỗng / lỗi ────────────────────────────────────────────
+// Trạng thái tải / rỗng / lỗi
 export function Loading({ label = 'Đang tải...' }: { label?: string }) {
   return (
     <div className="flex items-center justify-center py-20 text-gray-400 gap-3">
@@ -66,7 +63,6 @@ export function ErrorBanner({ message }: { message?: string | null }) {
   );
 }
 
-// ── Khung bảng ─────────────────────────────────────────────────────────────
 export function TableShell({ children }: { children: ReactNode }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
@@ -83,7 +79,6 @@ export function Td({ children, className = '' }: { children: ReactNode; classNam
   return <td className={`px-5 py-4 ${className}`}>{children}</td>;
 }
 
-// ── Phân trang (FIX BUG-06) ────────────────────────────────────────────────
 export function Pagination({
   page,
   limit,
@@ -140,7 +135,6 @@ export function Pagination({
   );
 }
 
-// ── Nút ────────────────────────────────────────────────────────────────────
 const BTN_VARIANTS: Record<string, string> = {
   primary: 'bg-blue-600 hover:bg-blue-700 text-white',
   ghost: 'border border-gray-700 text-gray-300 hover:bg-gray-800',
@@ -176,7 +170,6 @@ export function Btn({
   );
 }
 
-// ── Badge trạng thái ───────────────────────────────────────────────────────
 const PILL_COLORS: Record<string, string> = {
   green: 'bg-green-500/20 text-green-300 border-green-500/30',
   red: 'bg-red-500/20 text-red-300 border-red-500/30',
@@ -202,7 +195,7 @@ export function Pill({
   );
 }
 
-// ── Modal ──────────────────────────────────────────────────────────────────
+// Modal
 export function Modal({
   title,
   children,
@@ -266,7 +259,6 @@ export function ConfirmModal({
   );
 }
 
-// ── Input trong form ───────────────────────────────────────────────────────
 export function Field({
   label,
   children,

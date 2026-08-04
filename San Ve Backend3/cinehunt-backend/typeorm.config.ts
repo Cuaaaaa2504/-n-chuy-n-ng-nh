@@ -1,7 +1,3 @@
-// typeorm.config.ts — đặt ở ROOT của cinehunt-backend (cùng cấp package.json)
-// TypeORM CLI không bootstrap được NestJS app nên không đọc được config trong
-// TypeOrmModule.forRootAsync. File này export default một DataSource độc lập,
-// đọc thẳng process.env sau khi dotenv.config().
 
 import 'reflect-metadata';
 import { config as loadEnv } from 'dotenv';
@@ -9,13 +5,6 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 
 loadEnv();
 
-/*
- * Lỗi "Bảng typeorm_migrations không được tạo".
- * Nguyên nhân thật sự thường KHÔNG phải TypeORM không tạo bảng, mà là CLI
- * không kết nối được DB do thiếu biến trong .env — nhưng thông báo lỗi của
- * driver mssql rất khó đọc ("Failed to connect to undefined:1433").
- * Hàm này fail sớm với thông báo rõ ràng bằng tiếng Việt.
- */
 function requireEnv(key: string): string {
   const value = process.env[key];
   if (!value || value.trim() === '') {
@@ -38,27 +27,17 @@ if (Number.isNaN(port)) {
 export const dataSourceOptions: DataSourceOptions = {
   type: 'mssql',
   host: requireEnv('DB_HOST'),
-  // parseInt bắt buộc: process.env luôn trả về string, driver mssql cần number.
   port,
   username: requireEnv('DB_USERNAME'),
   password: requireEnv('DB_PASSWORD'),
   database: requireEnv('DB_DATABASE'),
 
-  // Entities chỉ cần cho `migration:generate` (so sánh entity với schema DB).
   entities: [__dirname + '/src/**/*.entity{.ts,.js}'],
 
-  // Nơi CLI tìm file migration.
   migrations: [__dirname + '/src/migrations/*{.ts,.js}'],
 
-  /*
-   * FIX QUAN TRỌNG — hướng dẫn nói phải kiểm tra bảng `dbo.typeorm_migrations`,
-   * nhưng mặc định TypeORM tạo bảng tên `migrations`. Không khai báo dòng này
-   * thì bước kiểm tra trong SSMS luôn "không thấy bảng" dù migration đã chạy
-   * thành công. Giá trị này PHẢI giống hệt bên app.module.ts.
-   */
   migrationsTableName: 'typeorm_migrations',
 
-  // CLI không bao giờ được tự sửa schema.
   synchronize: false,
 
   logging: ['error', 'schema', 'migration'],
@@ -71,8 +50,6 @@ export const dataSourceOptions: DataSourceOptions = {
       (process.env.DB_TRUST_SERVER_CERTIFICATE ?? 'true').toLowerCase() ===
       'true',
 
-    // Chỉ dùng khi SQL Server cài dạng named instance (VD: SQLEXPRESS).
-    // Azure SQL không cần DB_INSTANCE.
     ...(process.env.DB_INSTANCE
       ? { instanceName: process.env.DB_INSTANCE }
       : {}),

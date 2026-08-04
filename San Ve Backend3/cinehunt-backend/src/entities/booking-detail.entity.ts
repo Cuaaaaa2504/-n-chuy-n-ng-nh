@@ -13,7 +13,6 @@ import { Ticket } from './ticket.entity';
 
 @Entity('booking_details')
 export class BookingDetail {
-  // SQL: booking_detail_id BIGINT IDENTITY
   @PrimaryGeneratedColumn({ type: 'bigint', name: 'booking_detail_id' })
   bookingDetailId: string;
 
@@ -26,7 +25,6 @@ export class BookingDetail {
   @Column({ name: 'seat_price', type: 'decimal', precision: 12, scale: 2 })
   seatPrice: number;
 
-  // SQL: status CHECK('ACTIVE','CANCELLED','EXPIRED') — entity cũ thiếu cột này
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 

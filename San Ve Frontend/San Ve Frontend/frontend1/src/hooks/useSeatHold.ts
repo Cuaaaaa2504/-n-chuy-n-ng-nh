@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface Seat {
-  // SeatId mở rộng thành number|string để SeatBookingPage có thể truyền
-  // seatId: String(s.id) mà không bị type error. MOCK_SEATS vẫn dùng number.
   seatId: number | string;
   seatCode: string;
   price: number;
@@ -26,7 +24,6 @@ const MOCK_SEATS: Seat[] = [
 
 export function useSeatHold(showtimeId?: string) {
   const [seats, setSeats]                     = useState<Seat[]>([]);
-  // SelectedSeatIds dùng number|string để khớp Seat.seatId
   const [selectedSeatIds, setSelectedSeatIds] = useState<Array<number | string>>([]);
   const [holdExpiresAt, setHoldExpiresAt]     = useState<string | null>(null);
   const [countdown, setCountdown]             = useState(0);
@@ -34,8 +31,6 @@ export function useSeatHold(showtimeId?: string) {
   const [message, setMessage]                 = useState("");
   const [error, setError]                     = useState("");
 
-  // ✅ FIX: countdown — chỉ setState bên trong setInterval callback, không có setState nào
-  // ở sync body của effect. holdExpiresAt === null → interval tick đầu tiên sẽ set 0.
   useEffect(() => {
     const calc = () =>
       holdExpiresAt
@@ -51,7 +46,6 @@ export function useSeatHold(showtimeId?: string) {
     return () => clearInterval(id);
   }, [holdExpiresAt]);
 
-  // ✅ load seats trong async function có cancelled flag
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -62,7 +56,6 @@ export function useSeatHold(showtimeId?: string) {
     return () => { cancelled = true; };
   }, [showtimeId]);
 
-  // ✅ reset khi hết giờ — bọc trong setTimeout(0)
   const resetFiredRef = useRef(false);
   useEffect(() => {
     if (countdown !== 0 || !holdExpiresAt) {
@@ -85,7 +78,6 @@ export function useSeatHold(showtimeId?: string) {
     return () => clearTimeout(id);
   }, [countdown, holdExpiresAt]);
 
-  // Dùng String() để so sánh an toàn khi seatId có thể là number hoặc string
   const selectedSeats = seats.filter((s) => selectedSeatIds.map(String).includes(String(s.seatId)));
   const totalPrice    = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
 
