@@ -93,9 +93,7 @@ class HybridRecommender:
     trained_at: str = ""
     n_interactions: int = 0
 
-    # =====================================================================
     # HUẤN LUYỆN
-    # =====================================================================
     def fit(self, interactions: pd.DataFrame, movies: pd.DataFrame) -> "HybridRecommender":
         """
         interactions: user_id, movie_id, rating, booking_count
@@ -156,7 +154,6 @@ class HybridRecommender:
         )
         return self
 
-    # ------------------------------------------------------------------
     def _fit_popularity(self, movies: pd.DataFrame, interactions: pd.DataFrame) -> None:
         """
         Điểm phổ biến kiểu Bayesian (giống công thức IMDb weighted rating
@@ -192,7 +189,6 @@ class HybridRecommender:
         score = np.where((v == 0) & (r == 0), 0.0, score)
         self.popularity = _minmax(score)
 
-    # ------------------------------------------------------------------
     def _fit_content(self, movies: pd.DataFrame) -> None:
         """One-hot thể loại + chuẩn hoá L2 từng dòng (notebook mục 16)."""
         split = movies["genres"].fillna("").apply(
@@ -216,7 +212,6 @@ class HybridRecommender:
         norms = np.linalg.norm(matrix, axis=1, keepdims=True)
         self.movie_genre_matrix = matrix / np.where(norms == 0, 1.0, norms)
 
-    # ------------------------------------------------------------------
     def _fit_svd(
         self,
         rows: np.ndarray,
@@ -263,24 +258,19 @@ class HybridRecommender:
             self._disable_svd()
             return
 
-        # ------------------------------------------------------------------
         # CHỌN CHẾ ĐỘ: "centered" hay "implicit"?
-        #
         # Notebook trừ trung bình theo user rồi mới phân rã. Cách đó đúng với
         # MovieLens, nơi mỗi user chấm điểm khác nhau cho từng phim.
-        #
         # Ở CineHunt, phần lớn user đặt mỗi phim đúng MỘT lần -> rating ngầm
         # của họ đều bằng 3.5 -> trung bình cũng bằng 3.5 -> ma trận sau khi
         # trừ TOÀN LÀ SỐ 0. Đưa ma trận 0 vào svds thì ARPACK ném thẳng
         #     "ARPACK error -9: Starting vector is zero"
         # và cả tiến trình train chết. Đây không phải trường hợp hiếm — nó là
         # trường hợp MẶC ĐỊNH với một DB mới cài xong.
-        #
         # Nên: nếu phần dư gần như bằng 0, chuyển sang phân rã thẳng ma trận
         # tương tác thô (implicit feedback). Lúc đó điểm không còn là "rating
         # dự đoán" mà là mức độ hợp giữa user và phim theo đồng xuất hiện —
         # vẫn xếp hạng tốt, chỉ khác cách quy về [0,1] (xem _blend).
-        # ------------------------------------------------------------------
         centered = vals - self.user_mean[rows]
         if np.abs(centered).max() < 1e-6:
             logger.info(
@@ -313,7 +303,6 @@ class HybridRecommender:
         self.vt = None
         self.svd_mode = "none"
 
-    # ------------------------------------------------------------------
     def _fit_user_profiles(self, interactions: pd.DataFrame, n_users: int) -> None:
         """
         Hồ sơ sở thích của user = trung bình có trọng số vector thể loại của
@@ -336,9 +325,7 @@ class HybridRecommender:
             if norm > 0:
                 self.user_profiles[u] = profile / norm
 
-    # =====================================================================
     # SUY LUẬN
-    # =====================================================================
     def recommend(self, user_id: int, top_n: int = 10) -> list[tuple[int, float]]:
         """
         Trả về [(movie_id, score), ...] đã sắp giảm dần theo điểm.
@@ -357,7 +344,6 @@ class HybridRecommender:
         scores = self._blend(idx)
         return self._top_from(scores, self.watched.get(int(user_id), set()), top_n)
 
-    # ------------------------------------------------------------------
     def _blend(self, user_idx: int) -> np.ndarray:
         n_movies = len(self.movie_ids)
 
@@ -406,7 +392,6 @@ class HybridRecommender:
             + self.weight_popularity * pop_scores
         ) / total
 
-    # ------------------------------------------------------------------
     def _top_from(
         self,
         scores: np.ndarray,
@@ -434,9 +419,7 @@ class HybridRecommender:
     def known_user_ids(self) -> list[int]:
         return list(self.user_to_idx.keys())
 
-    # =====================================================================
     # LƯU / TẢI
-    # =====================================================================
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         # Ghi ra file tạm rồi đổi tên: nếu tiến trình chết giữa chừng, file

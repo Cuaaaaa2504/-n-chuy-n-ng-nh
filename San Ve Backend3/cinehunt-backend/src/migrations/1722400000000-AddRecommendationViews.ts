@@ -1,18 +1,14 @@
 // src/migrations/1722400000000-AddRecommendationViews.ts
-//
 // VÁ MỤC #5 CỦA BÁO CÁO — "Database chưa có lớp hỗ trợ riêng cho recommendation".
-//
 // Hiện trạng trước migration này: mọi câu SQL phục vụ gợi ý đều nằm rải rác
 // trong `recommendation-service/app/db.py` dưới dạng chuỗi thô. Ba câu khác
 // nhau (load_interactions, load_movies, load_popular_movie_ids) cùng lặp lại
 // một logic join `booking_orders -> showtimes -> movies` và cùng hardcode bộ
 // lọc trạng thái. Đổi schema một lần là phải đi sửa ba chỗ, quên một chỗ thì
 // model train trên dữ liệu sai mà không có gì báo lỗi.
-//
 // Ba view dưới đây đóng gói đúng phần logic đó lại. Chúng KHÔNG thay đổi kết
 // quả — cố tình giữ nguyên 100% ngữ nghĩa của db.py để có thể chuyển sang
 // dùng view mà không phải train lại model.
-//
 // VÌ SAO LÀ VIEW CHỨ KHÔNG PHẢI BẢNG VẬT LÝ / MATERIALIZED VIEW:
 //   - Dữ liệu đặt vé thay đổi liên tục, bảng vật lý sẽ cũ ngay.
 //   - SQL Server gọi materialized view là "indexed view", nó bắt buộc
@@ -53,27 +49,22 @@ export class AddRecommendationViews1722400000000 implements MigrationInterface {
       );
     }
 
-    /* ======================================================================
+    /*
      * VIEW 1 — vw_recommendation_interactions
-     * ----------------------------------------------------------------------
      * Ma trận tương tác user x movie, tương đương `db.py :: load_interactions()`.
-     *
      * LƯU Ý VỀ CỘT `implicit_rating`:
      * CineHunt KHÔNG có bảng rating (kiểm tra file SQL V6.3: 28 bảng, không
      * bảng nào lưu điểm người dùng chấm). Notebook v7 lại được train trên
      * MovieLens có cột Rating 1..5. Công thức quy đổi
-     *
      *     3.5 + 0.5 * (số lần đặt vé - 1),  trần 5.0
-     *
      * hiện đang nằm trong Python (`df["rating"] = ...`). Đưa nó xuống view để
      * chỉ còn MỘT định nghĩa duy nhất — nếu sau này ai đó đổi công thức bên
      * Python mà quên đổi ở đây (hoặc ngược lại), hai bên vẫn khớp vì Python
      * sẽ đọc thẳng cột này.
-     *
      * Chỉ tính đơn PAID/ISSUED. Đơn PENDING_PAYMENT có thể không bao giờ được
      * trả tiền; CANCELLED/REFUNDED là tín hiệu ngược, đếm vào là dạy model học
      * điều sai.
-     * ==================================================================== */
+     */
     await queryRunner.query(`
       CREATE OR ALTER VIEW dbo.vw_recommendation_interactions
       AS
@@ -97,20 +88,17 @@ export class AddRecommendationViews1722400000000 implements MigrationInterface {
       GROUP BY bo.user_id, st.movie_id
     `);
 
-    /* ======================================================================
+    /*
      * VIEW 2 — vw_movie_content_features
-     * ----------------------------------------------------------------------
      * Danh mục phim + vector thể loại dạng chuỗi, tương đương
      * `db.py :: load_movies()`. Đây là đầu vào của nhánh Content-based.
-     *
      * STRING_AGG yêu cầu SQL Server 2017 trở lên. DB của đồ án chạy trên
      * 2019/2022 nên dùng được. Nếu bắt buộc phải chạy trên 2016 thì thay bằng
      * FOR XML PATH — nhưng đừng đổi dấu phân tách '|', bên Python đang
      * `str.split("|")`.
-     *
      * LỌC ENDED/HIDDEN NGAY Ở ĐÂY: gợi ý một phim đã ngừng chiếu thì người
      * dùng bấm vào chỉ thấy trang trống — tệ hơn là không gợi ý gì cả.
-     * ==================================================================== */
+     */
     await queryRunner.query(`
       CREATE OR ALTER VIEW dbo.vw_movie_content_features
       AS
@@ -130,25 +118,21 @@ export class AddRecommendationViews1722400000000 implements MigrationInterface {
       GROUP BY m.movie_id, m.title, m.status, m.average_rating
     `);
 
-    /* ======================================================================
+    /*
      * VIEW 3 — vw_movie_popularity_90d
-     * ----------------------------------------------------------------------
      * VÁ MỤC #6 CỦA BÁO CÁO Ở TẦNG DATABASE — cold-start fallback.
-     *
      * Tương đương `db.py :: load_popular_movie_ids()`, nhưng KHÔNG có TOP (n)
      * và không ORDER BY. Đây là chủ ý, không phải thiếu sót:
-     *
      *   1. SQL Server CẤM ORDER BY trong view trừ khi đi kèm TOP, và kể cả có
      *      TOP thì thứ tự vẫn KHÔNG được đảm bảo khi select lại từ view.
      *      Ai tin vào thứ tự đó sẽ nhận bug ngẫu nhiên chỉ xuất hiện khi dữ
      *      liệu đủ lớn để optimizer đổi kế hoạch thực thi.
      *   2. Cột `booking_count` đã có sẵn -> phía gọi tự
      *      `ORDER BY booking_count DESC` kèm `TOP (@limit)` của riêng nó.
-     *
      * Cửa sổ 90 ngày cố tình đặt trong view: "phổ biến" phải là phổ biến
      * GẦN ĐÂY. Đếm từ đầu lịch sử thì một bom tấn hai năm trước sẽ chiếm chỗ
      * vĩnh viễn trên trang chủ.
-     * ==================================================================== */
+     */
     await queryRunner.query(`
       CREATE OR ALTER VIEW dbo.vw_movie_popularity_90d
       AS
@@ -166,17 +150,15 @@ export class AddRecommendationViews1722400000000 implements MigrationInterface {
       GROUP BY st.movie_id
     `);
 
-    /* ======================================================================
+    /*
      * Index hỗ trợ.
-     * ----------------------------------------------------------------------
      * Cả ba view đều bắt đầu bằng cùng một phép join trên
      * `booking_orders.showtime_id` và lọc theo `status` + `created_at`.
      * Không có index này thì mỗi lần train là một lần table scan toàn bộ
      * bảng đơn hàng.
-     *
      * INCLUDE (user_id, booking_id) biến nó thành covering index cho view 1:
      * SQL Server lấy đủ dữ liệu từ index, không phải lookup ngược về bảng gốc.
-     * ==================================================================== */
+     */
     await queryRunner.query(`
       IF NOT EXISTS (
         SELECT 1 FROM sys.indexes

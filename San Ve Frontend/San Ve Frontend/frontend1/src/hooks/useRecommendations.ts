@@ -1,7 +1,5 @@
 // src/hooks/useRecommendations.ts
-//
 // Cùng khuôn với `useMovies.ts` để call-site không phải học thêm gì mới.
-//
 // KHÁC BIỆT DUY NHẤT SO VỚI useMovies — và là điểm quan trọng nhất của file:
 // gợi ý phim là tính năng "CÓ THÌ TỐT". Nó KHÔNG BAO GIỜ được phép làm hỏng
 // trang chủ. Backend đã theo nguyên tắc này (`recommendation.service.ts` nuốt
@@ -39,7 +37,7 @@ export function useRecommendations(options: UseRecommendationsOptions = {}) {
 
   const [movies, setMovies] = useState<Movie[]>([]);
   const [source, setSource] = useState<RecommendationSource>('FALLBACK');
-  // FIX REC-06: giữ nguyên khối debug để component hiện badge kỹ thuật.
+  // Giữ nguyên khối debug để component hiện badge kỹ thuật.
   const [debug, setDebug] = useState<RecommendationDebug | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

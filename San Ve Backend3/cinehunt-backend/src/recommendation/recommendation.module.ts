@@ -16,7 +16,7 @@ import { RecommendationScheduler } from './recommendation.scheduler';
     }),
   ],
   controllers: [RecommendationController],
-  // FIX REC-05: đăng ký scheduler để @Cron() thật sự được Nest quét.
+  // Đăng ký scheduler để @Cron() thật sự được Nest quét.
   // ScheduleModule.forRoot() ở AppModule chỉ bật cơ chế; không có provider nào
   // mang @Cron thì nó không làm gì cả — đúng tình trạng trước đây.
   providers: [RecommendationService, RecommendationScheduler],

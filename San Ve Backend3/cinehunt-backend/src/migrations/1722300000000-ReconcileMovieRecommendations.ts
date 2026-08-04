@@ -1,8 +1,6 @@
 // src/migrations/1722300000000-ReconcileMovieRecommendations.ts
-//
 // FIX [#3] — Schema lệch giữa CineHunt_Patch_V6_4_Recommendation.sql và
 // migration 1722200000000.
-//
 // QUYẾT ĐỊNH: migration TypeScript là NGUỒN SỰ THẬT DUY NHẤT.
 // File CineHunt_Patch_V6_4_Recommendation.sql đã bị xoá khỏi repo.
 // Lý do chọn migration TS thay vì file SQL:
@@ -11,16 +9,13 @@
 //     sửa lại entity + mọi query.
 //   - Migration có lịch sử trong bảng typeorm_migrations, chạy lại không hỏng,
 //     revert được. File SQL chạy tay không để lại dấu vết gì.
-//
 // Migration này dọn hậu quả cho những máy ĐÃ chạy file SQL patch trước đó:
 // bảng ở các máy đó có PK BIGINT, cột rank_position, có expires_at, thiếu
 // algorithm/generated_at/updated_at => entity query vào sẽ lỗi ngay.
-//
 // Cách xử lý: DROP rồi tạo lại theo đúng chuẩn.
 // An toàn vì movie_recommendations chỉ là BẢNG CACHE gợi ý — dữ liệu trong đó
 // do train.py sinh ra và có thể chạy lại bất cứ lúc nào. Không có dữ liệu
 // nghiệp vụ nào của người dùng nằm ở đây.
-//
 // Migration KHÔNG đụng gì nếu bảng đã đúng chuẩn (idempotent).
 
 import { MigrationInterface, QueryRunner } from 'typeorm';
@@ -100,11 +95,10 @@ export class ReconcileMovieRecommendations1722300000000
     `);
   }
 
-  /**
+  /*
    * Không thể (và không nên) khôi phục lại schema cũ của file SQL patch — đó
    * chính là schema sai mà migration này sinh ra để loại bỏ. Revert migration
    * 1722200000000 mới là thứ xoá hẳn bảng.
-   *
    * down() để trống CÓ CHỦ ĐÍCH, không phải quên viết.
    */
   public async down(): Promise<void> {

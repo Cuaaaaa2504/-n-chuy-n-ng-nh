@@ -92,7 +92,7 @@ export class RecommendationService {
         timeout(this.timeoutMs),
         map((response) => response.data),
         catchError((error: Error) => {
-          // FIX REC-01: trước đây đây là dòng log duy nhất báo service chết, và
+          // Trước đây đây là dòng log duy nhất báo service chết, và
           // nó nằm ở mức `warn` lẫn giữa hàng trăm dòng khác. Nay
           // RecommendationScheduler kiểm tra /health lúc boot + định kỳ và log
           // ở mức error kèm hướng dẫn khởi động, nên vấn đề không còn im lặng.

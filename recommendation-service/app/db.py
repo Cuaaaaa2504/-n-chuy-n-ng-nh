@@ -41,7 +41,7 @@ def get_engine() -> Engine:
     global _engine
     if _engine is None:
         settings = get_settings()
-        # FIX REC-04: `fast_executemany` là tuỳ chọn RIÊNG của pyodbc. Nếu
+        # `fast_executemany` là tuỳ chọn RIÊNG của pyodbc. Nếu
         # config tự chuyển sang pymssql (vì máy không có ODBC driver) mà vẫn
         # truyền cờ này thì SQLAlchemy ném TypeError ngay lúc tạo engine.
         # Phải hỏi connector ĐÃ RESOLVE, không phải giá trị thô trong .env.
@@ -61,21 +61,16 @@ def connection() -> Iterator:
         yield conn
 
 
-# ---------------------------------------------------------------------------
 # LỚP VIEW HỖ TRỢ (migration 1722400000000-AddRecommendationViews.ts)
-# ---------------------------------------------------------------------------
-#
 # Ba view dbo.vw_recommendation_interactions / vw_movie_content_features /
 # vw_movie_popularity_90d đóng gói phần join + lọc trạng thái vốn bị lặp ba
 # lần trong file này.
-#
 # VÌ SAO VẪN GIỮ SQL CŨ LÀM ĐƯỜNG LÙI:
 # Service này KHÔNG được phép chết chỉ vì thiếu một migration. Người mới clone
 # repo về, chạy `python train.py` trước khi chạy `npm run migration:run` là
 # tình huống hoàn toàn bình thường. Nếu bắt buộc phải có view, họ nhận
 # "Invalid object name 'dbo.vw_recommendation_interactions'" — thông báo không
 # gợi ý gì về việc phải sang thư mục backend chạy migration.
-#
 # Vì vậy: dùng view nếu có, không có thì tự động chạy SQL cũ (kết quả giống
 # hệt) và log một dòng warning chỉ rõ cách bật lớp view lên.
 
@@ -128,9 +123,7 @@ def views_available() -> bool:
     return _views_ready
 
 
-# ---------------------------------------------------------------------------
 # ĐỌC DỮ LIỆU HUẤN LUYỆN
-# ---------------------------------------------------------------------------
 
 def load_interactions() -> pd.DataFrame:
     """
@@ -159,7 +152,6 @@ def load_interactions() -> pd.DataFrame:
     statuses = settings.positive_booking_statuses
 
     # Đường đi ưu tiên: view đã đóng gói sẵn join + lọc + công thức quy đổi.
-    #
     # ĐÁNH ĐỔI CẦN BIẾT: view hardcode PAID/ISSUED, nên nếu ai đó đổi
     # POSITIVE_BOOKING_STATUSES trong .env thành giá trị khác thì view không
     # phản ánh được. Trường hợp đó phải quay về SQL nội tuyến, nếu không sẽ
@@ -265,9 +257,7 @@ def load_movies() -> pd.DataFrame:
         return pd.read_sql(sql, conn)
 
 
-# ---------------------------------------------------------------------------
 # GHI CACHE
-# ---------------------------------------------------------------------------
 
 def save_recommendations(rows: list[dict], model_version: str) -> int:
     """

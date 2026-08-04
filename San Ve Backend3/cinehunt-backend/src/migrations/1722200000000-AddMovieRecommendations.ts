@@ -1,5 +1,4 @@
 // src/migrations/1722200000000-AddMovieRecommendations.ts
-//
 // Số 1722200000000 ở đầu tên file là timestamp milliseconds — TypeORM dùng số
 // này để sắp thứ tự chạy. Tên class BẮT BUỘC phải kết thúc bằng đúng con số đó,
 // nếu lệch thì TypeORM báo "Migration class name should have a timestamp".
@@ -10,9 +9,8 @@ export class AddMovieRecommendations1722200000000 implements MigrationInterface 
   name = 'AddMovieRecommendations1722200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    /**
-     * FIX — lỗi FK khi tạo bảng.
-     *
+    /*
+     * Lỗi FK khi tạo bảng.
      * Nếu chạy migration TRƯỚC file SQL V6.3 thì dbo.users / dbo.movies chưa
      * tồn tại, SQL Server ném lỗi 1767 ("Foreign key references invalid table")
      * — thông báo này không nói cho sinh viên biết phải làm gì. Ở đây kiểm tra
@@ -111,11 +109,10 @@ export class AddMovieRecommendations1722200000000 implements MigrationInterface 
     `);
   }
 
-  /**
+  /*
    * down() bắt buộc phải viết. Bỏ trống thì "npm run migration:revert" chạy
    * xong không làm gì cả nhưng vẫn xoá dòng khỏi bảng typeorm_migrations —
    * DB và lịch sử migration lệch nhau mà không ai biết.
-   *
    * DROP TABLE tự xoá luôn index, FK và constraint của bảng đó nên không cần
    * drop riêng từng cái.
    */
