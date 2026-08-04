@@ -5,6 +5,7 @@ import BookingTicketsModal from '../components/BookingTicketsModal';
 import { getBookingTickets } from '../api/bookingApi';
 import { normalizeBookingCore } from '../api/bookingNormalizer';
 import type { BookingTicket } from '../types/booking';
+import { useAuth } from '../context/AuthContext';
 
 type TicketStatus = 'PENDING_PAYMENT' | 'PAID' | 'ISSUED' | 'CONFIRMED' | 'EXPIRED' | 'CANCELLED';
 interface TicketItem {
@@ -80,6 +81,8 @@ function TicketCard({ ticket, onViewTickets }: { ticket: TicketItem; onViewTicke
 
 export default function MyTicketsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const activeUserId = Number(user?.id ?? user?.userId ?? 0);
   const activeTab: 'holding' | 'paid' = searchParams.get('tab') === 'paid' ? 'paid' : 'holding';
   const [allTickets, setAllTickets] = useState<TicketItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,6 +119,13 @@ export default function MyTicketsPage() {
   }, []);
 
   const fetchTickets = useCallback(async () => {
+    if (!Number.isInteger(activeUserId) || activeUserId <= 0) {
+      setAllTickets([]);
+      setLoading(false);
+      setError('');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
@@ -144,11 +154,19 @@ export default function MyTicketsPage() {
       }));
     } catch { setError('Không thể tải danh sách vé. Vui lòng thử lại.'); }
     finally { setLoading(false); }
-  }, []);
+  }, [activeUserId]);
 
   useEffect(() => {
+    // Khi đổi tài khoản, xóa ngay dữ liệu của tài khoản trước rồi mới tải lại.
+    // Hoãn reset sang microtask để tránh setState đồng bộ trong effect.
+    void Promise.resolve().then(() => {
+      setAllTickets([]);
+      setSelected(null);
+      setTicketRows([]);
+      setTicketError('');
+    });
     void Promise.resolve().then(fetchTickets);
-  }, [fetchTickets]);
+  }, [activeUserId, fetchTickets]);
 
   // Trang vé có thể đang mở ở tab khác trong lúc chatbot tạo/hủy booking.
   // Làm mới khi người dùng quay lại tab để số "Vé đang giữ" không bị cũ.
@@ -191,7 +209,7 @@ export default function MyTicketsPage() {
         ) : error ? (
           <div className="stitch-card p-12 text-center"><p style={{ color: 'var(--st-danger)' }}>{error}</p><button className="stitch-btn stitch-btn-primary mt-6" onClick={() => void fetchTickets()}>Thử lại</button></div>
         ) : !displayed.length ? (
-          <div className="stitch-card p-14 text-center"><span className="material-symbols-outlined text-[58px] stitch-muted">confirmation_number</span><h2 className="text-2xl font-extrabold mt-3">Chưa có vé trong mục này</h2><p className="stitch-muted mt-2">Vé sẽ xuất hiện sau khi bạn giữ ghế hoặc hoàn tất thanh toán.</p><a href="/movies" className="stitch-btn stitch-btn-primary mt-7">Khám phá phim</a></div>
+          <div className="stitch-card p-14 text-center"><span className="material-symbols-outlined text-[58px] stitch-muted">confirmation_number</span><h2 className="text-2xl font-extrabold mt-3">Chưa có vé trong mục này</h2><p className="stitch-muted mt-2">Vé đang giữ sẽ xuất hiện ngay sau khi bạn chọn ghế và nhấn Đặt vé.</p><a href="/movies" className="stitch-btn stitch-btn-primary mt-7">Khám phá phim</a></div>
         ) : (
           <div className="stitch-order-grid">{displayed.map((ticket) => <TicketCard key={ticket.bookingId} ticket={ticket} onViewTickets={openTickets} />)}</div>
         )}

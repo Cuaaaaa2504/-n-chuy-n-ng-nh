@@ -204,7 +204,15 @@ export class BookingService {
       0,
       round2(roundedSubtotal + roundedProduct - roundedDiscount),
     );
-    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+    // Booking dùng đúng hạn của hold sớm nhất. Như vậy đồng hồ bắt đầu từ
+    // lúc người dùng nhấn Đặt vé, không bị cộng lại thêm 15 phút khi tạo đơn.
+    const expiresAt = new Date(
+      Math.min(
+        ...holds.map((hold) =>
+          new Date(hold.expiresAt).getTime(),
+        ),
+      ),
+    );
 
     const showtimeSeatIds = holds.map((h) => h.showtimeSeat.showtimeSeatId);
 

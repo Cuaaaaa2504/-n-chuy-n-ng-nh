@@ -91,6 +91,18 @@ export default function PaymentPage() {
           ]);
           setOrder(fetchedOrder);
           setMethods(fetchedMethods);
+
+          const defaultMethod =
+            fetchedMethods.find(
+              (method) =>
+                method.code === 'MOCK' &&
+                method.enabled !== false,
+            ) ??
+            fetchedMethods.find(
+              (method) => method.enabled !== false,
+            );
+
+          setSelectedMethod(defaultMethod?.code ?? null);
         }
       } catch (err: unknown) {
         const msg = (err as { message?: string })?.message ?? 'Không tải được thông tin đơn hàng';

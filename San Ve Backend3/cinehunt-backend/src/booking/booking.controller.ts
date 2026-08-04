@@ -3,6 +3,7 @@ import {
   Post,
   Body,
   Get,
+  Header,
   Param,
   Patch,
   Query,
@@ -69,6 +70,7 @@ export class BookingController {
 
   // MUST be before @Get(':id') to avoid NestJS matching 'my' as :id
   @Get('my')
+  @Header('Cache-Control', 'private, no-store, max-age=0')
   async getMyBookings(@Request() req) {
     const userId = req.user.userId;
     return this.bookingService.getMyBookings(userId);

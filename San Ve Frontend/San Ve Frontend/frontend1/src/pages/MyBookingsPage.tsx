@@ -281,7 +281,7 @@ export default function MyBookingsPage() {
       <div className="stitch-container">
         <div className="mb-10">
           <p className="stitch-kicker mb-3">Transaction archive</p>
-          <h1 className="stitch-page-title">Đơn hàng của tôi</h1>
+          <h1 className="stitch-page-title">Lịch sử đặt hàng</h1>
           <p className="stitch-muted mt-4">Theo dõi thanh toán, vé đã mua và trạng thái hoàn tiền.</p>
         </div>
 

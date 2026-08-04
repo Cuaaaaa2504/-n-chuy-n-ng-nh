@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { resolveAssetUrl } from '../utils/assetUrl';
 import { useMovieEngagement } from '../hooks/useMovieEngagement';
 import NotificationBell from './NotificationBell';
+import authApi from '../api/authApi';
 
 export default function Navbar() {
   const { darkMode, toggleDarkMode } = useTheme();
@@ -37,10 +38,16 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    setAccountOpen(false);
-    navigate('/');
+  const handleLogout = async () => {
+    // Gọi backend để xóa refresh cookie trước, rồi mới dọn phiên của tab.
+    // Nếu không, cookie cũ có thể làm tab khác refresh sang nhầm tài khoản.
+    try {
+      await authApi.logout();
+    } finally {
+      logout();
+      setAccountOpen(false);
+      navigate('/');
+    }
   };
 
   const avatarLetter = (user?.fullName || user?.email || 'U').charAt(0).toUpperCase();
@@ -161,7 +168,7 @@ export default function Navbar() {
                     </Link>
                     <Link className="stitch-account-item" to="/my-bookings">
                       <span className="material-symbols-outlined">receipt_long</span>
-                      Đơn hàng của tôi
+                      Lịch sử đặt hàng
                     </Link>
                     {user?.role === 'ADMIN' && (
                       <Link className="stitch-account-item" to="/admin">
@@ -206,7 +213,7 @@ export default function Navbar() {
               <Link to="/profile">Hồ sơ cá nhân</Link>
               <Link to="/profile#favorite-movies">Yêu thích ({favoriteIds.length})</Link>
               <Link to="/my-tickets?tab=paid">Vé của tôi</Link>
-              <Link to="/my-bookings">Đơn hàng của tôi</Link>
+              <Link to="/my-bookings">Lịch sử đặt hàng</Link>
             </>
           ) : (
             <>

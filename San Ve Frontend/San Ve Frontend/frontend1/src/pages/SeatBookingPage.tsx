@@ -8,8 +8,8 @@ import { useTheme } from "../context/useTheme";
 import type { SeatDto } from "../types/seat.types";
 import type { Seat } from "../hooks/useSeatHold";
 import axiosClient from "../api/axiosClient";
-// FIX BUG-08: dùng wrapper seatService thay vì tự gọi axiosClient — logic hold
-// và lấy seatmap chỉ còn tồn tại ở MỘT nơi (src/api/seat.service.ts).
+import { getMovieById } from "../api/movieApi";
+
 import { seatService } from "../api/seat.service";
 import type { HoldItem } from "../api/seat.service";
 import { resolveAssetUrl } from "../utils/assetUrl";
@@ -51,9 +51,6 @@ function formatVND(amount: number) {
   return amount.toLocaleString('vi-VN') + ' ₫';
 }
 
-// FIX BUG-03/BUG-08: interface SeatMapResponse cục bộ đã bị xoá.
-// Kiểu chuẩn nay nằm ở `api/seat.service.ts` và khớp 1-1 với DTO của backend
-// (`showtime-seats/dto/seat-map-response.dto.ts`) — không còn 2 định nghĩa lệch nhau.
 
 interface ShowtimeInfo {
   showtimeId: number;
@@ -76,24 +73,7 @@ interface MovieInfo {
   description?: string;
 }
 
-/**
- * ⚠️ NGUYÊN NHÂN GỐC CỦA BUG "Không thể giữ ghế":
- * POST /showtime-seats/hold-many trả về MỘT MẢNG HoldResponseDto[], KHÔNG phải
- * object { holdIds }. Code cũ đọc `res.holdIds` -> luôn undefined -> heldIds = []
- * -> nút "Đặt vé" tưởng chưa hold và gọi hold lần 2 -> ghế đã ở trạng thái HELD
- * -> backend ném "Các ghế không còn trống" -> hiện lỗi.
- */
-// FIX BUG-08: HoldItem nay được export từ `api/seat.service.ts` — trước đây
-// interface này bị khai báo trùng ở cả 2 file, đổi một bên là lệch bên kia.
 
-/**
- * FIX BUG-04: trước đây có 3 nhánh rơi vào generateMockSeats() mà KHÔNG log gì cả
- * -> dev nhìn banner vàng "đang dùng ghế mẫu" nhưng không biết vì mất mạng, vì
- * suất chiếu chưa sinh ghế, hay vì URL thiếu showtimeId. Debug trên staging gần
- * như bất khả thi.
- *
- * Mọi nhánh fallback nay đều đi qua đây và in ra lý do cụ thể.
- */
 type MockReason =
   | 'NO_SHOWTIME_ID'
   | 'SEATS_NOT_GENERATED'
@@ -110,7 +90,6 @@ const MOCK_REASON_TEXT: Record<MockReason, string> = {
   API_ERROR: 'Gọi GET /showtime-seats/:showtimeId thất bại.',
 };
 
-/** Thông báo hiển thị cho người dùng cuối, tương ứng từng lý do */
 const MOCK_REASON_USER_TEXT: Record<MockReason, string> = {
   NO_SHOWTIME_ID: 'Chưa chọn suất chiếu. Vui lòng quay lại và chọn suất chiếu.',
   SEATS_NOT_GENERATED: 'Suất chiếu này chưa có sơ đồ ghế. Vui lòng liên hệ quản trị viên.',
@@ -141,29 +120,23 @@ export default function SeatBookingPage() {
   const [error, setError]                     = useState<string | null>(null);
   const [holdError, setHoldError]             = useState<string | null>(null);
   const [heldIds, setHeldIds]                 = useState<string[]>([]);
+  // holdId là mã lần giữ; SeatMap cần showtimeSeatId để khóa đúng ghế.
+  const [heldSeatIds, setHeldSeatIds]         = useState<Set<string>>(() => new Set());
   const [holdCountdown, setHoldCountdown]     = useState<number>(HOLD_SECONDS);
   const [holdExpired, setHoldExpired]         = useState(false);
   const [holding, setHolding]                 = useState(false);
   const [navigating, setNavigating]           = useState(false);
   const [navError, setNavError]               = useState<string>('');
   const [usingMock, setUsingMock]             = useState(false);
-  // FIX BUG-04: lưu lý do rơi vào mock để hiện đúng thông báo cho người dùng
   const [mockReason, setMockReason]           = useState<MockReason | null>(null);
-  const [holdExpiresAt, setHoldExpiresAt]     = useState<string | null>(null);
+  const [, setHoldExpiresAt]     = useState<string | null>(null);
   const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const movieSetRef = useRef(false);
-  // FIX: ref phản chiếu heldIds — đọc được giá trị MỚI NHẤT ngay trong cùng tick,
-  // không phải chờ React re-render. Chặn hoàn toàn việc hold lần 2 do state async.
   const heldIdsRef = useRef<string[]>([]);
-  // Lưu expiresAt đồng bộ để nút "Đặt vé" vừa giữ ghế xong có thể truyền ngay
-  // sang ComboPage, không phải chờ React cập nhật state ở render kế tiếp.
   const holdExpiresAtRef = useRef<string | null>(null);
-  // Chặn double-submit khi user bấm "Đặt vé" liên tục.
   const inFlightRef = useRef(false);
+  const proceedInFlightRef = useRef(false);
 
-  // ─── Countdown ───────────────────────────────────────────────────────────
-  // FIX: đếm theo mốc expiresAt THẬT từ backend thay vì cứng 300s.
-  // Trước đây FE và DB lệch nhau -> countdown còn thời gian nhưng hold đã hết hạn.
   const startCountdown = (expiresAt?: string) => {
     if (timerRef.current) clearInterval(timerRef.current);
 
@@ -184,6 +157,7 @@ export default function SeatBookingPage() {
         heldIdsRef.current = [];
         holdExpiresAtRef.current = null;
         setHeldIds([]);
+        setHeldSeatIds(new Set());
         setHoldExpiresAt(null);
         setSelectedIds(new Set());
         setHoldExpired(true);
@@ -206,6 +180,7 @@ export default function SeatBookingPage() {
       heldIdsRef.current = [];
       holdExpiresAtRef.current = null;
       setHeldIds([]);
+      setHeldSeatIds(new Set());
       setHoldExpiresAt(null);
       setHoldCountdown(HOLD_SECONDS);
       setHoldExpired(false);
@@ -240,16 +215,12 @@ export default function SeatBookingPage() {
       });
 
       try {
-        // FIX BUG-08: gọi qua wrapper thay vì axiosClient trực tiếp.
-        // Wrapper đã lo việc normalize ghế + suy ra seatsGenerated.
         const data = await seatService.getSeatMap(showtimeId);
 
         const seatList   = data.seats;
         const movieTitle = data.movieTitle ?? null;
         const cinemaName = data.cinemaName ?? qCinema ?? null;
         const roomName   = data.roomName   ?? qRoom   ?? null;
-        // FIX: backend trả `startTime` dạng ISO chứ không có showDate/showTime.
-        // Code cũ đọc `data.showDate` -> luôn undefined, âm thầm rơi về query param.
         const startIso = data.startTime ? new Date(data.startTime) : null;
         const validStart = startIso && !Number.isNaN(startIso.getTime()) ? startIso : null;
         const pad = (n: number) => String(n).padStart(2, '0');
@@ -263,8 +234,6 @@ export default function SeatBookingPage() {
         setShowtimeInfo({ showtimeId: Number(showtimeId), movieTitle, cinemaName, roomName, showDate, showTime });
 
         if (seatList.length === 0) {
-          // FIX BUG-02 + BUG-04: nhờ cờ `seatsGenerated` từ backend, ta phân biệt
-          // được "suất chiếu chưa sinh ghế" với "danh sách rỗng vì lý do khác".
           const reason: MockReason = data.seatsGenerated
             ? 'EMPTY_SEAT_LIST'
             : 'SEATS_NOT_GENERATED';
@@ -280,30 +249,9 @@ export default function SeatBookingPage() {
 
         if (movieId && !movieSetRef.current) {
           try {
-            const m = await axiosClient.get(`/movies/${movieId}`) as unknown as Record<string, unknown>;
+            const movieData = await getMovieById(Number(movieId));
             movieSetRef.current = true;
-            setMovie({
-              movie_id:          Number(m.movie_id ?? movieId),
-              title:             String(m.title ?? movieTitle ?? ''),
-              poster_url:        String(m.poster_url ?? FALLBACK_POSTER),
-              backdrop_url:      String(m.backdrop_url ?? FALLBACK_BACKDROP),
-              trailer_url:       m.trailer_url as string | undefined,
-              age_rating:        m.age_rating  as string | undefined,
-              duration_minutes:  Number(m.duration_minutes ?? 0),
-              genres:            Array.isArray(m.genres)
-                ? (m.genres as unknown[])
-                    .map((genre) => {
-                      if (typeof genre === 'string') return genre;
-                      if (genre && typeof genre === 'object') {
-                        const row = genre as Record<string, unknown>;
-                        return String(row.name ?? row.title ?? row.genreName ?? '');
-                      }
-                      return '';
-                    })
-                    .filter(Boolean)
-                : [],
-              description:       m.description as string | undefined,
-            });
+            setMovie(movieData);
           } catch {
             if (!movieSetRef.current) {
               movieSetRef.current = true;
@@ -327,9 +275,6 @@ export default function SeatBookingPage() {
     return () => clearTimeout(id);
   }, [movieId, searchParams]);
 
-  // Đồng bộ sơ đồ ghế khi thao tác giữ/hủy diễn ra ở tab khác hoặc qua AI.
-  // Trước đây trang chỉ fetch lúc mount nên dữ liệu HELD/AVAILABLE bị cũ cho
-  // tới khi người dùng tự F5.
   const refreshSeatStatuses = useCallback(async () => {
     const showtimeId = searchParams.get('showtimeId');
     if (!showtimeId || usingMock || loading) return;
@@ -387,8 +332,6 @@ export default function SeatBookingPage() {
     const showtimeId = searchParams.get('showtimeId');
     if (!showtimeId || selectedIds.size === 0) return null;
 
-    // FIX: nếu đã hold rồi thì trả về luôn, TUYỆT ĐỐI không gọi hold-many lần 2.
-    // Đọc từ ref nên không dính stale state.
     if (heldIdsRef.current.length > 0) return heldIdsRef.current;
     if (inFlightRef.current) return null;
 
@@ -400,21 +343,24 @@ export default function SeatBookingPage() {
         .filter((s) => selectedIds.has(String(s.id)))
         .map((s) => Number(s.id));
 
-      // FIX BUG-08: gọi seatService.holdSeats() thay vì lặp lại lời gọi axios.
-      // Wrapper tự bảo đảm body đúng { showtimeSeatIds } và luôn trả về mảng.
       const list: HoldItem[] = await seatService.holdSeats(showtimeSeatIds);
-      // FIX [BUG-03]: holdId là BIGINT -> giữ nguyên string, KHÔNG Number().
       const ids = list
         .map((h) => String(h.holdId ?? '').trim())
         .filter((id) => /^\d+$/.test(id));
+      const seatIds = new Set(
+        list
+          .map((h) => String(h.showtimeSeatId ?? '').trim())
+          .filter((id) => /^\d+$/.test(id)),
+      );
 
-      if (!ids.length) {
-        setHoldError('Backend không trả về mã giữ ghế. Vui lòng thử lại.');
+      if (!ids.length || seatIds.size !== ids.length) {
+        setHoldError('Backend không trả về đầy đủ mã giữ ghế. Vui lòng thử lại.');
         return null;
       }
 
       heldIdsRef.current = ids;
       setHeldIds(ids);
+      setHeldSeatIds(seatIds);
       startCountdown(list[0]?.expiresAt);
       return ids;
     } catch (err: unknown) {
@@ -427,83 +373,146 @@ export default function SeatBookingPage() {
     }
   };
 
-  // ─── Proceed to payment ───────────────────────────────────────────────────
+  // ─── Giữ ghế + tạo booking ngay khi nhấn Đặt vé ─────────────────────────
   const handleProceed = async () => {
     if (selectedIds.size === 0) return;
-    if (holding || navigating) return; // chặn double-click và gọi hold trùng
+    if (
+      holding ||
+      navigating ||
+      proceedInFlightRef.current
+    ) {
+      return;
+    }
+
+    proceedInFlightRef.current = true;
     setNavigating(true);
     setNavError('');
+
     const showtimeId = searchParams.get('showtimeId');
 
+    // Chế độ ghế mẫu không có dữ liệu thật để tạo booking.
     if (!showtimeId || usingMock) {
-      const selectedSeatObjects = seats.filter((s) => selectedIds.has(String(s.id)));
-      const totalAmount = selectedSeatObjects.reduce((sum, s) => sum + (s.price ?? 0), 0);
-      const seatCodes   = selectedSeatObjects.map((s) => `${s.rowName}${s.seatNumber}`);
+      const selectedSeatObjects = seats.filter((s) =>
+        selectedIds.has(String(s.id)),
+      );
+      const totalAmount = selectedSeatObjects.reduce(
+        (sum, s) => sum + (s.price ?? 0),
+        0,
+      );
+      const seatCodes = selectedSeatObjects.map(
+        (s) => `${s.rowName}${s.seatNumber}`,
+      );
       const p = new URLSearchParams({
         seats: seatCodes.join(','),
         total: String(totalAmount),
-        movieTitle: movie?.title ?? showtimeInfo?.movieTitle ?? 'Vé xem phim',
-        ...(showtimeInfo?.cinemaName ? { cinema: showtimeInfo.cinemaName } : {}),
-        ...(showtimeInfo?.roomName   ? { room:   showtimeInfo.roomName }   : {}),
-        ...(showtimeInfo?.showDate   ? { date:   showtimeInfo.showDate }   : {}),
-        ...(showtimeInfo?.showTime   ? { time:   showtimeInfo.showTime }   : {}),
+        movieTitle:
+          movie?.title ??
+          showtimeInfo?.movieTitle ??
+          'Vé xem phim',
+        ...(showtimeInfo?.cinemaName
+          ? { cinema: showtimeInfo.cinemaName }
+          : {}),
+        ...(showtimeInfo?.roomName
+          ? { room: showtimeInfo.roomName }
+          : {}),
+        ...(showtimeInfo?.showDate
+          ? { date: showtimeInfo.showDate }
+          : {}),
+        ...(showtimeInfo?.showTime
+          ? { time: showtimeInfo.showTime }
+          : {}),
       });
+
       navigate(`/payment/local?${p.toString()}`);
+      proceedInFlightRef.current = false;
       setNavigating(false);
       return;
     }
 
     if (holdExpired) {
-      setNavError('Thời gian giữ ghế đã hết. Vui lòng chọn lại ghế.');
+      setNavError(
+        'Thời gian giữ ghế đã hết. Vui lòng chọn lại ghế.',
+      );
+      proceedInFlightRef.current = false;
       setNavigating(false);
       return;
     }
 
     try {
-      // FIX: ưu tiên ref (giá trị mới nhất) thay vì state heldIds (bất đồng bộ).
-      // Chỉ hold khi THỰC SỰ chưa hold — không còn cảnh gọi hold-many lần 2.
-      let holdIds = heldIdsRef.current.length ? heldIdsRef.current : heldIds;
-      let activeHoldExpiresAt = holdExpiresAtRef.current ?? holdExpiresAt;
+      // Nhấn Đặt vé lần đầu sẽ giữ ghế và bắt đầu đồng hồ ngay.
+      let holdIds = heldIdsRef.current.length
+        ? heldIdsRef.current
+        : heldIds;
 
       if (!holdIds.length) {
         const newHoldIds = await handleHoldSeats();
-        if (!newHoldIds || !newHoldIds.length) {
-          // handleHoldSeats đã set holdError với thông báo cụ thể từ backend —
-          // không ghi đè bằng thông báo chung chung nữa.
-          setNavError(holdError ?? 'Không thể giữ ghế. Vui lòng thử lại.');
-          setNavigating(false);
+
+        if (!newHoldIds?.length) {
+          setNavError(
+            'Không thể giữ ghế. Vui lòng kiểm tra thông báo và thử lại.',
+          );
           return;
         }
+
         holdIds = newHoldIds;
-        activeHoldExpiresAt = holdExpiresAtRef.current ?? holdExpiresAt;
       }
 
-      // FIX LỖI 2 — luồng đúng: Chọn ghế → Giữ ghế → Đặt vé → COMBO → tạo booking → thanh toán.
-      // Booking KHÔNG còn được tạo ở đây nữa; ComboPage sẽ gọi POST /bookings kèm
-      // { holdIds, products } để bắp nước nằm cùng một đơn hàng với vé.
-      navigate('/combo', {
-        state: {
-          holdIds,
-          holdExpiresAt: activeHoldExpiresAt,
-          showtimeId: Number(showtimeId),
-          movieTitle: movie?.title ?? showtimeInfo?.movieTitle ?? 'Vé xem phim',
-          posterUrl:  movie?.poster_url ?? null,
-          cinemaName: showtimeInfo?.cinemaName ?? null,
-          roomName:   showtimeInfo?.roomName   ?? null,
-          showDate:   showtimeInfo?.showDate   ?? null,
-          showTime:   showtimeInfo?.showTime   ?? null,
-          seatCodes:  seats
-            .filter((s) => selectedIds.has(String(s.id)))
-            .map((s) => `${s.rowName}${s.seatNumber}`),
-          seatTotal:  seats
-            .filter((s) => selectedIds.has(String(s.id)))
-            .reduce((sum, s) => sum + (s.price ?? 0), 0),
-        },
+      const idempotencyKey = (
+        `seat-${showtimeId}-${holdIds.join('.')}`
+      ).slice(0, 100);
+
+      const booking = await seatService.bookSeats(holdIds, {
+        idempotencyKey,
+      });
+
+      const bookingId = String(
+        booking?.bookingId ?? '',
+      ).trim();
+
+      if (!bookingId) {
+        throw new Error(
+          'Backend không trả về bookingId sau khi tạo đơn.',
+        );
+      }
+
+      navigate('/my-tickets?tab=holding', {
+        replace: true,
+        state: { createdBookingId: bookingId },
       });
     } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message ?? 'Có lỗi xảy ra. Vui lòng thử lại.';
+      const activeHoldIds = heldIdsRef.current.length
+        ? [...heldIdsRef.current]
+        : [...heldIds];
+
+      if (activeHoldIds.length) {
+        await Promise.allSettled(
+          activeHoldIds.map((holdId) =>
+            axiosClient.post(
+              `/showtime-seats/release/${encodeURIComponent(holdId)}`,
+            ),
+          ),
+        );
+
+        heldIdsRef.current = [];
+        holdExpiresAtRef.current = null;
+        setHeldIds([]);
+        setHeldSeatIds(new Set());
+        setHoldExpiresAt(null);
+        setHoldCountdown(HOLD_SECONDS);
+
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+
+        await refreshSeatStatuses();
+      }
+
+      const msg =
+        (err as { message?: string })?.message ??
+        'Không tạo được đơn đặt vé. Vui lòng thử lại.';
       setNavError(msg);
     } finally {
+      proceedInFlightRef.current = false;
       setNavigating(false);
     }
   };
@@ -512,15 +521,14 @@ export default function SeatBookingPage() {
   const embedUrl            = getYoutubeEmbedUrl(movie?.trailer_url);
   const selectedSeatObjects = seats.filter((s) => selectedIds.has(String(s.id)));
   const totalPrice          = selectedSeatObjects.reduce((sum, s) => sum + (s.price ?? 0), 0);
-  // FIX TS2322: SelectedSeatsBar cần Seat[] (seatId/seatCode/price), không phải SeatDto[]
   const selectedSeatBarItems: Seat[] = selectedSeatObjects.map((s) => ({
     seatId:   s.id,
     seatCode: `${s.rowName}${s.seatNumber}`,
     price:    s.price ?? 0,
     status:   s.status === 'BOOKED' ? 'SOLD' : (s.status === 'SELECTED' ? 'AVAILABLE' : s.status),
   }));
-  // Ghế đang bị giữ (id dạng string) để SeatMap disable
-  const heldSeatKeys = new Set(heldIds.map(String));
+  // SeatMap nhận showtimeSeatId, không phải holdId.
+  const heldSeatKeys = heldSeatIds;
   const countdownMM         = String(Math.floor(holdCountdown / 60)).padStart(2, '0');
   const countdownSS         = String(holdCountdown % 60).padStart(2, '0');
   const countdownUrgent     = holdCountdown < 60 && heldIds.length > 0;
@@ -773,7 +781,7 @@ export default function SeatBookingPage() {
               ) : navigating ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-                  Đang chuyển…
+                  Đang tạo đơn…
                 </span>
               ) : `Đặt vé →`}
             </button>

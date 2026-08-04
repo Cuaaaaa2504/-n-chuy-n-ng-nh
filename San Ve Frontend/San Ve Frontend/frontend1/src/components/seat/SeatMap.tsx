@@ -53,7 +53,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
 
   const stats = {
     available: seats.filter((s) => s.status === 'AVAILABLE').length,
-    sold: seats.filter((s) => s.status === 'SOLD').length,
+    sold: seats.filter((s) => s.status === 'SOLD' || s.status === 'BOOKED').length,
   };
 
   return (

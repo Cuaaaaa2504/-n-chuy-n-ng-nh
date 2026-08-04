@@ -92,6 +92,8 @@ export function useChat() {
   const [status, setStatus] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+  // FIX CHAT-RATE-01: khóa đồng bộ để chặn gửi hai request trước khi React render lại.
+  const sendingRef = useRef(false);
 
   // Huỷ request đang chạy khi component unmount (đóng tab, đổi route). Không
   // có dòng này thì stream vẫn chạy tiếp và setState trên component đã chết.
@@ -101,6 +103,7 @@ export function useChat() {
 
   /** FIX CHAT-07 — nút "Dừng". */
   const stop = useCallback(() => {
+    sendingRef.current = false;
     abortRef.current?.abort();
     abortRef.current = null;
     setIsLoading(false);
@@ -121,6 +124,7 @@ export function useChat() {
   }, []);
 
   const reset = useCallback(() => {
+    sendingRef.current = false;
     abortRef.current?.abort();
     abortRef.current = null;
     setIsLoading(false);
@@ -131,7 +135,8 @@ export function useChat() {
   const sendMessage = useCallback(
     async (rawContent: string) => {
       const content = rawContent.trim();
-      if (!content || isLoading) return;
+      if (!content || sendingRef.current) return;
+      sendingRef.current = true;
 
       const userMessage = createMessage('user', content);
 
@@ -234,12 +239,13 @@ export function useChat() {
             : messageForCode('UPSTREAM_ERROR');
         showError(message);
       } finally {
+        sendingRef.current = false;
         if (abortRef.current === controller) abortRef.current = null;
         setIsLoading(false);
         setStatus(null);
       }
     },
-    [isLoading, messages],
+    [messages],
   );
 
   return {

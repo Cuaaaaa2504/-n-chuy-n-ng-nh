@@ -21,7 +21,7 @@
 // axios được (xem chú thích ở `streamChat`) nhưng vẫn lấy URL từ cùng một
 // nguồn `API_BASE_URL`, không bao giờ dùng đường dẫn tương đối.
 
-import axiosClient from './axiosClient';
+import axiosClient, { refreshAccessToken } from './axiosClient';
 import { API_BASE_URL } from '../config/env';
 import type {
   ChatErrorCode,
@@ -161,23 +161,50 @@ export async function* streamChat(
 ): AsyncGenerator<ChatStreamEvent> {
   let response: Response;
 
-  try {
-    const token = localStorage.getItem('accessToken');
-    response = await fetch(`${API_BASE_URL}/chat/stream`, {
+  const requestStream = (token: string | null) =>
+    fetch(`${API_BASE_URL}/chat/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      credentials: 'include',
       body: JSON.stringify({ messages: toPayload(messages) }),
       signal,
     });
+
+  try {
+    let token = localStorage.getItem('accessToken');
+    response = await requestStream(token);
+
+    // fetch không chạy interceptor. Refresh đúng một lần khi access token hết hạn.
+    if (response.status === 401 && !signal?.aborted) {
+      try {
+        const refreshedToken = await refreshAccessToken();
+        if (refreshedToken) {
+          localStorage.setItem('accessToken', refreshedToken);
+          token = refreshedToken;
+          response = await requestStream(token);
+        }
+      } catch {
+        // Giữ response 401; nhánh dưới sẽ yêu cầu đăng nhập lại.
+      }
+    }
   } catch (err) {
     if ((err as Error)?.name === 'AbortError') {
       yield { type: 'error', code: 'ABORTED', message: messageForCode('ABORTED') };
       return;
     }
     yield { type: 'error', code: 'NETWORK', message: messageForCode('NETWORK') };
+    return;
+  }
+
+  if (response.status === 401) {
+    yield {
+      type: 'error',
+      code: 'INVALID_REQUEST',
+      message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại rồi mở ChatBox.',
+    };
     return;
   }
 
