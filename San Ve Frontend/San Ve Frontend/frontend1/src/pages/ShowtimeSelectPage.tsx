@@ -1,13 +1,10 @@
 // src/pages/ShowtimeSelectPage.tsx
-//
 // FIX Lỗi 2: bỏ `mockMovies` — trang không còn tra cứu phim trong mảng giả trước
 //   rồi mới gọi API. Luồng nay đúng chiều: API là nguồn duy nhất.
-//
 // FIX Lỗi 3: bỏ hoàn toàn `buildMockShowtimes()` và mảng `cinemas` hardcode.
 //   Trước đây khi API trả [] (phim chưa có suất chiếu) trang tự dựng suất chiếu
 //   giả với showtimeId đếm từ 1 — người dùng bấm "Mua vé" là gặp lỗi vì id đó
 //   không tồn tại trong DB. Nay không có suất chiếu thì hiển thị EmptyShowtime.
-//
 // FIX Lỗi 5: bỏ đoạn tự unwrap `raw?.data ?? res` + map key snake_case từ
 //   response camelCase (khiến poster/age rating/trailer luôn undefined).
 //   Dùng `getMovieById()` — đã normalize sẵn trong movieApi.ts.
@@ -99,7 +96,7 @@ export default function ShowtimeSelectPage() {
         setAllShowtimes(
           apiList
             // Suất chiếu đã huỷ không được bán vé.
-            // FIX BUG-06: lọc luôn suất đã qua giờ bắt đầu. Trước đây chúng vẫn
+            // Lọc luôn suất đã qua giờ bắt đầu. Trước đây chúng vẫn
             // nằm trong danh sách, chỉ bị disable + gạch ngang -> với phim chiếu
             // nhiều ngày thì giao diện đầy nút chết, user phải tự đoán nút nào
             // còn bấm được. Ngày nào hết suất thì cũng không còn hiện ở thanh chọn ngày.

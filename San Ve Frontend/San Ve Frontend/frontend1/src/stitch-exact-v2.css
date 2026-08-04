@@ -1,8 +1,8 @@
-/* ================================================================
+/*
    CMC Cinema — Stitch Exact V2
    Chuyển các màn hình React hiện tại sang ngôn ngữ Cyber Neon Adaptive
    của bộ Stitch, không thay đổi API/route/logic nghiệp vụ.
-   ================================================================ */
+   */
 
 :root {
   --st-bg: #0b0910;
@@ -610,9 +610,9 @@ body { overflow-x: hidden; }
   .stitch-genre-grid { grid-template-columns: 1fr; }
 }
 
-/* ================================================================
+/*
    V2.3 — CGV-inspired schedule, balanced light mode and admin shell
-   ================================================================ */
+   */
 
 /* CGV-inspired schedule, adapted to the CineGlass design language. */
 .cgv-date-strip {

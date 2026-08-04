@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../config/env';
 
-// FIX BUG-07: `_retry` không tồn tại trong InternalAxiosRequestConfig.
+// `_retry` không tồn tại trong InternalAxiosRequestConfig.
 // Khai báo type mở rộng thay vì truy cập field "lậu" trên object -> build production
 // với `strict: true` không còn báo lỗi TS2339.
 type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
@@ -86,7 +86,7 @@ async function requestNewAccessToken(): Promise<string | null> {
   return refreshPromise;
 }
 
-/**
+/*
  * Chat streaming dùng fetch nên không đi qua interceptor của axiosClient.
  * Dùng chung đúng cơ chế refresh để không nhân đôi logic token.
  */

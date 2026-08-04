@@ -13,7 +13,7 @@ import {
   writeFavoriteGenres,
 } from '../utils/moviePreferences';
 
-// FIX TS2339: mở rộng User local để có avatarUrl
+// Mở rộng User local để có avatarUrl
 type User = AuthUser & { avatarUrl?: string; userId?: number };
 
 type Tab = 'info' | 'privacy';

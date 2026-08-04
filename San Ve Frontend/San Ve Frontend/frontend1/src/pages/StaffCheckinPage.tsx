@@ -1,12 +1,9 @@
 // src/pages/StaffCheckinPage.tsx
-//
 // FIX [mục 7.2 của báo cáo] — trang này TRƯỚC ĐÂY KHÔNG TỒN TẠI.
-//
 // Báo cáo gọi đây là "lỗ hổng nghiệp vụ cốt lõi", và đúng như vậy: backend có
 // `POST /tickets/:code/checkin` với guard STAFF/ADMIN đầy đủ, nhưng không có
 // màn hình nào gọi tới. Nhân viên tại rạp không có công cụ xác minh vé — vé in
 // ra không ai soát được, và trạng thái vé vĩnh viễn nằm ở VALID.
-//
 // Thiết kế cho hoàn cảnh dùng thật ở quầy: một ô nhập duy nhất luôn được
 // autofocus, Enter là gửi, kết quả to rõ, và tự dọn ô để quét vé tiếp theo.
 // Máy quét mã vạch cầm tay hoạt động như bàn phím + Enter, nên form này chạy

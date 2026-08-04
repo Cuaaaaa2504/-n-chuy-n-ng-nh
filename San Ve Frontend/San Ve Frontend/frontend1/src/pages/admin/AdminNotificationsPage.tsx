@@ -1,12 +1,9 @@
 // src/pages/admin/AdminNotificationsPage.tsx
-//
 // FIX [mục 3.5 của báo cáo] — trang này TRƯỚC ĐÂY KHÔNG TỒN TẠI.
-//
 // `POST /notifications/admin/push` có sẵn ở backend nhưng "không có form nào
 // trong admin dashboard". Hệ quả: admin không có bất kỳ cách nào liên lạc với
 // người dùng qua hệ thống thông báo, dù đây là tính năng cốt lõi của một hệ
 // quản trị.
-//
 // Trang này cố tình giữ tối giản: chọn người nhận từ danh sách user có sẵn
 // (tránh gõ tay userId sai và gửi nhầm người), soạn tiêu đề + nội dung, chọn
 // loại thông báo trong đúng danh sách backend chấp nhận.

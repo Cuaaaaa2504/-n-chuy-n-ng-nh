@@ -68,8 +68,7 @@ const userApi = {
     }) as unknown as Promise<{ avatarUrl: string }>;
   },
 
-  // FIX: backend định nghĩa POST /users/me/change-password.
-  // Trước đây gọi PATCH /users/me/password -> 404 / 405 Method Not Allowed.
+  // Backend định nghĩa POST /users/me/change-password.
   changePassword: (data: ChangePasswordRequest) =>
     axiosClient.post('/users/me/change-password', data),
 

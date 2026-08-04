@@ -1,7 +1,5 @@
 // src/components/NotificationBell.tsx
-//
 // FIX [mục 3.1 → 3.4 của báo cáo] — component này TRƯỚC ĐÂY KHÔNG TỒN TẠI.
-//
 // Báo cáo viết: "Chuông thông báo trên navbar (nếu có render) chỉ là UI tĩnh".
 // Kiểm tra lại `Navbar.tsx` thì thậm chí KHÔNG hề có icon chuông nào — không
 // phải UI tĩnh, mà là không có gì cả. Toàn bộ 4 endpoint phía user của module
@@ -42,7 +40,6 @@ export default function NotificationBell({ darkMode }: { darkMode: boolean }) {
   }, []);
 
   // Poll badge kể cả khi panel đang đóng — đó chính là mục đích của badge.
-  //
   // Lưu ý: mọi setState ở đây đều nằm trong callback bất đồng bộ, KHÔNG gọi
   // thẳng trong thân effect. Rule `react-hooks/set-state-in-effect` của dự án
   // chặn kiểu gọi đồng bộ vì nó gây cascading render.

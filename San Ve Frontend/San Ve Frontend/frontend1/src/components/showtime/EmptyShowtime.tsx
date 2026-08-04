@@ -1,5 +1,5 @@
 // src/components/showtime/EmptyShowtime.tsx
-// FIX: các class `empty-showtime-container`, `empty-icon`, `empty-actions`,
+// Các class `empty-showtime-container`, `empty-icon`, `empty-actions`,
 // `back-btn`, `home-btn` không được định nghĩa ở bất kỳ file CSS nào trong dự án
 // (index.css chỉ có `@import "tailwindcss"`), nên component hiện ra dưới dạng
 // text trần không định dạng. Sau khi bỏ suất chiếu mock (Lỗi 3), đây là trạng

@@ -1,8 +1,8 @@
-/* ============================================================
+/*
    CMC CINEMA — Stronger text contrast for LIGHT MODE only
    File này phải được import CUỐI CÙNG trong main.tsx.
    Dark mode không bị ảnh hưởng.
-   ============================================================ */
+   */
 
 html.light {
   /* Chữ chính/phụ tối hơn để không bị bạc màu trên nền sáng. */

@@ -1,13 +1,10 @@
 // src/pages/admin/AdminBookingsPage.tsx
-//
-// FIX BUG-02: bỏ toàn bộ class không tồn tại (admin-page, page-header,
+// Bỏ toàn bộ class không tồn tại (admin-page, page-header,
 //   filter-section, filter-grid, filter-item, filter-actions, btn btn-secondary,
 //   loading-state, error-state, empty-state) -> Tailwind + AdminUI (WARN-02).
-//
-// FIX BUG-07: useEffect không còn phụ thuộc trực tiếp vào `fetchBookings`.
+// UseEffect không còn phụ thuộc trực tiếp vào `fetchBookings`.
 //   Reference của hàm được giữ trong ref nên dù hook có đổi cách implement
 //   (bỏ useCallback, đổi deps...) effect cũng không thể chạy lặp vô hạn.
-//
 // FIX phụ: trước đây `if (loading) return <div>...` unmount cả khối filter mỗi
 //   lần gọi API -> input mất focus khi đang gõ. Nay filter luôn được render,
 //   chỉ vùng bảng đổi trạng thái.

@@ -561,9 +561,9 @@ export default function SeatBookingPage() {
 
       <div className="stitch-container py-10 space-y-8">
 
-        {/* ══════════════════════════════════════════════════════════════════
+        {/*
             SECTION 1 — Thông tin phim + Phòng chiếu + Ngày giờ (tích hợp)
-        ══════════════════════════════════════════════════════════════════ */}
+        */}
         {(movie || showtimeInfo) && (
           <div className={`rounded-2xl border ${card} overflow-hidden`}>
             <div className="flex flex-col md:flex-row gap-0">
@@ -652,7 +652,7 @@ export default function SeatBookingPage() {
         )}
 
         {/* Mock warning */}
-        {/* FIX BUG-04: banner nay nêu rõ NGUYÊN NHÂN thay vì một dòng chung chung */}
+        {/* Banner nay nêu rõ NGUYÊN NHÂN thay vì một dòng chung chung */}
         {usingMock && (
           <div className="rounded-xl px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 text-sm">
             <p className="font-semibold">
@@ -669,9 +669,9 @@ export default function SeatBookingPage() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
+        {/*
             SECTION 2 — SeatMap (trái) + Panel giữ ghế (phải)
-        ══════════════════════════════════════════════════════════════════ */}
+        */}
         <div className="flex flex-col lg:flex-row gap-6 items-start">
 
           {/* ── SeatMap ── */}

@@ -1,5 +1,5 @@
 // src/components/admin/ConfirmCancelModal.tsx
-// FIX BUG-01: modal-overlay / modal-content / confirm-modal / warning-text đều là
+// Modal-overlay / modal-content / confirm-modal / warning-text đều là
 // class không tồn tại -> modal hiện ra như text trần giữa trang. Dùng Tailwind.
 import React from 'react';
 import { Btn } from './AdminUI';

@@ -31,7 +31,7 @@ import PaymentPage from '../pages/PaymentPage';
 // Trang combo được giữ lại để tương thích; luồng mặc định tạo booking ngay tại trang ghế
 import ComboPage from '../pages/ComboPage';
 import MyBookingsPage from '../pages/MyBookingsPage';
-// FIX BUG-02: MyTicketsPage là trang vé đầy đủ (QR, trạng thái, countdown, tab
+// MyTicketsPage là trang vé đầy đủ (QR, trạng thái, countdown, tab
 // holding/paid qua ?tab=). Trước đây file này không được đăng ký route nào nên
 // người dùng không bao giờ vào được. TicketPage cũ là stub -> đã bỏ khỏi router.
 import MyTicketsPage from '../pages/MyTicketsPage';
@@ -79,12 +79,12 @@ export default function AppRouter() {
           {/* Protected (yêu cầu đăng nhập) */}
           <Route element={<PrivateRoute />}>
             <Route path="/showtimes/:movieId" element={<ShowtimeSelectPage />} />
-            {/* FIX: thêm route /movies/:id/seats để SeatBookingPage nhận đúng movieId */}
+            {/* Thêm route /movies/:id/seats để SeatBookingPage nhận đúng movieId */}
             <Route path="/movies/:id/seats" element={<SeatBookingPage />} />
             <Route path="/booking/:id" element={<SeatBookingPage />} />
             {/* Route combo giữ lại cho luồng cũ; Đặt vé mặc định tạo booking rồi mở Vé đang giữ */}
             <Route path="/combo" element={<ComboPage />} />
-            {/* FIX: tách /payment/local riêng trước /:orderId để không bị match sai */}
+            {/* Tách /payment/local riêng trước /:orderId để không bị match sai */}
             <Route path="/payment/local" element={<PaymentPage />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />
             {/* Navbar link tới /my-tickets?tab=holding | ?tab=paid -> MyTicketsPage */}

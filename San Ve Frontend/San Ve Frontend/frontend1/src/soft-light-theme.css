@@ -1,8 +1,8 @@
-/* ============================================================
+/*
    CMC CINEMA — Soft Light Theme
    Chỉ áp dụng khi <html> có class "light".
    Dark mode không bị thay đổi.
-   ============================================================ */
+   */
 
 html.light {
   /* Nền sáng dịu, hơi ngả xám tím để tránh trắng gắt. */

@@ -1,8 +1,8 @@
-/* ============================================================
+/*
    CMC CINEMA — Light Mode overrides ("Cyber Neon Cinema")
    Ghi đè các CSS custom properties định nghĩa trong index.css
    khi thẻ <html> có class "light" (gắn bởi ThemeContext.tsx).
-   ============================================================ */
+   */
 
 html.light {
   color-scheme: light;

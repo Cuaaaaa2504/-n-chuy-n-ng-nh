@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface Seat {
-  // FIX TS2322: seatId mở rộng thành number|string để SeatBookingPage có thể truyền
+  // SeatId mở rộng thành number|string để SeatBookingPage có thể truyền
   // seatId: String(s.id) mà không bị type error. MOCK_SEATS vẫn dùng number.
   seatId: number | string;
   seatCode: string;
@@ -26,7 +26,7 @@ const MOCK_SEATS: Seat[] = [
 
 export function useSeatHold(showtimeId?: string) {
   const [seats, setSeats]                     = useState<Seat[]>([]);
-  // FIX: selectedSeatIds dùng number|string để khớp Seat.seatId
+  // SelectedSeatIds dùng number|string để khớp Seat.seatId
   const [selectedSeatIds, setSelectedSeatIds] = useState<Array<number | string>>([]);
   const [holdExpiresAt, setHoldExpiresAt]     = useState<string | null>(null);
   const [countdown, setCountdown]             = useState(0);
@@ -85,7 +85,7 @@ export function useSeatHold(showtimeId?: string) {
     return () => clearTimeout(id);
   }, [countdown, holdExpiresAt]);
 
-  // FIX: dùng String() để so sánh an toàn khi seatId có thể là number hoặc string
+  // Dùng String() để so sánh an toàn khi seatId có thể là number hoặc string
   const selectedSeats = seats.filter((s) => selectedSeatIds.map(String).includes(String(s.seatId)));
   const totalPrice    = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
 

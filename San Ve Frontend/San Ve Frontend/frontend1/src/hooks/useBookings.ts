@@ -1,6 +1,5 @@
 // src/hooks/useBookings.ts
 // Hook lấy danh sách đơn đặt vé cho trang admin.
-// Trước đây trả về mock data hardcode -> nay gọi thật GET /bookings/admin/all
 import { useState, useCallback } from 'react';
 import { adminBookingApi } from '../api/adminApi';
 import type { AdminBooking, AdminBookingFilters } from '../types/admin';

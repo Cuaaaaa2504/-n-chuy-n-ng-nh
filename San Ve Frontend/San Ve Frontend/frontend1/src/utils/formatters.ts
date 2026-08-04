@@ -1,4 +1,4 @@
-/**
+/*
  * Format số tiền sang định dạng tiền Việt Nam
  * Ví dụ: 150000 → "150.000 ₫"
  */
@@ -9,7 +9,7 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-/**
+/*
  * Format ngày giờ sang định dạng Việt Nam
  * Ví dụ: "2024-07-06T20:00:00" → "20:00 - 06/07/2024"
  */
@@ -24,7 +24,7 @@ export function formatDateTime(dateStr: string): string {
   }).format(date);
 }
 
-/**
+/*
  * Format chỉ ngày
  * Ví dụ: "2024-07-06T20:00:00" → "06/07/2024"
  */
@@ -37,7 +37,7 @@ export function formatDate(dateStr: string): string {
   }).format(date);
 }
 
-/**
+/*
  * Format chỉ giờ
  * Ví dụ: "2024-07-06T20:00:00" → "20:00"
  */
@@ -49,7 +49,7 @@ export function formatTime(dateStr: string): string {
   }).format(date);
 }
 
-/**
+/*
  * Format thời lượng phim từ phút
  * Ví dụ: 125 → "2h 05p"
  */
@@ -60,7 +60,7 @@ export function formatDuration(minutes: number): string {
   return `${h}h ${String(m).padStart(2, '0')}p`;
 }
 
-/**
+/*
  * Rút gọn chuỗi văn bản
  * Ví dụ: truncate("Đây là một chuỗi rất dài", 10) → "Đây là mộ..."
  */
@@ -69,7 +69,7 @@ export function truncate(text: string, maxLength: number): string {
   return text.slice(0, maxLength) + '...';
 }
 
-/**
+/*
  * Format số ghế từ mảng
  * Ví dụ: ["A1", "A2", "B3"] → "A1, A2, B3"
  */

@@ -1,9 +1,7 @@
 // src/routes/StaffRouteGuard.tsx
-//
 // FIX [mục 7.2]: guard cho các màn hình vận hành tại rạp.
 // Giống AdminRouteGuard nhưng chấp nhận cả STAFF — backend cũng cho phép
 // @Roles('STAFF', 'ADMIN') trên endpoint check-in, nên hai bên khớp nhau.
-//
 // Lưu ý: guard phía client chỉ để tránh hiển thị màn hình vô nghĩa cho người
 // không có quyền. Nó KHÔNG phải lớp bảo vệ — quyền thật do RolesGuard ở backend
 // quyết định.

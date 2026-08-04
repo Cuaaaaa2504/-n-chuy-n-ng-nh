@@ -59,7 +59,7 @@ export default function AdminDashboardPage() {
       const res = await statsApi.getStats();
       setStats(res as DashboardStats);
     } catch (err) {
-      // FIX BUG-05: KHÔNG fallback sang số liệu mẫu nữa.
+      // KHÔNG fallback sang số liệu mẫu nữa.
       // Số giả trông "hợp lý" trên dashboard rất dễ bị hiểu nhầm là dữ liệu thật
       // khi demo với khách hàng. Thà không hiển thị gì còn hơn hiển thị sai.
       setError(

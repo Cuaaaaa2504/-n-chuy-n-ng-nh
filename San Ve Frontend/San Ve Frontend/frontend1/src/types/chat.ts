@@ -20,7 +20,7 @@ export interface ChatResponse {
   reply: string;
 }
 
-/**
+/*
  * Mã lỗi backend trả về (FIX CHAT-06).
  * Khớp 1-1 với `ChatErrorCode` trong cinehunt-backend/src/chat/chat.service.ts.
  */

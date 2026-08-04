@@ -1,5 +1,4 @@
 // src/pages/TermsPage.tsx
-//
 // Trang Điều khoản sử dụng của CMC Cinema.
 // Được liên kết từ checkbox "Tôi đồng ý với Điều khoản dịch vụ" ở RegisterPage
 // và từ mục Hỗ trợ trong Footer.
@@ -11,9 +10,9 @@ const HOTLINE = '1900 636807';
 const SUPPORT_EMAIL = 'support@cmccinema.vn';
 const LAST_UPDATED = '31/07/2026';
 
-/* ─────────────────────────────────────────────────────────────
+/*
  * Nội dung điều khoản — khai báo dưới dạng dữ liệu để JSX gọn.
- * ───────────────────────────────────────────────────────────── */
+ */
 
 type Block =
   | { kind: 'p'; text: string }
@@ -403,9 +402,9 @@ const SECTIONS: Section[] = [
   },
 ];
 
-/* ─────────────────────────────────────────────────────────────
+/*
  * Render helpers
- * ───────────────────────────────────────────────────────────── */
+ */
 
 function BlockView({ block }: { block: Block }) {
   switch (block.kind) {
@@ -489,9 +488,9 @@ function BlockView({ block }: { block: Block }) {
   }
 }
 
-/* ─────────────────────────────────────────────────────────────
+/*
  * Page
- * ───────────────────────────────────────────────────────────── */
+ */
 
 export default function TermsPage() {
   const { hash } = useLocation();

@@ -12,7 +12,7 @@ export interface Movie {
   /** Tên thể loại — chỉ dùng để HIỂN THỊ. Backend không nhận field này. */
   genres: string[];
 
-  /**
+  /*
    * Backend `CreateMovieDto` yêu cầu ID số nguyên của thể loại có sẵn,
    * còn `genres` chỉ phục vụ render giao diện.
    */

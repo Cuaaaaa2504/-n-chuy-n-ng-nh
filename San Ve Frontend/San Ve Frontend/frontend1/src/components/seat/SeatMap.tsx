@@ -37,7 +37,7 @@ const SeatMap: React.FC<SeatMapProps> = ({
 
   const isSelected = (seatId: SeatId): boolean => selected.has(String(seatId));
 
-  // FIX: giữ nguyên id (number | string), KHÔNG ép Number() — id mock dạng "A1" sẽ thành NaN
+  // Giữ nguyên id (number | string), KHÔNG ép Number() — id mock dạng "A1" sẽ thành NaN
   const handleSeatClick = (seatId: SeatId) => {
     const seat = seats.find((s) => String(s.id) === String(seatId));
     if (!seat || isDisabled(seat.id, seat.status)) return;

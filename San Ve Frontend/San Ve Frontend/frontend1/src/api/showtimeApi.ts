@@ -8,9 +8,9 @@ import type {
   ShowtimePayload,
 } from '../types/showtime';
 
-/* ────────────────────────────────────────────────────────────────────────────
+/*
  * Helper chuyển đổi ngày/giờ
- * ──────────────────────────────────────────────────────────────────────────*/
+ */
 
 /** '2026-07-10' + '19:30' -> ISO string để gửi lên backend (IsDateString) */
 export function toIsoDateTime(date: string, time: string): string {
@@ -39,9 +39,9 @@ export function toLocalTime(iso: string): string {
   return `${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/*
  * Normalize
- * ──────────────────────────────────────────────────────────────────────────*/
+ */
 
 function normalizeShowtime(item: Record<string, unknown>): Showtime {
   // Backend trả cấu trúc lồng nhau: showtime -> room -> cinema
@@ -65,7 +65,7 @@ function normalizeShowtime(item: Record<string, unknown>): Showtime {
         room?.cinemaId ?? room?.cinema_id ?? 0,
       ) || undefined,
 
-    // FIX BUG-04: movieTitle lấy từ relation nếu có; nếu backend chưa join
+    // MovieTitle lấy từ relation nếu có; nếu backend chưa join
     // `movie` thì hook sẽ điền nốt bằng danh sách phim thật (không hardcode).
     movieTitle: (item.movieTitle ?? movie?.title ?? '') as string,
     cinemaName: (item.cinemaName ?? cinema?.cinemaName ?? cinema?.name ?? '') as string,
@@ -88,7 +88,7 @@ function unwrapList(payload: unknown): Record<string, unknown>[] {
   return Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
 }
 
-/** FIX: ShowtimeFormData (ngày + giờ rời) -> payload đúng CreateShowtimeDto */
+/*ShowtimeFormData (ngày + giờ rời) -> payload đúng CreateShowtimeDto */
 export function toPayload(data: ShowtimeFormData): ShowtimePayload {
   return {
     movieId: Number(data.movieId),
@@ -99,9 +99,9 @@ export function toPayload(data: ShowtimeFormData): ShowtimePayload {
   };
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/*
  * CRUD suất chiếu
- * ──────────────────────────────────────────────────────────────────────────*/
+ */
 
 /** GET /showtimes — lấy toàn bộ suất chiếu (admin) */
 export async function getAllShowtimes(): Promise<Showtime[]> {
@@ -115,9 +115,9 @@ export async function getShowtimesByMovie(movieId: number): Promise<Showtime[]> 
   return unwrapList(payload).map(normalizeShowtime);
 }
 
-/**
+/*
  * POST /showtimes/admin
- * FIX: trước đây gọi POST /showtimes -> 404 vì route admin nằm ở /showtimes/admin.
+ * Trước đây gọi POST /showtimes -> 404 vì route admin nằm ở /showtimes/admin.
  */
 export async function createShowtime(data: ShowtimeFormData): Promise<Showtime> {
   const res = (await axiosClient.post('/showtimes/admin', toPayload(data))) as unknown;
@@ -125,14 +125,14 @@ export async function createShowtime(data: ShowtimeFormData): Promise<Showtime> 
   return normalizeShowtime(item as Record<string, unknown>);
 }
 
-/**
+/*
  * PATCH /showtimes/admin/:id
- * FIX: trước đây gọi PUT /showtimes/:id -> 404/405. Backend dùng PATCH + prefix admin.
+ * Trước đây gọi PUT /showtimes/:id -> 404/405. Backend dùng PATCH + prefix admin.
  */
 export async function updateShowtime(
   id: number,
   data: ShowtimeFormData,
-  /**
+  /*
    * FIX [mục 6.2]: mốc updatedAt của bản ghi mà form ĐANG hiển thị.
    * Nếu trong lúc form mở có admin khác lưu thay đổi, backend trả 409 kèm
    * thời điểm sửa, thay vì âm thầm ghi đè công sức của người kia.
@@ -145,9 +145,8 @@ export async function updateShowtime(
   return normalizeShowtime(item as Record<string, unknown>);
 }
 
-/**
+/*
  * FIX [mục 6.2]: GET /showtimes/:id — lấy bản MỚI NHẤT của một suất chiếu.
- *
  * Form sửa suất chiếu trong admin đang đổ dữ liệu từ danh sách đã cache. Nếu
  * một admin khác vừa đổi giờ chiếu, form sẽ mở ra với dữ liệu cũ và khi bấm lưu
  * sẽ ghi đè thay đổi mới nhất — race condition mất dữ liệu âm thầm.
@@ -158,15 +157,13 @@ export async function getShowtimeById(id: number): Promise<Showtime> {
   return normalizeShowtime(res as Record<string, unknown>);
 }
 
-/**
+/*
  * FIX [mục 6.3]: POST /showtimes/admin/:id/generate-seats
- *
  * `SeatBookingPage` đã có sẵn logic phát hiện suất chiếu chưa có sơ đồ ghế và
  * hiện cảnh báo vàng, kèm comment ghi rõ "Admin cần gọi endpoint này để vá dữ
  * liệu cũ". Nhưng admin không có nút nào để gọi — tính năng sửa dữ liệu tồn tại
  * ở backend mà hoàn toàn không trigger được từ UI, nên suất chiếu lỗi ghế sẽ
  * không bao giờ tự khắc phục được.
- *
  * Endpoint này idempotent (chỉ thêm ghế còn thiếu) nên bấm nhiều lần vô hại.
  */
 export async function generateSeats(id: number): Promise<{ created?: number } & Record<string, unknown>> {
@@ -175,21 +172,20 @@ export async function generateSeats(id: number): Promise<{ created?: number } & 
   )) as unknown as { created?: number } & Record<string, unknown>;
 }
 
-/**
+/*
  * DELETE /showtimes/admin/:id — backend soft-delete: set status = 'CANCELLED'.
- * FIX: trước đây gọi PATCH /showtimes/:id/cancel — endpoint này không tồn tại.
+ * Trước đây gọi PATCH /showtimes/:id/cancel — endpoint này không tồn tại.
  */
 export async function cancelShowtime(id: number): Promise<void> {
   await axiosClient.delete(`/showtimes/admin/${id}`);
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/*
  * Dữ liệu cho các <select> của form (thay cho MOVIE_ID_MAP / ROOM_ID_MAP cứng)
- * ──────────────────────────────────────────────────────────────────────────*/
+ */
 
-/**
+/*
  * GET /movies — lấy danh sách phim thật để đổ vào dropdown.
- *
  * FIX Lỗi 1 (nguyên nhân thứ 2): `MovieQueryDto` giới hạn `@Max(50)` cho `limit`,
  * và backend bật `forbidNonWhitelisted` -> gửi `limit: 500` bị trả về
  * 400 Bad Request. Vì `getMovieOptions()` có `.catch(() => [])` nên lỗi bị nuốt

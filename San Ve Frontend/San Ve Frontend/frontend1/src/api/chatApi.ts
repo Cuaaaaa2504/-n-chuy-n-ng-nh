@@ -1,21 +1,15 @@
 // src/api/chatApi.ts
-//
-// FIX CHAT-02 — Chatbot gọi `/api/chat` thay vì dùng axiosClient.
-//
-// Code cũ trong useChat.ts:
+// Chatbot gọi `/api/chat` thay vì dùng axiosClient.
 //     await fetch('/api/chat', { ... })
-//
 // Đường dẫn tương đối đó chỉ chạy được nhờ proxy của Vite dev server (xem
 // `vite.config.ts`: '/api' -> localhost:3000, có rewrite bỏ tiền tố). Proxy là
 // thứ CHỈ TỒN TẠI KHI `npm run dev`. Sau `npm run build`, bundle được host ở
 // một origin khác (Nginx, Vercel, Netlify...) và không có ai rewrite gì nữa:
 // request bắn thẳng vào frontend server, nhận về 404 hoặc trang index.html.
 // Triệu chứng kinh điển là `JSON.parse` chết với "Unexpected token '<'".
-//
 // Tệ hơn nữa: `/api` trên backend đang là Swagger UI (main.ts:
 // `SwaggerModule.setup('api', app, document)`). Nếu ai đó "sửa" bằng cách bỏ
 // rewrite trong proxy thì POST /api/chat lại rơi vào Swagger.
-//
 // Nay mọi lời gọi đều đi qua `axiosClient`, vốn đã có sẵn baseURL lấy từ
 // `config/env.ts`, interceptor gắn token và logic refresh. Streaming không dùng
 // axios được (xem chú thích ở `streamChat`) nhưng vẫn lấy URL từ cùng một
@@ -43,13 +37,11 @@ export class ChatError extends Error {
   }
 }
 
-/**
- * FIX CHAT-06 — thông báo lỗi phải nói đúng chuyện gì đã xảy ra.
- *
+/*
+ * Thông báo lỗi phải nói đúng chuyện gì đã xảy ra.
  * Trước đây mọi trường hợp đều hiện đúng một câu "Không thể nhận phản hồi từ
  * trợ lý AI lúc này." — 400 do payload sai, 404 do tên model sai, 429 do hết
  * hạn mức và 500 do thiếu API key trông y hệt nhau. Debug bằng cách đoán.
- *
  * Backend giờ trả kèm trường `code`; bảng dưới đây dịch nó sang câu tiếng Việt
  * vừa đủ cho người dùng cuối, vừa đủ cho lập trình viên biết phải sửa ở đâu.
  */
@@ -79,17 +71,14 @@ export function messageForCode(code: ChatErrorCode, fallback?: string): string {
   return ERROR_MESSAGES[code] ?? fallback ?? ERROR_MESSAGES.UPSTREAM_ERROR;
 }
 
-/**
- * FIX CHAT-01 (phía client) — không gửi lời chào lên Gemini.
- *
+/*
+ * 01 (phía client) — không gửi lời chào lên Gemini.
  * Gemini yêu cầu lịch sử bắt đầu bằng `user` và luân phiên user/model. Danh
  * sách tin nhắn ở frontend luôn mở đầu bằng lời chào `role: 'assistant'` do
  * client tự tạo, nên payload đầu tiên là [assistant, user] -> phần tử đầu là
  * `model` -> 400 INVALID_ARGUMENT ngay ở tin nhắn đầu tiên của mọi phiên chat.
- *
  * Lời chào chưa bao giờ được model sinh ra, nó chỉ là văn bản trang trí, nên
  * việc cắt nó khỏi payload không làm mất ngữ cảnh gì cả.
- *
  * Backend cũng lọc lại lần nữa (`buildContents` trong chat.service.ts) — hai
  * lớp là cố ý, vì backend không được phép tin client gửi đúng định dạng.
  */
@@ -142,16 +131,14 @@ export async function sendChat(
   }
 }
 
-/**
- * FIX CHAT-07 — streaming.
- *
+/*
+ * Streaming.
  * VÌ SAO DÙNG `fetch` CHỨ KHÔNG PHẢI axiosClient Ở ĐÂY:
  * axios trên trình duyệt dựa vào XMLHttpRequest, và XHR chỉ cho đọc
  * `responseText` khi đã nhận xong (hoặc phải tự cắt chuỗi tăng dần rất dễ sai
  * với UTF-8 nhiều byte — tiếng Việt có dấu chính là trường hợp đó).
  * `fetch` cho ReadableStream thật, kèm `TextDecoder({ stream: true })` xử lý
  * đúng ký tự bị cắt ngang giữa hai chunk.
- *
  * Điểm mấu chốt để KHÔNG tái phạm CHAT-02: URL được ghép từ `API_BASE_URL` —
  * cùng nguồn sự thật với axiosClient — chứ tuyệt đối không phải '/api/chat'.
  */

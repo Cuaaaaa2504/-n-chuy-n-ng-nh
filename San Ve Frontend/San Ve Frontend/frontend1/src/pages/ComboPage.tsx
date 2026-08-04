@@ -1,11 +1,8 @@
 // src/pages/ComboPage.tsx
-//
 // Bước "Chọn combo bắp nước" — nằm GIỮA SeatBookingPage và PaymentPage.
 // Luồng đúng: Chọn ghế → Giữ ghế → Đặt vé → [ComboPage] → tạo booking → Thanh toán.
-//
 // Booking được tạo TẠI ĐÂY (không phải ở SeatBookingPage) để vé và bắp nước nằm
 // trong cùng một đơn hàng: POST /bookings { holdIds, products }.
-//
 // ⚠️ Backend resolve `products[].productId` theo bảng `concession_combos`
 // (BookingService dùng Repository<ConcessionCombo>, khớp `comboId`), nên trang này
 // đọc từ GET /concession-combos chứ KHÔNG phải GET /products.
@@ -224,7 +221,6 @@ export default function ComboPage() {
     // "Áp dụng". Nếu user thêm/bớt combo sau đó mà vẫn giữ con số cũ, tổng tiền
     // hiển thị sẽ lệch với tổng tiền backend tính lúc POST /bookings — user
     // thấy một giá, bị trừ một giá khác.
-    //
     // Xử lý ngay trong handler thay vì dùng useEffect theo dõi orderAmount:
     // setState đồng bộ trong thân effect vi phạm rule react-hooks của dự án và
     // gây cascading render không cần thiết.
@@ -235,7 +231,6 @@ export default function ComboPage() {
   };
 
   // ─── Voucher ────────────────────────────────────────────────────────────
-  //
   // Mã đã áp dụng phải bị GỠ khi giỏ hàng thay đổi: số tiền giảm được tính
   // theo orderAmount tại thời điểm bấm "Áp dụng". Nếu user thêm/bớt combo sau
   // đó mà vẫn giữ nguyên con số cũ thì tổng tiền hiển thị sẽ lệch với tổng tiền
@@ -294,7 +289,6 @@ export default function ComboPage() {
       // Comment ngay phía trên đã ghi rõ schema có `voucherCode?`, backend đã
       // implement đầy đủ logic giảm giá, nhưng field này chưa bao giờ được gửi
       // đi -> tính năng voucher chết từ đầu đến cuối.
-      //
       // Chỉ gửi mã ĐÃ validate thành công (`voucher.code`) chứ không gửi thẳng
       // `voucherInput`: nếu user gõ dở dang rồi bấm thanh toán luôn, gửi chuỗi
       // rác lên sẽ khiến backend ném 400 và chặn cả đơn hàng.
