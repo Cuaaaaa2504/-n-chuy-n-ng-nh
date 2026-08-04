@@ -1,11 +1,9 @@
 // src/hooks/useChat.ts
-//
 // Các lỗi được xử lý trong file này:
 //   CHAT-01  Lời chào `role: 'assistant'` bị gửi lên Gemini -> 400.
 //   CHAT-02  `fetch('/api/chat')` phụ thuộc proxy Vite -> chết khi build.
 //   CHAT-06  Mọi lỗi đều hiện chung một câu -> không debug được.
 //   CHAT-07  Không streaming, không huỷ được.
-//
 // Toàn bộ phần nói chuyện với mạng đã chuyển sang `src/api/chatApi.ts`. Hook
 // này chỉ còn lo trạng thái React, đúng khuôn với `useRecommendations.ts`.
 
@@ -13,14 +11,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChatError, messageForCode, sendChat, streamChat } from '../api/chatApi';
 import type { Message } from '../types/chat';
 
-/**
- * FIX CHAT-01 — cờ `isWelcome` là mấu chốt.
- *
+/*
+ * Cờ `isWelcome` là mấu chốt.
  * Lời chào này do client tự tạo, model chưa bao giờ sinh ra nó. Trước đây nó
  * nằm lẫn trong `messages` và được gửi nguyên vẹn lên backend, khiến phần tử
  * đầu tiên của `contents` có role `model` — vi phạm quy tắc "phải bắt đầu bằng
  * user" của Gemini và làm hỏng NGAY tin nhắn đầu tiên của mọi phiên chat.
- *
  * Đánh dấu bằng cờ thay vì so `id === 'cinehunt-welcome'` để chỗ lọc
  * (`toPayload` trong chatApi.ts) không phải biết gì về id cụ thể.
  */
@@ -45,7 +41,7 @@ const TOOL_LABELS: Record<string, string> = {
   create_payment: 'Đang khởi tạo thanh toán…',
 };
 
-/**
+/*
  * Chat bubble hiện dùng text thuần, không phải Markdown renderer. Chuẩn hoá
  * câu trả lời sau khi stream kết thúc để không còn hiện **, # hoặc backtick.
  */
@@ -76,7 +72,7 @@ function createMessage(
   return { id: createId(role), role, content, ...extra };
 }
 
-/**
+/*
  * Trình duyệt cũ và một số WebView không có ReadableStream trên Response.
  * Kiểm tra một lần lúc nạp module thay vì mỗi lần gửi tin.
  */
@@ -92,7 +88,7 @@ export function useChat() {
   const [status, setStatus] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
-  // FIX CHAT-RATE-01: khóa đồng bộ để chặn gửi hai request trước khi React render lại.
+  // Khóa đồng bộ để chặn gửi hai request trước khi React render lại.
   const sendingRef = useRef(false);
 
   // Huỷ request đang chạy khi component unmount (đóng tab, đổi route). Không
@@ -101,7 +97,7 @@ export function useChat() {
     return () => abortRef.current?.abort();
   }, []);
 
-  /** FIX CHAT-07 — nút "Dừng". */
+  /*Nút "Dừng". */
   const stop = useCallback(() => {
     sendingRef.current = false;
     abortRef.current?.abort();
@@ -232,7 +228,7 @@ export function useChat() {
       } catch (error) {
         if (controller.signal.aborted) return;
 
-        // FIX CHAT-06: hiện đúng nguyên nhân thay vì một câu chung chung.
+        // Hiện đúng nguyên nhân thay vì một câu chung chung.
         const message =
           error instanceof ChatError
             ? error.message

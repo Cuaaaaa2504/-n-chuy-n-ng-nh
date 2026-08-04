@@ -22,22 +22,17 @@ logger = logging.getLogger(__name__)
 # Thư mục gốc của service (chứa main.py, train.py, .env)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ---------------------------------------------------------------------------
-# FIX REC-04 — Python service có .env riêng, dễ lệch với NestJS
-#
+# Python service có .env riêng, dễ lệch với NestJS
 # Trước đây file này chỉ đọc `recommendation-service/.env`. Hai file .env cho
 # CÙNG MỘT database nghĩa là sớm muộn chúng cũng lệch nhau: ai đó đổi mật khẩu
 # SQL Server ở backend, service Python vẫn giữ mật khẩu cũ và chết với lỗi
 # "Login failed for user 'sa'" — trong khi NestJS chạy hoàn toàn bình thường,
 # nên không ai nghĩ vấn đề nằm ở cấu hình DB.
-#
 # Nay: .env của service vẫn được ưu tiên (để override khi cần), nhưng những
 # biến DB_* KHÔNG được khai báo sẽ tự KẾ THỪA từ .env của NestJS. Trường hợp
 # phổ biến nhất — không tạo .env cho Python — giờ chạy được ngay.
-#
 # `override=False` là mấu chốt: load_dotenv mặc định không ghi đè biến đã có,
 # nên thứ tự nạp bên dưới quyết định độ ưu tiên (nạp trước = thắng).
-# ---------------------------------------------------------------------------
 
 def _candidate_backend_envs() -> list[Path]:
     """Các vị trí có thể chứa .env của cinehunt-backend."""
@@ -137,20 +132,16 @@ class Settings:
     def model_path(self) -> Path:
         return self.model_dir / self.model_file
 
-    # ------------------------------------------------------------------
-    # FIX REC-04 (phần 2) — tự dò driver thay vì chết vì thiếu ODBC 17
-    #
+    # 04 (phần 2) — tự dò driver thay vì chết vì thiếu ODBC 17
     # `ODBC Driver 17 for SQL Server` không có sẵn trên macOS và nhiều bản
     # Linux. Trước đây service cứ thế dựng chuỗi kết nối với tên driver đó rồi
     # nhận pyodbc.InterfaceError "Can't open lib ... file not found" — thông
     # báo không hề gợi ý rằng chỉ cần đổi một biến .env.
-    #
     # Thứ tự xử lý:
     #   1. Driver cấu hình có thật -> dùng luôn.
     #   2. Không có -> lấy driver SQL Server khác đang cài (VD: 18).
     #   3. Không có driver nào -> tự chuyển sang pymssql (đã nằm trong
     #      requirements.txt sẵn, không cần cài gì thêm).
-    # ------------------------------------------------------------------
     def _available_odbc_drivers(self) -> list[str]:
         try:
             import pyodbc

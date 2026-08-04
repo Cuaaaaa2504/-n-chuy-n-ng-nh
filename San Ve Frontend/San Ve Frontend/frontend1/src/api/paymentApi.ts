@@ -28,13 +28,11 @@ export interface OrderDetail {
 }
 
 // FIX [mục 9.1]: bản normalize riêng của file này đã bị gỡ.
-//
 // Nó không chỉ trùng lặp mà còn SAI: đọc `raw.cinemaName` / `raw.showDate` như
 // thể backend trả phẳng (thực tế nằm trong showtime -> room -> cinema), và dựng
 // mã ghế bằng `seat.rowName` trong khi entity dùng `seatRow`. Hệ quả là cùng
 // một booking hiển thị đầy đủ ở MyBookingsPage nhưng thiếu tên rạp / phòng /
 // giờ chiếu ở PaymentPage — đúng kiểu lệch dữ liệu mà báo cáo cảnh báo.
-//
 // `strictNumericId` giữ nguyên ràng buộc quan trọng của luồng thanh toán:
 // bookingId phải là số, không được là bookingCode 'BK-xxx'.
 function normalizeBooking(raw: Record<string, unknown>): OrderDetail {
@@ -51,7 +49,7 @@ export async function getOrder(bookingId: string): Promise<OrderDetail> {
 
 export async function getPaymentMethods(): Promise<PaymentMethod[]> {
   try {
-    // FIX: backend expose GET /payments/methods (xem PaymentController), không phải
+    // Backend expose GET /payments/methods (xem PaymentController), không phải
     // /payment-methods — request cũ luôn 404 rồi im lặng rơi vào danh sách fallback.
     const payload = await axiosClient.get('/payments/methods') as unknown;
     const list = Array.isArray(payload) ? payload : ((payload as Record<string, unknown>).data as unknown[] ?? []);
@@ -128,8 +126,8 @@ export async function payOrder(
 // Chỉ MOCK được trình duyệt tự xác nhận; BANKING/CASH phải chờ backend hoặc nhân viên.
 const AUTO_CONFIRM_METHODS: PaymentMethodCode[] = ['MOCK'];
 
-/**
- * FIX BUG-04: gọi /payments/:id/success một cách idempotent.
+/*
+ * Gọi /payments/:id/success một cách idempotent.
  * Nếu payment đã ở trạng thái SUCCESS (user bấm lại / retry mạng), backend ném
  * BadRequestException "chỉ PENDING mới được xử lý" — đây KHÔNG phải lỗi với người
  * dùng, vé đã được tạo rồi. Ta xác minh lại trạng thái thật rồi mới quyết định.
@@ -159,7 +157,7 @@ async function confirmPayment(paymentId: string, bookingId: string): Promise<voi
   }
 }
 
-/**
+/*
  * Đọc lại trạng thái payment để xác minh sau khi retry.
  * Backend chỉ expose GET /payments/booking/:bookingId (trả payment mới nhất),
  * không có GET /payments/:id — nên tra theo bookingId.

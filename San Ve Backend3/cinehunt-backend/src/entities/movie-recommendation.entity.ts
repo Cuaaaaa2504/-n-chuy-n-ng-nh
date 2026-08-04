@@ -1,5 +1,4 @@
 // src/entities/movie-recommendation.entity.ts
-//
 // Entity map 1-1 với bảng do migration 1722200000000 tạo ra.
 // Khai báo tên cột tường minh (name: 'snake_case') giống hệt các entity còn
 // lại của project — app.module.ts KHÔNG dùng SnakeNamingStrategy, nên bỏ

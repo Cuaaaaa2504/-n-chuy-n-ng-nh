@@ -125,7 +125,7 @@ export default function PaymentPage() {
 
     if (isLocalMode) {
       setOrder((prev) => prev ? { ...prev, status: 'PAID' } : prev);
-      // FIX BUG-04: thêm ?tab=paid, nếu không MyTicketsPage mở mặc định tab
+      // Thêm ?tab=paid, nếu không MyTicketsPage mở mặc định tab
       // "Vé đang giữ" (rỗng) -> người dùng tưởng thanh toán thất bại.
       navigate('/my-tickets?tab=paid');
       return;
@@ -148,7 +148,7 @@ export default function PaymentPage() {
     }
 
     try {
-      // FIX: gọi qua usePayment để isProcessing / paymentStatus được cập nhật
+      // Gọi qua usePayment để isProcessing / paymentStatus được cập nhật
       const result = await handlePayment({
         bookingId: realBookingId,
         totalAmount: order.totalAmount,

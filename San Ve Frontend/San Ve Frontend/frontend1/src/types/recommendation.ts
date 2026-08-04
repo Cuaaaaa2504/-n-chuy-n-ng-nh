@@ -2,14 +2,12 @@ import type { Movie } from './movie';
 
 export type RecommendationSource = 'MODEL' | 'FALLBACK';
 
-/**
- * FIX REC-06 — nguồn dữ liệu THẬT do backend báo về.
- *
+/*
+ * Nguồn dữ liệu THẬT do backend báo về.
  * `source` công khai chỉ có MODEL|FALLBACK vì đó là tất cả những gì người dùng
  * cần (tiêu đề section đổi theo nó). Nhưng hai giá trị đó gộp mất bốn tình
  * huống rất khác nhau, và vì chúng trông y hệt nhau trên giao diện nên cả nhóm
  * không phát hiện ra model chưa từng chạy:
- *
  *   MODEL       model thật đang chạy, gợi ý cá nhân hoá thật
  *   CACHE       model chưa nạp, đang đọc bảng movie_recommendations
  *   POPULARITY  service Python sống nhưng không có cả model lẫn cache

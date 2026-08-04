@@ -18,7 +18,7 @@ import { assertNotStale } from '../common/utils/optimistic-lock.util';
 export class ShowtimeService {
   private readonly logger = new Logger(ShowtimeService.name);
 
-  // FIX BUG-07: `showtime.module.ts` đã đăng ký ShowtimeSeat / Room / Seat vào
+  // `showtime.module.ts` đã đăng ký ShowtimeSeat / Room / Seat vào
   // TypeOrmModule.forFeature từ lâu nhưng service chỉ inject mỗi Showtime — dấu
   // hiệu rõ ràng cho thấy logic seed ghế đã được dự tính mà chưa viết (BUG-01).
   // Nay cả ba repository đều được inject và sử dụng thật.
@@ -102,16 +102,14 @@ export class ShowtimeService {
   }
 
 
-  /* ══════════════════════════════════════════════════════════════════════════
-   * FIX BUG-01 — Sinh ghế cho suất chiếu
-   *
+  /*
+   * Sinh ghế cho suất chiếu
    * Trước đây `create()` chỉ lưu bản ghi Showtime, bảng `showtime_seats` rỗng
    * hoàn toàn với suất chiếu mới. Hậu quả dây chuyền:
    *   GET /showtime-seats/:id -> 404
    *   -> SeatBookingPage rơi vào generateMockSeats()
    *   -> banner "đang dùng dữ liệu ghế mẫu"
    *   -> người dùng chọn ghế nhưng KHÔNG có gì được lưu xuống DB.
-   *
    * Logic dưới đây sao chép đúng stored procedure `sp_generate_showtime_seats`
    * đã có trong file SQL:
    *   price  = ROUND(base_price * seat_types.price_multiplier, 0)
@@ -119,7 +117,7 @@ export class ShowtimeService {
    * Cố tình viết bằng TypeORM thay vì `EXEC sp_generate_showtime_seats` để
    * không phụ thuộc vào việc stored procedure có tồn tại hay không — đúng bài
    * học rút ra từ BUG-09.
-   * ═════════════════════════════════════════════════════════════════════════*/
+   */
   private async seedSeatsForShowtime(
     manager: EntityManager,
     showtimeId: number,
@@ -184,7 +182,7 @@ export class ShowtimeService {
     }
   }
 
-  /**
+  /*
    * Sinh (hoặc bổ sung) ghế cho một suất chiếu đã tồn tại.
    * Dùng để vá dữ liệu cho các suất chiếu được tạo TRƯỚC khi có fix BUG-01 —
    * những suất đó vẫn đang có bảng showtime_seats rỗng.
@@ -232,7 +230,7 @@ export class ShowtimeService {
 
     await this.ensureNoScheduleOverlap(dto.roomId, startTime, endTime);
 
-    // FIX BUG-01: tạo suất chiếu và sinh ghế trong CÙNG một transaction.
+    // Tạo suất chiếu và sinh ghế trong CÙNG một transaction.
     // Nếu bước sinh ghế lỗi thì suất chiếu cũng được rollback — không bao giờ
     // để lại một suất chiếu "què" không có ghế nào.
     return this.dataSource.transaction(async (manager) => {
@@ -293,7 +291,7 @@ export class ShowtimeService {
         }),
       );
 
-      // FIX BUG-01 (hệ quả): đổi phòng mà không sinh lại ghế thì sơ đồ ghế vẫn
+      // 01 (hệ quả): đổi phòng mà không sinh lại ghế thì sơ đồ ghế vẫn
       // là ghế của phòng CŨ -> người dùng đặt ghế không tồn tại trong phòng mới.
       if (roomChanged) {
         await this.assertNoCommittedSeats(manager, id, 'đổi phòng chiếu');
@@ -340,7 +338,7 @@ export class ShowtimeService {
       existing.status = 'CANCELLED';
       await manager.save(Showtime, existing);
 
-      // FIX: hủy suất chiếu mà để ghế nguyên trạng AVAILABLE thì người dùng vẫn
+      // Hủy suất chiếu mà để ghế nguyên trạng AVAILABLE thì người dùng vẫn
       // giữ/đặt được ghế của một suất đã hủy. Khóa toàn bộ ghế còn trống.
       const { affected } = await manager.update(
         ShowtimeSeat,

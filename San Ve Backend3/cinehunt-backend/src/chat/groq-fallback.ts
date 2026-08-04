@@ -7,7 +7,7 @@ const GROQ_CHAT_COMPLETIONS_URL =
 const GROQ_REQUEST_TIMEOUT_MS = 30_000;
 const GROQ_MAX_TOOL_ROUNDS = 4;
 
-// FIX CHAT-RATE-02: retry theo Retry-After và giảm tải token.
+// Retry theo Retry-After và giảm tải token.
 const GROQ_MAX_RATE_LIMIT_RETRIES = 1;
 const GROQ_MAX_RETRY_DELAY_MS = 15_000;
 type GroqToolCall = {

@@ -1,11 +1,9 @@
 // src/pages/admin/AdminShowtimesPage.tsx
-//
-// FIX BUG-01: bỏ toàn bộ class cũ không tồn tại (admin-page, page-header,
+// Bỏ toàn bộ class cũ không tồn tại (admin-page, page-header,
 //   btn btn-primary, loading-state, error-state, empty-state, modal-overlay,
 //   modal-content) — dùng Tailwind + component dùng chung trong AdminUI,
 //   thống nhất với các trang admin còn lại (WARN-02).
-//
-// FIX BUG-04: xoá MOVIE_ID_MAP / ROOM_ID_MAP hardcode. Showtime trả về từ API
+// Xoá MOVIE_ID_MAP / ROOM_ID_MAP hardcode. Showtime trả về từ API
 //   giờ đã có sẵn movieId / roomId thật nên không cần "dò ngược" theo tên nữa.
 import React, { useMemo, useState } from 'react';
 import ShowtimeTable from '../../components/admin/ShowtimeTable';
@@ -64,7 +62,7 @@ const AdminShowtimesPage: React.FC = () => {
   // FIX [mục 6.3]: state cho thao tác sinh ghế bù.
   const [generatingId, setGeneratingId] = useState<number | null>(null);
 
-  /**
+  /*
    * Vá dữ liệu cũ: suất chiếu tạo TRƯỚC khi backend có auto-seed vẫn đang có
    * bảng showtime_seats rỗng. SeatBookingPage phát hiện được và hiện cảnh báo
    * "Suất chiếu này chưa có sơ đồ ghế", nhưng trước đây admin không có nút nào

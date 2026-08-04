@@ -1,5 +1,5 @@
 // src/components/admin/ShowtimeTable.tsx
-// FIX BUG-01/WARN-02: bỏ hoàn toàn class cũ (table-container, admin-table,
+// 01/WARN-02: bỏ hoàn toàn class cũ (table-container, admin-table,
 // status-badge, mobile-cards...) — không file CSS nào trong dự án định nghĩa
 // chúng. Chuyển sang Tailwind + component dùng chung của AdminUI.
 import React from 'react';
@@ -11,7 +11,7 @@ interface Props {
   showtimes: Showtime[];
   onEdit: (showtime: Showtime) => void;
   onCancel: (showtime: Showtime) => void;
-  /**
+  /*
    * FIX [mục 6.3]: trigger POST /showtimes/admin/:id/generate-seats.
    * Endpoint đã tồn tại từ lâu nhưng không có nút nào gọi tới, nên suất chiếu
    * bị thiếu sơ đồ ghế (dữ liệu tạo trước khi có auto-seed) không thể vá được

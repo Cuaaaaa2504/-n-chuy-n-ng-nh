@@ -105,7 +105,7 @@ export class PaymentService {
         );
       }
 
-      // FIX: validate booking bên trong transaction thông qua queryRunner
+      // Validate booking bên trong transaction thông qua queryRunner
       const booking = await queryRunner.manager.findOne(BookingOrder, {
         where: { bookingId: payment.bookingId },
         relations: { bookingDetails: true },
@@ -153,7 +153,7 @@ export class PaymentService {
         .execute();
 
       // Booking và vé cùng nằm trong transaction; lỗi ở bước tạo vé sẽ rollback.
-      // FIX BUG-01: status phải là 'PAID' (không phải 'ISSUED').
+      // Status phải là 'PAID' (không phải 'ISSUED').
       // Toàn bộ frontend (MyTicketsPage.PAID_STATUSES, MyBookingsPage, nút "Xem QR vé")
       // và admin.service.PAID_STATUSES đều chỉ nhận dạng 'PAID'/'CONFIRMED'.
       // Đặt 'ISSUED' khiến vé không bao giờ hiện ở tab "Vé đã mua".
@@ -173,7 +173,7 @@ export class PaymentService {
         { status: SeatHoldStatus.CONFIRMED, releasedAt: new Date() },
       );
 
-      // FIX BUG-06: tạo/đọc ticket bằng queryRunner.manager thay vì paymentRepository.
+      // Tạo/đọc ticket bằng queryRunner.manager thay vì paymentRepository.
       // paymentRepository dùng Repository riêng -> nằm NGOÀI transaction: nếu
       // commitTransaction() thất bại, ticket đã insert vẫn tồn tại trong DB trong khi
       // booking bị rollback về PENDING_PAYMENT -> dữ liệu không nhất quán.
@@ -257,7 +257,7 @@ export class PaymentService {
       );
     }
 
-    // FIX: lấy userId từ booking thay vì truyền undefined
+    // Lấy userId từ booking thay vì truyền undefined
     const booking = await this.dataSource.getRepository(BookingOrder).findOne({
       where: { bookingId: payment.bookingId },
     });
@@ -272,7 +272,7 @@ export class PaymentService {
   }
 
   async getPaymentByBookingId(bookingId: string) {
-    // FIX: payments.booking_id là BIGINT. Nếu client gửi bookingCode (BK-xxx) vào
+    // Payments.booking_id là BIGINT. Nếu client gửi bookingCode (BK-xxx) vào
     // đây, TypeORM sẽ sinh câu SQL so sánh varchar với bigint -> lỗi convert (500).
     // Chặn sớm bằng 400 có thông báo rõ ràng.
     const ref = String(bookingId ?? '').trim();

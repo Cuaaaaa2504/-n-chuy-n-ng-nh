@@ -2,12 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ShowtimeSeatsService } from './showtime-seats.service';
 
-/**
- * FIX BUG-09: scheduler trước đây tự chạy `EXEC sp_release_expired_holds` bằng
+/*
+ * Scheduler trước đây tự chạy `EXEC sp_release_expired_holds` bằng
  * raw query — trùng lặp với `ShowtimeSeatsService.expireSeatHolds()` và KHÔNG có
  * fallback. Nếu stored procedure chưa tồn tại, job này log lỗi mỗi phút rồi thôi,
  * ghế HELD hết hạn không bao giờ được trả lại.
- *
  * Nay job gọi thẳng service — hưởng luôn cơ chế fallback TypeORM ở đó, và chỉ
  * còn MỘT nơi duy nhất chứa logic giải phóng ghế.
  */

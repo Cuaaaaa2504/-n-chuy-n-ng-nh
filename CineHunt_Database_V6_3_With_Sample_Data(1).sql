@@ -1,19 +1,19 @@
-/* ============================================================================
+/*
    CINEHUNT DATABASE V6
    Hệ thống săn vé / đặt vé xem phim
    DBMS: Microsoft SQL Server
    Backend: NestJS + TypeORM
    Version: 6.2 (backend/frontend compatible)
-   ============================================================================ */
+   */
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 GO
 
-/* ============================================================================
+/*
    0. TẠO DATABASE
    Đổi @ResetDatabase = 1 nếu muốn xóa database cũ và tạo lại từ đầu.
-   ============================================================================ */
+   */
 
 DECLARE @ResetDatabase BIT = 0;
 
@@ -33,9 +33,9 @@ GO
 USE CineHuntDB;
 GO
 
-/* ============================================================================
+/*
    1. XÓA OBJECT CŨ KHI CHẠY LẠI SCRIPT
-   ============================================================================ */
+   */
 
 DROP VIEW IF EXISTS dbo.vw_daily_revenue;
 DROP VIEW IF EXISTS dbo.vw_booking_summary;
@@ -97,10 +97,10 @@ DROP TABLE IF EXISTS dbo.roles;
 DROP TABLE IF EXISTS dbo.users;
 GO
 
-/* ============================================================================
+/*
    2. NGƯỜI DÙNG VÀ PHÂN QUYỀN
    V6.2: giữ users.role để tương thích backend hiện tại; roles + user_roles hỗ trợ RBAC mở rộng.
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.users (
     user_id                 INT IDENTITY(1,1) NOT NULL,
@@ -225,9 +225,9 @@ ON dbo.refresh_tokens(user_id, expires_at)
 WHERE revoked_at IS NULL;
 GO
 
-/* ============================================================================
+/*
    3. PHIM VÀ THỂ LOẠI
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.movies (
     movie_id          INT IDENTITY(1,1) NOT NULL,
@@ -289,11 +289,11 @@ CREATE TABLE dbo.movie_genres (
 GO
 
 
-/* ============================================================================
+/*
    3.1. ĐÁNH GIÁ PHIM THEO NGƯỜI DÙNG
    Mỗi người dùng chỉ có một đánh giá cho mỗi phim.
    Điểm trung bình được lưu tại movies.average_rating theo thang 5 sao.
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.movie_ratings (
     rating_id   BIGINT IDENTITY(1,1) NOT NULL,
@@ -322,9 +322,9 @@ ON dbo.movie_ratings(user_id, updated_at DESC)
 INCLUDE (movie_id, stars);
 GO
 
-/* ============================================================================
+/*
    4. RẠP, PHÒNG, LOẠI GHẾ VÀ GHẾ
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.cinemas (
     cinema_id     INT IDENTITY(1,1) NOT NULL,
@@ -398,9 +398,9 @@ CREATE TABLE dbo.seats (
 );
 GO
 
-/* ============================================================================
+/*
    5. SUẤT CHIẾU VÀ GHẾ THEO SUẤT
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.showtimes (
     showtime_id    INT IDENTITY(1,1) NOT NULL,
@@ -472,9 +472,9 @@ ON dbo.showtime_seats(status, hold_expires_at)
 WHERE status = 'HELD';
 GO
 
-/* ============================================================================
+/*
    6. GIỮ GHẾ
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.seat_holds (
     hold_id            BIGINT IDENTITY(1,1) NOT NULL,
@@ -505,11 +505,11 @@ CREATE INDEX IX_seat_holds_expiry
 ON dbo.seat_holds(status, expires_at);
 GO
 
-/* ============================================================================
+/*
    7. ĐƠN ĐẶT VÉ VÀ CHI TIẾT
    Lưu ý V6: KHÔNG unique toàn cục showtime_seat_id.
    Chỉ chặn ghế nằm trong booking đang còn hiệu lực bằng filtered index.
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.booking_orders (
     booking_id           BIGINT IDENTITY(1,1) NOT NULL,
@@ -585,9 +585,9 @@ ON dbo.booking_details(showtime_seat_id)
 WHERE status = 'ACTIVE';
 GO
 
-/* ============================================================================
+/*
    8. SẢN PHẨM / COMBO
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.products (
     product_id     INT IDENTITY(1,1) NOT NULL,
@@ -665,9 +665,9 @@ GO
 CREATE INDEX IX_booking_combos_booking ON dbo.booking_combos(booking_id);
 GO
 
-/* ============================================================================
+/*
    9. KHUYẾN MÃI
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.promotions (
     promotion_id       INT IDENTITY(1,1) NOT NULL,
@@ -706,9 +706,9 @@ ADD CONSTRAINT FK_booking_orders_promotion
 FOREIGN KEY (promotion_id) REFERENCES dbo.promotions(promotion_id);
 GO
 
-/* ============================================================================
+/*
    10. THANH TOÁN
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.payments (
     payment_id          BIGINT IDENTITY(1,1) NOT NULL,
@@ -776,9 +776,9 @@ CREATE INDEX IX_refunds_booking_status
 ON dbo.refunds(booking_id, refund_status);
 GO
 
-/* ============================================================================
+/*
    11. VÉ ĐIỆN TỬ
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.tickets (
     ticket_id           BIGINT IDENTITY(1,1) NOT NULL,
@@ -801,9 +801,9 @@ CREATE TABLE dbo.tickets (
 );
 GO
 
-/* ============================================================================
+/*
    12. OTP
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.otp_codes (
     otp_id       BIGINT IDENTITY(1,1) NOT NULL,
@@ -830,9 +830,9 @@ CREATE INDEX IX_otp_codes_lookup
 ON dbo.otp_codes(user_id, purpose, is_used, expires_at DESC);
 GO
 
-/* ============================================================================
+/*
    13. THÔNG BÁO VÀ SĂN VÉ
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.notifications (
     notification_id    BIGINT IDENTITY(1,1) NOT NULL,
@@ -905,9 +905,9 @@ CREATE INDEX IX_ticket_watch_active
 ON dbo.ticket_watch_requests(status, movie_id, cinema_id, preferred_date);
 GO
 
-/* ============================================================================
+/*
    14. AUDIT LOG
-   ============================================================================ */
+   */
 
 CREATE TABLE dbo.audit_logs (
     audit_id       BIGINT IDENTITY(1,1) NOT NULL,
@@ -937,9 +937,9 @@ CREATE INDEX IX_audit_logs_user
 ON dbo.audit_logs(user_id, created_at DESC);
 GO
 
-/* ============================================================================
+/*
    15. TRIGGER CẬP NHẬT updated_at
-   ============================================================================ */
+   */
 
 CREATE TRIGGER dbo.trg_users_updated_at
 ON dbo.users
@@ -973,9 +973,9 @@ BEGIN
 END;
 GO
 
-/* ============================================================================
+/*
    16. CHỐNG TRÙNG LỊCH PHÒNG
-   ============================================================================ */
+   */
 
 CREATE TRIGGER dbo.trg_showtimes_updated_at
 ON dbo.showtimes
@@ -1047,9 +1047,9 @@ END;
 GO
 
 
-/* ============================================================================
+/*
    16A. TÍNH ĐIỂM TRUNG BÌNH VÀ QUẢN LÝ ĐÁNH GIÁ PHIM
-   ============================================================================ */
+   */
 
 /* Tự tính lại điểm trung bình khi có thêm, sửa hoặc xóa đánh giá. */
 CREATE TRIGGER dbo.trg_movie_ratings_sync_average
@@ -1197,11 +1197,11 @@ BEGIN
 END;
 GO
 
-/* ============================================================================
+/*
    17. PROCEDURE TẠO SUẤT CHIẾU AN TOÀN
    Tự tính giờ kết thúc = thời lượng phim + thời gian vệ sinh, kiểm tra trùng lịch,
    sau đó sinh ghế cho suất chiếu trong cùng transaction.
-   ============================================================================ */
+   */
 CREATE PROCEDURE dbo.sp_create_showtime
     @movie_id INT,
     @room_id INT,
@@ -1269,9 +1269,9 @@ BEGIN
 END;
 GO
 
-/* ============================================================================
+/*
    17. PROCEDURE SINH GHẾ CHO SUẤT CHIẾU
-   ============================================================================ */
+   */
 
 CREATE PROCEDURE dbo.sp_generate_showtime_seats
     @showtime_id INT
@@ -1310,10 +1310,10 @@ BEGIN
 END;
 GO
 
-/* ============================================================================
+/*
    18. PROCEDURE GIỮ NHIỀU GHẾ
    @seat_ids nhận JSON array, ví dụ: [1,2,3]
-   ============================================================================ */
+   */
 
 CREATE PROCEDURE dbo.sp_hold_seats
     @user_id INT,
@@ -1420,9 +1420,9 @@ BEGIN
 END;
 GO
 
-/* ============================================================================
+/*
    19. PROCEDURE GIẢI PHÓNG HOLD HẾT HẠN
-   ============================================================================ */
+   */
 
 CREATE PROCEDURE dbo.sp_release_expired_holds
 AS
@@ -1465,9 +1465,9 @@ BEGIN
 END;
 GO
 
-/* ============================================================================
+/*
    20. PROCEDURE TẠO BOOKING TỪ HOLD TOKEN
-   ============================================================================ */
+   */
 
 CREATE PROCEDURE dbo.sp_create_booking
     @user_id INT,
@@ -1566,10 +1566,10 @@ BEGIN
     WHERE booking_id = @BookingId;
 END;
 GO
-/* ============================================================================
+/*
    21. PROCEDURE XÁC NHẬN THANH TOÁN
    Idempotent theo request_id / transaction_code.
-   ============================================================================ */
+   */
 
 CREATE PROCEDURE dbo.sp_confirm_payment
     @booking_id BIGINT,
@@ -1774,9 +1774,9 @@ BEGIN
     WHERE bd.booking_id = @booking_id;
 END;
 GO
-/* ============================================================================
+/*
    22. PROCEDURE CHECK-IN VÉ
-   ============================================================================ */
+   */
 
 CREATE PROCEDURE dbo.sp_checkin_ticket
     @ticket_code VARCHAR(60),
@@ -1832,10 +1832,10 @@ BEGIN
 END;
 GO
 
-/* ============================================================================
+/*
    23. PROCEDURE GỢI Ý SUẤT CHIẾU CHO YÊU CẦU SĂN VÉ
    Trả về suất chiếu còn đủ ghế, phù hợp ngày/giờ/ngân sách và ưu tiên vị trí ghế.
-   ============================================================================ */
+   */
 CREATE PROCEDURE dbo.sp_find_ticket_suggestions
     @watch_id BIGINT,
     @top_n INT = 20
@@ -1929,9 +1929,9 @@ BEGIN
 END;
 GO
 
-/* ============================================================================
+/*
    23. VIEW
-   ============================================================================ */
+   */
 
 CREATE VIEW dbo.vw_showtime_seat_map
 AS
@@ -2022,10 +2022,10 @@ LEFT JOIN Refunded r ON r.booking_id = p.booking_id
 GROUP BY p.revenue_date;
 GO
 
-/* ============================================================================
+/*
    25. SEED CƠ BẢN
    Mật khẩu là placeholder hash. Backend nên tạo seed bằng bcrypt.
-   ============================================================================ */
+   */
 
 INSERT INTO dbo.roles(role_code, role_name, description)
 VALUES
@@ -2186,11 +2186,11 @@ VALUES
 GO
 
 
-/* ============================================================================
+/*
    25.1. SEED DỮ LIỆU MẪU NGHIỆP VỤ
    Tạo rạp, phòng, ghế, phim, thể loại phim, suất chiếu và ghế theo suất.
    Dữ liệu dùng ngày động để luôn có suất chiếu trong tương lai khi chạy script.
-   ============================================================================ */
+   */
 
 /* Rạp chiếu */
 INSERT INTO dbo.cinemas(
@@ -2444,9 +2444,9 @@ UNION ALL SELECT 'showtimes', COUNT(*) FROM dbo.showtimes
 UNION ALL SELECT 'showtime_seats', COUNT(*) FROM dbo.showtime_seats;
 GO
 
-/* ============================================================================
+/*
    26. KIỂM TRA SAU KHI CÀI ĐẶT
-   ============================================================================ */
+   */
 
 SELECT
     DB_NAME() AS database_name,
@@ -2463,29 +2463,28 @@ WHERE TABLE_NAME = 'booking_orders'
 ORDER BY ORDINAL_POSITION
 GO
 
-/* ============================================================================
+/*
    CINEHUNT DATABASE - PATCH V6.4
    Nội dung patch:
      PHẦN A - Sửa 5 lỗi ở luồng Thanh toán (theo bug_phần_Thanh_toán_SQL.md)
      PHẦN B - Bổ sung dữ liệu phim mới (theo file lịch chiếu PDF đính kèm)
-
    Cách dùng: chạy script này SAU KHI đã chạy file
    CineHunt_Database_V6_3_With_Sample_Data.sql (không cần reset lại DB).
    Script viết theo kiểu "chạy lại vẫn an toàn" (idempotent) ở mức tối đa có thể.
-   ============================================================================ */
+   */
 
 USE CineHuntDB;
 GO
 
-/* ============================================================================
+/*
    PHẦN A. SỬA BUG LUỒNG THANH TOÁN
-   ============================================================================ */
+   */
 
-/* ----------------------------------------------------------------------------
+/*
    A.1 (Bug #1) CK_seat_holds_status — bổ sung giá trị 'CONVERTED'
    Hậu quả cũ: transaction createBooking() bị rollback vì SP không insert/update
    được seat_holds với status = CONVERTED.
-   ---------------------------------------------------------------------------- */
+   */
 IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_seat_holds_status')
 BEGIN
     ALTER TABLE dbo.seat_holds DROP CONSTRAINT CK_seat_holds_status;
@@ -2499,11 +2498,11 @@ GO
 -- Ghi chú: vẫn giữ tạm 'CONFIRMED' để không phá dữ liệu cũ / code cũ còn sót,
 -- nhưng luồng mới (xem mục A.3) sẽ không còn sinh ra giá trị này nữa.
 
-/* ----------------------------------------------------------------------------
+/*
    A.2 (Bug #2) CK_showtime_seats_status — bổ sung giá trị 'BOOKED'
    Hậu quả cũ: nếu chỉ fix bug #1 mà chưa fix cái này thì hệ thống crash ngay
    sau khi NestJS gán showtime_seats.status = 'BOOKED'.
-   ---------------------------------------------------------------------------- */
+   */
 IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_showtime_seats_status')
 BEGIN
     ALTER TABLE dbo.showtime_seats DROP CONSTRAINT CK_showtime_seats_status;
@@ -2517,14 +2516,14 @@ GO
 -- Ghi chú: giữ tạm 'SOLD' cho tương thích ngược, nhưng từ nay SP sẽ dùng
 -- 'BOOKED' để khớp với NestJS (xem mục A.4).
 
-/* ----------------------------------------------------------------------------
+/*
    A.3 (Bug #3) sp_hold_seats / sp_confirm_payment — CONFIRMED -> CONVERTED
    Chuẩn hoá: khi hold được chuyển thành booking thành công, seat_holds.status
    PHẢI là 'CONVERTED' để khớp với NestJS.
    A.5 (Bug #5) — showtime_seats.status dùng 'BOOKED' thay vì 'SOLD' để khớp NestJS.
    Hai lỗi này cùng nằm trong sp_confirm_payment nên sửa gộp trong 1 lần
    CREATE OR ALTER dưới đây.
-   ---------------------------------------------------------------------------- */
+   */
 CREATE OR ALTER PROCEDURE dbo.sp_confirm_payment
     @booking_id BIGINT,
     @payment_method VARCHAR(30),
@@ -2664,7 +2663,7 @@ BEGIN
         issued_at = SYSDATETIME()
     WHERE booking_id = @booking_id;
 
-    /* FIX Bug #5: dùng 'BOOKED' thay vì 'SOLD' để khớp với NestJS booking.service.ts */
+    /* Dùng 'BOOKED' thay vì 'SOLD' để khớp với NestJS booking.service.ts */
     UPDATE ss
     SET ss.status = 'BOOKED',
         ss.held_by_user_id = NULL,
@@ -2676,7 +2675,7 @@ BEGIN
       AND bd.status = 'ACTIVE'
       AND ss.status = 'HELD';
 
-    /* FIX Bug #3: dùng 'CONVERTED' thay vì 'CONFIRMED' để khớp với NestJS */
+    /* Dùng 'CONVERTED' thay vì 'CONFIRMED' để khớp với NestJS */
     UPDATE sh
     SET sh.status = 'CONVERTED',
         sh.released_at = SYSDATETIME()
@@ -2712,11 +2711,11 @@ BEGIN
 END;
 GO
 
-/* ----------------------------------------------------------------------------
+/*
    A.4 (Bug #4) sp_release_expired_holds — dọn dẹp cả hold đã CONVERTED nhưng
    booking liên quan đã bị EXPIRED/CANCELLED (booking hủy sau khi hold đã
    chuyển đổi thành công thì hold vẫn bị "mồ côi" mãi mãi nếu không dọn).
-   ---------------------------------------------------------------------------- */
+   */
 CREATE OR ALTER PROCEDURE dbo.sp_release_expired_holds
 AS
 BEGIN
@@ -2754,7 +2753,7 @@ BEGIN
     WHERE bo.status = 'EXPIRED'
       AND bd.status = 'ACTIVE';
 
-    /* FIX Bug #4: dọn dẹp hold đã CONVERTED nhưng booking cha đã bị
+    /* Dọn dẹp hold đã CONVERTED nhưng booking cha đã bị
        EXPIRED hoặc CANCELLED (ví dụ: hủy đơn sau khi đã convert nhưng
        chưa thanh toán, hoặc job hủy đơn quá hạn thanh toán). Nếu không,
        các hold này sẽ tồn tại vĩnh viễn và không bao giờ được release. */
@@ -2774,9 +2773,9 @@ GO
 PRINT N'PHẦN A — Đã sửa xong 5 lỗi luồng Thanh toán.';
 GO
 
-/* ============================================================================
+/*
    PHẦN B. BỔ SUNG DỮ LIỆU PHIM MỚI (theo lịch chiếu PDF)
-   ============================================================================ */
+   */
 
 /* B.1 Bổ sung thể loại còn thiếu (không trùng thể loại đã seed sẵn) */
 INSERT INTO dbo.genres(genre_name, slug)
@@ -3012,21 +3011,19 @@ GO
 
 PRINT N'CineHunt Patch V6.4 (bugfix Thanh toán + bổ sung phim) đã chạy xong.';
 GO
-/* ============================================================================
+/*
    CINEHUNT DATABASE - PATCH V6.5
    Bổ sung: Cơ sở rạp (cinemas), Phòng chiếu (rooms), Ghế (seats)
    Mục tiêu: mô phỏng mô hình chuỗi rạp nhiều cơ sở, nhiều loại phòng
              (Standard / VIP / IMAX / 4DX) như CGV, Beta Cinemas.
-
    YÊU CẦU: Database CineHuntDB đã được tạo từ file
    CineHunt_Database_V6_3_With_Sample_Data.sql (đã có bảng cinemas, rooms,
    seats, seat_types với dữ liệu seed NORMAL/VIP/COUPLE).
-
    Script này AN TOÀN chạy lại nhiều lần (idempotent):
    - Rạp mới chỉ thêm nếu chưa tồn tại (theo cinema_name).
    - Phòng mới chỉ thêm nếu chưa tồn tại (theo cinema_id + room_name).
    - Ghế được sinh tự động ngay sau khi phòng đó được tạo mới.
-   ============================================================================ */
+   */
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -3035,9 +3032,9 @@ GO
 USE CineHuntDB;
 GO
 
-/* ============================================================================
+/*
    1. THÊM CƠ SỞ RẠP MỚI (nhiều thành phố, giống mô hình chuỗi rạp)
-   ============================================================================ */
+   */
 
 INSERT INTO dbo.cinemas(cinema_name, address, city, district, phone, latitude, longitude, status)
 SELECT v.cinema_name, v.address, v.city, v.district, v.phone, v.latitude, v.longitude, 'ACTIVE'
@@ -3054,11 +3051,11 @@ WHERE NOT EXISTS (
 );
 GO
 
-/* ============================================================================
+/*
    2. KẾ HOẠCH PHÒNG CHIẾU CHO TỪNG CƠ SỞ
    Mỗi cơ sở có 2-4 phòng: Standard (thường, 2 hàng ghế cuối là VIP),
    VIP (toàn VIP, hàng cuối là ghế đôi - Sweetbox), IMAX, 4DX.
-   ============================================================================ */
+   */
 
 DECLARE @RoomPlan TABLE (
     seq            INT IDENTITY(1,1),
@@ -3101,9 +3098,9 @@ VALUES
 -- CineHunt Sun World Bà Nà
 (N'CineHunt Sun World Bà Nà', N'Phòng 1', 'STANDARD', 6, 8, 2, 0);
 
-/* ============================================================================
+/*
    3. SINH PHÒNG CHIẾU + GHẾ TỰ ĐỘNG THEO KẾ HOẠCH TRÊN
-   ============================================================================ */
+   */
 
 DECLARE @NormalSeatTypeId INT = (SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'NORMAL');
 DECLARE @VipSeatTypeId    INT = (SELECT seat_type_id FROM dbo.seat_types WHERE type_code = 'VIP');
@@ -3186,9 +3183,9 @@ GO
 PRINT N'CineHunt Patch V6.5 — Đã bổ sung cơ sở rạp, phòng chiếu và ghế theo mô hình chuỗi rạp.';
 GO
 
-/* ============================================================================
+/*
    4. KIỂM TRA NHANH SAU KHI PATCH
-   ============================================================================ */
+   */
 
 SELECT
     c.cinema_name,
@@ -3245,9 +3242,9 @@ UPDATE movies
 SET poster_url = N'/posters/ky-nguyen-robot.jpg'
 WHERE title = N'Kỷ Nguyên Robot';
 GO
-/* ============================================================================
+/*
    KIỂM TRA MODULE ĐÁNH GIÁ PHIM
-   ============================================================================ */
+   */
 SELECT
     OBJECT_ID(N'dbo.movie_ratings', N'U') AS movie_ratings_table,
     OBJECT_ID(N'dbo.trg_movie_ratings_sync_average', N'TR') AS rating_trigger,
@@ -3256,9 +3253,8 @@ SELECT
     OBJECT_ID(N'dbo.sp_delete_movie_rating', N'P') AS delete_rating_procedure;
 GO
 
-/* ============================================================================
+/*
    PHẦN C. V6.5 - KHẮC PHỤC DEADLOCK KHI GIẢI PHÓNG GHẾ GIỮ HẾT HẠN
-   ----------------------------------------------------------------------------
    Ghi chú:
    - Toàn bộ nội dung V6.3/V6.4 phía trên được giữ nguyên.
    - Phần này được đặt CUỐI FILE để CREATE OR ALTER ghi đè procedure cũ.
@@ -3273,7 +3269,7 @@ GO
        + Chia nhỏ thành các transaction độc lập để tránh đảo thứ tự khóa.
        + Khóa hold trước rồi mới khóa showtime_seats, khớp luồng tạo booking.
        + Xử lý theo batch để giảm thời gian giữ khóa.
-   ============================================================================ */
+   */
 
 USE CineHuntDB;
 GO
@@ -3337,10 +3333,10 @@ BEGIN
     SET @ApplicationLockAcquired = 1;
 
     BEGIN TRY
-        /* ================================================================
+        /*
            C.1. DỌN HOLD ACTIVE HẾT HẠN
            Thứ tự khóa: seat_holds -> showtime_seats.
-           ================================================================ */
+           */
         DECLARE @ExpiredHoldBatch TABLE (
             hold_id BIGINT NOT NULL PRIMARY KEY,
             showtime_seat_id INT NOT NULL
@@ -3383,11 +3379,11 @@ BEGIN
 
         COMMIT TRANSACTION;
 
-        /* ================================================================
+        /*
            C.2. DỌN BOOKING CHỜ THANH TOÁN HẾT HẠN
            Transaction riêng để không giữ khóa ghế trong lúc khóa booking.
            Thứ tự khóa: booking_orders -> booking_details.
-           ================================================================ */
+           */
         DECLARE @ExpiredBookingBatch TABLE (
             booking_id BIGINT NOT NULL PRIMARY KEY
         );
@@ -3426,10 +3422,10 @@ BEGIN
 
         COMMIT TRANSACTION;
 
-        /* ================================================================
+        /*
            C.3. DỌN HOLD CONVERTED MỒ CÔI
            Giữ nguyên bản vá Bug #4 đã có trong file cũ.
-           ================================================================ */
+           */
         DECLARE @ConvertedHoldBatch TABLE (
             hold_id BIGINT NOT NULL PRIMARY KEY
         );

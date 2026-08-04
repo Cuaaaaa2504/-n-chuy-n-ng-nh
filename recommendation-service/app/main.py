@@ -43,7 +43,7 @@ def _load_model() -> None:
     global _model
     path = settings.model_path
     if not path.exists():
-        # FIX REC-02 — file model bị .gitignore nên máy mới clone về KHÔNG có
+        # File model bị .gitignore nên máy mới clone về KHÔNG có
         # nó. Cảnh báo cũ ("Chưa có file model...") đúng nhưng vô dụng: nó
         # không nói phải làm gì, và service vẫn trả HTTP 200 nên NestJS coi như
         # bình thường. Kết quả là mọi user nhận cùng một danh sách popularity
@@ -76,7 +76,7 @@ def _load_model() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # FIX REC-04: in ra .env nào đang được dùng. Trước đây khi Python kết nối
+    # In ra .env nào đang được dùng. Trước đây khi Python kết nối
     # DB thất bại trong lúc NestJS chạy ngon lành, không có cách nào biết hai
     # bên đang đọc cấu hình khác nhau ngoài việc mở từng file ra so.
     if settings.inherited_backend_env:
@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI):
 
     _load_model()
 
-    # FIX REC-02: cho phép tự train ngay lúc khởi động nếu chưa có file model.
+    # Cho phép tự train ngay lúc khởi động nếu chưa có file model.
     # Mặc định TẮT — train có thể mất vài phút và người ta thường không muốn
     # `uvicorn` treo lâu như vậy. Bật bằng AUTO_TRAIN_ON_START=true khi dựng
     # môi trường mới (Docker, máy chấm đồ án) để không phải nhớ chạy tay.
@@ -217,15 +217,12 @@ def reload_model() -> JSONResponse:
     )
 
 
-# ---------------------------------------------------------------------------
-# FIX REC-05 (phía Python) — endpoint để NestJS gọi train lại theo cron
-#
+# 05 (phía Python) — endpoint để NestJS gọi train lại theo cron
 # VÌ SAO SPAWN `train.py` THAY VÌ GỌI HÀM TRỰC TIẾP:
 # Phân rã SVD là tác vụ CPU thuần. Gọi thẳng trong tiến trình uvicorn thì GIL
 # giữ chặt luồng và MỌI request /recommend đang chờ bị treo theo cho tới khi
 # train xong — đúng lý do train.py được tách riêng ngay từ đầu. Tiến trình con
 # có GIL riêng, web vẫn phục vụ bình thường trong lúc train chạy.
-# ---------------------------------------------------------------------------
 
 def _run_training() -> None:
     """Chạy `python train.py` trong tiến trình con rồi nạp lại model."""

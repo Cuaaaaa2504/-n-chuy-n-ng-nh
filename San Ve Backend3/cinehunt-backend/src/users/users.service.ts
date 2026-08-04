@@ -227,8 +227,8 @@ export class UsersService {
     }
   }
 
-  /**
-   * FIX: PATCH /users/me/email — trước đây backend không có method này,
+  /*
+   * PATCH /users/me/email — trước đây backend không có method này,
    * frontend gọi vào là 404.
    * Luồng: xác minh mật khẩu hiện tại -> kiểm tra email mới chưa ai dùng -> cập nhật.
    */
@@ -269,9 +269,8 @@ export class UsersService {
     }
   }
 
-  /**
-   * FIX: Frontend (userApi.getAll) mong đợi shape { data, total, page, limit }.
-   * Trước đây service trả về mảng thuần -> res.data === undefined -> AdminUsersPage
+  /*
+   * Frontend (userApi.getAll) mong đợi shape { data, total, page, limit }.
    * crash tại users.filter(). Nay trả đúng shape + hỗ trợ phân trang & tìm kiếm.
    */
   async getAllUsers(page = 1, limit = 20, search?: string) {
@@ -348,7 +347,7 @@ export class UsersService {
     }
   }
 
-  /**
+  /*
    * FIX [Critical]: Frontend gọi PATCH /users/:id/role nhưng backend không có.
    * Frontend dùng nhãn 'USER', DB dùng 'CUSTOMER' -> chuẩn hoá 2 chiều tại đây.
    */
@@ -396,7 +395,7 @@ export class UsersService {
     return this.toProfile(user);
   }
 
-  /**
+  /*
    * DELETE /users/:id — soft delete (status = DELETED).
    * Không xoá cứng vì user còn ràng buộc FK với booking_orders, payments...
    */
@@ -426,7 +425,7 @@ export class UsersService {
 
   private toProfile(user: User) {
     return {
-      // FIX: Frontend dùng `user.id`, backend trả `userId` -> trả cả hai để tương thích
+      // Frontend dùng `user.id`, backend trả `userId` -> trả cả hai để tương thích
       id: user.userId,
       userId: user.userId,
       email: user.email,

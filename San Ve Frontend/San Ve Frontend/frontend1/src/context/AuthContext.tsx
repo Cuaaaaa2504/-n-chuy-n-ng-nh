@@ -10,7 +10,7 @@ import React, {
 import { clearMovieRatingCache } from '../api/movieRatingApi';
 import authApi from '../api/authApi';
 
-// FIX TS2339: export User interface với avatarUrl để ProfilePage import được
+// Export User interface với avatarUrl để ProfilePage import được
 export interface User {
   id: number;
   userId?: number;
@@ -37,7 +37,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const ACCESS_TOKEN_KEY = 'accessToken';
 const USER_KEY = 'user';
 
-/**
+/*
  * Access token và user dùng sessionStorage để mỗi tab có một phiên riêng.
  * localStorage trước đây dùng chung cho mọi tab cùng origin, khiến tab A có thể
  * hiển thị avatar tài khoản A nhưng request thực tế lại dùng token tài khoản B.
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   });
-  // FIX BUG-08: dùng useState thay vì hằng số `const loading = false`.
+  // Dùng useState thay vì hằng số `const loading = false`.
   // Hiện tại state được hydrate ĐỒNG BỘ từ localStorage trong useState() initializer
   // nên giá trị khởi tạo vẫn là false — hành vi không đổi. Nhưng khi thêm bước
   // verify bằng GET /auth/me sau này, chỉ cần setLoading(true/false) là chạy đúng,

@@ -26,7 +26,7 @@ export class ShowtimeSeatsService {
     private readonly showtimeSeatRepository: Repository<ShowtimeSeat>,
     @InjectRepository(SeatHold)
     private readonly seatHoldRepository: Repository<SeatHold>,
-    // FIX BUG-02: cần Showtime để phân biệt "suất chiếu không tồn tại" (404 thật)
+    // Cần Showtime để phân biệt "suất chiếu không tồn tại" (404 thật)
     // với "suất chiếu tồn tại nhưng chưa sinh ghế" (200 + seats: []).
     @InjectRepository(Showtime)
     private readonly showtimeRepository: Repository<Showtime>,
@@ -39,7 +39,7 @@ export class ShowtimeSeatsService {
   }
 
   async getSeatMap(showtimeId: number): Promise<SeatMapResponseDto> {
-    // FIX BUG-02: kiểm tra sự tồn tại của suất chiếu TRƯỚC.
+    // Kiểm tra sự tồn tại của suất chiếu TRƯỚC.
     // 404 giờ chỉ có đúng MỘT ý nghĩa: showtimeId không có thật.
     const showtime = await this.showtimeRepository.findOne({
       where: { showtimeId },
@@ -95,11 +95,11 @@ export class ShowtimeSeatsService {
       endTime:    showtime.endTime ?? null,
 
       totalSeats: seats.length,
-      // FIX BUG-02: false = suất chiếu có thật nhưng CHƯA được sinh ghế.
+      // False = suất chiếu có thật nhưng CHƯA được sinh ghế.
       // Admin cần gọi POST /showtimes/admin/:id/generate-seats để vá.
       seatsGenerated: seats.length > 0,
 
-      // FIX BUG-03: trả về đúng tên field mà frontend dùng (id/rowName/type/status),
+      // Trả về đúng tên field mà frontend dùng (id/rowName/type/status),
       // các tên cũ giữ lại làm alias @deprecated để deploy lệch phiên bản không vỡ.
       seats: seats.map((item) => {
         const status = item.status as SeatMapSeatStatus;
@@ -155,14 +155,12 @@ export class ShowtimeSeatsService {
     return { message: 'Release hold thành công', holdId };
   }
 
-  /**
-   * FIX BUG-09 — Giải phóng ghế giữ đã hết hạn.
-   *
+  /*
+   * Giải phóng ghế giữ đã hết hạn.
    * Trước đây hàm chỉ `EXEC sp_release_expired_holds` rồi nuốt mọi lỗi thành
    * một `InternalServerErrorException` chung chung. Trên môi trường dev mới
    * setup (chưa chạy file SQL tạo procedure), scheduler chạy mỗi phút sẽ fail
    * âm thầm và ghế HELD hết hạn KHÔNG BAO GIỜ được trả lại — ghế bị kẹt vĩnh viễn.
-   *
    * Nay: thử stored procedure trước (nhanh, chạy trong 1 transaction ở DB);
    * nếu procedure không tồn tại thì tự chạy logic tương đương bằng TypeORM.
    */
@@ -200,7 +198,7 @@ export class ShowtimeSeatsService {
     }
   }
 
-  /**
+  /*
    * Bản TypeORM tương đương phần cốt lõi của `sp_release_expired_holds`:
    * trả ghế HELD quá hạn về AVAILABLE và đánh dấu seat_holds tương ứng EXPIRED.
    * Chạy trong transaction để hai bảng không bị lệch nhau.

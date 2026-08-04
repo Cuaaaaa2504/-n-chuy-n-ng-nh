@@ -137,7 +137,7 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
                 onChange={e => set('age_rating', e.target.value)}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
               >
-                {/* FIX: C13/C16/C18 vi phạm CHECK constraint CK_movies_age_rating
+                {/* C13/C16/C18 vi phạm CHECK constraint CK_movies_age_rating
                     ('P','K','T13','T16','T18','C') -> DB từ chối INSERT/UPDATE */}
                 {AGE_RATINGS.map(r => (
                   <option key={r} value={r}>{AGE_RATING_LABEL[r] ?? r}</option>
@@ -226,7 +226,7 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
             {errors.trailer_url && <p className="text-red-400 text-xs mt-1">{errors.trailer_url}</p>}
           </div>
 
-          {/* FIX: đã bỏ checkbox "Phim nổi bật".
+          {/* Đã bỏ checkbox "Phim nổi bật".
               Cột `featured` KHÔNG tồn tại trong bảng `movies` lẫn CreateMovieDto.
               Vì backend bật forbidNonWhitelisted, chỉ cần gửi kèm field này là cả
               request bị trả 400 — mà kể cả có gửi được thì giá trị cũng không
@@ -278,7 +278,7 @@ function ConfirmDeleteModal({
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 const AdminMoviesPage: React.FC = () => {
-  // FIX: `useMovies()` gọi không tham số -> `withGenres` mặc định là false ->
+  // `useMovies()` gọi không tham số -> `withGenres` mặc định là false ->
   // `fetchGenres()` không bao giờ chạy -> state `genres` luôn là [] -> MovieForm
   // rơi vào nhánh cảnh báo vàng và không render chip thể loại, khiến admin
   // không gán được thể loại cho phim (payload `genreIds` luôn rỗng).
@@ -328,7 +328,7 @@ const filtered = movies.filter(m => {
 
   return (
     <div>
-      {/* FIX: trước đây `if (error) return <div>...` thay thế TOÀN BỘ trang.
+      {/* Trước đây `if (error) return <div>...` thay thế TOÀN BỘ trang.
           Khi thêm/sửa phim thất bại, modal bị unmount kèm luôn dữ liệu vừa nhập
           và admin chỉ thấy một dòng chữ đỏ giữa màn hình trắng. Nay lỗi hiện
           dạng banner, form vẫn còn nguyên để sửa lại và gửi tiếp. */}

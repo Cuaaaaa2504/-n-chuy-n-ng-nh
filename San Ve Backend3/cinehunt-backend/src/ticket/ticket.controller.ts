@@ -24,17 +24,13 @@ export class TicketController {
     return this.ticketService.findAccessibleByCode(code, requester);
   }
 
-  /**
+  /*
    * FIX [mục 7.2 — lỗi thật, im lặng, rất khó phát hiện]
-   *
-   * Code cũ:  checkIn(code, req.user.user_id)
-   *
    * `JwtStrategy.validate()` trả về `{ userId, email, role }` — KHÔNG hề có
    * field `user_id`. Vì vậy `req.user.user_id` luôn là `undefined`, và cột
    * `checked_in_by` luôn bị ghi NULL: check-in vẫn "thành công", vé vẫn đổi
    * sang USED, nhưng hệ thống KHÔNG BAO GIỜ biết nhân viên nào đã quét vé.
    * Mất hoàn toàn khả năng truy vết khi có tranh chấp tại quầy.
-   *
    * Dùng @CurrentUser() để lấy đúng payload đã được type hoá, thay vì đọc
    * `req.user` dạng `any` — kiểu dữ liệu sẽ bắt lỗi này ngay lúc biên dịch.
    */

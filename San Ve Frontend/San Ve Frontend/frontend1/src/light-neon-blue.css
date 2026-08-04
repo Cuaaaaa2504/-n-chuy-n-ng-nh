@@ -1,8 +1,8 @@
-/* ============================================================
+/*
    CMC CINEMA — BLUE NEON LIGHT MODE
    Chỉ áp dụng cho html.light. Dark mode không bị thay đổi.
    Import file này SAU light-contrast.css.
-   ============================================================ */
+   */
 
 html.light {
   color-scheme: light;
@@ -380,9 +380,9 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #4dade8; }
       linear-gradient(180deg, rgba(248,252,255,.94) 0%, rgba(242,249,255,.88) 58%, rgba(239,248,255,.96) 100%) !important;
   }
 }
-/* ============================================================
+/*
    LIGHT MODE — MOVIE CARD TITLE WHITE
-   ============================================================ */
+   */
 
 html.light .stitch-movie-title {
   color: #ffffff !important;

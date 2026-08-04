@@ -18,7 +18,7 @@ import type {
   VoucherPage,
 } from '../types/admin';
 
-/**
+/*
  * axiosClient interceptor đã unwrap response.data một lần.
  * Helper `get/post/patch/del` chỉ để ép kiểu cho gọn, KHÔNG unwrap thêm.
  */

@@ -1,14 +1,11 @@
 // src/api/voucherApi.ts
-//
 // FIX [mục 4.1 + 4.2 của báo cáo] — file này TRƯỚC ĐÂY KHÔNG TỒN TẠI.
-//
 // Backend đã có sẵn `GET /vouchers/validate` và `GET /vouchers/:code` từ lâu,
 // nhưng không có bất kỳ dòng code frontend nào gọi tới. Hệ quả dây chuyền:
 //   - Không có ô nhập mã ở bất kỳ bước nào trong luồng đặt vé.
 //   - `ComboPage` gửi POST /bookings mà không kèm `voucherCode`.
 //   - Backend `BookingService` có đủ logic tính giảm giá... và không bao giờ
 //     được kích hoạt. Admin tạo voucher hợp lệ nhưng không ai dùng được.
-//
 // LƯU Ý QUAN TRỌNG về `/vouchers/validate`:
 // Backend ném BadRequestException khi voucher không hợp lệ (hết hạn, chưa tới
 // hạn, hết lượt, chưa đạt đơn tối thiểu) và NotFoundException khi sai mã.
@@ -46,9 +43,8 @@ function readErrorMessage(err: unknown, fallback: string): string {
   return raw ?? fallback;
 }
 
-/**
+/*
  * GET /vouchers/validate?code=&amount=
- *
  * `amount` là tổng tiền đơn hàng TRƯỚC giảm giá (tiền vé + bắp nước).
  * Backend cần con số này để kiểm tra `minOrderAmount` và để tính giảm giá
  * theo phần trăm — gửi thiếu sẽ ra kết quả sai lệch so với lúc đặt vé thật.
@@ -71,7 +67,7 @@ export async function validateVoucher(
   }
 }
 
-/**
+/*
  * GET /vouchers/:code — xem thông tin voucher mà KHÔNG kiểm tra điều kiện đơn.
  * Dùng cho màn "voucher của tôi" / xem trước ưu đãi.
  */

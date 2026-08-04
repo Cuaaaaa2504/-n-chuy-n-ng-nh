@@ -1,5 +1,5 @@
 // src/components/admin/BookingTable.tsx
-// FIX BUG-02/WARN-02: table-container / admin-table / mobile-cards / card-* / booking-code
+// 02/WARN-02: table-container / admin-table / mobile-cards / card-* / booking-code
 // đều là class không tồn tại. Viết lại bằng Tailwind, dùng TableShell/Th/Td của AdminUI.
 import React from 'react';
 import BookingStatusBadge from './BookingStatusBadge';

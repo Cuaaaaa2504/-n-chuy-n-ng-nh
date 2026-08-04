@@ -1,12 +1,9 @@
-/**
- * FIX BUG-03 — Contract chính thức của GET /showtime-seats/:showtimeId
- *
- * Trước đây backend trả về `showtimeSeatId / seatRow / seatTypeCode / seatStatus`
+/*
+ * Contract chính thức của GET /showtime-seats/:showtimeId
  * còn frontend lại cần `id / rowName / type / status`, nên phải có hàm
  * `normalizeSeat()` dịch tay ở `seat.service.ts`. Bất kỳ ai đổi tên field ở
  * backend mà quên sửa normalizeSeat đều làm ghế hiển thị sai loại, sai trạng
  * thái, hoặc giá về 0 — mà không có lỗi nào báo ra.
- *
  * Nay contract được khai báo tường minh ở đây và trả về ĐÚNG tên frontend dùng.
  * Các tên cũ vẫn được giữ như alias @deprecated để không vỡ trong lúc deploy
  * lệch phiên bản giữa FE và BE; có thể xoá sau khi FE đã lên bản mới.
@@ -57,10 +54,9 @@ export interface SeatMapResponseDto {
   /** Tổng số ghế. 0 nghĩa là suất chiếu TỒN TẠI nhưng chưa được sinh ghế. */
   totalSeats: number;
 
-  /**
-   * FIX BUG-02: cờ tường minh để frontend phân biệt
+  /*
+   * Cờ tường minh để frontend phân biệt
    * "suất chiếu chưa có sơ đồ ghế" với "gọi API thất bại".
-   * Trước đây cả hai đều rơi vào cùng một catch block.
    */
   seatsGenerated: boolean;
 

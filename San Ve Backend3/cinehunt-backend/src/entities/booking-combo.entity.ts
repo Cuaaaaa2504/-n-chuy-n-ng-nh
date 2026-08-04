@@ -26,7 +26,6 @@ export class BookingCombo {
   unitPrice: number;
 
   // SQL: total_price AS (CONVERT(DECIMAL(12,2), quantity * unit_price)) PERSISTED
-  //
   // FIX [BUG-02]: khai báo đúng đây là COMPUTED COLUMN.
   // Chỉ để insert:false/update:false là chưa đủ — TypeORM vẫn coi nó là cột thường
   // và có thể reload entity sau INSERT. Với `asExpression` + `generatedType: 'STORED'`,

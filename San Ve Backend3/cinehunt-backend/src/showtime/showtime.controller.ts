@@ -59,8 +59,8 @@ export class ShowtimeController {
     return this.showtimeService.update(id, dto);
   }
 
-  /**
-   * FIX BUG-01 (vá dữ liệu cũ): các suất chiếu được tạo TRƯỚC khi có auto-seed
+  /*
+   * 01 (vá dữ liệu cũ): các suất chiếu được tạo TRƯỚC khi có auto-seed
    * vẫn đang có bảng showtime_seats rỗng, và tự chúng sẽ không bao giờ tự sinh
    * ghế. Endpoint này cho phép admin sinh bù. An toàn khi gọi lại nhiều lần
    * (idempotent — chỉ thêm ghế còn thiếu).

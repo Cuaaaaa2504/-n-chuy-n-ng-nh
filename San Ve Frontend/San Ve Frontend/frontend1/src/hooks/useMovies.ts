@@ -15,7 +15,7 @@ const msgOf = (err: unknown, fallback: string) =>
 export interface UseMoviesOptions {
   /** Tự động tải danh sách phim khi mount. Mặc định true. */
   autoFetch?: boolean;
-  /**
+  /*
    * Có tải kèm danh sách thể loại (GET /genres) hay không.
    * Chỉ trang admin cần (để render multi-select trong form phim); các trang
    * public bật lên chỉ tốn thêm request vô ích.

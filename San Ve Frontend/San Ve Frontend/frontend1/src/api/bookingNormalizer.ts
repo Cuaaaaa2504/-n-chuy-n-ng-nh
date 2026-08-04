@@ -1,26 +1,19 @@
 // src/api/bookingNormalizer.ts
-//
 // FIX [mục 9.1 của báo cáo — logic phân tán]
-//
-// Trước đây tồn tại HAI hàm `normalizeBooking` riêng biệt cho cùng một resource:
 // một ở `bookingApi.ts` (dùng cho MyBookingsPage) và một ở `paymentApi.ts`
 // (dùng cho PaymentPage, qua `getOrder()`).
-//
 // Báo cáo cảnh báo rằng nếu backend thêm field mới mà chỉ cập nhật một nơi thì
 // hai trang sẽ hiển thị khác nhau. Nhưng thực tế còn tệ hơn cảnh báo — hai bản
 // ĐÃ lệch nhau sẵn, và bản ở `paymentApi.ts` đang sai ở 2 chỗ:
-//
 //   1. Nó đọc `raw.cinemaName` / `raw.roomName` / `raw.showDate` / `raw.showTime`
 //      như thể backend trả phẳng. Backend KHÔNG trả phẳng — dữ liệu nằm trong
 //      quan hệ lồng nhau `showtime -> room -> cinema` (đúng như bản ở
 //      `bookingApi.ts` đã xử lý). Hệ quả: PaymentPage luôn thiếu tên rạp,
 //      tên phòng và giờ chiếu, trong khi MyBookingsPage hiện đầy đủ.
-//
 //   2. Nó dựng mã ghế bằng `seat.rowName`. Entity backend đặt tên cột là
 //      `seatRow` (cột `seat_row`); `rowName` chỉ là fallback cho dữ liệu cũ.
 //      Nên mã ghế trên trang thanh toán dễ ra dạng "5", "12" (mất chữ hàng)
 //      thay vì "E5", "C12".
-//
 // File này là NGUỒN SỰ THẬT DUY NHẤT cho việc đọc một booking từ API. Cả hai
 // api module đều gọi vào đây; thêm field mới chỉ cần sửa một chỗ.
 
@@ -47,9 +40,8 @@ type Raw = Record<string, unknown>;
 const asObj = (v: unknown): Raw | undefined =>
   v && typeof v === 'object' ? (v as Raw) : undefined;
 
-/**
+/*
  * Dựng mã ghế từ quan hệ `bookingDetails -> showtimeSeat -> seat`.
- *
  * `seatRow` là tên property đúng theo entity (cột `seat_row`); `rowName` giữ
  * làm fallback cho dữ liệu/response cũ. Thiếu fallback này là lý do mã ghế ở
  * trang thanh toán từng bị mất chữ hàng.
@@ -70,7 +62,7 @@ export function extractSeatCodes(raw: Raw): string[] {
 }
 
 export interface NormalizeOptions {
-  /**
+  /*
    * Bật cho luồng THANH TOÁN: ném lỗi nếu server không trả về booking_id dạng
    * số. `POST /payments` bị ValidationPipe chặn nếu nhận bookingCode 'BK-xxx',
    * nên phát hiện sớm ở đây cho ra thông báo rõ ràng thay vì lỗi 400 khó hiểu

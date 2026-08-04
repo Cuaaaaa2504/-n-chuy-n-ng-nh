@@ -1,23 +1,19 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 
-/**
+/*
  * FIX [mục 6.2 + 8.1 của báo cáo — race condition khi 2 admin cùng sửa]
- *
  * Báo cáo mô tả đúng triệu chứng: form sửa suất chiếu / rạp đổ dữ liệu từ danh
  * sách đã cache, nên nếu admin B vừa đổi giờ chiếu trong lúc admin A đang mở
  * form, A bấm lưu sẽ ghi đè thay đổi của B mà không ai biết.
- *
  * Nhưng cách sửa mà báo cáo gợi ý — "fetch lại /showtimes/:id trước khi mở
  * form" — KHÔNG đóng được lỗi này, chỉ thu hẹp cửa sổ race. Cửa sổ nguy hiểm
  * nằm giữa lúc MỞ form và lúc BẤM LƯU (có thể vài phút), chứ không phải giữa
  * lúc bấm "Sửa" và lúc form hiện ra (vài mili-giây). Fetch lại chỉ dời điểm
  * bắt đầu cửa sổ sớm hơn chút xíu.
- *
  * Cách đóng thật sự là optimistic locking: client gửi kèm giá trị `updated_at`
  * mà nó ĐÃ ĐỌC, server so với giá trị hiện tại trong DB. Lệch nhau nghĩa là có
  * người khác đã sửa trong lúc đó -> từ chối bằng 409 Conflict thay vì ghi đè
  * im lặng. Người dùng được báo rõ và tự quyết định tải lại hay ghi đè.
- *
  * ⚠️ HẠN CHẾ CẦN BIẾT: các cột `updated_at` trong schema là DATETIME2(0), tức
  * chỉ chính xác tới GIÂY. Hai lần sửa xảy ra trong cùng một giây sẽ không phân
  * biệt được và vẫn lọt. Muốn chặt hơn phải nâng lên DATETIME2(3) hoặc thêm cột

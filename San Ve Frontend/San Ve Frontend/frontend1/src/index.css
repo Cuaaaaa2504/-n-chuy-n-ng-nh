@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
-/* ============================================================
+/*
    CMC CINEMA — Design tokens ("Cyber Neon Cinema")
    Nguồn: Demo UI/cyber_neon_cinema/DESIGN.md
    Demo UI dùng Tailwind v3 (CDN + tailwind.config).
    Project này dùng Tailwind v4 -> mọi token phải khai báo trong
    @theme, KHÔNG dùng tailwind.config.js.
-   ============================================================ */
+   */
 
 @theme {
   /* ---------- Colors (Material 3 dark scheme) ---------- */
@@ -140,9 +140,9 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--color-secondary-container); }
 }
 
-/* ============================================================
+/*
    Component classes dùng chung (trích từ <style> của Demo UI)
-   ============================================================ */
+   */
 @layer components {
   .glass-panel {
     background: var(--color-glass-surface);

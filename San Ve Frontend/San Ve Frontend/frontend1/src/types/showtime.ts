@@ -1,6 +1,5 @@
 // src/types/showtime.ts
-//
-// FIX BUG-03/BUG-04: kiểu dữ liệu được viết lại cho khớp với entity `showtimes`
+// 03/BUG-04: kiểu dữ liệu được viết lại cho khớp với entity `showtimes`
 // của backend (San Ve Backend3):
 //   - PK là `showtime_id`, không phải `id`
 //   - KHÔNG có cột `show_date`; `start_time` / `end_time` là DATETIME2 đầy đủ
@@ -32,7 +31,7 @@ export interface Showtime {
   basePrice: number;
   status: ShowtimeStatus;
 
-  /**
+  /*
    * FIX [mục 6.2]: mốc sửa đổi cuối cùng do server trả về.
    * Được gửi ngược lên khi PATCH để server phát hiện xung đột (optimistic
    * locking). Không có nghĩa gì với người dùng, chỉ dùng nội bộ.
@@ -40,7 +39,7 @@ export interface Showtime {
   updatedAt?: string;
 }
 
-/**
+/*
  * Dữ liệu form — vẫn tách ngày / giờ cho dễ nhập liệu.
  * Tầng api (`showtimeApi.ts`) chịu trách nhiệm ghép lại thành ISO datetime
  * và ép movieId/roomId về number trước khi gửi lên backend.

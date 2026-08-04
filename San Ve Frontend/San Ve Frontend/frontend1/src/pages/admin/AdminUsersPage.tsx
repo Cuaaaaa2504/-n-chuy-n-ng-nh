@@ -1,6 +1,4 @@
 // src/pages/admin/AdminUsersPage.tsx
-//
-// FIX BUG-06:
 //   1. Thêm phân trang thật (state page + limit, gửi lên API, render UI Pagination).
 //      Trước đây `total` được hook trả về nhưng không dùng, toàn bộ user load
 //      trong một request duy nhất -> chậm/timeout và DOM table khổng lồ.

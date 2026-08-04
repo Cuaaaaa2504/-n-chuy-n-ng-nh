@@ -1,11 +1,9 @@
-/**
- * FIX CHAT-05 — Nguồn dữ liệu thật cho chatbot.
- *
+/*
+ * Nguồn dữ liệu thật cho chatbot.
  * Trước đây payload gửi Gemini chỉ có system prompt + lịch sử chat, nên mọi câu
  * hỏi kiểu "phim nào đang chiếu tối nay?" hay "còn ghế A5 không?" đều bị model
  * bịa hoặc từ chối. File này cung cấp các hàm truy vấn CineHuntDB để
  * `chat.service.ts` gọi qua cơ chế function calling của Gemini.
- *
  * NGUYÊN TẮC BẢO MẬT (quan trọng, đọc trước khi thêm hàm mới):
  *   1. CHỈ ĐỌC. Không có hàm nào ghi/sửa/xoá. Model không được phép đặt vé hộ.
  *   2. CHỈ DỮ LIỆU CÔNG KHAI. Không đụng tới bảng users, booking_orders,
@@ -46,9 +44,8 @@ function formatVnd(value: unknown): string {
   return `${toNumber(value).toLocaleString('vi-VN')} đ`;
 }
 
-/**
+/*
  * Chuẩn hoá chuỗi ngày do model truyền vào.
- *
  * Model hay trả về "hôm nay", "tối nay", "2026-07-29" hoặc "29/07/2026". Nếu
  * không parse được thì trả null và hàm gọi tự hiểu là "không lọc theo ngày" —
  * thà trả nhiều suất chiếu còn hơn trả rỗng rồi model kết luận "hết suất".
@@ -117,9 +114,7 @@ export class ChatDataService {
     private readonly cinemaRepo: Repository<Cinema>,
   ) {}
 
-  // =====================================================================
   // 1. TÌM PHIM
-  // =====================================================================
   async searchMovies(args: {
     query?: string;
     status?: string;
@@ -187,9 +182,7 @@ export class ChatDataService {
     };
   }
 
-  // =====================================================================
   // 2. CHI TIẾT MỘT PHIM
-  // =====================================================================
   async getMovieDetail(args: { movieId?: number; title?: string }) {
     const qb = this.movieRepo
       .createQueryBuilder('movie')
@@ -234,9 +227,7 @@ export class ChatDataService {
     };
   }
 
-  // =====================================================================
   // 3. LỊCH CHIẾU
-  // =====================================================================
   async getShowtimes(args: {
     movieId?: number;
     movieTitle?: string;
@@ -329,9 +320,7 @@ export class ChatDataService {
     };
   }
 
-  // =====================================================================
   // 4. TÌNH TRẠNG GHẾ
-  // =====================================================================
   async checkSeatAvailability(args: {
     showtimeId?: number;
     seatLabels?: string[] | string;
@@ -440,9 +429,7 @@ export class ChatDataService {
     return result;
   }
 
-  // =====================================================================
   // 5. COMBO BẮP NƯỚC
-  // =====================================================================
   async listCombos(args: { limit?: number }) {
     const limit = clampLimit(args?.limit, 10);
 
@@ -464,9 +451,7 @@ export class ChatDataService {
     };
   }
 
-  // =====================================================================
   // 6. DANH SÁCH RẠP
-  // =====================================================================
   async listCinemas(args: { city?: string; limit?: number }) {
     const limit = clampLimit(args?.limit, 15);
 
@@ -495,7 +480,6 @@ export class ChatDataService {
     };
   }
 
-  // =====================================================================
   private formatDateTime(value: Date | string | null): string | null {
     if (!value) return null;
     const d = new Date(value);

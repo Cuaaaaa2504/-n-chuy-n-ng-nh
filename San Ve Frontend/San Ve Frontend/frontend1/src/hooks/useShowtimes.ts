@@ -1,6 +1,5 @@
 // src/hooks/useShowtimes.ts
-//
-// FIX BUG-03: hook này trước đây trả về mảng mock hardcode 2 phần tử và mọi
+// Hook này trước đây trả về mảng mock hardcode 2 phần tử và mọi
 // thao tác thêm/sửa/hủy chỉ đổi state trong bộ nhớ -> refresh là mất sạch.
 // Nay toàn bộ CRUD đi qua `showtimeApi` (axiosClient), giống useMovies/useBookings/useUsers.
 import { useCallback, useEffect, useState } from 'react';
@@ -33,9 +32,9 @@ export const useShowtimes = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
+  /*
    * Nạp suất chiếu + danh mục phim/phòng.
-   * FIX BUG-04: backend `findAll` chỉ join ['room', 'room.cinema'] nên không có
+   * Backend `findAll` chỉ join ['room', 'room.cinema'] nên không có
    * movie.title. Thay vì hardcode MOVIE_ID_MAP, ta lấy danh sách phim thật rồi
    * đối chiếu theo movieId — thêm phim mới cũng luôn hiển thị đúng.
    */

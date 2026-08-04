@@ -1,5 +1,4 @@
 // typeorm.config.ts — đặt ở ROOT của cinehunt-backend (cùng cấp package.json)
-//
 // TypeORM CLI không bootstrap được NestJS app nên không đọc được config trong
 // TypeOrmModule.forRootAsync. File này export default một DataSource độc lập,
 // đọc thẳng process.env sau khi dotenv.config().
@@ -10,9 +9,8 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 
 loadEnv();
 
-/**
- * FIX — lỗi "Bảng typeorm_migrations không được tạo".
- *
+/*
+ * Lỗi "Bảng typeorm_migrations không được tạo".
  * Nguyên nhân thật sự thường KHÔNG phải TypeORM không tạo bảng, mà là CLI
  * không kết nối được DB do thiếu biến trong .env — nhưng thông báo lỗi của
  * driver mssql rất khó đọc ("Failed to connect to undefined:1433").
@@ -52,7 +50,7 @@ export const dataSourceOptions: DataSourceOptions = {
   // Nơi CLI tìm file migration.
   migrations: [__dirname + '/src/migrations/*{.ts,.js}'],
 
-  /**
+  /*
    * FIX QUAN TRỌNG — hướng dẫn nói phải kiểm tra bảng `dbo.typeorm_migrations`,
    * nhưng mặc định TypeORM tạo bảng tên `migrations`. Không khai báo dòng này
    * thì bước kiểm tra trong SSMS luôn "không thấy bảng" dù migration đã chạy

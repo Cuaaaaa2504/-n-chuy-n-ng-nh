@@ -14,7 +14,7 @@ import EmptyTickets from '../components/tickets/EmptyTickets';
 import type { Booking, BookingTicket } from '../types/booking';
 import { useTheme } from '../context/useTheme';
 
-// FIX BUG-05: bổ sung ISSUED / CONFIRMED / REFUNDED.
+// Bổ sung ISSUED / CONFIRMED / REFUNDED.
 // 'ISSUED' là status của các booking cũ (trước khi sửa BUG-01 ở payment.service.ts),
 // trước đây rơi vào fallback nên hiện nhãn tiếng Anh trần và mất nút "Xem QR vé".
 const STATUS_LABEL: Record<string, string> = {
@@ -31,17 +31,15 @@ const STATUS_LABEL: Record<string, string> = {
 // Các trạng thái được coi là "đã mua" -> có vé để xem QR.
 const PAID_STATUSES = ['PAID', 'ISSUED', 'CONFIRMED'];
 
-/**
+/*
  * FIX [mục 5.1]: các trạng thái mà tiền đã thực sự vào hệ thống -> user có
  * quyền yêu cầu hoàn tiền.
- *
  * ⚠️ Lưu ý nghiệp vụ quan trọng (báo cáo mô tả sai chỗ này):
  * báo cáo nói "user hủy booking đã thanh toán nhưng không được hoàn tiền".
  * Thực tế `BookingService.cancelBooking()` chỉ cho phép huỷ khi status thuộc
  * ['PENDING_PAYMENT', 'CONFIRMED'] — đơn đã PAID KHÔNG huỷ được, nút "Hủy đơn"
  * cũng chỉ hiện với PENDING_PAYMENT. Nên kịch bản "huỷ vé đã trả tiền rồi mất
  * tiền" không xảy ra được.
- *
  * Vấn đề THẬT là: user đã trả tiền thì không có đường nào để đòi lại cả. Vì
  * vậy ở đây ta thêm luồng đúng: gửi YÊU CẦU hoàn tiền (trạng thái PENDING),
  * admin duyệt ở AdminRefundsPage. Không tự ý huỷ đơn hộ user.
@@ -180,9 +178,8 @@ export default function MyBookingsPage() {
     return () => { cancelled = true; };
   }, [page]);
 
-  /**
+  /*
    * FIX [mục 5.2]: nạp trạng thái hoàn tiền cho các đơn thuộc diện có thể hoàn.
-   *
    * Chỉ gọi cho những đơn thực sự liên quan (đã trả tiền / đã huỷ) thay vì gọi
    * cho toàn bộ danh sách — trang này phân trang 5 đơn/lần nên số request nhỏ,
    * nhưng không có lý do gì hỏi refund cho một đơn còn đang chờ thanh toán.

@@ -42,9 +42,8 @@ export class BookingService {
     private readonly dataSource: DataSource,
   ) {}
 
-  /**
+  /*
    * FIX [bookingId must be a UUID]
-   *
    * `booking_id` là BIGINT IDENTITY còn `booking_code` là chuỗi BK-xxx. Nếu truyền
    * thẳng "BK-1784554863343-ZPJ6" vào `where: { bookingId }` thì mssql sẽ ném lỗi
    * convert varchar -> bigint (HTTP 500 khó debug). Helper này nhận vào một tham
@@ -447,7 +446,7 @@ export class BookingService {
   }
 
   async getMyBookings(userId: number) {
-    // FIX BUG-02: trước đây chỉ SELECT bảng booking_orders thuần, không join
+    // Trước đây chỉ SELECT bảng booking_orders thuần, không join
     // showtime / movie / room / cinema / bookingDetails / seat => frontend nhận
     // movieTitle, cinemaName, roomName, showDate, showTime, seatCodes = undefined.
     // Load đầy đủ relations giống getBookingDetail để thẻ vé hiển thị đủ thông tin.
@@ -599,9 +598,7 @@ export class BookingService {
     return { success: true };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
   // ADMIN
-  // ─────────────────────────────────────────────────────────────────────────
 
   /** Trạng thái booking hợp lệ (SQL CHECK trên booking_orders.status) */
   static readonly ADMIN_ALLOWED_STATUS = [
@@ -613,7 +610,7 @@ export class BookingService {
     'REFUNDED',
   ];
 
-  /**
+  /*
    * FIX [Critical]: AdminBookingsPage cần xem TOÀN BỘ đơn đặt vé.
    * Trước đây chỉ có GET /bookings/my (lọc theo userId) nên trang admin
    * phải dùng mock data.

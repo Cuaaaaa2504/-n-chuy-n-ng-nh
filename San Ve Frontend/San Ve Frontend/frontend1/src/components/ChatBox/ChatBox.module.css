@@ -1,12 +1,10 @@
-/* ============================================================================
- * FIX UI-01 — ChatBox hardcode màu Netflix, không dùng design token của dự án.
- *
+/*
+ * ChatBox hardcode màu Netflix, không dùng design token của dự án.
  * File cũ dùng hex cứng: FAB gradient #e50914 -> #9b0610, panel #111318, bubble
  * người dùng #e50914, viền focus #e50914. Không một `var(--color-*)` nào.
  * Trong khi đó `index.css` đã khai báo đầy đủ token "Cyber Neon Cinema" theo
  * Tailwind v4 `@theme` với hệ tím/cyan và glassmorphism — nên chatbot trông
  * như widget của một website khác dán nhầm vào.
- *
  * Nguyên tắc áp dụng ở đây:
  *   - MỌI màu đều đọc từ `var(--color-*)` khai báo trong index.css.
  *     Đổi bảng màu dự án sau này thì ChatBox tự đổi theo, không phải sửa file
@@ -16,7 +14,7 @@
  *   - `color-mix()` để pha độ trong suốt từ chính token, thay vì viết rgba()
  *     với số kênh màu chép tay — chép tay là cách hex cứng quay lại.
  *   - Chỉ giữ giá trị tuyệt đối cho kích thước, bo góc, thời lượng animation.
- * ========================================================================== */
+ */
 
 .chatRoot {
   position: fixed;
@@ -197,7 +195,7 @@
 }
 
 /*
- * FIX CHAT-06 (phần hiển thị) — thông báo lỗi phải NHÌN ra là lỗi.
+ * 06 (phần hiển thị) — thông báo lỗi phải NHÌN ra là lỗi.
  * Dùng token error của Material 3 thay vì trộn lẫn với bubble trả lời thường,
  * vốn là lý do người dùng tưởng chatbot đang "trả lời" một câu vô nghĩa.
  */

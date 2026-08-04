@@ -1,12 +1,9 @@
 // src/api/notificationApi.ts
-//
 // FIX [mục 3.1 → 3.5 của báo cáo] — file này TRƯỚC ĐÂY KHÔNG TỒN TẠI.
-//
 // Backend có đủ 5 endpoint và `NotificationService` vẫn đang tạo thông báo mỗi
 // khi đặt vé / hoàn tiền. Nhưng không có `notificationApi.ts`, không có chuông
 // trên navbar, không có form gửi thông báo trong admin. Toàn bộ dữ liệu sinh ra
 // rồi nằm chết trong bảng `notifications`, không ai đọc được.
-//
 // LƯU Ý về thứ tự route ở backend (đã kiểm tra, KHÔNG phải lỗi):
 // `@Patch(':id/read')` được khai báo TRƯỚC `@Patch('read-all')`. Nhìn qua thì
 // giống bug định tuyến, nhưng hai path có số segment khác nhau ('read-all' là 1

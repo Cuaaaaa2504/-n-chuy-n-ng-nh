@@ -5,13 +5,13 @@ import type { SeatDto } from '../types/seat.types'; // ✅ thêm type
 
 interface UseSeatSelectionProps {
   maxSelectable?: number;
-  // FIX TS2345: initialSelected mở rộng thành number|string[] để khớp SeatDto.id
+  // InitialSelected mở rộng thành number|string[] để khớp SeatDto.id
   initialSelected?: Array<number | string>;
 }
 
 interface UseSeatSelectionReturn {
   selectedSeats: Array<number | string>;
-  // FIX TS2345: seatId mở rộng thành number|string để khớp SeatDto.id (có thể là string từ server)
+  // SeatId mở rộng thành number|string để khớp SeatDto.id (có thể là string từ server)
   selectSeat: (seatId: number | string, seats: SeatDto[]) => void;
   toggleSeat: (seatId: number | string, seats: SeatDto[]) => void;
   clearSelection: () => void;
@@ -28,7 +28,7 @@ export const useSeatSelection = ({
   const [selectedSeats, setSelectedSeats] = useState<Array<number | string>>(initialSelected);
 
   const selectSeat = useCallback((seatId: number | string, seats: SeatDto[]) => {
-    // FIX TS2367: dùng String() để so sánh an toàn khi id có thể là number hoặc string
+    // Dùng String() để so sánh an toàn khi id có thể là number hoặc string
     const seat = seats.find(s => String(s.id) === String(seatId));
     if (!seat || seat.status === 'SOLD' || seat.status === 'HELD' || seat.status === 'BLOCKED') return;
     if (selectedSeats.map(String).includes(String(seatId)) || selectedSeats.length >= maxSelectable) return;
@@ -36,7 +36,7 @@ export const useSeatSelection = ({
   }, [selectedSeats, maxSelectable]);
 
   const toggleSeat = useCallback((seatId: number | string, seats: SeatDto[]) => {
-    // FIX TS2367: dùng String() để so sánh an toàn
+    // Dùng String() để so sánh an toàn
     const seat = seats.find(s => String(s.id) === String(seatId));
     if (!seat || seat.status === 'SOLD' || seat.status === 'HELD' || seat.status === 'BLOCKED') return;
     setSelectedSeats(prev =>
@@ -51,7 +51,7 @@ export const useSeatSelection = ({
   const clearSelection   = useCallback(() => setSelectedSeats([]), []);
   const isSelected       = useCallback((seatId: number | string) => selectedSeats.map(String).includes(String(seatId)), [selectedSeats]);
   const getSelectedCount = useCallback(() => selectedSeats.length, [selectedSeats]);
-  // FIX TS2367: dùng String() khi so sánh SeatDto.id (number|string) với selectedSeats (number|string[])
+  // Dùng String() khi so sánh SeatDto.id (number|string) với selectedSeats (number|string[])
   const getSelectedSeats = useCallback((seats: SeatDto[]) => seats.filter(s => selectedSeats.map(String).includes(String(s.id))), [selectedSeats]);
   const canSelectMore    = useCallback((seats: SeatDto[]) => {
     const available = seats.filter(s => s.status === 'AVAILABLE' && !selectedSeats.map(String).includes(String(s.id)));

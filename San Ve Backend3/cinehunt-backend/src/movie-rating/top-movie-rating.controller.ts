@@ -11,7 +11,7 @@ import { MovieRatingService } from './movie-rating.service';
 export class TopMovieRatingController {
   constructor(private readonly movieRatingService: MovieRatingService) {}
 
-  /**
+  /*
    * Danh sách phim đang chiếu có điểm đánh giá người dùng cao nhất.
    * Khi bằng điểm, phim có nhiều lượt đánh giá hơn được xếp trước.
    */

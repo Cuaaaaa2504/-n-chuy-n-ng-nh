@@ -9,11 +9,10 @@ import {
 import { User } from './user.entity';
 import { ShowtimeSeat } from './showtime-seat.entity';
 
-/**
+/*
  * Trạng thái của bản ghi seat_holds.
- * FIX: trước đây file này khai báo TRÙNG tên `enum SeatHoldStatus` và
+ * Trước đây file này khai báo TRÙNG tên `enum SeatHoldStatus` và
  * `type SeatHoldStatus` -> TS2567. Nay chỉ giữ DUY NHẤT enum làm nguồn sự thật.
- *
  * Danh sách phải khớp với CK_seat_holds_status trong SQL:
  *   CHECK (status IN ('ACTIVE', 'CONFIRMED', 'CONVERTED', 'EXPIRED', 'CANCELLED'))
  * Vì vậy giá trị 'RELEASED' (không có trong DB) đã bị loại bỏ.
