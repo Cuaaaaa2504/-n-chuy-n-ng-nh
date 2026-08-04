@@ -7,6 +7,9 @@ const GROQ_CHAT_COMPLETIONS_URL =
 const GROQ_REQUEST_TIMEOUT_MS = 30_000;
 const GROQ_MAX_TOOL_ROUNDS = 4;
 
+// FIX CHAT-RATE-02: retry theo Retry-After và giảm tải token.
+const GROQ_MAX_RATE_LIMIT_RETRIES = 1;
+const GROQ_MAX_RETRY_DELAY_MS = 15_000;
 type GroqToolCall = {
   id: string;
   type: 'function';
@@ -105,7 +108,7 @@ function buildGroqMessages(
     },
   ];
 
-  for (const message of messages ?? []) {
+  for (const message of (messages ?? []).slice(-8)) {
     const content =
       typeof message?.content === 'string'
         ? message.content.trim()
@@ -153,34 +156,95 @@ function stringifyToolResponse(
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function groqRetryAfterMs(error: unknown): number | null {
+  if (!axios.isAxiosError(error) || error.response?.status !== 429) {
+    return null;
+  }
+
+  const raw = error.response.headers?.['retry-after'];
+  const first = Array.isArray(raw) ? raw[0] : raw;
+  const seconds = Number(first);
+
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(
+      Math.ceil(seconds * 1000),
+      GROQ_MAX_RETRY_DELAY_MS,
+    );
+  }
+
+  let message = error.message ?? '';
+
+  try {
+    message += ` ${JSON.stringify(error.response.data)}`;
+  } catch {
+    // error.message vẫn đủ để thử parse.
+  }
+
+  const retryMatch = message.match(
+    /try again in\s+([\d.]+)s/i,
+  );
+
+  if (!retryMatch) return 1_000;
+
+  return Math.min(
+    Math.ceil(Number(retryMatch[1]) * 1000),
+    GROQ_MAX_RETRY_DELAY_MS,
+  );
+}
+
 async function callGroq(
   apiKey: string,
   model: string,
   messages: GroqMessage[],
   tools: ReturnType<typeof buildGroqTools>,
 ): Promise<GroqResponse> {
-  const response = await axios.post<GroqResponse>(
-    GROQ_CHAT_COMPLETIONS_URL,
-    {
-      model,
-      messages,
-      tools,
-      tool_choice: 'auto',
-      temperature: 0.2,
-      max_completion_tokens: 768,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      timeout: GROQ_REQUEST_TIMEOUT_MS,
-    },
-  );
+  for (
+    let attempt = 0;
+    attempt <= GROQ_MAX_RATE_LIMIT_RETRIES;
+    attempt += 1
+  ) {
+    try {
+      const response = await axios.post<GroqResponse>(
+        GROQ_CHAT_COMPLETIONS_URL,
+        {
+          model,
+          messages,
+          tools,
+          tool_choice: 'auto',
+          temperature: 0.2,
+          max_completion_tokens: 384,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: GROQ_REQUEST_TIMEOUT_MS,
+        },
+      );
 
-  return response.data;
+      return response.data;
+    } catch (error) {
+      const retryAfterMs = groqRetryAfterMs(error);
+
+      if (
+        retryAfterMs !== null &&
+        attempt < GROQ_MAX_RATE_LIMIT_RETRIES
+      ) {
+        await sleep(retryAfterMs);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error('Groq không trả về phản hồi.');
 }
-
 export async function runGroqFallback(
   options: RunGroqFallbackOptions,
 ): Promise<string> {

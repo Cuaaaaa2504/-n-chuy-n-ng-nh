@@ -69,8 +69,16 @@ export interface HoldItem {
 
 interface BookSeatsResponse {
   bookingId?: number | string;
-  orderCode?: string;
-  success: boolean;
+  bookingCode?: string;
+  showtimeId?: number;
+  seatCount?: number;
+  subtotalAmount?: number;
+  productAmount?: number;
+  discountAmount?: number;
+  totalAmount?: number;
+  status?: string;
+  expiresAt?: string | null;
+  success?: boolean;
   message?: string;
 }
 

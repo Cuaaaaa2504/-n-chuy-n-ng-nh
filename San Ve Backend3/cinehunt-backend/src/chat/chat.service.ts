@@ -152,10 +152,15 @@ export class ChatService implements OnModuleInit {
     const model = this.model;
 
     if (!apiKey) {
-      this.logger.error(
-        'CHƯA CÓ GEMINI_API_KEY -> chatbot sẽ không hoạt động. ' +
-          'Thêm GEMINI_API_KEY vào cinehunt-backend/.env rồi khởi động lại.',
-      );
+      if (this.groqApiKey) {
+        this.logger.warn(
+          'Chưa có GEMINI_API_KEY -> chatbot sẽ dùng Groq làm nhà cung cấp chính.',
+        );
+      } else {
+        this.logger.error(
+          'Chưa có GEMINI_API_KEY hoặc GROQ_API_KEY -> chatbot sẽ không hoạt động.',
+        );
+      }
     } else {
       this.logger.log(`Chatbot Gemini sẵn sàng (model: ${model}).`);
     }
@@ -203,19 +208,34 @@ export class ChatService implements OnModuleInit {
   private shouldFallbackToGroq(error: unknown): boolean {
     if (error instanceof HttpException) {
       const response = error.getResponse();
+      const code =
+        response && typeof response === 'object'
+          ? String((response as { code?: string }).code ?? '')
+          : '';
 
-      if (
-        response &&
-        typeof response === 'object' &&
-        (response as { code?: string }).code === 'RATE_LIMITED'
-      ) {
-        return true;
-      }
-
-      return error.getStatus() === HttpStatus.TOO_MANY_REQUESTS;
+      // Chuyển sang Groq khi Gemini không khả dụng, không chỉ riêng 429.
+      // Không fallback cho INVALID_REQUEST/BLOCKED vì đó là lỗi nội dung đầu vào,
+      // đổi nhà cung cấp cũng không giải quyết được.
+      return new Set<string>([
+        'MISSING_API_KEY',
+        'INVALID_API_KEY',
+        'MODEL_NOT_FOUND',
+        'RATE_LIMITED',
+        'UPSTREAM_ERROR',
+        'TIMEOUT',
+        'EMPTY_RESPONSE',
+      ]).has(code);
     }
 
-    return this.isRateLimited(error);
+    const status = (error as AxiosError)?.response?.status;
+    return (
+      status === 401 ||
+      status === 403 ||
+      status === 404 ||
+      status === 408 ||
+      status === 429 ||
+      (typeof status === 'number' && status >= 500)
+    );
   }
 
   private allProvidersUnavailable(reason?: unknown): HttpException {
@@ -745,8 +765,22 @@ export class ChatService implements OnModuleInit {
       );
     }
 
-    const apiKey = this.requireApiKey();
+    // PATCH CHAT V3: dùng Groq trực tiếp khi thiếu Gemini key.
+
+    if (!this.apiKey && this.groqApiKey) {
+
+      return this.replyWithGroq(messages, userId);
+
+    }
+
+
     const contents = this.buildContents(messages);
+    const apiKey = this.apiKey;
+
+    // Gemini thiếu key cũng phải thử Groq thay vì trả lỗi ngay.
+    if (!apiKey) {
+      return this.replyWithGroq(messages, userId);
+    }
 
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
       let payload: GeminiResponse;
@@ -913,14 +947,41 @@ export class ChatService implements OnModuleInit {
       return;
     }
 
-    let apiKey: string;
     let contents: GeminiContent[];
 
     try {
-      apiKey = this.requireApiKey();
+      // PATCH CHAT V3: stream qua Groq khi thiếu Gemini key.
+      if (!this.apiKey && this.groqApiKey) {
+        try {
+          const fallbackReply = await this.replyWithGroq(messages, userId);
+          yield { type: 'delta', text: fallbackReply };
+          yield { type: 'done' };
+        } catch (fallbackError) {
+          yield this.toStreamError(fallbackError);
+        }
+        return;
+      }
+
       contents = this.buildContents(messages);
     } catch (error) {
       yield this.toStreamError(error);
+      return;
+    }
+
+    const apiKey = this.apiKey;
+
+    // Endpoint stream vẫn dùng Groq fallback dạng một câu trả lời hoàn chỉnh.
+    if (!apiKey) {
+      try {
+        const fallbackReply = await this.replyWithGroq(
+          messages,
+          userId,
+        );
+        yield { type: 'delta', text: fallbackReply };
+        yield { type: 'done' };
+      } catch (fallbackError) {
+        yield this.toStreamError(fallbackError);
+      }
       return;
     }
 

@@ -4,11 +4,19 @@ import type { SeatItemProps } from '../../types/seat.types';
 import './SeatMap.css';
 
 const SeatItem: React.FC<SeatItemProps> = ({ seat, selected, onClick, disabled = false }) => {
-  const isDisabled = disabled || ['SOLD','HELD','BLOCKED'].includes(seat.status);
+  // BOOKED là trạng thái tương đương SOLD ở tầng hiển thị.
+  const visualStatus = seat.status === 'BOOKED' ? 'SOLD' : seat.status;
+  const isDisabled = disabled || ['SOLD','BOOKED','HELD','BLOCKED'].includes(seat.status);
 
   const getTooltip = () => {
     if (selected) return 'Bỏ chọn ghế';
-    const map: Record<string, string> = { HELD: 'Ghế đang được giữ', SOLD: 'Ghế đã bán', BLOCKED: 'Ghế bị khóa', AVAILABLE: 'Chọn ghế' };
+    const map: Record<string, string> = {
+      HELD: 'Ghế đang được giữ',
+      SOLD: 'Ghế đã bán',
+      BOOKED: 'Ghế đã bán',
+      BLOCKED: 'Ghế bị khóa',
+      AVAILABLE: 'Chọn ghế',
+    };
     return map[seat.status] ?? '';
   };
 
@@ -17,7 +25,7 @@ const SeatItem: React.FC<SeatItemProps> = ({ seat, selected, onClick, disabled =
     if (!isDisabled) onClick();
   };
 
-  const getStatusClass = () => selected ? 'selected' : seat.status.toLowerCase();
+  const getStatusClass = () => selected ? 'selected' : visualStatus.toLowerCase();
 
   return (
     <div
@@ -32,7 +40,7 @@ const SeatItem: React.FC<SeatItemProps> = ({ seat, selected, onClick, disabled =
       <span className="seat-number">{seat.seatNumber}</span>
       {isDisabled && seat.status !== 'SELECTED' && (
         <span className="seat-status-icon">
-          {seat.status === 'SOLD' && '✕'}
+          {(seat.status === 'SOLD' || seat.status === 'BOOKED') && '✕'}
           {seat.status === 'HELD' && '⏳'}
           {seat.status === 'BLOCKED' && '⊘'}
         </span>
