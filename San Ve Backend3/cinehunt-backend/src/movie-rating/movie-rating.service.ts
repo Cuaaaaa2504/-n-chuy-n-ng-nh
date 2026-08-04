@@ -72,9 +72,6 @@ export class MovieRatingService {
   async getTopRated(limit = 3): Promise<MovieRatingSummary[]> {
     const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 10);
 
-    // Không dùng movies.average_rating để xếp hạng tại đây vì cột đó có thể
-    // chứa điểm seed cũ dù chưa có người dùng nào đánh giá. Top "phim hot"
-    // phải được tính trực tiếp từ bảng movie_ratings.
     const rows = (await this.dataSource.query(`
       SELECT TOP (${safeLimit})
         m.movie_id,

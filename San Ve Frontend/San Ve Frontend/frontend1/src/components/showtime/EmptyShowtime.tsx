@@ -1,9 +1,3 @@
-// src/components/showtime/EmptyShowtime.tsx
-// Các class `empty-showtime-container`, `empty-icon`, `empty-actions`,
-// `back-btn`, `home-btn` không được định nghĩa ở bất kỳ file CSS nào trong dự án
-// (index.css chỉ có `@import "tailwindcss"`), nên component hiện ra dưới dạng
-// text trần không định dạng. Sau khi bỏ suất chiếu mock (Lỗi 3), đây là trạng
-// thái người dùng gặp thường xuyên nên càng phải hiển thị tử tế.
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 

@@ -157,8 +157,6 @@ export default function MyTicketsPage() {
   }, [activeUserId]);
 
   useEffect(() => {
-    // Khi đổi tài khoản, xóa ngay dữ liệu của tài khoản trước rồi mới tải lại.
-    // Hoãn reset sang microtask để tránh setState đồng bộ trong effect.
     void Promise.resolve().then(() => {
       setAllTickets([]);
       setSelected(null);
@@ -168,8 +166,6 @@ export default function MyTicketsPage() {
     void Promise.resolve().then(fetchTickets);
   }, [activeUserId, fetchTickets]);
 
-  // Trang vé có thể đang mở ở tab khác trong lúc chatbot tạo/hủy booking.
-  // Làm mới khi người dùng quay lại tab để số "Vé đang giữ" không bị cũ.
   useEffect(() => {
     const refresh = () => {
       void fetchTickets();

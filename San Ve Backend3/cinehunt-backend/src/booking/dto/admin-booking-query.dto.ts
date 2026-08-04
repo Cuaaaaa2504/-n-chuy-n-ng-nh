@@ -22,12 +22,10 @@ export class AdminBookingQueryDto {
   @IsString()
   movieTitle?: string;
 
-  /** Nhãn hiển thị phía admin: PAID | PENDING | FAILED | REFUNDED */
   @IsOptional()
   @IsIn(['PAID', 'PENDING', 'FAILED', 'REFUNDED', ''])
   paymentStatus?: string;
 
-  /** Trạng thái thật của booking_orders.status */
   @IsOptional()
   @IsIn([
     'PENDING_PAYMENT',

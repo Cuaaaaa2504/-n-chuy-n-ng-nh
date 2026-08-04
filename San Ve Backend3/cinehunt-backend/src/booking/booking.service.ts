@@ -1,4 +1,3 @@
-// src/booking/booking.service.ts
 import {
   BadRequestException,
   Injectable,
@@ -42,13 +41,6 @@ export class BookingService {
     private readonly dataSource: DataSource,
   ) {}
 
-  /*
-   * FIX [bookingId must be a UUID]
-   * `booking_id` là BIGINT IDENTITY còn `booking_code` là chuỗi BK-xxx. Nếu truyền
-   * thẳng "BK-1784554863343-ZPJ6" vào `where: { bookingId }` thì mssql sẽ ném lỗi
-   * convert varchar -> bigint (HTTP 500 khó debug). Helper này nhận vào một tham
-   * chiếu booking bất kỳ (id số hoặc mã BK-xxx) và trả về điều kiện `where` đúng cột.
-   */
   private buildBookingRef(ref: string | number): FindOptionsWhere<BookingOrder> {
     const value = String(ref ?? '').trim();
 
@@ -70,9 +62,6 @@ export class BookingService {
   async createBooking(userId: number, request: CreateBookingRequest): Promise<BookingResponse> {
     const now = new Date();
 
-    // FIX [BUG-03]: hold_id là BIGINT -> luôn so sánh dưới dạng chuỗi.
-    // DTO đã Transform về string[] nhưng vẫn chuẩn hoá lại ở đây để service an toàn
-    // khi được gọi trực tiếp (unit test, service khác) mà không qua ValidationPipe.
     const holdIds = [
       ...new Set(
         (request.holdIds ?? [])
@@ -81,8 +70,6 @@ export class BookingService {
       ),
     ];
 
-    // FIX [BUG-03]: In([]) sinh ra SQL rỗng -> lỗi cú pháp -> 500.
-    // Chặn sớm bằng 400 với thông báo rõ ràng.
     if (!holdIds.length) {
       throw new BadRequestException('Danh sách ghế đang giữ (holdIds) không hợp lệ');
     }
@@ -116,9 +103,6 @@ export class BookingService {
     const showtimeId = distinctShowtimeIds[0];
     const subtotalAmount = holds.reduce((sum, h) => sum + Number(h.showtimeSeat.price), 0);
 
-    // Gộp các dòng trùng productId lại thành 1 dòng.
-    // booking_combos có UNIQUE (booking_id, combo_id) -> gửi trùng sẽ gây
-    // duplicate key error -> 500. Gộp trước khi insert là cách xử lý an toàn.
     const requestedProducts = Object.values(
       (request.products ?? []).reduce<Record<number, { productId: number; quantity: number }>>(
         (acc, item) => {
@@ -156,7 +140,6 @@ export class BookingService {
         throw new BadRequestException('Voucher không hợp lệ hoặc đã hết hạn');
       }
 
-      // FIX [H-02]: kiểm tra usageLimit trước khi áp dụng voucher
       if (voucher.usageLimit !== null && voucher.usageLimit !== undefined && voucher.usedCount >= voucher.usageLimit) {
         throw new BadRequestException('Voucher đã hết lượt sử dụng');
       }
@@ -189,12 +172,10 @@ export class BookingService {
       appliedPromotionId = voucher.promotionId;
     }
 
-    // Làm tròn 2 chữ số thập phân cho khớp DECIMAL(12,2) của SQL Server.
     const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
     const roundedSubtotal = round2(subtotalAmount);
     const roundedProduct = round2(productAmount);
-    // CK_booking_amounts yêu cầu discount_amount <= subtotal + product.
     const roundedDiscount = Math.min(
       round2(discountAmount),
       roundedSubtotal + roundedProduct,
@@ -203,8 +184,6 @@ export class BookingService {
       0,
       round2(roundedSubtotal + roundedProduct - roundedDiscount),
     );
-    // Booking dùng đúng hạn của hold sớm nhất. Như vậy đồng hồ bắt đầu từ
-    // lúc người dùng nhấn Đặt vé, không bị cộng lại thêm 15 phút khi tạo đơn.
     const expiresAt = new Date(
       Math.min(
         ...holds.map((hold) =>
@@ -217,7 +196,6 @@ export class BookingService {
 
     try {
       return await this.dataSource.transaction(async (manager) => {
-        // FIX [M-03]: thêm random suffix để tránh bookingCode trùng khi 2 request đến cùng millisecond
         const randomSuffix = Math.random().toString(36).slice(2, 6).toUpperCase();
         const booking = manager.create(BookingOrder, {
           bookingCode: `BK-${Date.now()}-${randomSuffix}`,
@@ -232,10 +210,6 @@ export class BookingService {
           expiresAt,
         });
 
-        // FIX [BUG-01]: KHÔNG dựa vào việc TypeORM mutate object `booking`.
-        // Dùng giá trị trả về của save() và ép về string (BIGINT).
-        // Nếu vẫn không có id -> dừng ngay với thông báo rõ ràng thay vì để các
-        // INSERT sau fail vì booking_id NULL (FK error -> 500 khó debug).
         const saved = await manager.save(BookingOrder, booking);
         const savedBookingId = String(saved?.bookingId ?? booking.bookingId ?? '');
 
@@ -245,13 +219,6 @@ export class BookingService {
           );
         }
 
-        // FIX [BUG-05]: dọn booking_details "mồ côi".
-        // DB có filtered unique index UX_booking_details_active_seat trên
-        // (showtime_seat_id) WHERE status = 'ACTIVE'. cancelBooking() và
-        // expirePendingBookings() trước đây KHÔNG đổi status của booking_details,
-        // nên các dòng ACTIVE cũ vẫn còn -> lần đặt lại chính ghế đó sẽ vi phạm
-        // unique index -> SQL error -> "Internal server error".
-        // Ở đây ta đóng các dòng ACTIVE thuộc booking đã CANCELLED/EXPIRED/FAILED.
         await manager
           .createQueryBuilder()
           .update(BookingDetail)
@@ -264,8 +231,6 @@ export class BookingService {
           )
           .execute();
 
-        // Nếu vẫn còn dòng ACTIVE của một booking còn hiệu lực -> ghế thật sự đã bị
-        // người khác đặt. Trả 400 có nghĩa thay vì để DB ném duplicate key -> 500.
         const stillActive = await manager.count(BookingDetail, {
           where: { showtimeSeatId: In(showtimeSeatIds), status: 'ACTIVE' },
         });
@@ -275,10 +240,6 @@ export class BookingService {
           );
         }
 
-        // FIX [BUG-02]: dùng insert() thay cho save().
-        // save() sẽ reload entity sau INSERT (chạy SELECT lấy computed column),
-        // gây lỗi/conflict trong transaction với driver mssql. insert() chỉ ghi
-        // đúng các cột insertable và lấy IDENTITY qua OUTPUT INSERTED.
         await manager.insert(
           BookingDetail,
           holds.map((hold) => ({
@@ -290,8 +251,6 @@ export class BookingService {
         );
 
         if (requestedProducts.length) {
-          // FIX [BUG-02]: total_price là computed column (PERSISTED) -> không bao giờ
-          // được gửi trong INSERT và không reload lại sau INSERT.
           await manager.insert(
             BookingCombo,
             requestedProducts.map((item) => {
@@ -312,14 +271,12 @@ export class BookingService {
           { status: SeatHoldStatus.CONVERTED },
         );
 
-        // Đánh dấu ghế đã bán để sơ đồ ghế hiển thị đúng.
         await manager.update(
           ShowtimeSeat,
           { showtimeSeatId: In(showtimeSeatIds) },
           { status: 'SOLD' },
         );
 
-        // FIX [H-02]: tăng usedCount của voucher sau khi booking thành công
         if (request.voucherCode && appliedPromotionId) {
           await manager.increment(Voucher, { promotionId: appliedPromotionId }, 'usedCount', 1);
         }
@@ -338,8 +295,6 @@ export class BookingService {
         } satisfies BookingResponse;
       });
     } catch (err) {
-      // FIX [BUG-04 phía backend]: log stack trace đầy đủ và trả message có nghĩa
-      // thay vì để NestJS nuốt thành "Internal server error" chung chung.
       if (err instanceof BadRequestException || err instanceof NotFoundException) throw err;
 
       const driverMessage =
@@ -377,8 +332,6 @@ export class BookingService {
 
     return {
       ...booking,
-      // Luôn trả về ID số đã phân giải để tầng gọi (PaymentService) không vô tình
-      // dùng lại chuỗi BK-xxx do client gửi lên.
       bookingId: String(booking.bookingId),
       finalAmount: Number(booking.totalAmount),
     };
@@ -405,8 +358,6 @@ export class BookingService {
       b.bookingDetails.map((d: any) => d.showtimeSeatId),
     );
 
-    // FIX [C-02]: bọc toàn bộ expirePendingBookings trong một transaction duy nhất
-    // để đảm bảo atomic — nếu một bước fail, toàn bộ rollback, tránh data inconsistent
     await this.dataSource.transaction(async (manager) => {
       await manager.update(
         BookingOrder,
@@ -414,9 +365,6 @@ export class BookingService {
         { status: 'EXPIRED', cancelledAt: now },
       );
 
-      // FIX [BUG-05]: phải đóng booking_details, nếu không dòng status='ACTIVE'
-      // vẫn còn và filtered unique index UX_booking_details_active_seat sẽ chặn
-      // mọi lần đặt lại ghế đó (duplicate key -> 500).
       await manager.update(
         BookingDetail,
         { bookingId: In(bookingIds), status: 'ACTIVE' },
@@ -446,10 +394,6 @@ export class BookingService {
   }
 
   async getMyBookings(userId: number) {
-    // Trước đây chỉ SELECT bảng booking_orders thuần, không join
-    // showtime / movie / room / cinema / bookingDetails / seat => frontend nhận
-    // movieTitle, cinemaName, roomName, showDate, showTime, seatCodes = undefined.
-    // Load đầy đủ relations giống getBookingDetail để thẻ vé hiển thị đủ thông tin.
     return this.bookingRepo.find({
       where: { userId },
       relations: {
@@ -461,7 +405,6 @@ export class BookingService {
     });
   }
 
-  /** Lấy các vé điện tử thật của booking — dùng cho GET :id/tickets */
   async getBookingTickets(bookingRef: string, userId: number) {
     const booking = await this.bookingRepo.findOne({
       where: { ...this.buildBookingRef(bookingRef), userId },
@@ -556,11 +499,8 @@ export class BookingService {
 
     const showtimeSeatIds = booking.bookingDetails.map((d: any) => d.showtimeSeatId);
 
-    // ID số đã phân giải — dùng cho mọi UPDATE bên dưới (tham số vào có thể là BK-xxx).
     const bookingId = String(booking.bookingId);
 
-    // FIX [C-01]: bỜ cancelBooking trong transaction — nếu một bước fail,
-    // toàn bộ rollback tránh trường hợp booking CANCELLED nhưng ghế vẫn HELD
     await this.dataSource.transaction(async (manager) => {
       await manager.update(
         BookingOrder,
@@ -568,8 +508,6 @@ export class BookingService {
         { status: 'CANCELLED', cancelledAt: now },
       );
 
-      // FIX [BUG-05]: đóng booking_details để giải phóng filtered unique index
-      // UX_booking_details_active_seat, cho phép ghế được đặt lại.
       await manager.update(
         BookingDetail,
         { bookingId, status: 'ACTIVE' },
@@ -583,7 +521,6 @@ export class BookingService {
           { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
         );
 
-        // Release SeatHold tương ứng khi cancel booking
         await manager.update(
           SeatHold,
           {
@@ -600,7 +537,6 @@ export class BookingService {
 
   // ADMIN
 
-  /** Trạng thái booking hợp lệ (SQL CHECK trên booking_orders.status) */
   static readonly ADMIN_ALLOWED_STATUS = [
     'PENDING_PAYMENT',
     'CONFIRMED',
@@ -610,11 +546,6 @@ export class BookingService {
     'REFUNDED',
   ];
 
-  /*
-   * FIX [Critical]: AdminBookingsPage cần xem TOÀN BỘ đơn đặt vé.
-   * Trước đây chỉ có GET /bookings/my (lọc theo userId) nên trang admin
-   * phải dùng mock data.
-   */
   async adminFindAll(filters: {
     bookingCode?: string;
     customerName?: string;
@@ -661,7 +592,6 @@ export class BookingService {
     if (filters.status?.trim()) {
       qb.andWhere('booking.status = :status', { status: filters.status.trim() });
     }
-    // Frontend gửi paymentStatus (PAID/PENDING/FAILED/REFUNDED) — map ngược về booking.status
     if (filters.paymentStatus?.trim()) {
       const mapped = this.mapPaymentStatusToBookingStatus(filters.paymentStatus.trim());
       if (mapped.length) {
@@ -690,7 +620,6 @@ export class BookingService {
     };
   }
 
-  /** Admin chủ động cập nhật trạng thái đơn hàng */
   async adminUpdateStatus(bookingId: string, status: string) {
     const normalized = String(status ?? '').trim().toUpperCase();
     if (!BookingService.ADMIN_ALLOWED_STATUS.includes(normalized)) {
@@ -719,7 +648,6 @@ export class BookingService {
 
       await manager.update(BookingOrder, { bookingId }, patch);
 
-      // Giải phóng ghế nếu đơn bị huỷ/hết hạn/hoàn tiền
       if (['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(normalized)) {
         await manager.update(
           BookingDetail,
@@ -743,7 +671,6 @@ export class BookingService {
         }
       }
 
-      // Đánh dấu ghế đã bán khi xác nhận thanh toán
       if (['PAID', 'CONFIRMED'].includes(normalized) && showtimeSeatIds.length) {
         await manager.update(
           ShowtimeSeat,
@@ -760,7 +687,6 @@ export class BookingService {
     return this.bookingRepo.findOne({ where: { bookingId } });
   }
 
-  /** Admin xem chi tiết bất kỳ booking nào (không giới hạn userId) */
   async adminGetBookingDetail(bookingId: string) {
     const booking = await this.bookingRepo.findOne({
       where: { bookingId },
@@ -797,7 +723,6 @@ export class BookingService {
     return 'FAILED';
   }
 
-  /** Map booking entity -> shape mà AdminBookingsPage / BookingTable đang dùng */
   private toAdminBookingRow(booking: any) {
     const showtime = booking.showtime;
     const seats = (booking.bookingDetails ?? [])

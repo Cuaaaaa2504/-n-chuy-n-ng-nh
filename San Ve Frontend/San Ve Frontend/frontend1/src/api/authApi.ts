@@ -19,8 +19,6 @@ export interface AuthResponse {
 }
 
 const authApi = {
-  // FIX [M-14]: thêm try/catch để lỗi API được xử lý nhất quán,
-  // tránh unhandled rejection bubble lên UI
   login: async (data: LoginRequest): Promise<AuthResponse> =>
     await axiosClient.post<AuthResponse>('/auth/login', data) as unknown as AuthResponse,
 
@@ -31,7 +29,6 @@ const authApi = {
     try {
       await axiosClient.post('/auth/logout');
     } catch {
-      // logout thất bại không ảnh hưởng UX — vẫn clear token phía client
     }
   },
 

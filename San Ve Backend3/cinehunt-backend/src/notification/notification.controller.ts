@@ -29,7 +29,6 @@ export class NotificationController {
     return this.notificationService.countUnread(user.userId);
   }
 
-  /** :id là BIGINT lưu dạng string trong TypeORM -> nhận param dạng string */
   @Patch(':id/read')
   markAsRead(
     @Param('id') id: string,
@@ -43,7 +42,7 @@ export class NotificationController {
     return this.notificationService.markAllAsRead(user.userId);
   }
 
-  // ── ADMIN ──────────────────────────────────────────────────────────────────
+  // ADMIN
 
   @Post('admin/push')
   @UseGuards(RolesGuard)

@@ -1,6 +1,3 @@
-// PHẢI là import ĐẦU TIÊN: nạp .env vào process.env trước khi AppModule (và
-// các controller kèm decorator @Throttle) được import. ConfigModule cũng nạp
-// .env nhưng chỉ ở thời điểm DI khởi tạo — quá muộn cho decorator.
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -11,18 +8,14 @@ import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
-  // Cần NestExpressApplication để dùng được app.useStaticAssets()
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Avatar được lưu vào uploads/avatars nhưng thư mục này chưa từng
-  // được serve ra ngoài -> ảnh upload xong vẫn không hiển thị được (404).
   const uploadsDir = join(process.cwd(), 'uploads');
   if (!existsSync(join(uploadsDir, 'avatars'))) {
     mkdirSync(join(uploadsDir, 'avatars'), { recursive: true });
   }
   app.useStaticAssets(uploadsDir, { prefix: '/uploads' });
 
-  // CORS origin đọc từ biến môi trường thay vì hardcode
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',')
     : ['http://localhost:3001', 'http://localhost:5173'];

@@ -10,14 +10,12 @@ import { Role } from './role.entity';
 
 @Entity('user_roles')
 export class UserRole {
-  // SQL: PRIMARY KEY (user_id, role_id) — composite key, KHÔNG có cột user_role_id
   @PrimaryGeneratedColumn({ name: 'user_id', type: 'int' })
   userId: number;
 
   @PrimaryGeneratedColumn({ name: 'role_id', type: 'int' })
   roleId: number;
 
-  // SQL: assigned_at DATETIME2(0) DEFAULT SYSDATETIME()
   @CreateDateColumn({ name: 'assigned_at', type: 'datetime2', precision: 0 })
   assignedAt: Date;
 

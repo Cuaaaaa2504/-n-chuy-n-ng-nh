@@ -1,4 +1,3 @@
-/* CineGlass visual layer. It is loaded after Tailwind and both theme files. */
 
 :root {
   --cg-page: #05070d;
@@ -421,11 +420,6 @@ html.light .cineglass-app select {
 }
 
 /* PROFILE_MENU_STACKING_HOTFIX_START */
-/*
-  Header phải tạo stacking context cao hơn main.
-  Nếu không, carousel/hero sẽ nằm đè lên dropdown tài khoản
-  và chặn click vào /profile.
-*/
 .cineglass-app > header {
   z-index: 100 !important;
 }

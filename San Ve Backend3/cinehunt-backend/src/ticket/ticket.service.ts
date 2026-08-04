@@ -46,10 +46,6 @@ export class TicketService {
     return ticket;
   }
 
-  /*
-   * Khách hàng chỉ được xem vé thuộc booking của chính mình.
-   * STAFF và ADMIN được phép tra cứu mọi vé để phục vụ soát vé tại rạp.
-   */
   async findAccessibleByCode(
     ticketCode: string,
     requester: CurrentUserPayload,

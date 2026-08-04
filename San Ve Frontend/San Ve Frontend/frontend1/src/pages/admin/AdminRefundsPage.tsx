@@ -1,5 +1,3 @@
-// src/pages/admin/AdminRefundsPage.tsx
-// Danh sách yêu cầu hoàn tiền + duyệt / từ chối
 import { useCallback, useEffect, useState } from 'react';
 import { refundApi } from '../../api/adminApi';
 import type { AdminRefund, RefundStatus } from '../../types/admin';

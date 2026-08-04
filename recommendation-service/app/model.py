@@ -30,9 +30,6 @@ from scipy.sparse.linalg import svds
 
 logger = logging.getLogger(__name__)
 
-# Số lượng tương tác tối thiểu để việc phân rã ma trận còn có ý nghĩa.
-# Dưới ngưỡng này, SVD chỉ học được nhiễu -> tắt hẳn nhánh SVD và để
-# Content + Popularity gánh.
 MIN_INTERACTIONS_FOR_SVD = 30
 MIN_USERS_FOR_SVD = 5
 MIN_MOVIES_FOR_SVD = 5
@@ -62,32 +59,23 @@ class HybridRecommender:
     svd_components: int = 50
     model_version: str = "v7-hybrid"
 
-    # --- Bảng ánh xạ ID thật <-> chỉ số liên tục -------------------------
     user_to_idx: dict[int, int] = field(default_factory=dict)
     movie_ids: np.ndarray = field(default_factory=lambda: np.array([], dtype=np.int64))
     movie_to_idx: dict[int, int] = field(default_factory=dict)
 
-    # --- SVD -------------------------------------------------------------
-    # Lưu U*sigma và Vt thay vì ma trận dự đoán dày đặc n_users x n_movies.
-    # Với 10k user x 500 phim thì ma trận dày là 40 MB; U_sigma + Vt chỉ
-    # khoảng 2 MB. Điểm của một user được tính lại trong 1 phép nhân.
+    # SVD
     u_sigma: np.ndarray | None = None
     vt: np.ndarray | None = None
     user_mean: np.ndarray = field(default_factory=lambda: np.array([]))
     global_mean: float = 3.5
-    # "none" | "centered" | "implicit" — xem _fit_svd() để biết vì sao cần
-    # hai chế độ chứ không phải một.
     svd_mode: str = "none"
 
-    # --- Content-based ---------------------------------------------------
     genre_names: list[str] = field(default_factory=list)
     movie_genre_matrix: np.ndarray | None = None   # (n_movies, n_genres), đã chuẩn hoá L2
     user_profiles: np.ndarray | None = None        # (n_users, n_genres), đã chuẩn hoá L2
 
-    # --- Popularity ------------------------------------------------------
     popularity: np.ndarray = field(default_factory=lambda: np.array([]))  # đã ở [0,1]
 
-    # --- Lịch sử đã xem, để không gợi ý lại phim user đã đặt vé ----------
     watched: dict[int, set[int]] = field(default_factory=dict)
 
     trained_at: str = ""
@@ -105,13 +93,10 @@ class HybridRecommender:
                 "Hãy chạy file CineHunt_Database_V6_3_With_Sample_Data.sql trước."
             )
 
-        # Tập phim ứng viên = danh mục phim đang hiển thị.
         self.movie_ids = movies["movie_id"].astype(np.int64).to_numpy()
         self.movie_to_idx = {int(m): i for i, m in enumerate(self.movie_ids)}
         n_movies = len(self.movie_ids)
 
-        # Bỏ các tương tác trỏ tới phim đã ENDED/HIDDEN — chúng không nằm
-        # trong danh mục ứng viên nên map sẽ ra NaN và làm hỏng csr_matrix.
         if not interactions.empty:
             interactions = interactions[
                 interactions["movie_id"].isin(self.movie_to_idx)
@@ -184,8 +169,6 @@ class HybridRecommender:
 
         score = (v / (v + m)) * r + (m / (v + m)) * c
 
-        # Phim chưa ai đặt và chưa có rating -> điểm 0, để nó không chen lên
-        # đầu bảng chỉ nhờ giá trị C mặc định.
         score = np.where((v == 0) & (r == 0), 0.0, score)
         self.popularity = _minmax(score)
 
@@ -207,8 +190,6 @@ class HybridRecommender:
             for g in genres:
                 matrix[row, index[g]] = 1.0
 
-        # Chuẩn hoá L2: phim gắn 5 thể loại không được có lợi thế cosine
-        # so với phim gắn 1 thể loại.
         norms = np.linalg.norm(matrix, axis=1, keepdims=True)
         self.movie_genre_matrix = matrix / np.where(norms == 0, 1.0, norms)
 
@@ -250,27 +231,11 @@ class HybridRecommender:
             self.vt = None
             return
 
-        # svds yêu cầu k < min(shape). Không kẹp lại thì scipy ném
-        # "k must be between 1 and min(A.shape)" — lỗi hay gặp khi DB mẫu
-        # chỉ có vài chục phim mà cấu hình vẫn để K = 50.
         k = min(self.svd_components, min(n_users, n_movies) - 1)
         if k < 1:
             self._disable_svd()
             return
 
-        # CHỌN CHẾ ĐỘ: "centered" hay "implicit"?
-        # Notebook trừ trung bình theo user rồi mới phân rã. Cách đó đúng với
-        # MovieLens, nơi mỗi user chấm điểm khác nhau cho từng phim.
-        # Ở CineHunt, phần lớn user đặt mỗi phim đúng MỘT lần -> rating ngầm
-        # của họ đều bằng 3.5 -> trung bình cũng bằng 3.5 -> ma trận sau khi
-        # trừ TOÀN LÀ SỐ 0. Đưa ma trận 0 vào svds thì ARPACK ném thẳng
-        #     "ARPACK error -9: Starting vector is zero"
-        # và cả tiến trình train chết. Đây không phải trường hợp hiếm — nó là
-        # trường hợp MẶC ĐỊNH với một DB mới cài xong.
-        # Nên: nếu phần dư gần như bằng 0, chuyển sang phân rã thẳng ma trận
-        # tương tác thô (implicit feedback). Lúc đó điểm không còn là "rating
-        # dự đoán" mà là mức độ hợp giữa user và phim theo đồng xuất hiện —
-        # vẫn xếp hạng tốt, chỉ khác cách quy về [0,1] (xem _blend).
         centered = vals - self.user_mean[rows]
         if np.abs(centered).max() < 1e-6:
             logger.info(
@@ -286,9 +251,6 @@ class HybridRecommender:
         try:
             u, sigma, vt = svds(matrix, k=k)
         except Exception as exc:
-            # ARPACK là thuật toán lặp: ngoài ma trận 0 nó còn có thể không
-            # hội tụ trên dữ liệu quá thưa. Train KHÔNG được phép chết vì lý
-            # do đó — mất nhánh SVD vẫn còn Content + Popularity.
             logger.warning("svds thất bại (%s) -> bỏ nhánh SVD.", exc)
             self._disable_svd()
             return
@@ -347,30 +309,24 @@ class HybridRecommender:
     def _blend(self, user_idx: int) -> np.ndarray:
         n_movies = len(self.movie_ids)
 
-        # --- nhánh SVD ---
         if self.u_sigma is not None and self.vt is not None:
             raw = self.u_sigma[user_idx] @ self.vt
             if self.svd_mode == "centered":
-                # raw là phần dư -> cộng lại trung bình để về thang 1..5.
                 raw = raw + self.user_mean[user_idx]
                 svd_scores = np.clip((np.clip(raw, 1.0, 5.0) - 1.0) / 4.0, 0.0, 1.0)
             else:
-                # Chế độ implicit: giá trị không có đơn vị, chỉ có thứ tự là
-                # ý nghĩa -> min-max hoá trên chính hàng của user này.
                 svd_scores = _minmax(raw)
             w_svd = self.weight_svd
         else:
             svd_scores = np.zeros(n_movies, dtype=np.float32)
             w_svd = 0.0
 
-        # --- nhánh Content ---
         if (
             self.user_profiles is not None
             and self.movie_genre_matrix is not None
             and self.movie_genre_matrix.shape[1] > 0
         ):
             profile = self.user_profiles[user_idx]
-            # Cả hai vế đều đã chuẩn hoá L2 -> tích vô hướng CHÍNH LÀ cosine.
             content_scores = np.clip(self.movie_genre_matrix @ profile, 0.0, 1.0)
             w_content = self.weight_content
         else:
@@ -379,9 +335,6 @@ class HybridRecommender:
 
         pop_scores = self.popularity if self.popularity.size else np.zeros(n_movies)
 
-        # Chuẩn hoá lại trọng số theo các nhánh THỰC SỰ hoạt động. Không làm
-        # bước này thì khi SVD bị tắt, điểm tổng chỉ còn tối đa 0.4 — thứ tự
-        # vẫn đúng nhưng con số trả cho frontend trông như model hỏng.
         total = w_svd + w_content + self.weight_popularity
         if total <= 0:
             return pop_scores.copy()
@@ -405,8 +358,6 @@ class HybridRecommender:
                     scores[pos] = -np.inf
 
         top_n = max(1, min(top_n, len(scores)))
-        # argpartition: O(n) thay vì O(n log n) của argsort. Với vài trăm
-        # phim thì không khác biệt, nhưng đây là code chạy trong request.
         candidates = np.argpartition(-scores, top_n - 1)[:top_n]
         candidates = candidates[np.argsort(-scores[candidates])]
 
@@ -422,8 +373,6 @@ class HybridRecommender:
     # LƯU / TẢI
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        # Ghi ra file tạm rồi đổi tên: nếu tiến trình chết giữa chừng, file
-        # model cũ vẫn còn nguyên thay vì bị cắt cụt và load lên là crash.
         tmp = path.with_suffix(path.suffix + ".tmp")
         joblib.dump(self, tmp, compress=3)
         tmp.replace(path)

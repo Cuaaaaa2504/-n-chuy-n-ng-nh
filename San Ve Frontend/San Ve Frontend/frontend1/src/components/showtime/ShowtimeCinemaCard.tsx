@@ -1,4 +1,3 @@
-// src/components/showtime/ShowtimeCinemaCard.tsx
 
 import React, { useState } from 'react';
 import ShowtimeButton from './ShowtimeButton';

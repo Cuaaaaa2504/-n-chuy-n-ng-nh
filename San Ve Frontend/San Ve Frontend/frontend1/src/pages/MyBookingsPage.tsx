@@ -1,4 +1,3 @@
-// src/pages/MyBookingsPage.tsx
 
 import { useEffect, useReducer, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,9 +13,6 @@ import EmptyTickets from '../components/tickets/EmptyTickets';
 import type { Booking, BookingTicket } from '../types/booking';
 import { useTheme } from '../context/useTheme';
 
-// Bổ sung ISSUED / CONFIRMED / REFUNDED.
-// 'ISSUED' là status của các booking cũ (trước khi sửa BUG-01 ở payment.service.ts),
-// trước đây rơi vào fallback nên hiện nhãn tiếng Anh trần và mất nút "Xem QR vé".
 const STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: '⏳ Chờ thanh toán',
   PAID:            '✅ Đã thanh toán',
@@ -28,25 +24,11 @@ const STATUS_LABEL: Record<string, string> = {
   REFUNDED:        '💸 Đã hoàn tiền',
 };
 
-// Các trạng thái được coi là "đã mua" -> có vé để xem QR.
 const PAID_STATUSES = ['PAID', 'ISSUED', 'CONFIRMED'];
 
-/*
- * FIX [mục 5.1]: các trạng thái mà tiền đã thực sự vào hệ thống -> user có
- * quyền yêu cầu hoàn tiền.
- * ⚠️ Lưu ý nghiệp vụ quan trọng (báo cáo mô tả sai chỗ này):
- * báo cáo nói "user hủy booking đã thanh toán nhưng không được hoàn tiền".
- * Thực tế `BookingService.cancelBooking()` chỉ cho phép huỷ khi status thuộc
- * ['PENDING_PAYMENT', 'CONFIRMED'] — đơn đã PAID KHÔNG huỷ được, nút "Hủy đơn"
- * cũng chỉ hiện với PENDING_PAYMENT. Nên kịch bản "huỷ vé đã trả tiền rồi mất
- * tiền" không xảy ra được.
- * Vấn đề THẬT là: user đã trả tiền thì không có đường nào để đòi lại cả. Vì
- * vậy ở đây ta thêm luồng đúng: gửi YÊU CẦU hoàn tiền (trạng thái PENDING),
- * admin duyệt ở AdminRefundsPage. Không tự ý huỷ đơn hộ user.
- */
 const REFUNDABLE_STATUSES = ['PAID', 'ISSUED', 'CONFIRMED', 'CANCELLED'];
 
-// ── Ticket row card ────────────────────────────────────────────────────────
+// Ticket row card
 function BookingCard({
   booking,
   refund,
@@ -100,7 +82,6 @@ function BookingCard({
   );
 }
 
-// ── Reducer ────────────────────────────────────────────────────────────────
 interface BookingState {
   bookings: Booking[];
   total: number;
@@ -122,7 +103,6 @@ function bookingReducer(state: BookingState, action: BookingAction): BookingStat
   }
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────
 export default function MyBookingsPage() {
   const { darkMode } = useTheme();
   const [state, dispatch] = useReducer(bookingReducer, {
@@ -136,7 +116,6 @@ export default function MyBookingsPage() {
   const [ticketLoading, setTicketLoading]     = useState(false);
   const [ticketError, setTicketError]         = useState('');
 
-  // FIX [mục 5.1 + 5.2]: map bookingId -> refund mới nhất của đơn đó.
   const [refunds, setRefunds]                 = useState<Record<string, Refund>>({});
   const [refundTarget, setRefundTarget]       = useState<Booking | null>(null);
   const [refundReason, setRefundReason]       = useState('');
@@ -178,12 +157,6 @@ export default function MyBookingsPage() {
     return () => { cancelled = true; };
   }, [page]);
 
-  /*
-   * FIX [mục 5.2]: nạp trạng thái hoàn tiền cho các đơn thuộc diện có thể hoàn.
-   * Chỉ gọi cho những đơn thực sự liên quan (đã trả tiền / đã huỷ) thay vì gọi
-   * cho toàn bộ danh sách — trang này phân trang 5 đơn/lần nên số request nhỏ,
-   * nhưng không có lý do gì hỏi refund cho một đơn còn đang chờ thanh toán.
-   */
   useEffect(() => {
     let cancelled = false;
     const targets = bookings.filter((b) => REFUNDABLE_STATUSES.includes(b.status));
@@ -196,7 +169,6 @@ export default function MyBookingsPage() {
       setRefunds((prev) => {
         const next = { ...prev };
         for (const [id, list] of pairs) {
-          // API đã sort requestedAt DESC -> phần tử đầu là yêu cầu mới nhất.
           if (list.length) next[id] = list[0];
         }
         return next;

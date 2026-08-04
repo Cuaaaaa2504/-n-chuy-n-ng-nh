@@ -1,4 +1,3 @@
-// src/components/tickets/TicketList.tsx
 
 import React from 'react';
 import type { Ticket } from '../../types/ticket';

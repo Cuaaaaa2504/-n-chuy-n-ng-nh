@@ -51,7 +51,6 @@ def main() -> int:
     settings = get_settings()
     top_n = args.top_n or settings.top_n_cache
 
-    # ---------------------------------------------------------------- đọc DB
     logger.info("Đang đọc dữ liệu từ SQL Server (%s/%s)...", settings.db_host, settings.db_name)
     try:
         movies = load_movies()
@@ -78,7 +77,6 @@ def main() -> int:
             "rồi train lại để thấy kết quả cá nhân hoá."
         )
 
-    # ------------------------------------------------------------- huấn luyện
     model = HybridRecommender(
         weight_svd=settings.weight_svd,
         weight_content=settings.weight_content,
@@ -96,7 +94,6 @@ def main() -> int:
     model.save(settings.model_path)
     logger.info("Model đã lưu tại: %s", settings.model_path)
 
-    # ------------------------------------------------------------- ghi cache
     if args.no_cache:
         logger.info("Bỏ qua bước ghi cache (--no-cache).")
         return 0
@@ -113,9 +110,6 @@ def main() -> int:
                 {
                     "user_id": int(user_id),
                     "movie_id": int(movie_id),
-                    # Cột score là DECIMAL(9,6) và có CHECK score >= 0.
-                    # Điểm âm (về lý thuyết SVD sinh ra được) sẽ làm INSERT
-                    # bị DB từ chối cả lô, nên kẹp về 0 tại đây.
                     "score": round(max(score, 0.0), 6),
                     "rank_order": rank,
                 }
@@ -126,8 +120,6 @@ def main() -> int:
         logger.info("Đã ghi %d dòng gợi ý cho %d user vào bảng movie_recommendations.",
                     written, len(user_ids))
     except Exception as exc:
-        # Ghi cache thất bại KHÔNG được coi là train thất bại: file model đã
-        # lưu xong, service vẫn chạy bình thường bằng model trong RAM.
         logger.error("Ghi cache thất bại (model vẫn dùng được): %s", exc)
         logger.error(
             "Nhiều khả năng bảng movie_recommendations chưa tồn tại. "

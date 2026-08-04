@@ -33,7 +33,6 @@ export class TicketWatchRequestController {
     return this.service.getMyRequests(user.userId);
   }
 
-  /** :id là BIGINT -> nhận dạng string, không dùng ParseIntPipe */
   @Delete(':id')
   cancel(
     @Param('id') id: string,
@@ -42,7 +41,7 @@ export class TicketWatchRequestController {
     return this.service.cancel(id, user.userId);
   }
 
-  // ── ADMIN ──────────────────────────────────────────────────────────────────
+  // ADMIN
 
   @Get('admin/all')
   @UseGuards(RolesGuard)

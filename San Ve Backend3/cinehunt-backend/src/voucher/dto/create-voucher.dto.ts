@@ -16,7 +16,6 @@ export class CreateVoucherDto {
   @MaxLength(50)
   code: string;
 
-  // Promotions.promotion_name là NOT NULL — thiếu field này thì INSERT luôn fail
   @IsString()
   @IsNotEmpty()
   @MaxLength(150)

@@ -1,9 +1,3 @@
-// src/pages/admin/AdminUsersPage.tsx
-//   1. Thêm phân trang thật (state page + limit, gửi lên API, render UI Pagination).
-//      Trước đây `total` được hook trả về nhưng không dùng, toàn bộ user load
-//      trong một request duy nhất -> chậm/timeout và DOM table khổng lồ.
-//   2. Tìm kiếm chuyển từ filter client-side sang query param `search` gửi lên
-//      backend (QueryUsersDto đã hỗ trợ page/limit/search), có debounce 400ms.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useUsers } from '../../hooks/useUsers';
 import {
@@ -44,7 +38,6 @@ export default function AdminUsersPage() {
   const [confirmRole, setConfirmRole] = useState<{ user: User; newRole: UserRole } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Giữ reference ổn định -> effect chỉ phụ thuộc [search, page], không lặp vô hạn
   const fetchRef = useRef(fetchUsers);
   useEffect(() => {
     fetchRef.current = fetchUsers;
@@ -58,7 +51,6 @@ export default function AdminUsersPage() {
     });
   }, [page, search]);
 
-  // Debounce ô tìm kiếm để không bắn request mỗi ký tự
   useEffect(() => {
     const t = setTimeout(reload, 400);
     return () => clearTimeout(t);

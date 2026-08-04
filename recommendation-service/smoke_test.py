@@ -101,7 +101,6 @@ def main() -> int:
     model = HybridRecommender(svd_components=3).fit(interactions, movies)
     failures: list[str] = []
 
-    # --- 1. User đã có lịch sử ------------------------------------------
     recs = model.recommend(1, top_n=3)
     ids = [movie_id for movie_id, _ in recs]
     print(f"User 1 (mê hành động, đã xem phim 1 & 2) -> gợi ý: {ids}")
@@ -116,17 +115,14 @@ def main() -> int:
             "phiêu lưu (3 hoặc 4)."
         )
 
-    # --- 2. Cold start ---------------------------------------------------
     cold = model.recommend(999, top_n=3)
     print(f"User 999 (chưa từng đặt vé)     -> gợi ý: {[m for m, _ in cold]}")
     if not cold:
         failures.append("Cold start trả về danh sách rỗng, đáng lẽ phải trả top phổ biến.")
 
-    # --- 3. Điểm nằm trong [0, 1] ---------------------------------------
     if any(not (0.0 <= score <= 1.0) for _, score in recs + cold):
         failures.append("Điểm nằm ngoài [0,1] — cột score DECIMAL(9,6) sẽ tràn.")
 
-    # --- 4. Lưu / nạp lại -------------------------------------------------
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "recommender.joblib"
         model.save(path)
@@ -135,9 +131,6 @@ def main() -> int:
             failures.append("Model sau khi nạp lại cho kết quả khác — lỗi serialize.")
     print("Lưu và nạp lại model: OK")
 
-    # --- 5. Nhánh SVD ------------------------------------------------------
-    # Bộ dữ liệu 6 user ở trên cố tình nhỏ để kiểm tra đường "dữ liệu quá ít
-    # -> tự tắt SVD". Phần này dựng bộ lớn hơn để nhánh SVD thật sự chạy.
     big_interactions, big_movies = build_larger_fake_data()
     big_model = HybridRecommender(svd_components=8).fit(big_interactions, big_movies)
 
@@ -151,7 +144,6 @@ def main() -> int:
         if set(big_recs) & set(big_model.watched.get(1, set())):
             failures.append("Nhánh SVD gợi ý lại phim đã xem.")
 
-    # --- Kết luận ---------------------------------------------------------
     if failures:
         print("\nKHÔNG ĐẠT:")
         for item in failures:

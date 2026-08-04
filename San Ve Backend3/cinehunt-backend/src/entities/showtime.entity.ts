@@ -23,8 +23,6 @@ export class Showtime {
   @Column({ name: 'room_id', type: 'int' })
   roomId: number;
 
-  // SQL: start_time DATETIME2(0) — full datetime, KHÔNG phải time-only
-  // Bỏ show_date — cột này KHÔNG tồn tại trong SQL V6.3
   @Column({ name: 'start_time', type: 'datetime2', precision: 0 })
   startTime: Date;
 
@@ -34,7 +32,6 @@ export class Showtime {
   @Column({ name: 'base_price', type: 'decimal', precision: 12, scale: 2 })
   basePrice: number;
 
-  // SQL CHECK: status IN ('OPEN', 'CLOSED', 'CANCELLED')
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'OPEN' })
   status: string;
 

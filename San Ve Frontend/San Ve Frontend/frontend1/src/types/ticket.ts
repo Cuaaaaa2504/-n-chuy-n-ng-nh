@@ -1,4 +1,3 @@
-// src/types/ticket.types.ts
 
 export interface Ticket {
   bookingCode: string;       // bắt buộc – source of truth

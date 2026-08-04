@@ -23,10 +23,6 @@ export class BookingProductItemDto {
 }
 
 export class CreateBookingRequest {
-  // FIX [BUG-03]: seat_holds.hold_id là BIGINT -> phải xử lý như CHUỖI.
-  // Frontend có thể gửi number[] (code cũ) hoặc string[] (code mới); cả hai đều
-  // được chuẩn hoá về string[] tại đây, đồng thời loại trùng và bỏ giá trị rỗng.
-  // Không dùng @IsInt vì number không biểu diễn an toàn BIGINT > 2^53-1.
   @ApiProperty({ type: [String], example: ['1001', '1002'] })
   @Transform(({ value }) => {
     if (!Array.isArray(value)) return value;

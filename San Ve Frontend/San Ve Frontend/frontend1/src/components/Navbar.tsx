@@ -39,8 +39,6 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = async () => {
-    // Gọi backend để xóa refresh cookie trước, rồi mới dọn phiên của tab.
-    // Nếu không, cookie cũ có thể làm tab khác refresh sang nhầm tài khoản.
     try {
       await authApi.logout();
     } finally {

@@ -1,17 +1,3 @@
-/*
- * Nguồn dữ liệu thật cho chatbot.
- * Trước đây payload gửi Gemini chỉ có system prompt + lịch sử chat, nên mọi câu
- * hỏi kiểu "phim nào đang chiếu tối nay?" hay "còn ghế A5 không?" đều bị model
- * bịa hoặc từ chối. File này cung cấp các hàm truy vấn CineHuntDB để
- * `chat.service.ts` gọi qua cơ chế function calling của Gemini.
- * NGUYÊN TẮC BẢO MẬT (quan trọng, đọc trước khi thêm hàm mới):
- *   1. CHỈ ĐỌC. Không có hàm nào ghi/sửa/xoá. Model không được phép đặt vé hộ.
- *   2. CHỈ DỮ LIỆU CÔNG KHAI. Không đụng tới bảng users, booking_orders,
- *      payments, refresh_tokens... Người dùng có thể lừa model in ra dữ liệu
- *      cá nhân của người khác, nên đơn giản là không đưa dữ liệu đó vào tầm với.
- *   3. Mọi tham số từ model đều là INPUT KHÔNG TIN CẬY -> luôn đi qua
- *      parameter binding của TypeORM, không nối chuỗi SQL, luôn kẹp `limit`.
- */
 
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -22,10 +8,8 @@ import { ShowtimeSeat } from '../entities/showtime-seat.entity';
 import { ConcessionCombo } from '../entities/concession-combo.entity';
 import { Cinema } from '../entities/cinema.entity';
 
-/** Trạng thái phim được phép lộ ra ngoài. Giống PUBLIC_STATUSES của MovieService. */
 const PUBLIC_MOVIE_STATUSES = [MovieStatus.NOW_SHOWING, MovieStatus.COMING_SOON];
 
-/** Trần cứng cho mọi tham số `limit` do model truyền vào. */
 const MAX_LIMIT = 20;
 
 function clampLimit(value: unknown, fallback = 8): number {
@@ -34,7 +18,6 @@ function clampLimit(value: unknown, fallback = 8): number {
   return Math.min(Math.max(Math.trunc(n), 1), MAX_LIMIT);
 }
 
-/** Cột DECIMAL của mssql trả về dạng string -> ép về number trước khi gửi model. */
 function toNumber(value: unknown): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -44,12 +27,6 @@ function formatVnd(value: unknown): string {
   return `${toNumber(value).toLocaleString('vi-VN')} đ`;
 }
 
-/*
- * Chuẩn hoá chuỗi ngày do model truyền vào.
- * Model hay trả về "hôm nay", "tối nay", "2026-07-29" hoặc "29/07/2026". Nếu
- * không parse được thì trả null và hàm gọi tự hiểu là "không lọc theo ngày" —
- * thà trả nhiều suất chiếu còn hơn trả rỗng rồi model kết luận "hết suất".
- */
 function parseDateHint(raw: unknown): Date | null {
   if (raw === null || raw === undefined) return null;
   const text = String(raw).trim().toLowerCase();
@@ -69,13 +46,11 @@ function parseDateHint(raw: unknown): Date | null {
     return new Date(startOfToday.getTime() + 86_400_000);
   }
 
-  // dd/mm/yyyy
   const dmy = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (dmy) {
     return new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
   }
 
-  // yyyy-mm-dd
   const ymd = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (ymd) {
     return new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
@@ -114,7 +89,7 @@ export class ChatDataService {
     private readonly cinemaRepo: Repository<Cinema>,
   ) {}
 
-  // 1. TÌM PHIM
+  // TÌM PHIM
   async searchMovies(args: {
     query?: string;
     status?: string;
@@ -147,9 +122,6 @@ export class ChatDataService {
       }
     }
 
-    // Lọc theo thể loại phải làm bằng subquery: nếu andWhere thẳng trên
-    // `genre.genreName` thì leftJoinAndSelect chỉ nạp ĐÚNG thể loại khớp,
-    // và model sẽ tưởng phim chỉ có một thể loại duy nhất.
     if (args?.genre) {
       qb.andWhere(
         `movie.movie_id IN (
@@ -182,7 +154,7 @@ export class ChatDataService {
     };
   }
 
-  // 2. CHI TIẾT MỘT PHIM
+  // CHI TIẾT MỘT PHIM
   async getMovieDetail(args: { movieId?: number; title?: string }) {
     const qb = this.movieRepo
       .createQueryBuilder('movie')
@@ -227,7 +199,7 @@ export class ChatDataService {
     };
   }
 
-  // 3. LỊCH CHIẾU
+  // LỊCH CHIẾU
   async getShowtimes(args: {
     movieId?: number;
     movieTitle?: string;
@@ -261,9 +233,6 @@ export class ChatDataService {
         'cinema.city',
       ])
       .where('st.status = :open', { open: 'OPEN' })
-      // Không bao giờ trả suất đã chiếu xong: model không có khái niệm "bây
-      // giờ là mấy giờ" nếu ta không lọc hộ, và sẽ mời người dùng đặt vé cho
-      // suất 9h sáng lúc 10h tối.
       .andWhere('st.startTime >= :now', { now: new Date() })
       .orderBy('st.startTime', 'ASC')
       .take(limit);
@@ -320,7 +289,7 @@ export class ChatDataService {
     };
   }
 
-  // 4. TÌNH TRẠNG GHẾ
+  // TÌNH TRẠNG GHẾ
   async checkSeatAvailability(args: {
     showtimeId?: number;
     seatLabels?: string[] | string;
@@ -367,9 +336,6 @@ export class ChatDataService {
 
     const now = Date.now();
 
-    // Ghế HELD mà hold_expires_at đã qua thì thực chất đang TRỐNG — job dọn
-    // giữ ghế chạy theo chu kỳ nên trạng thái trong bảng luôn trễ vài phút.
-    // Báo "hết ghế" trong khi ghế đã tự nhả là kiểu sai khiến người dùng bỏ đi.
     const effectiveStatus = (s: ShowtimeSeat): string => {
       if (
         s.status === 'HELD' &&
@@ -429,7 +395,7 @@ export class ChatDataService {
     return result;
   }
 
-  // 5. COMBO BẮP NƯỚC
+  // COMBO BẮP NƯỚC
   async listCombos(args: { limit?: number }) {
     const limit = clampLimit(args?.limit, 10);
 
@@ -451,7 +417,7 @@ export class ChatDataService {
     };
   }
 
-  // 6. DANH SÁCH RẠP
+  // DANH SÁCH RẠP
   async listCinemas(args: { city?: string; limit?: number }) {
     const limit = clampLimit(args?.limit, 15);
 

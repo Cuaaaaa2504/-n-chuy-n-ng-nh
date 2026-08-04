@@ -27,7 +27,6 @@ export class Product {
   @Column({ name: 'stock_quantity', type: 'int', nullable: true })
   stockQuantity: number | null;
 
-  // SQL CHECK: ('ACTIVE','INACTIVE','OUT_OF_STOCK')
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 

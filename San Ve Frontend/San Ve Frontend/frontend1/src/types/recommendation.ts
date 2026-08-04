@@ -2,17 +2,6 @@ import type { Movie } from './movie';
 
 export type RecommendationSource = 'MODEL' | 'FALLBACK';
 
-/*
- * Nguồn dữ liệu THẬT do backend báo về.
- * `source` công khai chỉ có MODEL|FALLBACK vì đó là tất cả những gì người dùng
- * cần (tiêu đề section đổi theo nó). Nhưng hai giá trị đó gộp mất bốn tình
- * huống rất khác nhau, và vì chúng trông y hệt nhau trên giao diện nên cả nhóm
- * không phát hiện ra model chưa từng chạy:
- *   MODEL       model thật đang chạy, gợi ý cá nhân hoá thật
- *   CACHE       model chưa nạp, đang đọc bảng movie_recommendations
- *   POPULARITY  service Python sống nhưng không có cả model lẫn cache
- *   UNREACHABLE service Python chết hẳn, NestJS tự xếp theo lượt đặt
- */
 export type RecommendationUpstreamSource =
   | 'MODEL'
   | 'CACHE'
@@ -29,7 +18,7 @@ export interface RecommendationDebug {
   serviceUrl: string;
 }
 
-/** Tham số của GET /recommendations. */
+/* Tham số của GET /recommendations */
 export interface RecommendationParams {
   limit?: number;
 }
@@ -44,7 +33,6 @@ export interface RecommendationResult {
 export const RECOMMENDATION_MAX_LIMIT = 30;
 export const RECOMMENDATION_DEFAULT_LIMIT = 8;
 
-/** Nhãn + màu cho badge dev. Giữ cạnh type để thêm nguồn mới không sót chỗ nào. */
 export const UPSTREAM_LABELS: Record<
   RecommendationUpstreamSource,
   { label: string; hint: string }

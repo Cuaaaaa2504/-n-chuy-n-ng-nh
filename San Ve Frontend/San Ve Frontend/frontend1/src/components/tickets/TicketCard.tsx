@@ -1,4 +1,3 @@
-// src/components/tickets/TicketCard.tsx
 import React from 'react';
 
 interface Ticket {

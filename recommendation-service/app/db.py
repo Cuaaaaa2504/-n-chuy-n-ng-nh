@@ -41,10 +41,6 @@ def get_engine() -> Engine:
     global _engine
     if _engine is None:
         settings = get_settings()
-        # `fast_executemany` là tuỳ chọn RIÊNG của pyodbc. Nếu
-        # config tự chuyển sang pymssql (vì máy không có ODBC driver) mà vẫn
-        # truyền cờ này thì SQLAlchemy ném TypeError ngay lúc tạo engine.
-        # Phải hỏi connector ĐÃ RESOLVE, không phải giá trị thô trong .env.
         connector = settings.resolve_connector()
         _engine = create_engine(
             settings.sqlalchemy_url(),
@@ -61,18 +57,6 @@ def connection() -> Iterator:
         yield conn
 
 
-# LỚP VIEW HỖ TRỢ (migration 1722400000000-AddRecommendationViews.ts)
-# Ba view dbo.vw_recommendation_interactions / vw_movie_content_features /
-# vw_movie_popularity_90d đóng gói phần join + lọc trạng thái vốn bị lặp ba
-# lần trong file này.
-# VÌ SAO VẪN GIỮ SQL CŨ LÀM ĐƯỜNG LÙI:
-# Service này KHÔNG được phép chết chỉ vì thiếu một migration. Người mới clone
-# repo về, chạy `python train.py` trước khi chạy `npm run migration:run` là
-# tình huống hoàn toàn bình thường. Nếu bắt buộc phải có view, họ nhận
-# "Invalid object name 'dbo.vw_recommendation_interactions'" — thông báo không
-# gợi ý gì về việc phải sang thư mục backend chạy migration.
-# Vì vậy: dùng view nếu có, không có thì tự động chạy SQL cũ (kết quả giống
-# hệt) và log một dòng warning chỉ rõ cách bật lớp view lên.
 
 _REQUIRED_VIEWS = (
     "dbo.vw_recommendation_interactions",
@@ -80,8 +64,6 @@ _REQUIRED_VIEWS = (
     "dbo.vw_movie_popularity_90d",
 )
 
-# None = chưa kiểm tra. Chỉ hỏi DB một lần cho mỗi tiến trình: câu này rẻ nhưng
-# load_interactions()/load_movies() được gọi liên tục trong lúc train.
 _views_ready: bool | None = None
 
 
@@ -107,8 +89,6 @@ def views_available() -> bool:
         with connection() as conn:
             found = int(conn.execute(sql).scalar() or 0)
     except Exception:
-        # DB không truy cập được -> để hàm gọi phía sau ném lỗi thật sự của nó,
-        # đừng biến lỗi kết nối thành "thiếu view" gây hiểu nhầm.
         logger.debug("Không kiểm tra được danh sách view, tạm coi như chưa có.")
         return False
 
@@ -151,11 +131,6 @@ def load_interactions() -> pd.DataFrame:
     settings = get_settings()
     statuses = settings.positive_booking_statuses
 
-    # Đường đi ưu tiên: view đã đóng gói sẵn join + lọc + công thức quy đổi.
-    # ĐÁNH ĐỔI CẦN BIẾT: view hardcode PAID/ISSUED, nên nếu ai đó đổi
-    # POSITIVE_BOOKING_STATUSES trong .env thành giá trị khác thì view không
-    # phản ánh được. Trường hợp đó phải quay về SQL nội tuyến, nếu không sẽ
-    # train trên tập dữ liệu KHÁC với cấu hình mà không có gì báo.
     default_statuses = {"PAID", "ISSUED"}
     if views_available() and set(statuses) == default_statuses:
         with connection() as conn:
@@ -178,8 +153,6 @@ def load_interactions() -> pd.DataFrame:
             ",".join(statuses),
         )
 
-    # Tham số hoá danh sách status thay vì nối chuỗi (chống SQL injection và
-    # để driver tự escape).
     placeholders = ", ".join(f":st{i}" for i in range(len(statuses)))
     params = {f"st{i}": s for i, s in enumerate(statuses)}
 
@@ -277,7 +250,6 @@ def save_recommendations(rows: list[dict], model_version: str) -> int:
     with connection() as conn:
         conn.execute(text("DELETE FROM dbo.movie_recommendations"))
 
-        # executemany: chèn theo lô thay vì từng dòng một.
         conn.execute(
             text(
                 """
@@ -319,8 +291,6 @@ def load_popular_movie_ids(limit: int) -> list[int]:
     Không cần model, không cần cache — chỉ cần DB sống là chạy được.
     """
     if views_available():
-        # ORDER BY nằm Ở ĐÂY chứ không nằm trong view: SQL Server không đảm bảo
-        # thứ tự của một view kể cả khi view có TOP + ORDER BY bên trong.
         view_sql = text(
             """
             SELECT TOP (:limit) movie_id

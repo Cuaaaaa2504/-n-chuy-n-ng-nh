@@ -59,9 +59,6 @@ export default function AdminDashboardPage() {
       const res = await statsApi.getStats();
       setStats(res as DashboardStats);
     } catch (err) {
-      // KHÔNG fallback sang số liệu mẫu nữa.
-      // Số giả trông "hợp lý" trên dashboard rất dễ bị hiểu nhầm là dữ liệu thật
-      // khi demo với khách hàng. Thà không hiển thị gì còn hơn hiển thị sai.
       setError(
         (err as { message?: string })?.message ||
           'Không thể tải thống kê từ máy chủ.',
@@ -72,7 +69,6 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // FIX react-hooks/set-state-in-effect: wrap fetchStats trong async IIFE
   useEffect(() => {
     void (async () => {
       await fetchStats();

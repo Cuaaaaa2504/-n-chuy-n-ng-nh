@@ -1,10 +1,8 @@
-// src/components/seat/SeatItem.tsx
 import React from 'react';
 import type { SeatItemProps } from '../../types/seat.types';
 import './SeatMap.css';
 
 const SeatItem: React.FC<SeatItemProps> = ({ seat, selected, onClick, disabled = false }) => {
-  // BOOKED là trạng thái tương đương SOLD ở tầng hiển thị.
   const visualStatus = seat.status === 'BOOKED' ? 'SOLD' : seat.status;
   const isDisabled = disabled || ['SOLD','BOOKED','HELD','BLOCKED'].includes(seat.status);
 

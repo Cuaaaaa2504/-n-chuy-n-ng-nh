@@ -21,8 +21,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class VoucherController {
   constructor(private readonly voucherService: VoucherService) {}
 
-  // ── ADMIN ───────────────────────────────────────────────────────────────
-  // Khai báo TRƯỚC @Get(':code') để 'admin' không bị match thành :code
+  // ADMIN
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -30,7 +29,6 @@ export class VoucherController {
     return this.voucherService.findAll(Number(page), Number(limit));
   }
 
-  // Public — check voucher trước khi đặt vé
   @Get('validate')
   validate(@Query('code') code: string, @Query('amount') amount: string) {
     return this.voucherService.validateVoucher(code, Number(amount));
@@ -48,7 +46,6 @@ export class VoucherController {
     return this.voucherService.create(dto);
   }
 
-  // Thiếu endpoint sửa voucher — AdminVouchersPage cần PATCH /vouchers/:id
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -59,12 +56,7 @@ export class VoucherController {
     return this.voucherService.update(id, dto as any);
   }
 
-  // FIX [mục 4.3]: đã xoá alias `PUT /vouchers/:id`.
-  // Nó gọi đúng `voucherService.update()` như PATCH ở trên, không thêm giá trị
-  // gì ngoài việc tạo ra hai đường vào cho cùng một hành động. Frontend
-  // (adminApi.voucherApi.update) chỉ dùng PATCH.
 
-  // Thiếu endpoint bật/tắt trạng thái active
   @Patch(':id/toggle')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -72,16 +64,7 @@ export class VoucherController {
     return this.voucherService.toggleStatus(id);
   }
 
-  // FIX [mục 4.4]: đã xoá `PATCH /vouchers/:id/deactivate`.
-  // Báo cáo cho rằng thiếu trạng thái "deactivated" vĩnh viễn, nhưng nhìn vào
-  // `voucherService.deactivate()` thì nó chỉ set `status = 'INACTIVE'` — CHÍNH
-  // XÁC cùng một cột, cùng một giá trị mà `/toggle` đang set. Không hề có
-  // trạng thái thứ ba nào trong DB (voucher.status chỉ có ACTIVE/INACTIVE).
-  // Nói cách khác đây là hai tên gọi cho một hành động, không phải hai vòng đời
-  // khác nhau. Giữ lại chỉ khiến admin tưởng /deactivate là "khoá vĩnh viễn"
-  // trong khi thực tế vẫn bật lại được bằng /toggle. Đã gộp về /toggle.
 
-  // Thiếu endpoint xoá voucher
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')

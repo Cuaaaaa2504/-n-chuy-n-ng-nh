@@ -85,7 +85,6 @@ export function rankPersonalizedMovies({
   limit: number;
 }) {
   const pool = uniqueMovies([...recommendationMovies, ...allMovies]);
-  // Dùng toàn bộ catalog để suy ra gu từ vé cũ, kể cả phim đã kết thúc.
   const profile = buildPersonalizationProfile(allMovies, bookings, favoriteGenres);
   const recommendationRank = new Map(
     recommendationMovies.map((movie, index) => [movie.movie_id, index]),
@@ -111,7 +110,6 @@ export function rankPersonalizedMovies({
     const rating = Number(movie.imdb_rating ?? movie.average_rating ?? 0);
     if (Number.isFinite(rating)) score += Math.min(rating, 10);
 
-    // Ưu tiên phim mới cùng gu thay vì lặp lại đúng phim đã mua.
     if (profile.watchedTitleKeys.has(normalizeText(movie.title))) score -= 55;
 
     return { movie, score };

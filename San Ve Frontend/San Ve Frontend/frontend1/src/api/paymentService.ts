@@ -1,4 +1,3 @@
-// src/api/paymentService.ts
 import axiosClient from './axiosClient';
 
 export const paymentService = {

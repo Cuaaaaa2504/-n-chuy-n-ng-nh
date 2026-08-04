@@ -33,7 +33,6 @@ function normalizeInitialScore(
   const value = Number(score);
   if (!Number.isFinite(value)) return fallback;
 
-  // movies.average_rating lưu theo thang 5. Giao diện hiển thị theo thang 10.
   const scoreOnTen = value <= 5 ? value * 2 : value;
   return Math.min(10, Math.max(0, scoreOnTen));
 }

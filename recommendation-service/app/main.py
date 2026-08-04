@@ -25,10 +25,6 @@ logger = logging.getLogger("recommendation-service")
 settings = get_settings()
 _model: HybridRecommender | None = None
 
-# Trạng thái của lần train gần nhất do POST /train khởi động.
-# Một khoá duy nhất để hai request train không chạy chồng lên nhau: `train.py`
-# ghi cùng một file model và DELETE cùng một bảng cache, chạy song song thì kết
-# quả là file model bị cắt cụt hoặc bảng cache rỗng giữa chừng.
 _train_lock = threading.Lock()
 _train_state: dict = {
     "running": False,
@@ -43,11 +39,6 @@ def _load_model() -> None:
     global _model
     path = settings.model_path
     if not path.exists():
-        # File model bị .gitignore nên máy mới clone về KHÔNG có
-        # nó. Cảnh báo cũ ("Chưa có file model...") đúng nhưng vô dụng: nó
-        # không nói phải làm gì, và service vẫn trả HTTP 200 nên NestJS coi như
-        # bình thường. Kết quả là mọi user nhận cùng một danh sách popularity
-        # trong khi tất cả tưởng model đang chạy.
         logger.error(
             "CHƯA CÓ FILE MODEL tại %s.\n"
             "    -> Mọi người dùng sẽ nhận CÙNG một danh sách (fallback popularity).\n"
@@ -76,9 +67,6 @@ def _load_model() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # In ra .env nào đang được dùng. Trước đây khi Python kết nối
-    # DB thất bại trong lúc NestJS chạy ngon lành, không có cách nào biết hai
-    # bên đang đọc cấu hình khác nhau ngoài việc mở từng file ra so.
     if settings.inherited_backend_env:
         logger.info(
             "Kế thừa cấu hình DB còn thiếu từ .env của NestJS: %s",
@@ -93,10 +81,6 @@ async def lifespan(app: FastAPI):
 
     _load_model()
 
-    # Cho phép tự train ngay lúc khởi động nếu chưa có file model.
-    # Mặc định TẮT — train có thể mất vài phút và người ta thường không muốn
-    # `uvicorn` treo lâu như vậy. Bật bằng AUTO_TRAIN_ON_START=true khi dựng
-    # môi trường mới (Docker, máy chấm đồ án) để không phải nhớ chạy tay.
     if _model is None and os.getenv("AUTO_TRAIN_ON_START", "").lower() == "true":
         logger.info("AUTO_TRAIN_ON_START=true -> tự chạy train.py ở nền...")
         threading.Thread(target=_run_training, daemon=True).start()
@@ -143,7 +127,6 @@ def health() -> dict:
         "svdMode": _model.svd_mode if _model else None,
         "dbConnector": settings.resolve_connector(),
         "training": dict(_train_state),
-        # Nói thẳng ra hệ quả, để người đọc log không phải tự suy luận.
         "effect": (
             "Gợi ý đang được cá nhân hoá bằng model."
             if _model is not None
@@ -217,12 +200,6 @@ def reload_model() -> JSONResponse:
     )
 
 
-# 05 (phía Python) — endpoint để NestJS gọi train lại theo cron
-# VÌ SAO SPAWN `train.py` THAY VÌ GỌI HÀM TRỰC TIẾP:
-# Phân rã SVD là tác vụ CPU thuần. Gọi thẳng trong tiến trình uvicorn thì GIL
-# giữ chặt luồng và MỌI request /recommend đang chờ bị treo theo cho tới khi
-# train xong — đúng lý do train.py được tách riêng ngay từ đầu. Tiến trình con
-# có GIL riêng, web vẫn phục vụ bình thường trong lúc train chạy.
 
 def _run_training() -> None:
     """Chạy `python train.py` trong tiến trình con rồi nạp lại model."""

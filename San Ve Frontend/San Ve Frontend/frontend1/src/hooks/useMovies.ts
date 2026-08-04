@@ -1,4 +1,3 @@
-// src/hooks/useMovies.ts
 import { useState, useCallback, useEffect } from 'react';
 import type { Genre, Movie } from '../types/movie';
 import {
@@ -13,15 +12,9 @@ const msgOf = (err: unknown, fallback: string) =>
   (err as { message?: string })?.message || fallback;
 
 export interface UseMoviesOptions {
-  /** Tự động tải danh sách phim khi mount. Mặc định true. */
   autoFetch?: boolean;
-  /*
-   * Có tải kèm danh sách thể loại (GET /genres) hay không.
-   * Chỉ trang admin cần (để render multi-select trong form phim); các trang
-   * public bật lên chỉ tốn thêm request vô ích.
-   */
   withGenres?: boolean;
-  /** Tham số truyền cho lần fetch đầu tiên. */
+  /* Tham số truyền cho lần fetch đầu tiên */
   params?: { status?: Movie['status']; page?: number; limit?: number };
 }
 
@@ -58,9 +51,6 @@ export const useMovies = (options: UseMoviesOptions = {}) => {
     }
   }, []);
 
-  // FIX Lỗi 2 & 3: trước đây catch rỗng nuốt sạch message của backend rồi hiện
-  // "Không thể thêm phim. Vui lòng thử lại." — admin không có manh mối gì để sửa.
-  // Nay message thật từ ValidationPipe được đẩy ra UI.
   const addMovie = useCallback(
     async (data: Omit<Movie, 'movie_id'>): Promise<boolean> => {
       setError(null);
@@ -111,8 +101,6 @@ export const useMovies = (options: UseMoviesOptions = {}) => {
       await fetchMovies(initialParams);
       if (withGenres) await fetchGenres();
     })();
-    // initialParams cố tình không nằm trong deps: nó là object literal nên sẽ
-    // tạo reference mới mỗi render -> effect chạy vô hạn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoFetch, withGenres, fetchMovies, fetchGenres]);
 

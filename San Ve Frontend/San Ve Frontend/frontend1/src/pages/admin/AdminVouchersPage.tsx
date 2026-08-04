@@ -1,4 +1,3 @@
-// src/pages/admin/AdminVouchersPage.tsx
 import { useCallback, useEffect, useState } from 'react';
 import { voucherApi } from '../../api/adminApi';
 import type { CreateVoucherPayload, Voucher } from '../../types/admin';

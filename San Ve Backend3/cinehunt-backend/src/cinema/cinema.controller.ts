@@ -35,7 +35,6 @@ export class CinemaController {
     return this.cinemaService.findRoomsByCinema(id);
   }
 
-  /** Admin: xem cả phòng đã vô hiệu hoá */
   @Get(':id/rooms/all')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -50,9 +49,6 @@ export class CinemaController {
     return this.cinemaService.createCinema(body);
   }
 
-  // FIX [cùng nhóm với mục 8.3 — báo cáo bỏ sót]: đã xoá `PUT /cinemas/:id`,
-  // alias y hệt PATCH bên dưới (cùng gọi cinemaService.updateCinema).
-  // Frontend adminApi.cinemaApi.update chỉ dùng PATCH.
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -70,8 +66,6 @@ export class CinemaController {
     return this.cinemaService.deleteCinema(id);
   }
 
-  // ── Rooms (phòng chiếu) ──────────────────────────────────────────────────
-  // 3 endpoint dưới đây trước đây KHÔNG tồn tại.
 
   @Post(':id/rooms')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -94,9 +88,6 @@ export class CinemaController {
     return this.cinemaService.updateRoom(id, roomId, body);
   }
 
-  // FIX [mục 8.3]: đã xoá alias `PUT /cinemas/:id/rooms/:roomId`.
-  // Thân hàm y hệt PATCH ở trên (cùng gọi cinemaService.updateRoom) và frontend
-  // chỉ dùng PATCH. Route thừa chỉ làm bề mặt API rộng ra vô ích.
 
   @Delete(':id/rooms/:roomId')
   @UseGuards(JwtAuthGuard, RolesGuard)

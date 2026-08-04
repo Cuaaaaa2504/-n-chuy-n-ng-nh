@@ -7,7 +7,6 @@ import { BookingOrder } from '../entities/booking-order.entity';
 import { User } from '../entities/user.entity';
 import { RevenueQueryDto } from './dto/revenue-query.dto';
 
-/** Trạng thái được tính là "đã thu tiền" */
 const PAID_STATUSES = ['PAID', 'CONFIRMED'];
 
 @Injectable()
@@ -19,10 +18,6 @@ export class AdminService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
 
-  /*
-   * GET /admin/stats trước đây chưa được implement — AdminDashboardPage
-   * phải fallback sang mock data nên số liệu không phản ánh thực tế.
-   */
   async getStats() {
     try {
       const [
@@ -62,9 +57,6 @@ export class AdminService {
     }
   }
 
-  /*
-   * GET /admin/reports/revenue — báo cáo doanh thu theo ngày/tháng/phim/rạp.
-   */
   async getRevenueReport(query: RevenueQueryDto) {
     const groupBy = query.groupBy ?? 'day';
 
@@ -79,7 +71,6 @@ export class AdminService {
       qb.andWhere('b.createdAt <= :toDate', { toDate: new Date(query.toDate) });
     }
 
-    // SQL Server: CONVERT(date, ...) / FORMAT(...) để nhóm theo ngày & tháng
     switch (groupBy) {
       case 'month':
         qb.select("FORMAT(b.createdAt, 'yyyy-MM')", 'label')

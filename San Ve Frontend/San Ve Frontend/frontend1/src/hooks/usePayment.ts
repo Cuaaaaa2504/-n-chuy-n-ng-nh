@@ -1,4 +1,3 @@
-// src/hooks/usePayment.ts
 
 import { useState, useCallback } from 'react';
 import { payOrder } from '../api/paymentApi'; // ✅ sửa path đúng

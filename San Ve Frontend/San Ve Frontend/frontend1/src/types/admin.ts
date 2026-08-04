@@ -1,5 +1,3 @@
-// src/types/admin.ts
-// Kiểu dữ liệu dùng chung cho khu vực /admin
 
 export interface Paginated<T> {
   data: T[];
@@ -9,7 +7,6 @@ export interface Paginated<T> {
   totalPages?: number;
 }
 
-// ── Dashboard ──────────────────────────────────────────────────────────────
 export interface DashboardStats {
   totalMovies: number;
   totalShowtimes: number;
@@ -20,7 +17,6 @@ export interface DashboardStats {
   generatedAt?: string;
 }
 
-// ── Báo cáo doanh thu ──────────────────────────────────────────────────────
 export type RevenueGroupBy = 'day' | 'month' | 'movie' | 'cinema';
 
 export interface RevenueRow {
@@ -39,7 +35,6 @@ export interface RevenueReport {
   totalRevenue: number;
 }
 
-// ── Đơn đặt vé (admin) ─────────────────────────────────────────────────────
 export type AdminPaymentStatus = 'PAID' | 'PENDING' | 'FAILED' | 'REFUNDED';
 
 export type AdminBookingStatus =
@@ -75,7 +70,7 @@ export interface AdminBookingFilters {
   limit?: number;
 }
 
-// ── Voucher ────────────────────────────────────────────────────────────────
+// Voucher
 export interface Voucher {
   promotionId: number;
   promotionCode: string;
@@ -115,7 +110,6 @@ export interface CreateVoucherPayload {
 
 export type UpdateVoucherPayload = Partial<Omit<CreateVoucherPayload, 'code'>>;
 
-// ── Rạp & phòng chiếu ──────────────────────────────────────────────────────
 export interface Cinema {
   cinemaId: number;
   cinemaName: string;
@@ -135,7 +129,6 @@ export interface Room {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-// ── Sản phẩm & combo ───────────────────────────────────────────────────────
 export interface Product {
   productId: number;
   productName: string;
@@ -154,7 +147,7 @@ export interface ConcessionCombo {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
-// ── Hoàn tiền ──────────────────────────────────────────────────────────────
+// Hoàn tiền
 export type RefundStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 
 export interface AdminRefund {
@@ -171,7 +164,6 @@ export interface AdminRefund {
   completedAt: string | null;
 }
 
-// ── Nhật ký hệ thống ───────────────────────────────────────────────────────
 export interface AuditLog {
   auditId: string;
   userId: number | null;

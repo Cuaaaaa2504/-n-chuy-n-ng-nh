@@ -44,8 +44,6 @@ const userApi = {
   update: (id: number, data: UpdateUserRequest) =>
     axiosClient.put<User>(`/users/${id}`, data) as unknown as Promise<User>,
 
-  // Người dùng tự sửa hồ sơ của chính mình.
-  // PUT /users/:id là route ADMIN, không được dùng ở ProfilePage.
   updateMe: (data: UpdateUserRequest) =>
     axiosClient.patch<User>('/users/me', data) as unknown as Promise<User>,
 
@@ -58,17 +56,11 @@ const userApi = {
   uploadAvatar: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    // LƯU Ý: axiosClient đặt default 'Content-Type: application/json'. Với axios v1,
-    // nếu không ghi đè ở đây thì transformRequest sẽ serialize FormData thành JSON
-    // và multer ở backend sẽ không nhận được file. Giữ nguyên override này.
-    // (boundary vẫn được browser tự bổ sung ở tầng XHR adapter.)
-    // Field name 'file' phải khớp FileInterceptor('file') ở users.controller.ts.
     return axiosClient.post<{ avatarUrl: string }>('/users/me/avatar', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }) as unknown as Promise<{ avatarUrl: string }>;
   },
 
-  // Backend định nghĩa POST /users/me/change-password.
   changePassword: (data: ChangePasswordRequest) =>
     axiosClient.post('/users/me/change-password', data),
 

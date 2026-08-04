@@ -1,8 +1,3 @@
-/*
-   CMC CINEMA — BLUE NEON LIGHT MODE
-   Chỉ áp dụng cho html.light. Dark mode không bị thay đổi.
-   Import file này SAU light-contrast.css.
-   */
 
 html.light {
   color-scheme: light;
@@ -44,7 +39,6 @@ html.light {
   --cg-shadow: 0 20px 60px rgba(23, 83, 145, 0.13);
   --cg-glow: 0 0 34px rgba(0, 174, 255, 0.20);
 
-  /* Các biến Stitch tên purple/cyan, nhưng light mode đổi sang blue/cyan. */
   --st-bg: #f5faff;
   --st-bg-soft: #eaf5ff;
   --st-panel: rgba(255, 255, 255, 0.84);
@@ -90,7 +84,6 @@ html.light .stitch-app::before {
     linear-gradient(90deg, rgba(0,132,255,.16) 1px, transparent 1px);
 }
 
-/* Navbar */
 html.light .cineglass-app > header,
 html.light .stitch-nav,
 html.light .stitch-admin-header {
@@ -124,7 +117,6 @@ html.light .stitch-nav-link::after {
   box-shadow: 0 0 8px #25b8ff, 0 0 18px rgba(0,174,255,.75) !important;
 }
 
-/* Title light mode: đen hẳn. */
 html.light h1,
 html.light h2,
 html.light h3,
@@ -149,7 +141,6 @@ html.light .stitch-kicker {
   font-weight: 800;
 }
 
-/* Hero light: ảnh vẫn giữ, nhưng phủ sáng + xanh neon. */
 html.light .stitch-hero {
   background:
     radial-gradient(circle at 78% 54%, rgba(0,183,255,.30), transparent 28rem),
@@ -199,7 +190,6 @@ html.light .stitch-hero [style*="var(--st-cyan)"] {
   font-weight: 700;
 }
 
-/* Poster: xanh neon tỏa sáng. */
 html.light .stitch-poster-card {
   border-color: rgba(31,118,205,.24) !important;
   background: #ffffff !important;
@@ -240,7 +230,6 @@ html.light .stitch-hero-controls .stitch-icon-btn:hover {
     0 0 34px rgba(0,174,255,.42) !important;
 }
 
-/* Buttons */
 html.light .btn-primary,
 html.light .btn-primary-glow,
 html.light .stitch-btn-primary {
@@ -282,7 +271,6 @@ html.light .stitch-btn-outline:hover {
     0 0 30px rgba(8,104,255,.14) !important;
 }
 
-/* Card / panel */
 html.light .stitch-glass,
 html.light .stitch-card,
 html.light .glass-panel,
@@ -314,7 +302,6 @@ html.light .movie-card:hover {
     0 0 38px rgba(8,104,255,.10) !important;
 }
 
-/* Inputs */
 html.light .stitch-input,
 html.light .stitch-select,
 html.light .stitch-textarea,
@@ -343,7 +330,6 @@ html.light select:focus {
     0 7px 22px rgba(20,78,135,.08) !important;
 }
 
-/* Badge tím cũ -> blue */
 html.light .stitch-badge-purple {
   color: #ffffff !important;
   background: #087cff !important;
@@ -355,7 +341,6 @@ html.light [class*="text-violet-"] {
   color: #075ee8 !important;
 }
 
-/* Movie detail vẫn dùng ảnh tối riêng nên giữ chữ trắng. */
 html.light .stitch-detail-hero h1,
 html.light .stitch-detail-hero h2,
 html.light .stitch-detail-hero h3 {
@@ -380,9 +365,7 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #4dade8; }
       linear-gradient(180deg, rgba(248,252,255,.94) 0%, rgba(242,249,255,.88) 58%, rgba(239,248,255,.96) 100%) !important;
   }
 }
-/*
-   LIGHT MODE — MOVIE CARD TITLE WHITE
-   */
+/* LIGHT MODE — MOVIE CARD TITLE WHITE */
 
 html.light .stitch-movie-title {
   color: #ffffff !important;

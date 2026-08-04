@@ -17,7 +17,6 @@ export class ProductService {
     });
   }
 
-  /** Admin cần thấy cả sản phẩm đã ẩn để bật lại */
   adminFindAll(): Promise<Product[]> {
     return this.repo.find({ order: { productName: 'ASC' } as any });
   }

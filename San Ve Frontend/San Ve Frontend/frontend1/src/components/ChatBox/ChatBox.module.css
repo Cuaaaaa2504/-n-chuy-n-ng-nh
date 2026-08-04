@@ -1,20 +1,3 @@
-/*
- * ChatBox hardcode màu Netflix, không dùng design token của dự án.
- * File cũ dùng hex cứng: FAB gradient #e50914 -> #9b0610, panel #111318, bubble
- * người dùng #e50914, viền focus #e50914. Không một `var(--color-*)` nào.
- * Trong khi đó `index.css` đã khai báo đầy đủ token "Cyber Neon Cinema" theo
- * Tailwind v4 `@theme` với hệ tím/cyan và glassmorphism — nên chatbot trông
- * như widget của một website khác dán nhầm vào.
- * Nguyên tắc áp dụng ở đây:
- *   - MỌI màu đều đọc từ `var(--color-*)` khai báo trong index.css.
- *     Đổi bảng màu dự án sau này thì ChatBox tự đổi theo, không phải sửa file
- *     này — đó mới là mục đích của design token.
- *   - Panel dùng glassmorphism (`backdrop-filter: blur`) đồng bộ với
- *     `.glass-panel` của trang chủ.
- *   - `color-mix()` để pha độ trong suốt từ chính token, thay vì viết rgba()
- *     với số kênh màu chép tay — chép tay là cách hex cứng quay lại.
- *   - Chỉ giữ giá trị tuyệt đối cho kích thước, bo góc, thời lượng animation.
- */
 
 .chatRoot {
   position: fixed;
@@ -28,7 +11,6 @@
   font-family: var(--font-body-md);
 }
 
-/* ---------------------------------------------------------------- nút nổi -- */
 .fab {
   display: grid;
   place-items: center;
@@ -67,7 +49,6 @@
   font-size: 26px;
 }
 
-/* ------------------------------------------------------------------ panel -- */
 .chatPanel {
   width: min(380px, calc(100vw - 32px));
   height: min(560px, calc(100vh - 118px));
@@ -77,7 +58,6 @@
   border: 1px solid color-mix(in srgb, var(--color-outline-variant) 70%, transparent);
   border-radius: var(--radius-xl);
 
-  /* Đồng bộ với .glass-panel của index.css */
   background: var(--color-glass-surface);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -150,7 +130,6 @@
   font-size: 20px;
 }
 
-/* ----------------------------------------------------------- danh sách tin -- */
 .messageList {
   overflow-y: auto;
   padding: 18px 14px;
@@ -194,18 +173,12 @@
   color: var(--color-on-surface);
 }
 
-/*
- * 06 (phần hiển thị) — thông báo lỗi phải NHÌN ra là lỗi.
- * Dùng token error của Material 3 thay vì trộn lẫn với bubble trả lời thường,
- * vốn là lý do người dùng tưởng chatbot đang "trả lời" một câu vô nghĩa.
- */
 .errorBubble {
   border-color: color-mix(in srgb, var(--color-error) 55%, transparent);
   background: color-mix(in srgb, var(--color-error-container) 35%, transparent);
   color: var(--color-on-error-container);
 }
 
-/* Con trỏ nhấp nháy trong lúc stream (FIX CHAT-07). */
 .caret {
   display: inline-block;
   width: 2px;
@@ -216,7 +189,6 @@
   animation: caretBlink 1s steps(2, start) infinite;
 }
 
-/* Dòng "Đang tra lịch chiếu…" khi chatbot gọi dữ liệu thật (FIX CHAT-05). */
 .statusLine {
   display: flex;
   align-items: center;
@@ -232,7 +204,6 @@
   font-size: 16px;
 }
 
-/* ------------------------------------------------------------- ô nhập liệu -- */
 .inputArea {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -289,10 +260,6 @@
   filter: brightness(1.08);
 }
 
-/*
- * Nút Dừng dùng màu secondary (cyan) chứ không phải error đỏ: dừng là hành
- * động bình thường của người dùng, không phải sự cố.
- */
 .stopButton {
   border: 1px solid color-mix(in srgb, var(--color-secondary) 45%, transparent);
   background: color-mix(in srgb, var(--color-secondary) 14%, transparent);
@@ -320,7 +287,6 @@
   opacity: 0.58;
 }
 
-/* -------------------------------------------------------------- hiệu ứng --- */
 .typing {
   display: flex;
   align-items: center;

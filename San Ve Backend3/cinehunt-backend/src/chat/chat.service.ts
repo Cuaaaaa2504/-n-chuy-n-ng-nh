@@ -1,9 +1,3 @@
-/*
- * ChatService — cầu nối giữa CineHunt và Gemini.
- * Ngoài các công cụ đọc dữ liệu, service này cho phép người dùng đã đăng nhập
- * giữ ghế, tạo booking và khởi tạo payment. Mọi thao tác ghi vẫn đi qua service
- * nghiệp vụ hiện có, không cho model chạm trực tiếp vào repository hay SQL.
- */
 
 import {
   HttpException,
@@ -212,9 +206,6 @@ export class ChatService implements OnModuleInit {
           ? String((response as { code?: string }).code ?? '')
           : '';
 
-      // Chuyển sang Groq khi Gemini không khả dụng, không chỉ riêng 429.
-      // Không fallback cho INVALID_REQUEST/BLOCKED vì đó là lỗi nội dung đầu vào,
-      // đổi nhà cung cấp cũng không giải quyết được.
       return new Set<string>([
         'MISSING_API_KEY',
         'INVALID_API_KEY',
@@ -438,11 +429,6 @@ export class ChatService implements OnModuleInit {
     return assistantAskedForConfirmation && userConfirmed;
   }
 
-  /*
-   * Đọc showtimeId và mã ghế từ bản tóm tắt ngay trước tin nhắn xác nhận.
-   * Nhờ đó câu "Xác nhận" không cần gọi Gemini thêm lần nữa, tránh 429 xảy ra
-   * trước khi model kịp gọi hold_seats.
-   */
   private confirmedSeatActionArgs(
     messages: ChatMessageDto[],
   ): Record<string, unknown> | null {
@@ -621,11 +607,6 @@ export class ChatService implements OnModuleInit {
       : 'chưa xác định';
   }
 
-  /*
-   * Với tool ghi, backend có thể tự trả câu kết luận thay vì gọi Gemini thêm
-   * một vòng chỉ để diễn đạt lại kết quả. Cách này giảm RPM và tránh trường hợp
-   * thao tác đã chạy xong nhưng lượt gọi AI kế tiếp lại dính 429.
-   */
   private terminalToolReply(
     results: Array<{
       name: string;
@@ -764,7 +745,6 @@ export class ChatService implements OnModuleInit {
       );
     }
 
-    // Dùng Groq trực tiếp khi thiếu Gemini key.
 
     if (!this.apiKey && this.groqApiKey) {
 
@@ -776,7 +756,6 @@ export class ChatService implements OnModuleInit {
     const contents = this.buildContents(messages);
     const apiKey = this.apiKey;
 
-    // Gemini thiếu key cũng phải thử Groq thay vì trả lỗi ngay.
     if (!apiKey) {
       return this.replyWithGroq(messages, userId);
     }
@@ -949,7 +928,6 @@ export class ChatService implements OnModuleInit {
     let contents: GeminiContent[];
 
     try {
-      // Stream qua Groq khi thiếu Gemini key.
       if (!this.apiKey && this.groqApiKey) {
         try {
           const fallbackReply = await this.replyWithGroq(messages, userId);
@@ -969,7 +947,6 @@ export class ChatService implements OnModuleInit {
 
     const apiKey = this.apiKey;
 
-    // Endpoint stream vẫn dùng Groq fallback dạng một câu trả lời hoàn chỉnh.
     if (!apiKey) {
       try {
         const fallbackReply = await this.replyWithGroq(
@@ -1127,8 +1104,6 @@ export class ChatService implements OnModuleInit {
           attempt < MAX_RATE_LIMIT_RETRIES &&
           !signal?.aborted
         ) {
-          // responseType=stream làm body lỗi thành Readable, nhưng status 429
-          // vẫn có ngay trong headers nên có thể retry mà chưa cần parse body.
           await this.waitBeforeRetry(error, attempt, signal);
           continue;
         }

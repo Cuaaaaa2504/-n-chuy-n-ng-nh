@@ -22,7 +22,6 @@ export class VoucherService {
     private readonly voucherRepo: Repository<Voucher>,
   ) {}
 
-  // FIX [M-16]: thêm pagination để tránh trả toàn bộ voucher khi hệ thống lớn
   async findAll(page = 1, limit = 20): Promise<VoucherPage> {
     const skip = (page - 1) * limit;
     const [items, total] = await this.voucherRepo.findAndCount({
@@ -106,8 +105,6 @@ export class VoucherService {
     });
     if (existing) throw new BadRequestException('Mã voucher đã tồn tại');
 
-    // Trước đây `...dto` giữ lại field `code` (không phải cột DB) và
-    // thiếu promotion_name (NOT NULL) -> INSERT luôn fail.
     const { code: _ignored, promotionName, ...rest } = dto;
     const data: any = {
       ...rest,
@@ -139,7 +136,6 @@ export class VoucherService {
     return this.update(id, { status: 'INACTIVE' } as any);
   }
 
-  /*Bật/tắt trạng thái active của voucher (PATCH /vouchers/:id/toggle) */
   async toggleStatus(id: number): Promise<Voucher> {
     const voucher = await this.findOne(id);
     const next = voucher.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
@@ -149,8 +145,6 @@ export class VoucherService {
   async remove(id: number): Promise<{ success: boolean; message: string }> {
     const voucher = await this.findOne(id);
 
-    // Voucher đã được dùng thì không xoá cứng (FK booking_orders.promotion_id),
-    // chỉ vô hiệu hoá để giữ toàn vẹn dữ liệu đơn hàng cũ.
     if (voucher.usedCount > 0) {
       await this.update(id, { status: 'INACTIVE' } as any);
       return {

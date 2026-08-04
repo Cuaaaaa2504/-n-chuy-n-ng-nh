@@ -1,4 +1,3 @@
-// src/pages/SeatBookingPage.tsx
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -120,7 +119,6 @@ export default function SeatBookingPage() {
   const [error, setError]                     = useState<string | null>(null);
   const [holdError, setHoldError]             = useState<string | null>(null);
   const [heldIds, setHeldIds]                 = useState<string[]>([]);
-  // holdId là mã lần giữ; SeatMap cần showtimeSeatId để khóa đúng ghế.
   const [heldSeatIds, setHeldSeatIds]         = useState<Set<string>>(() => new Set());
   const [holdCountdown, setHoldCountdown]     = useState<number>(HOLD_SECONDS);
   const [holdExpired, setHoldExpired]         = useState(false);
@@ -172,7 +170,6 @@ export default function SeatBookingPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  // ─── Load data ────────────────────────────────────────────────────────────
   useEffect(() => {
     const id = setTimeout(() => {
       movieSetRef.current = false;
@@ -311,7 +308,7 @@ export default function SeatBookingPage() {
     };
   }, [loading, refreshSeatStatuses, searchParams, usingMock]);
 
-  // ─── Seat toggle ─────────────────────────────────────────────────────────
+  // Seat toggle
   const handleSeatToggle = (seatId: string) => {
     if (holdExpired) {
       setHoldExpired(false);
@@ -327,7 +324,6 @@ export default function SeatBookingPage() {
     });
   };
 
-  // ─── Hold seats ──────────────────────────────────────────────────────────
   const handleHoldSeats = async (): Promise<string[] | null> => {
     const showtimeId = searchParams.get('showtimeId');
     if (!showtimeId || selectedIds.size === 0) return null;
@@ -373,7 +369,6 @@ export default function SeatBookingPage() {
     }
   };
 
-  // ─── Giữ ghế + tạo booking ngay khi nhấn Đặt vé ─────────────────────────
   const handleProceed = async () => {
     if (selectedIds.size === 0) return;
     if (
@@ -390,7 +385,6 @@ export default function SeatBookingPage() {
 
     const showtimeId = searchParams.get('showtimeId');
 
-    // Chế độ ghế mẫu không có dữ liệu thật để tạo booking.
     if (!showtimeId || usingMock) {
       const selectedSeatObjects = seats.filter((s) =>
         selectedIds.has(String(s.id)),
@@ -439,7 +433,6 @@ export default function SeatBookingPage() {
     }
 
     try {
-      // Nhấn Đặt vé lần đầu sẽ giữ ghế và bắt đầu đồng hồ ngay.
       let holdIds = heldIdsRef.current.length
         ? heldIdsRef.current
         : heldIds;
@@ -517,7 +510,6 @@ export default function SeatBookingPage() {
     }
   };
 
-  // ─── Derived ─────────────────────────────────────────────────────────────
   const embedUrl            = getYoutubeEmbedUrl(movie?.trailer_url);
   const selectedSeatObjects = seats.filter((s) => selectedIds.has(String(s.id)));
   const totalPrice          = selectedSeatObjects.reduce((sum, s) => sum + (s.price ?? 0), 0);
@@ -527,19 +519,16 @@ export default function SeatBookingPage() {
     price:    s.price ?? 0,
     status:   s.status === 'BOOKED' ? 'SOLD' : (s.status === 'SELECTED' ? 'AVAILABLE' : s.status),
   }));
-  // SeatMap nhận showtimeSeatId, không phải holdId.
   const heldSeatKeys = heldSeatIds;
   const countdownMM         = String(Math.floor(holdCountdown / 60)).padStart(2, '0');
   const countdownSS         = String(holdCountdown % 60).padStart(2, '0');
   const countdownUrgent     = holdCountdown < 60 && heldIds.length > 0;
 
-  // ─── Theme tokens ────────────────────────────────────────────────────────
   const bg        = darkMode ? 'bg-gray-950 text-white'      : 'bg-gray-50 text-gray-900';
   const card      = darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200';
   const cardMuted = darkMode ? 'text-gray-400'               : 'text-gray-500';
   const divider   = darkMode ? 'border-gray-700'             : 'border-gray-200';
 
-  // ─── Loading skeleton ────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className={`min-h-screen flex items-center justify-center ${bg}`}>
@@ -551,7 +540,6 @@ export default function SeatBookingPage() {
   return (
     <div className={`min-h-screen stitch-flow-page ${bg}`}>
 
-      {/* ── Backdrop ── */}
       {movie?.backdrop_url && (
         <div className="relative h-44 md:h-60 overflow-hidden">
           <img src={resolveAssetUrl(movie.backdrop_url) || FALLBACK_BACKDROP} alt="" className="w-full h-full object-cover opacity-40" />
@@ -561,14 +549,10 @@ export default function SeatBookingPage() {
 
       <div className="stitch-container py-10 space-y-8">
 
-        {/*
-            SECTION 1 — Thông tin phim + Phòng chiếu + Ngày giờ (tích hợp)
-        */}
         {(movie || showtimeInfo) && (
           <div className={`rounded-2xl border ${card} overflow-hidden`}>
             <div className="flex flex-col md:flex-row gap-0">
 
-              {/* Poster */}
               {movie?.poster_url && (
                 <div className="flex-shrink-0 md:w-36">
                   <img
@@ -579,10 +563,8 @@ export default function SeatBookingPage() {
                 </div>
               )}
 
-              {/* Info chính */}
               <div className="flex-1 p-5 flex flex-col justify-between gap-4">
 
-                {/* Tên phim + badge */}
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="text-xl md:text-2xl font-bold leading-tight">
@@ -602,10 +584,8 @@ export default function SeatBookingPage() {
                   ) : null}
                 </div>
 
-                {/* Divider */}
                 <div className={`border-t ${divider}`} />
 
-                {/* Phòng chiếu + Ngày giờ — grid 2 cột */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                   {showtimeInfo?.cinemaName && (
                     <div className="col-span-2 md:col-span-4">
@@ -638,7 +618,6 @@ export default function SeatBookingPage() {
           </div>
         )}
 
-        {/* Trailer */}
         {embedUrl && (
           <div className="rounded-2xl overflow-hidden aspect-video">
             <iframe
@@ -651,8 +630,6 @@ export default function SeatBookingPage() {
           </div>
         )}
 
-        {/* Mock warning */}
-        {/* Banner nay nêu rõ NGUYÊN NHÂN thay vì một dòng chung chung */}
         {usingMock && (
           <div className="rounded-xl px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 text-sm">
             <p className="font-semibold">
@@ -669,12 +646,8 @@ export default function SeatBookingPage() {
           </div>
         )}
 
-        {/*
-            SECTION 2 — SeatMap (trái) + Panel giữ ghế (phải)
-        */}
         <div className="flex flex-col lg:flex-row gap-6 items-start">
 
-          {/* ── SeatMap ── */}
           <div className="flex-1 min-w-0">
             <SeatMap
               seats={seats}
@@ -685,12 +658,10 @@ export default function SeatBookingPage() {
             />
           </div>
 
-          {/* ── Panel giữ ghế ── */}
           <div className={`w-full lg:w-72 rounded-2xl border ${card} p-5 space-y-4 sticky top-4`}>
 
             <h2 className="text-base font-bold">Tóm tắt đặt vé</h2>
 
-            {/* Countdown */}
             {heldIds.length > 0 ? (
               <div className={`rounded-xl px-4 py-3 text-center font-mono font-bold text-lg border ${
                 countdownUrgent
@@ -711,7 +682,6 @@ export default function SeatBookingPage() {
               </div>
             )}
 
-            {/* Ghế đã chọn */}
             <div className="space-y-1.5">
               <div className={`text-xs uppercase tracking-wider font-semibold ${cardMuted}`}>
                 Ghế đã chọn ({selectedSeatObjects.length}/{MAX_SEATS})
@@ -737,16 +707,13 @@ export default function SeatBookingPage() {
               )}
             </div>
 
-            {/* Divider */}
             <div className={`border-t ${divider}`} />
 
-            {/* Giá */}
             <div className="flex items-center justify-between">
               <span className={`text-sm ${cardMuted}`}>Tổng tiền</span>
               <span className="text-lg font-bold text-amber-500">{formatVND(totalPrice)}</span>
             </div>
 
-            {/* Lỗi hold */}
             {holdError && (
               <div className="rounded-lg px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-500 text-xs">
                 {holdError}
@@ -763,7 +730,6 @@ export default function SeatBookingPage() {
               </div>
             )}
 
-            {/* Button đặt vé */}
             <button
               onClick={handleProceed}
               disabled={holding || navigating || selectedIds.size === 0}
@@ -791,7 +757,6 @@ export default function SeatBookingPage() {
 
       </div>
 
-      {/* ── Bottom bar (mobile) ── */}
       <SelectedSeatsBar
         seats={selectedSeatBarItems}
         totalPrice={totalPrice}

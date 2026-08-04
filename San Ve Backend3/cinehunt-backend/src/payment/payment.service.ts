@@ -31,17 +31,11 @@ export class PaymentService {
       userId,
     );
 
-    // FIX [bookingId must be a UUID]: dto.bookingId có thể là bookingCode (BK-xxx).
-    // Từ đây trở đi chỉ dùng ID số đã được BookingService phân giải, nếu không
-    // findPendingByBookingId sẽ so sánh nhầm chuỗi với cột BIGINT -> luôn miss
-    // (tạo trùng payment PENDING) hoặc ném lỗi convert ở tầng driver.
     const bookingId = String(booking.bookingId);
 
     const existingPending =
       await this.paymentRepository.findPendingByBookingId(bookingId);
     if (existingPending) {
-      // Retry cùng phương thức: trả lại payment PENDING cũ để frontend có thể
-      // tiếp tục xác nhận thay vì chặn người dùng vĩnh viễn.
       if (existingPending.paymentMethod === dto.paymentMethod) {
         return {
           paymentId: existingPending.paymentId,
@@ -54,8 +48,6 @@ export class PaymentService {
         };
       }
 
-      // Người dùng đổi phương thức: đóng payment cũ nhưng GIỮ booking ở
-      // PENDING_PAYMENT để có thể tạo payment mới.
       await this.paymentRepository.updatePaymentFailed(
         existingPending.paymentId,
         `User switched payment method from ${existingPending.paymentMethod} to ${dto.paymentMethod}`,
@@ -105,7 +97,6 @@ export class PaymentService {
         );
       }
 
-      // Validate booking bên trong transaction thông qua queryRunner
       const booking = await queryRunner.manager.findOne(BookingOrder, {
         where: { bookingId: payment.bookingId },
         relations: { bookingDetails: true },
@@ -135,7 +126,6 @@ export class PaymentService {
         throw new BadRequestException('Không tìm thấy ghế trong booking');
       }
 
-      // Update payment thành SUCCESS
       await queryRunner.manager.update(Payment, { paymentId }, {
         paymentStatus: 'SUCCESS',
         failedReason: null,
@@ -144,7 +134,6 @@ export class PaymentService {
 
       const seatIds = bookingDetails.map((d) => d.showtimeSeatId);
 
-      // Đánh dấu ghế là SOLD
       await queryRunner.manager
         .createQueryBuilder()
         .update(ShowtimeSeat)
@@ -152,12 +141,6 @@ export class PaymentService {
         .where('showtime_seat_id IN (:...ids)', { ids: seatIds })
         .execute();
 
-      // Booking và vé cùng nằm trong transaction; lỗi ở bước tạo vé sẽ rollback.
-      // Status phải là 'PAID' (không phải 'ISSUED').
-      // Toàn bộ frontend (MyTicketsPage.PAID_STATUSES, MyBookingsPage, nút "Xem QR vé")
-      // và admin.service.PAID_STATUSES đều chỉ nhận dạng 'PAID'/'CONFIRMED'.
-      // Đặt 'ISSUED' khiến vé không bao giờ hiện ở tab "Vé đã mua".
-      // issuedAt vẫn được set để ghi nhận thời điểm xuất vé.
       await queryRunner.manager.update(
         BookingOrder,
         { bookingId: booking.bookingId },
@@ -173,11 +156,6 @@ export class PaymentService {
         { status: SeatHoldStatus.CONFIRMED, releasedAt: new Date() },
       );
 
-      // Tạo/đọc ticket bằng queryRunner.manager thay vì paymentRepository.
-      // paymentRepository dùng Repository riêng -> nằm NGOÀI transaction: nếu
-      // commitTransaction() thất bại, ticket đã insert vẫn tồn tại trong DB trong khi
-      // booking bị rollback về PENDING_PAYMENT -> dữ liệu không nhất quán.
-      // Dùng queryRunner.manager để ticket cùng sống/chết với transaction.
       const tickets: any[] = [];
 
       for (const detail of bookingDetails) {
@@ -257,7 +235,6 @@ export class PaymentService {
       );
     }
 
-    // Lấy userId từ booking thay vì truyền undefined
     const booking = await this.dataSource.getRepository(BookingOrder).findOne({
       where: { bookingId: payment.bookingId },
     });
@@ -272,9 +249,6 @@ export class PaymentService {
   }
 
   async getPaymentByBookingId(bookingId: string) {
-    // Payments.booking_id là BIGINT. Nếu client gửi bookingCode (BK-xxx) vào
-    // đây, TypeORM sẽ sinh câu SQL so sánh varchar với bigint -> lỗi convert (500).
-    // Chặn sớm bằng 400 có thông báo rõ ràng.
     const ref = String(bookingId ?? '').trim();
     if (!/^\d+$/.test(ref)) {
       throw new BadRequestException(

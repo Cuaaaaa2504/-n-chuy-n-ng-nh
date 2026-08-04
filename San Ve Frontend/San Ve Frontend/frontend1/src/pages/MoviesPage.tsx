@@ -58,7 +58,6 @@ export default function MoviesPage() {
       const updated = (event as CustomEvent<MovieRatingSummary>).detail;
       if (!updated) return;
 
-      // Chỉ cập nhật điểm của phim đang hiển thị, không xếp lại vị trí sidebar.
       setTopRatings((current) =>
         current.map((rating) =>
           rating.movieId === updated.movieId ? updated : rating,
@@ -80,8 +79,6 @@ export default function MoviesPage() {
     const fixedIds = [...hotMovieIds];
     const usedIds = new Set(fixedIds);
 
-    // Nếu API rating chưa sẵn sàng, chọn phim đang chiếu làm danh sách dự phòng.
-    // Danh sách chỉ phụ thuộc dữ liệu phim, không đổi vị trí sau mỗi lượt đánh giá.
     for (const movie of movies) {
       if (
         fixedIds.length >= 3 ||

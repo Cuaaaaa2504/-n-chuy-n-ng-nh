@@ -1,6 +1,3 @@
-// src/components/admin/BookingTable.tsx
-// 02/WARN-02: table-container / admin-table / mobile-cards / card-* / booking-code
-// đều là class không tồn tại. Viết lại bằng Tailwind, dùng TableShell/Th/Td của AdminUI.
 import React from 'react';
 import BookingStatusBadge from './BookingStatusBadge';
 import { TableShell, Td, Th, formatDateTime, formatVnd } from './AdminUI';
@@ -12,7 +9,6 @@ interface Props {
 
 const BookingTable: React.FC<Props> = ({ bookings }) => (
   <>
-    {/* Desktop */}
     <div className="hidden md:block">
       <TableShell>
         <table className="w-full text-sm">
@@ -46,7 +42,6 @@ const BookingTable: React.FC<Props> = ({ bookings }) => (
       </TableShell>
     </div>
 
-    {/* Mobile */}
     <div className="md:hidden space-y-3">
       {bookings.map((b) => (
         <div key={b.bookingId} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">

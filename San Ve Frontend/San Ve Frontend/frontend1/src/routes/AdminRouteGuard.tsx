@@ -5,8 +5,6 @@ export default function AdminRouteGuard() {
   const { isLoggedIn, user, loading } = useAuth();
   const location = useLocation();
 
-  // FIX [H-04]: đợi AuthContext verify xong mới quyết định redirect
-  // Không có check này, admin refresh trang sẽ bị đá về /login trong lúc token đang được load
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

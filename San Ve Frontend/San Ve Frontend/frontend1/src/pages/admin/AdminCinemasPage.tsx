@@ -1,4 +1,3 @@
-// src/pages/admin/AdminCinemasPage.tsx
 import { useCallback, useEffect, useState } from 'react';
 import { cinemaApi } from '../../api/adminApi';
 import type { Cinema, Room } from '../../types/admin';

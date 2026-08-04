@@ -1,5 +1,3 @@
-// src/hooks/useBookings.ts
-// Hook lấy danh sách đơn đặt vé cho trang admin.
 import { useState, useCallback } from 'react';
 import { adminBookingApi } from '../api/adminApi';
 import type { AdminBooking, AdminBookingFilters } from '../types/admin';
@@ -18,7 +16,6 @@ export const useBookings = () => {
     setError(null);
     try {
       const res = await adminBookingApi.getAll(filters);
-      // Backend trả { data, total, page, limit }; phòng trường hợp trả mảng thuần
       const rows = Array.isArray(res) ? res : (res?.data ?? []);
       setBookings(rows);
       setTotal(Array.isArray(res) ? rows.length : (res?.total ?? rows.length));
@@ -33,7 +30,6 @@ export const useBookings = () => {
     }
   }, []);
 
-  /** Admin cập nhật trạng thái đơn, sau đó cập nhật lại state cục bộ */
   const updateStatus = useCallback(async (bookingId: number | string, status: string) => {
     const updated = await adminBookingApi.updateStatus(String(bookingId), status);
     setBookings((prev) =>

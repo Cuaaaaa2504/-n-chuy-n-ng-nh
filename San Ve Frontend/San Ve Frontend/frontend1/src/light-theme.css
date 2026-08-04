@@ -1,13 +1,7 @@
-/*
-   CMC CINEMA — Light Mode overrides ("Cyber Neon Cinema")
-   Ghi đè các CSS custom properties định nghĩa trong index.css
-   khi thẻ <html> có class "light" (gắn bởi ThemeContext.tsx).
-   */
 
 html.light {
   color-scheme: light;
 
-  /* ---------- Colors (Material 3 light scheme) ---------- */
   --color-surface: #fdf7ff;
   --color-surface-dim: #ded8e0;
   --color-surface-bright: #fdf7ff;
@@ -53,8 +47,6 @@ html.light {
   --color-glass-surface: rgba(255, 255, 255, 0.65);
 }
 
-/* Thành phần trang trí/neon vốn được thiết kế cho nền tối,
-   giảm bớt độ chói trên nền sáng để không bị chói mắt/loè. */
 html.light body {
   background-color: var(--color-background);
 }

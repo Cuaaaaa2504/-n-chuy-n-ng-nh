@@ -1,14 +1,3 @@
-// src/api/refundApi.ts
-// FIX [mục 5.1 + 5.2 của báo cáo] — file này TRƯỚC ĐÂY KHÔNG TỒN TẠI.
-// `MyBookingsPage.handleCancel()` chỉ gọi `cancelBooking()` rồi reload danh
-// sách. Với đơn CHƯA thanh toán thì đúng — không có tiền nào để trả lại. Nhưng
-// hệ thống không hề có đường nào để yêu cầu hoàn tiền cho đơn ĐÃ thanh toán:
-// user mất tiền, và bảng `refunds` vĩnh viễn rỗng.
-// ⚠️ Body của POST /refunds đã đổi so với code backend cũ. Trước đây controller
-// nhận `Partial<Refund>` nên client phải (và CÓ THỂ) tự gửi paymentId +
-// refundAmount + refundStatus — đó chính là lỗ hổng cho phép tự duyệt hoàn tiền
-// cho đơn của người khác. Nay backend chỉ nhận { bookingId, reason? } và tự tra
-// số tiền từ bảng `payments`.
 
 import axiosClient from './axiosClient';
 
@@ -25,7 +14,6 @@ export interface Refund {
   completedAt: string | null;
 }
 
-/** Nhãn tiếng Việt dùng chung cho mọi nơi hiển thị trạng thái hoàn tiền. */
 export const REFUND_STATUS_LABEL: Record<RefundStatus, string> = {
   PENDING: '⏳ Đang chờ duyệt hoàn tiền',
   SUCCESS: '💸 Đã hoàn tiền',
@@ -56,7 +44,6 @@ function normalize(item: Record<string, unknown>): Refund {
   };
 }
 
-/** POST /refunds — tạo yêu cầu hoàn tiền cho một đơn của chính mình. */
 export async function requestRefund(
   bookingId: string,
   reason?: string,
@@ -73,11 +60,6 @@ export async function requestRefund(
   }
 }
 
-/*
- * GET /refunds/booking/:bookingId — trạng thái hoàn tiền của một đơn.
- * Trả về [] thay vì ném lỗi khi không tra được: đây là thông tin PHỤ hiển thị
- * kèm thẻ đơn hàng, không đáng để làm hỏng cả trang "Vé của tôi" nếu API lỗi.
- */
 export async function getRefundsByBooking(bookingId: string): Promise<Refund[]> {
   if (!bookingId) return [];
   try {

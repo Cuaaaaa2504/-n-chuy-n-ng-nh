@@ -13,7 +13,6 @@ import {
   writeFavoriteGenres,
 } from '../utils/moviePreferences';
 
-// Mở rộng User local để có avatarUrl
 type User = AuthUser & { avatarUrl?: string; userId?: number };
 
 type Tab = 'info' | 'privacy';
@@ -75,9 +74,6 @@ export default function ProfilePage() {
     [favoriteIds, movies],
   );
 
-  // Sync form fields khi user thay đổi (ví dụ sau login/logout).
-  // Dùng startTransition để đánh dấu đây là update ưu tiên thấp,
-  // tránh cascading renders và không vi phạm react-hooks/set-state-in-effect.
   useEffect(() => {
     startTransition(() => {
       setFullName(typedUser?.fullName ?? '');
@@ -173,8 +169,6 @@ export default function ProfilePage() {
         fullName: fullName.trim(),
       };
 
-      // Số điện thoại chỉ được liên kết một lần. Sau khi đã có số,
-      // frontend không gửi lại field này và backend cũng chặn thay đổi.
       if (!phoneLocked && phone.trim()) {
         payload.phone = phone.trim();
       }

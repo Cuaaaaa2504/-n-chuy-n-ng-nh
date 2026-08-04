@@ -1,11 +1,9 @@
-// src/pages/admin/AdminMoviesPage.tsx
 import React, { useState } from 'react';
 import { useMovies } from '../../hooks/useMovies';
 import type { Genre, Movie } from '../../types/movie';
 import { AGE_RATINGS, AGE_RATING_LABEL } from '../../types/movie';
 import { MOVIE_STATUS_LABEL, MOVIE_STATUS_COLOR } from '../../utils/constants';
 
-// ── Simple inline form modal ──────────────────────────────────────────────
 interface MovieFormProps {
   movie: Movie | null;
   genres: Genre[];
@@ -18,7 +16,6 @@ const EMPTY_FORM: Omit<Movie, 'movie_id'> = {
   poster_url: '', status: 'NOW_SHOWING', genres: [], genre_ids: [],
 };
 
-// ── Validate helpers ──────────────────────────────────────────────────────
 function isValidUrl(value: string): boolean {
   if (!value) return true; // optional fields
   try {
@@ -73,12 +70,9 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
 
   const set = (key: keyof typeof form, val: unknown) => {
     setForm(prev => ({ ...prev, [key]: val }));
-    // clear error khi user sửa field
     setErrors(prev => ({ ...prev, [key]: undefined }));
   };
 
-  // Dùng functional update thay vì đọc `form.genre_ids` từ closure của lần
-  // render hiện tại — bấm nhanh nhiều chip liên tiếp sẽ không làm mất lựa chọn.
   const toggleGenre = (id: number) => {
     setForm(prev => {
       const current = prev.genre_ids ?? [];
@@ -108,7 +102,6 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <h3 className="text-xl font-bold mb-5">{movie ? 'Chỉnh sửa phim' : 'Thêm phim mới'}</h3>
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          {/* Tên phim */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">Tên phim *</label>
             <input
@@ -119,7 +112,6 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
             {errors.title && <p className="text-red-400 text-xs mt-1">{errors.title}</p>}
           </div>
 
-          {/* Thời lượng + Age rating */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-gray-400 mb-1">Thời lượng (phút) *</label>
@@ -137,8 +129,6 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
                 onChange={e => set('age_rating', e.target.value)}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
               >
-                {/* C13/C16/C18 vi phạm CHECK constraint CK_movies_age_rating
-                    ('P','K','T13','T16','T18','C') -> DB từ chối INSERT/UPDATE */}
                 {AGE_RATINGS.map(r => (
                   <option key={r} value={r}>{AGE_RATING_LABEL[r] ?? r}</option>
                 ))}
@@ -146,7 +136,6 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
             </div>
           </div>
 
-          {/* URL Poster */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">URL Poster</label>
             <input
@@ -172,8 +161,6 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
             </select>
           </div>
 
-          {/* Thể loại — FIX: backend nhận genreIds (number[]), không nhận tên.
-              Nhập text tự do luôn dẫn tới 'Một hoặc nhiều thể loại không tồn tại'. */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">Thể loại</label>
             {allGenres.length === 0 ? (
@@ -203,7 +190,6 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
             )}
           </div>
 
-          {/* Mô tả */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">Mô tả</label>
             <textarea
@@ -214,7 +200,6 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
             />
           </div>
 
-          {/* URL Trailer */}
           <div>
             <label className="block text-sm text-gray-400 mb-1">URL Trailer</label>
             <input
@@ -226,13 +211,7 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
             {errors.trailer_url && <p className="text-red-400 text-xs mt-1">{errors.trailer_url}</p>}
           </div>
 
-          {/* Đã bỏ checkbox "Phim nổi bật".
-              Cột `featured` KHÔNG tồn tại trong bảng `movies` lẫn CreateMovieDto.
-              Vì backend bật forbidNonWhitelisted, chỉ cần gửi kèm field này là cả
-              request bị trả 400 — mà kể cả có gửi được thì giá trị cũng không
-              lưu được ở đâu. Muốn có tính năng này cần thêm cột ở DB trước. */}
 
-          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button
               type="submit" disabled={submitting}
@@ -253,7 +232,6 @@ function MovieForm({ movie, genres: allGenres, onSubmit, onClose }: MovieFormPro
   );
 }
 
-// ── Confirm Delete Modal ──────────────────────────────────────────────────
 function ConfirmDeleteModal({
   movie, onConfirm, onClose
 }: { movie: Movie; onConfirm: () => void; onClose: () => void }) {
@@ -276,13 +254,7 @@ function ConfirmDeleteModal({
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────
 const AdminMoviesPage: React.FC = () => {
-  // `useMovies()` gọi không tham số -> `withGenres` mặc định là false ->
-  // `fetchGenres()` không bao giờ chạy -> state `genres` luôn là [] -> MovieForm
-  // rơi vào nhánh cảnh báo vàng và không render chip thể loại, khiến admin
-  // không gán được thể loại cho phim (payload `genreIds` luôn rỗng).
-  // Trang admin là nơi DUY NHẤT cần danh sách thể loại nên bật cờ tại đây.
   const { movies, genres, loading, error, setError, addMovie, editMovie, removeMovie } =
     useMovies({ withGenres: true });
   const [search, setSearch]             = useState('');
@@ -328,10 +300,6 @@ const filtered = movies.filter(m => {
 
   return (
     <div>
-      {/* Trước đây `if (error) return <div>...` thay thế TOÀN BỘ trang.
-          Khi thêm/sửa phim thất bại, modal bị unmount kèm luôn dữ liệu vừa nhập
-          và admin chỉ thấy một dòng chữ đỏ giữa màn hình trắng. Nay lỗi hiện
-          dạng banner, form vẫn còn nguyên để sửa lại và gửi tiếp. */}
       {error && (
         <div className="bg-red-900/30 border border-red-700 text-red-300 rounded-xl px-4 py-3 mb-4 text-sm flex items-start justify-between gap-3">
           <span>{error}</span>
@@ -437,7 +405,6 @@ const filtered = movies.filter(m => {
         </div>
       )}
 
-      {/* Modals */}
       {formOpen && (
         <MovieForm
           movie={editTarget}

@@ -46,7 +46,6 @@ export class CinemaService {
   ) {
     const existing = await this.findCinemaById(id);
 
-    // FIX [mục 8.1]: cùng một race condition như form sửa suất chiếu.
     const { expectedUpdatedAt, ...patch } = data;
     assertNotStale(existing.updatedAt, expectedUpdatedAt, 'Rạp này');
 
@@ -60,10 +59,7 @@ export class CinemaService {
     return { message: `Cinema #${id} đã bị vô hiệu hóa` };
   }
 
-  // ── Rooms (phòng chiếu) ──────────────────────────────────────────────────
-  // Trước đây chỉ có GET /cinemas/:id/rooms, thiếu hoàn toàn CRUD phòng chiếu.
 
-  /** Admin xem toàn bộ phòng của rạp (kể cả phòng INACTIVE) */
   async adminFindRoomsByCinema(cinemaId: number) {
     await this.findCinemaById(cinemaId);
     return this.roomRepo.find({
@@ -95,13 +91,11 @@ export class CinemaService {
 
   async updateRoom(cinemaId: number, roomId: number, data: Partial<Room>) {
     await this.findRoomById(cinemaId, roomId);
-    // Không cho phép đổi phòng sang rạp khác qua endpoint này
     const { cinemaId: _ignored, roomId: _ignored2, ...patch } = data as any;
     await this.roomRepo.update({ roomId }, patch);
     return this.findRoomById(cinemaId, roomId);
   }
 
-  /** Soft delete: phòng còn ràng buộc FK với showtimes/seats nên không xoá cứng */
   async deleteRoom(cinemaId: number, roomId: number) {
     await this.findRoomById(cinemaId, roomId);
     await this.roomRepo.update({ roomId }, { status: 'INACTIVE' });

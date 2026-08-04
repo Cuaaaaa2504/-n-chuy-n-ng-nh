@@ -25,7 +25,6 @@ export class ProductController {
     return this.productService.findAll();
   }
 
-  /** Admin: xem cả sản phẩm đã ẩn (status = INACTIVE) */
   @Get('admin/all')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -55,7 +54,6 @@ export class ProductController {
     return this.productService.update(id, body);
   }
 
-  // Báo cáo yêu cầu PATCH /products/:id — trước đây chỉ có PUT
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')

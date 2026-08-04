@@ -15,16 +15,6 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
-/*
- * THỨ TỰ KHAI BÁO ROUTE RẤT QUAN TRỌNG.
- * NestJS match route theo đúng thứ tự method được khai báo trong class.
- * Nếu `@Get(':showtimeId')` đứng trước, thì `GET /showtime-seats/my-holds/list`
- * sẽ bị match thành `:showtimeId = 'my-holds'` và ParseIntPipe ném
- * 400 "my-holds is not a number".
- * QUY TẮC: mọi route LITERAL (my-holds/list, hold-details/:holdId, hold, hold-many,
- * release/:holdId, expire-holds) phải đặt TRƯỚC route động `:showtimeId`.
- * Khi thêm endpoint mới, luôn chèn phía trên getSeatMap().
- */
 @Controller('showtime-seats')
 export class ShowtimeSeatsController {
   constructor(private readonly showtimeSeatsService: ShowtimeSeatsService) {}
@@ -34,7 +24,6 @@ export class ShowtimeSeatsController {
     return this.showtimeSeatsService.getHello();
   }
 
-  // ─────────── ROUTE LITERAL (phải nằm trên :showtimeId) ───────────
 
   @UseGuards(JwtAuthGuard)
   @Get('my-holds/list')
@@ -66,11 +55,6 @@ export class ShowtimeSeatsController {
     return this.showtimeSeatsService.releaseHold(req.user.userId, holdId);
   }
 
-  /*
-   * Endpoint này chạy `EXEC sp_release_expired_holds` trên DB.
-   * Nay chỉ ADMIN gọi được (thủ công/vận hành). Việc dọn định kỳ tự động vẫn do
-   * SeatHoldSchedulerService gọi thẳng service, không đi qua HTTP nên không bị chặn.
-   */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Post('expire-holds')
@@ -78,17 +62,8 @@ export class ShowtimeSeatsController {
     return this.showtimeSeatsService.expireSeatHolds();
   }
 
-  // ─────────── ROUTE ĐỘNG (luôn ở CUỐI CÙNG) ───────────
+  // ROUTE ĐỘNG (luôn ở CUỐI CÙNG)
 
-  /*
-   * Bổ sung JwtAuthGuard.
-   * trạng thái từng ghế, giá vé và thông tin phòng chiếu. Luồng đặt vé phía
-   * frontend vốn đã nằm sau PrivateRoute nên việc yêu cầu đăng nhập không làm
-   * mất chức năng nào.
-   * Nếu sau này cần cho phép xem sơ đồ ghế trước khi đăng nhập (preview), hãy
-   * bỏ guard ở ĐÂY và thay bằng một endpoint public riêng chỉ trả về số ghế
-   * trống — không kèm heldByUserId.
-   */
   @UseGuards(JwtAuthGuard)
   @Get(':showtimeId')
   getSeatMap(@Param('showtimeId', ParseIntPipe) showtimeId: number) {

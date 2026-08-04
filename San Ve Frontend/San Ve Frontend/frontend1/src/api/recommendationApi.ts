@@ -33,12 +33,6 @@ function readSource(payload: unknown): RecommendationSource {
   return value === 'MODEL' ? 'MODEL' : 'FALLBACK';
 }
 
-/*
- * Đọc khối `debug` do backend trả kèm.
- * Có giá trị mặc định cho mọi trường vì frontend phải chạy được với backend
- * bản cũ (chưa có khối debug). Thiếu thông tin thì badge hiện UNKNOWN, không
- * phải là màn hình trắng.
- */
 function readDebug(payload: unknown): RecommendationDebug {
   const raw = (payload as Record<string, unknown> | null)?.debug as
     | Record<string, unknown>
@@ -87,8 +81,6 @@ export async function getRecommendations(
       debug: readDebug(payload),
     };
 
-    // Log một dòng duy nhất, chỉ ở chế độ dev. Trước đây không có
-    // cách nào biết danh sách đang tới từ đâu ngoài việc đọc log backend.
     if (import.meta.env.DEV) {
       console.info(
         `[recommendations] ${result.debug.upstreamSource} — ${items.length} phim` +

@@ -1,4 +1,3 @@
-// src/utils/auth.ts
 export type UserRole = "ADMIN" | "USER";
 
 export type CurrentUser = {

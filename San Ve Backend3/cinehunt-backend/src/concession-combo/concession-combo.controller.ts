@@ -17,8 +17,6 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('concession-combos')
-// Bỏ prefix 'api/' — app không có global prefix nên route cũ là
-// /api/concession-combos trong khi mọi module khác dùng /concession-combos.
 @Controller('concession-combos')
 export class ConcessionComboController {
   constructor(private readonly service: ConcessionComboService) {}
