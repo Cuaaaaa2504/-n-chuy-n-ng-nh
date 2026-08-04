@@ -71,7 +71,7 @@ export class CinemaController {
   }
 
   // ── Rooms (phòng chiếu) ──────────────────────────────────────────────────
-  // FIX: 3 endpoint dưới đây trước đây KHÔNG tồn tại.
+  // 3 endpoint dưới đây trước đây KHÔNG tồn tại.
 
   @Post(':id/rooms')
   @UseGuards(JwtAuthGuard, RolesGuard)

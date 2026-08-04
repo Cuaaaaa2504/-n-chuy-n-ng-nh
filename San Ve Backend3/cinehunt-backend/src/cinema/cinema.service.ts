@@ -61,7 +61,7 @@ export class CinemaService {
   }
 
   // ── Rooms (phòng chiếu) ──────────────────────────────────────────────────
-  // FIX: trước đây chỉ có GET /cinemas/:id/rooms, thiếu hoàn toàn CRUD phòng chiếu.
+  // Trước đây chỉ có GET /cinemas/:id/rooms, thiếu hoàn toàn CRUD phòng chiếu.
 
   /** Admin xem toàn bộ phòng của rạp (kể cả phòng INACTIVE) */
   async adminFindRoomsByCinema(cinemaId: number) {

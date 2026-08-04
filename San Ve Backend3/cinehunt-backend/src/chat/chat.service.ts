@@ -1,6 +1,5 @@
-/**
+/*
  * ChatService — cầu nối giữa CineHunt và Gemini.
- *
  * Ngoài các công cụ đọc dữ liệu, service này cho phép người dùng đã đăng nhập
  * giữ ghế, tạo booking và khởi tạo payment. Mọi thao tác ghi vẫn đi qua service
  * nghiệp vụ hiện có, không cho model chạm trực tiếp vào repository hay SQL.
@@ -439,7 +438,7 @@ export class ChatService implements OnModuleInit {
     return assistantAskedForConfirmation && userConfirmed;
   }
 
-  /**
+  /*
    * Đọc showtimeId và mã ghế từ bản tóm tắt ngay trước tin nhắn xác nhận.
    * Nhờ đó câu "Xác nhận" không cần gọi Gemini thêm lần nữa, tránh 429 xảy ra
    * trước khi model kịp gọi hold_seats.
@@ -622,7 +621,7 @@ export class ChatService implements OnModuleInit {
       : 'chưa xác định';
   }
 
-  /**
+  /*
    * Với tool ghi, backend có thể tự trả câu kết luận thay vì gọi Gemini thêm
    * một vòng chỉ để diễn đạt lại kết quả. Cách này giảm RPM và tránh trường hợp
    * thao tác đã chạy xong nhưng lượt gọi AI kế tiếp lại dính 429.
@@ -765,7 +764,7 @@ export class ChatService implements OnModuleInit {
       );
     }
 
-    // PATCH CHAT V3: dùng Groq trực tiếp khi thiếu Gemini key.
+    // Dùng Groq trực tiếp khi thiếu Gemini key.
 
     if (!this.apiKey && this.groqApiKey) {
 
@@ -950,7 +949,7 @@ export class ChatService implements OnModuleInit {
     let contents: GeminiContent[];
 
     try {
-      // PATCH CHAT V3: stream qua Groq khi thiếu Gemini key.
+      // Stream qua Groq khi thiếu Gemini key.
       if (!this.apiKey && this.groqApiKey) {
         try {
           const fallbackReply = await this.replyWithGroq(messages, userId);

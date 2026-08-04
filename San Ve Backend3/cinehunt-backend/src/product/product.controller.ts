@@ -55,7 +55,7 @@ export class ProductController {
     return this.productService.update(id, body);
   }
 
-  // FIX: báo cáo yêu cầu PATCH /products/:id — trước đây chỉ có PUT
+  // Báo cáo yêu cầu PATCH /products/:id — trước đây chỉ có PUT
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')

@@ -1,14 +1,12 @@
 import { Transform } from 'class-transformer';
 import { IsIn, IsOptional, IsString, Matches } from 'class-validator';
 
-/**
+/*
  * FIX [bookingId must be a UUID]
- *
  * Nguyên nhân gốc: DTO này validate `@IsUUID()`, nhưng cột khoá chính của bảng
  * `booking_orders` là `booking_id BIGINT IDENTITY` (xem BookingOrder entity) —
  * hệ thống KHÔNG hề dùng UUID ở bất kỳ đâu. Vì vậy mọi request thanh toán hợp lệ
  * đều bị ValidationPipe chặn với message "bookingId must be a UUID".
- *
  * Ngoài ra frontend có lúc gửi `bookingCode` (dạng BK-<timestamp>-<suffix>) thay
  * cho `bookingId`. Ta chấp nhận cả hai dạng ở tầng DTO và để BookingService phân
  * giải về booking thật (xem BookingService.buildBookingRef).

@@ -48,7 +48,7 @@ export class VoucherController {
     return this.voucherService.create(dto);
   }
 
-  // FIX: thiếu endpoint sửa voucher — AdminVouchersPage cần PATCH /vouchers/:id
+  // Thiếu endpoint sửa voucher — AdminVouchersPage cần PATCH /vouchers/:id
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -64,7 +64,7 @@ export class VoucherController {
   // gì ngoài việc tạo ra hai đường vào cho cùng một hành động. Frontend
   // (adminApi.voucherApi.update) chỉ dùng PATCH.
 
-  // FIX: thiếu endpoint bật/tắt trạng thái active
+  // Thiếu endpoint bật/tắt trạng thái active
   @Patch(':id/toggle')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -77,12 +77,11 @@ export class VoucherController {
   // `voucherService.deactivate()` thì nó chỉ set `status = 'INACTIVE'` — CHÍNH
   // XÁC cùng một cột, cùng một giá trị mà `/toggle` đang set. Không hề có
   // trạng thái thứ ba nào trong DB (voucher.status chỉ có ACTIVE/INACTIVE).
-  //
   // Nói cách khác đây là hai tên gọi cho một hành động, không phải hai vòng đời
   // khác nhau. Giữ lại chỉ khiến admin tưởng /deactivate là "khoá vĩnh viễn"
   // trong khi thực tế vẫn bật lại được bằng /toggle. Đã gộp về /toggle.
 
-  // FIX: thiếu endpoint xoá voucher
+  // Thiếu endpoint xoá voucher
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')

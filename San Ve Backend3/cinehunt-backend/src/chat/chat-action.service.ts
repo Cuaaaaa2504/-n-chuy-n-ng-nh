@@ -171,7 +171,7 @@ export class ChatActionService {
     private readonly paymentService: PaymentService,
   ) {}
 
-  /**
+  /*
    * Nhận showtimeId + mã ghế thay vì để model đoán showtimeSeatId.
    * Mã ghế như D3 lặp lại ở mọi suất chiếu; nếu truy vấn chỉ theo label thì rất
    * dễ lấy nhầm ID của suất khác và BookingService phải chặn ở bước cuối.
@@ -335,13 +335,11 @@ export class ChatActionService {
     };
   }
 
-  /**
+  /*
    * Giữ ghế và tạo booking trong cùng một lượt backend.
-   *
    * Trước đây chatbot giữ ghế xong phải gọi Gemini thêm một vòng để model
    * gọi create_booking. Nếu vòng AI đó timeout/429, ghế bị HELD nhưng không có
    * booking PENDING_PAYMENT, nên mục "Vé đang giữ" trống.
-   *
    * Nay không còn khoảng hở đó: hold thành công thì tạo booking ngay; nếu tạo
    * booking lỗi, createBooking() bên dưới tự giải phóng toàn bộ hold vừa tạo.
    */

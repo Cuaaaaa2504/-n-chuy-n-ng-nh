@@ -8,7 +8,7 @@ import {
 import { Showtime } from './showtime.entity';
 import { Seat } from './seat.entity';
 
-/** FIX: khớp 1-1 với SQL CHECK `CK_showtime_seats_status`. */
+/*Khớp 1-1 với SQL CHECK `CK_showtime_seats_status`. */
 export const SHOWTIME_SEAT_STATUS = ['AVAILABLE', 'HELD', 'SOLD', 'BLOCKED'] as const;
 export type ShowtimeSeatStatus = (typeof SHOWTIME_SEAT_STATUS)[number];
 

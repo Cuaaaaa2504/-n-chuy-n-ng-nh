@@ -19,8 +19,8 @@ export class AdminService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
 
-  /**
-   * FIX: GET /admin/stats trước đây chưa được implement — AdminDashboardPage
+  /*
+   * GET /admin/stats trước đây chưa được implement — AdminDashboardPage
    * phải fallback sang mock data nên số liệu không phản ánh thực tế.
    */
   async getStats() {
@@ -62,8 +62,8 @@ export class AdminService {
     }
   }
 
-  /**
-   * FIX: GET /admin/reports/revenue — báo cáo doanh thu theo ngày/tháng/phim/rạp.
+  /*
+   * GET /admin/reports/revenue — báo cáo doanh thu theo ngày/tháng/phim/rạp.
    */
   async getRevenueReport(query: RevenueQueryDto) {
     const groupBy = query.groupBy ?? 'day';

@@ -1,8 +1,8 @@
 import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
-/**
- * FIX: tính năng đổi email trước đây chưa được implement ở backend.
+/*
+ * Tính năng đổi email trước đây chưa được implement ở backend.
  * Frontend gọi PATCH /users/me/email với { newEmail, currentPassword } -> 404.
  */
 export class ChangeEmailDto {

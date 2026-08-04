@@ -106,7 +106,7 @@ export class VoucherService {
     });
     if (existing) throw new BadRequestException('Mã voucher đã tồn tại');
 
-    // FIX: trước đây `...dto` giữ lại field `code` (không phải cột DB) và
+    // Trước đây `...dto` giữ lại field `code` (không phải cột DB) và
     // thiếu promotion_name (NOT NULL) -> INSERT luôn fail.
     const { code: _ignored, promotionName, ...rest } = dto;
     const data: any = {
@@ -139,7 +139,7 @@ export class VoucherService {
     return this.update(id, { status: 'INACTIVE' } as any);
   }
 
-  /** FIX: bật/tắt trạng thái active của voucher (PATCH /vouchers/:id/toggle) */
+  /*Bật/tắt trạng thái active của voucher (PATCH /vouchers/:id/toggle) */
   async toggleStatus(id: number): Promise<Voucher> {
     const voucher = await this.findOne(id);
     const next = voucher.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';

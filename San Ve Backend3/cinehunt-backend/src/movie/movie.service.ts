@@ -76,23 +76,20 @@ export class MovieService {
     return movie;
   }
 
-  /* ==========================================================================
+  /*
    * PHẦN THÊM MỚI CHO TÍNH NĂNG GỢI Ý
-   * ========================================================================*/
+   */
 
-  /**
+  /*
    * FIX #4 — `findByIds()` như bản thiết kế mô tả sẽ LÀM HỎNG THỨ HẠNG GỢI Ý.
-   *
    * Cách viết hiển nhiên là:
    *     return this.movieRepo.find({ where: { movieId: In(movieIds) } });
-   *
    * Nhưng `WHERE movie_id IN (...)` KHÔNG đảm bảo thứ tự trả về. SQL Server
    * trả theo thứ tự nó thấy tiện (thường là thứ tự clustered index, tức là
    * movie_id tăng dần). Model xếp hạng phim theo điểm dự đoán — phim hạng 1
    * là phim khớp sở thích nhất. Nếu để nguyên, user luôn thấy danh sách gợi ý
    * sắp theo movie_id, tức là toàn bộ công sức của model bị vứt đi mà giao
    * diện vẫn trông "chạy được". Đây là lỗi không ai phát hiện ra khi test tay.
-   *
    * Hàm này sắp lại theo đúng thứ tự `movieIds` đầu vào, đồng thời:
    * - Lọc phim ENDED/HIDDEN (model train trên dữ liệu cũ vẫn có thể gợi ý phim
    *   admin đã gỡ khỏi hệ thống).
@@ -119,17 +116,14 @@ export class MovieService {
       .filter((movie): movie is Movie => movie !== undefined);
   }
 
-  /**
+  /*
    * FIX #6 — Fallback cold start. Bản thiết kế ghi:
    *     "trả về top phim theo lượt booking nhiều nhất (ORDER BY booking_count DESC)"
-   *
    * Không có cột `booking_count` nào cả. Kiểm tra
    * `CineHunt_Database_V6_3_With_Sample_Data.sql`: bảng `movies` không có cột
    * này, và bảng `booking_orders` KHÔNG có `movie_id`. Booking gắn với
    * `showtime_id`, phải đi qua bảng `showtimes` mới ra được phim:
-   *
    *     booking_orders.showtime_id -> showtimes.showtime_id -> showtimes.movie_id
-   *
    * Ngoài ra chỉ đếm booking `PAID`/`ISSUED`. Đếm cả `PENDING_PAYMENT` thì một
    * người bấm đặt vé 50 lần rồi bỏ ngang cũng đủ đẩy phim lên top.
    */
@@ -169,7 +163,6 @@ export class MovieService {
     return ids;
   }
 
-  /* ========================================================================*/
 
   async create(dto: CreateMovieDto) {
     const genres = await this.resolveGenres(dto.genreIds);

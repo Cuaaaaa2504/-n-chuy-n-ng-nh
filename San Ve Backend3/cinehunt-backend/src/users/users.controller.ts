@@ -50,7 +50,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // ── Profile của chính mình ─────────────────────────────────────────────
-  /**
+  /*
    * FIX [mục 2.1]: GET /users/me và GET /auth/me trước đây chạy HAI hàm khác
    * nhau (UsersService.getProfile vs AuthService.getProfile) và trả về hai
    * shape khác nhau. Nay AuthController uỷ quyền về đúng hàm dưới đây, nên hai
@@ -75,18 +75,14 @@ export class UsersController {
     return this.usersService.getMembershipStats(user.userId);
   }
 
-  /**
+  /*
    * FIX [mục 1.2 + 2.2 — 3 route cho 1 chức năng đổi mật khẩu]
-   *
-   * Trước đây tồn tại đồng thời:
    *   - POST  /auth/me/change-password   (có @Throttle(SENSITIVE_THROTTLE))
    *   - POST  /users/me/change-password  (KHÔNG có throttle)  ← frontend gọi
    *   - PATCH /users/me/password         (KHÔNG có throttle)
-   *
    * Đây chính là lỗ hổng mô tả ở mục 1.2: rate-limit chỉ được gắn vào route
    * KHÔNG ai dùng, còn 2 route thật thì để trần. Kẻ tấn công cầm access token
    * bị lộ có thể brute-force `currentPassword` không giới hạn qua 2 route kia.
-   *
    * Nay chỉ còn DUY NHẤT route này, và throttle được chuyển về đúng chỗ.
    */
   @Throttle(SENSITIVE_THROTTLE)
@@ -98,7 +94,7 @@ export class UsersController {
     return this.usersService.changePassword(user.userId, dto);
   }
 
-  /**
+  /*
    * FIX [Critical]: route này trước đây KHÔNG tồn tại.
    * ProfilePage chọn ảnh -> userApi.uploadAvatar() POST multipart -> 404.
    */
@@ -145,7 +141,7 @@ export class UsersController {
     return { avatarUrl };
   }
 
-  /**
+  /*
    * FIX [Critical]: route + service method trước đây chưa được implement.
    * Frontend userApi.changeEmail() PATCH /users/me/email -> 404.
    */
@@ -172,7 +168,7 @@ export class UsersController {
     return this.usersService.getUserById(id);
   }
 
-  /**
+  /*
    * FIX [Critical]: endpoint này trước đây KHÔNG tồn tại.
    * AdminUsersPage bấm "Cấp Admin / Hạ quyền" -> 404.
    */
@@ -201,7 +197,7 @@ export class UsersController {
     return this.usersService.setUserStatus(id, status);
   }
 
-  // FIX: frontend userApi.update gọi PUT /users/:id — trước đây chưa có
+  // Frontend userApi.update gọi PUT /users/:id — trước đây chưa có
   @Put(':id')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
@@ -212,7 +208,7 @@ export class UsersController {
     return this.usersService.adminUpdateUser(id, dto);
   }
 
-  // FIX: frontend userApi.delete gọi DELETE /users/:id — trước đây chưa có
+  // Frontend userApi.delete gọi DELETE /users/:id — trước đây chưa có
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
