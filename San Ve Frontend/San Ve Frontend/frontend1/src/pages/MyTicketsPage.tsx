@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import BookingTicketsModal from '../components/BookingTicketsModal';
+import TicketQrCode from '../components/TicketQrCode';
 import { getBookingTickets } from '../api/bookingApi';
 import { normalizeBookingCore } from '../api/bookingNormalizer';
 import type { BookingTicket } from '../types/booking';
@@ -21,6 +22,8 @@ interface TicketItem {
   status: TicketStatus;
   expiresAt?: string;
   paidAt?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
 }
 const HOLDING_STATUSES: TicketStatus[] = ['PENDING_PAYMENT'];
 const PAID_STATUSES: TicketStatus[] = ['PAID', 'ISSUED', 'CONFIRMED'];
@@ -40,10 +43,22 @@ function MiniCountdown({ expiresAt }: { expiresAt: string }) {
   return <span className="font-mono" style={{ color: seconds < 60 ? 'var(--st-danger)' : 'var(--st-gold)' }}>{mm}:{ss}</span>;
 }
 
-function TicketCard({ ticket, onViewTickets }: { ticket: TicketItem; onViewTickets: (ticket: TicketItem) => void }) {
+function TicketCard({
+  ticket,
+  onViewTickets,
+  onViewCounterCode,
+}: {
+  ticket: TicketItem;
+  onViewTickets: (ticket: TicketItem) => void;
+  onViewCounterCode: (ticket: TicketItem) => void;
+}) {
   const navigate = useNavigate();
   const isPaid = PAID_STATUSES.includes(ticket.status);
   const isHolding = HOLDING_STATUSES.includes(ticket.status);
+  const isCounterHold =
+    isHolding &&
+    ticket.paymentMethod === 'CASH' &&
+    ticket.paymentStatus === 'PENDING';
   const initials = ticket.movieTitle.split(' ').slice(0, 2).map((word) => word[0]).join('').toUpperCase();
 
   return (
@@ -56,10 +71,18 @@ function TicketCard({ ticket, onViewTickets }: { ticket: TicketItem; onViewTicke
       <div className="stitch-order-body">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <span className={`stitch-badge ${isPaid ? 'stitch-badge-cyan' : 'stitch-badge-gold'} mb-3`}>{isPaid ? 'Đã mua' : isHolding ? 'Đang giữ' : ticket.status}</span>
+            <span className={`stitch-badge ${isPaid ? 'stitch-badge-cyan' : 'stitch-badge-gold'} mb-3`}>
+              {isPaid ? 'Đã mua' : isCounterHold ? 'Chờ tại quầy' : isHolding ? 'Đang giữ' : ticket.status}
+            </span>
             <h2 className="text-xl font-extrabold line-clamp-2">{ticket.movieTitle || 'Vé xem phim'}</h2>
           </div>
-          {isHolding && ticket.expiresAt ? <MiniCountdown expiresAt={ticket.expiresAt} /> : ticket.paidAt ? <span className="text-xs stitch-muted">{new Date(ticket.paidAt).toLocaleDateString('vi-VN')}</span> : null}
+          {isHolding && !isCounterHold && ticket.expiresAt ? (
+            <MiniCountdown expiresAt={ticket.expiresAt} />
+          ) : ticket.paidAt ? (
+            <span className="text-xs stitch-muted">
+              {new Date(ticket.paidAt).toLocaleDateString('vi-VN')}
+            </span>
+          ) : null}
         </div>
         <div className="grid gap-1 text-sm stitch-muted mt-3">
           {ticket.cinemaName && <p>{ticket.cinemaName}{ticket.roomName ? ` · ${ticket.roomName}` : ''}</p>}
@@ -68,7 +91,15 @@ function TicketCard({ ticket, onViewTickets }: { ticket: TicketItem; onViewTicke
         </div>
         <div className="mt-auto pt-5 flex items-end justify-between gap-4 border-t border-white/10">
           <div><p className="text-xs stitch-muted font-mono">Mã đơn #{ticket.bookingCode}</p><strong className="text-xl" style={{ color: 'var(--st-purple)' }}>{ticket.totalAmount.toLocaleString('vi-VN')}₫</strong></div>
-          {isHolding ? (
+          {isCounterHold ? (
+            <button
+              type="button"
+              onClick={() => onViewCounterCode(ticket)}
+              className="stitch-btn stitch-btn-primary"
+            >
+              Hiện mã giữ vé
+            </button>
+          ) : isHolding ? (
             <button type="button" onClick={() => navigate(`/payment/${ticket.bookingId}`)} className="stitch-btn stitch-btn-primary">Thanh toán</button>
           ) : isPaid ? (
             <button type="button" onClick={() => onViewTickets(ticket)} className="stitch-btn stitch-btn-outline">Xem vé</button>
@@ -91,6 +122,7 @@ export default function MyTicketsPage() {
   const [ticketRows, setTicketRows] = useState<BookingTicket[]>([]);
   const [ticketLoading, setTicketLoading] = useState(false);
   const [ticketError, setTicketError] = useState('');
+  const [counterTicket, setCounterTicket] = useState<TicketItem | null>(null);
 
   const openTickets = useCallback(async (ticket: TicketItem) => {
     setSelected(ticket);
@@ -135,7 +167,7 @@ export default function MyTicketsPage() {
         : Array.isArray((response as Record<string, unknown>).data)
           ? (response as Record<string, unknown>).data as Record<string, unknown>[]
           : [];
-      setAllTickets(list.map((row) => {
+      const normalized = list.map((row) => {
         const core = normalizeBookingCore(row);
         return {
           bookingId: core.id,
@@ -150,8 +182,34 @@ export default function MyTicketsPage() {
           status: core.status as TicketStatus,
           expiresAt: core.expiresAt,
           paidAt: core.paidAt,
-        };
-      }));
+        } satisfies TicketItem;
+      });
+
+      const enriched = await Promise.all(
+        normalized.map(async (ticket) => {
+          if (!HOLDING_STATUSES.includes(ticket.status)) return ticket;
+
+          try {
+            const payment = await axiosClient.get(
+              `/payments/booking/${ticket.bookingId}`,
+            ) as unknown as Record<string, unknown>;
+
+            return {
+              ...ticket,
+              paymentMethod: String(
+                payment.paymentMethod ?? payment.payment_method ?? '',
+              ).toUpperCase(),
+              paymentStatus: String(
+                payment.paymentStatus ?? payment.payment_status ?? '',
+              ).toUpperCase(),
+            };
+          } catch {
+            return ticket;
+          }
+        }),
+      );
+
+      setAllTickets(enriched);
     } catch { setError('Không thể tải danh sách vé. Vui lòng thử lại.'); }
     finally { setLoading(false); }
   }, [activeUserId]);
@@ -160,6 +218,7 @@ export default function MyTicketsPage() {
     void Promise.resolve().then(() => {
       setAllTickets([]);
       setSelected(null);
+      setCounterTicket(null);
       setTicketRows([]);
       setTicketError('');
     });
@@ -207,10 +266,64 @@ export default function MyTicketsPage() {
         ) : !displayed.length ? (
           <div className="stitch-card p-14 text-center"><span className="material-symbols-outlined text-[58px] stitch-muted">confirmation_number</span><h2 className="text-2xl font-extrabold mt-3">Chưa có vé trong mục này</h2><p className="stitch-muted mt-2">Vé đang giữ sẽ xuất hiện ngay sau khi bạn chọn ghế và nhấn Đặt vé.</p><a href="/movies" className="stitch-btn stitch-btn-primary mt-7">Khám phá phim</a></div>
         ) : (
-          <div className="stitch-order-grid">{displayed.map((ticket) => <TicketCard key={ticket.bookingId} ticket={ticket} onViewTickets={openTickets} />)}</div>
+          <div className="stitch-order-grid">
+            {displayed.map((ticket) => (
+              <TicketCard
+                key={ticket.bookingId}
+                ticket={ticket}
+                onViewTickets={openTickets}
+                onViewCounterCode={setCounterTicket}
+              />
+            ))}
+          </div>
         )}
 
         <BookingTicketsModal open={Boolean(selected)} loading={ticketLoading} error={ticketError} tickets={ticketRows} onClose={() => setSelected(null)} onRetry={() => selected && void openTickets(selected)} />
+
+        {counterTicket && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Mã giữ vé thanh toán tại quầy"
+            onClick={() => setCounterTicket(null)}
+          >
+            <div
+              className="stitch-card w-full max-w-md p-7 text-center"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <p className="stitch-kicker mb-2">Counter payment</p>
+              <h2 className="text-2xl font-extrabold">Mã giữ vé tại quầy</h2>
+              <p className="stitch-muted mt-3 text-sm">
+                Đưa mã này cho nhân viên soát vé. Vé chỉ được phát hành khi
+                STAFF/ADMIN quét mã trong khung giờ check-in.
+              </p>
+
+              <div className="flex justify-center my-6">
+                <TicketQrCode
+                  value={counterTicket.bookingCode}
+                  size={240}
+                  alt={`Mã giữ vé ${counterTicket.bookingCode}`}
+                />
+              </div>
+
+              <p className="font-mono font-bold break-all">
+                {counterTicket.bookingCode}
+              </p>
+              <p className="text-sm stitch-muted mt-2">
+                Ghế {counterTicket.seatCodes.join(', ')}
+              </p>
+
+              <button
+                type="button"
+                className="stitch-btn stitch-btn-outline w-full mt-6"
+                onClick={() => setCounterTicket(null)}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

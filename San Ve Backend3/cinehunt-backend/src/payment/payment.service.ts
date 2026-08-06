@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, In } from 'typeorm';
 import { Payment } from '../entities/payment.entity';
 import { BookingOrder } from '../entities/booking-order.entity';
@@ -17,15 +19,31 @@ import { BookingService } from '../booking/booking.service';
 import { PaymentRepository } from './payment.repository';
 import { CreatePaymentDto, PaymentResponse } from './dto';
 
+type CounterPaymentCheckRow = {
+  booking_id: string;
+  booking_status: string;
+  payment_id: string | null;
+  payment_method: string | null;
+  payment_status: string | null;
+  can_check_in: boolean | number;
+};
+
 @Injectable()
 export class PaymentService {
   constructor(
     private readonly paymentRepository: PaymentRepository,
     private readonly bookingService: BookingService,
     private readonly dataSource: DataSource,
+    private readonly configService: ConfigService,
   ) {}
 
   async createPayment(userId: number, dto: CreatePaymentDto): Promise<PaymentResponse> {
+    if (dto.paymentMethod === 'MOCK' && !this.isDemoPaymentEnabled()) {
+      throw new ForbiddenException(
+        'Thanh toán giả lập chỉ được bật trong môi trường phát triển.',
+      );
+    }
+
     const booking = await this.bookingService.validateBookingForPayment(
       dto.bookingId,
       userId,
@@ -37,6 +55,10 @@ export class PaymentService {
       await this.paymentRepository.findPendingByBookingId(bookingId);
     if (existingPending) {
       if (existingPending.paymentMethod === dto.paymentMethod) {
+        if (dto.paymentMethod === 'CASH') {
+          await this.disableCounterPaymentExpiry(bookingId);
+        }
+
         return {
           paymentId: existingPending.paymentId,
           bookingId: existingPending.bookingId,
@@ -68,6 +90,10 @@ export class PaymentService {
       paidAt: null,
     });
 
+    if (dto.paymentMethod === 'CASH') {
+      await this.disableCounterPaymentExpiry(bookingId);
+    }
+
     return {
       paymentId: payment.paymentId,
       bookingId: payment.bookingId,
@@ -76,6 +102,113 @@ export class PaymentService {
       paymentStatus: payment.paymentStatus,
       transactionCode: payment.transactionCode,
       createdAt: payment.createdAt,
+    };
+  }
+
+  private async disableCounterPaymentExpiry(bookingId: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const details = await manager.find(BookingDetail, {
+        where: { bookingId, status: 'ACTIVE' },
+      });
+      const seatIds = details.map((detail) => detail.showtimeSeatId);
+
+      await manager.update(
+        BookingOrder,
+        { bookingId },
+        { expiresAt: null },
+      );
+
+      if (seatIds.length) {
+        await manager.update(
+          ShowtimeSeat,
+          { showtimeSeatId: In(seatIds) },
+          { holdExpiresAt: null },
+        );
+      }
+    });
+  }
+
+  async confirmPendingCashPaymentForCheckIn(bookingCode: string) {
+    const normalized = String(bookingCode ?? '').trim().toUpperCase();
+
+    if (!/^BK-[A-Z0-9]+(?:-[A-Z0-9]+)*$/.test(normalized)) {
+      throw new BadRequestException('Mã đơn tại quầy không hợp lệ');
+    }
+
+    const rows = (await this.dataSource.query(
+      `
+        SELECT TOP (1)
+          CONVERT(VARCHAR(30), bo.booking_id) AS booking_id,
+          bo.status AS booking_status,
+          CONVERT(VARCHAR(30), latest_payment.payment_id) AS payment_id,
+          latest_payment.payment_method,
+          latest_payment.payment_status,
+          CAST(
+            CASE
+              WHEN CAST(
+                SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
+                AS DATETIME2
+              ) BETWEEN DATEADD(MINUTE, -30, st.start_time)
+                AND DATEADD(MINUTE, 30, st.start_time)
+              THEN 1 ELSE 0
+            END
+            AS BIT
+          ) AS can_check_in
+        FROM dbo.booking_orders AS bo
+        INNER JOIN dbo.showtimes AS st
+          ON st.showtime_id = bo.showtime_id
+        OUTER APPLY (
+          SELECT TOP (1)
+            p.payment_id,
+            p.payment_method,
+            p.payment_status
+          FROM dbo.payments AS p
+          WHERE p.booking_id = bo.booking_id
+          ORDER BY p.created_at DESC, p.payment_id DESC
+        ) AS latest_payment
+        WHERE bo.booking_code = @0;
+      `,
+      [normalized],
+    )) as CounterPaymentCheckRow[];
+
+    const row = rows[0];
+
+    if (!row) {
+      throw new NotFoundException(`Đơn ${normalized} không tồn tại`);
+    }
+
+    if (row.booking_status !== 'PENDING_PAYMENT') {
+      return {
+        confirmed: false,
+        bookingId: row.booking_id,
+        bookingStatus: row.booking_status,
+      };
+    }
+
+    if (!Boolean(row.can_check_in)) {
+      throw new BadRequestException(
+        'Đơn tại quầy chỉ được xác nhận trong khoảng 30 phút trước hoặc sau giờ chiếu',
+      );
+    }
+
+    if (
+      row.payment_method !== 'CASH' ||
+      row.payment_status !== 'PENDING' ||
+      !row.payment_id
+    ) {
+      throw new BadRequestException(
+        'Đơn này chưa được chọn thanh toán tiền mặt tại quầy',
+      );
+    }
+
+    // Hỗ trợ cả các payment CASH được tạo trước khi bản sửa này được áp dụng.
+    await this.disableCounterPaymentExpiry(row.booking_id);
+    await this.processPaymentSuccess(row.payment_id);
+
+    return {
+      confirmed: true,
+      bookingId: row.booking_id,
+      paymentId: row.payment_id,
     };
   }
 
@@ -271,5 +404,12 @@ export class PaymentService {
       paidAt: payment.paidAt,
       createdAt: payment.createdAt,
     };
+  }
+
+  private isDemoPaymentEnabled(): boolean {
+    return (
+      this.configService.get<string>('NODE_ENV') !== 'production' &&
+      this.configService.get<string>('ALLOW_DEMO_PAYMENT') === 'true'
+    );
   }
 }

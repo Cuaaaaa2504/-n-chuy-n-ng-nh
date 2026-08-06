@@ -64,7 +64,6 @@ export default function AppRouter() {
             <Route path="/movies/:id/seats" element={<SeatBookingPage />} />
             <Route path="/booking/:id" element={<SeatBookingPage />} />
             <Route path="/combo" element={<ComboPage />} />
-            <Route path="/payment/local" element={<PaymentPage />} />
             <Route path="/payment/:orderId" element={<PaymentPage />} />
             <Route path="/my-tickets" element={<MyTicketsPage />} />
             <Route path="/tickets" element={<MyTicketsPage />} />

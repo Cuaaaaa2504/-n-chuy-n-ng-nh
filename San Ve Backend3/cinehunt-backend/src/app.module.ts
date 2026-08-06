@@ -36,9 +36,40 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
 }
 
+function validateEnvironment(
+  config: Record<string, unknown>,
+): Record<string, unknown> {
+  const required = [
+    'DB_HOST',
+    'DB_USERNAME',
+    'DB_PASSWORD',
+    'DB_DATABASE',
+    'JWT_SECRET',
+    'JWT_REFRESH_SECRET',
+  ];
+  const missing = required.filter(
+    (key) => !String(config[key] ?? '').trim(),
+  );
+
+  if (missing.length > 0) {
+    throw new Error(`Thiếu biến môi trường: ${missing.join(', ')}`);
+  }
+
+  const isProduction =
+    String(config.NODE_ENV ?? '').trim().toLowerCase() === 'production';
+  if (isProduction && parseBoolean(String(config.ALLOW_DEMO_PAYMENT ?? ''), false)) {
+    throw new Error('ALLOW_DEMO_PAYMENT phải là false trong production.');
+  }
+
+  return config;
+}
+
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnvironment,
+    }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],

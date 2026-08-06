@@ -4,6 +4,14 @@ import { API_BASE_URL } from '../config/env';
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
+const parsedApiTimeout = Number(
+  import.meta.env.VITE_API_TIMEOUT_MS ?? 30000,
+);
+const API_TIMEOUT_MS =
+  Number.isFinite(parsedApiTimeout) && parsedApiTimeout >= 5000
+    ? parsedApiTimeout
+    : 30000;
+
 let refreshPromise: Promise<string | null> | null = null;
 
 function getStoredAccessToken(): string | null {
@@ -89,7 +97,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: API_TIMEOUT_MS,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -105,9 +113,21 @@ axiosClient.interceptors.response.use(
   async (error: AxiosError<{ message?: string }>) => {
     const status = error.response?.status;
     const originalRequest = error.config as RetryableRequestConfig | undefined;
-    const message: string =
-      error.response?.data?.message || error.message || 'Có lỗi xảy ra';
-    console.error('[API ERROR]', { status, message, url: originalRequest?.url });
+    const timedOut =
+      error.code === 'ECONNABORTED' ||
+      /timeout/i.test(error.message ?? '');
+    const message: string = timedOut
+      ? 'Máy chủ phản hồi quá chậm. Hãy kiểm tra backend và SQL Server rồi thử lại.'
+      : error.response?.data?.message ||
+        error.message ||
+        'Có lỗi xảy ra';
+
+    console.error('[API ERROR]', {
+      status,
+      code: error.code,
+      message,
+      url: originalRequest?.url,
+    });
 
     if (status === 401 && originalRequest && !originalRequest._retry) {
       try {
@@ -131,6 +151,7 @@ axiosClient.interceptors.response.use(
           return axiosClient(originalRequest);
         }
       } catch {
+        // Refresh thất bại; phiên đăng nhập được xóa ở bước tiếp theo.
       }
       clearStoredAuth();
       window.dispatchEvent(new Event('auth-changed'));
@@ -138,7 +159,13 @@ axiosClient.interceptors.response.use(
         window.location.href = '/login?expired=1';
       }
     }
-    return Promise.reject({ status, message, raw: error });
+
+    return Promise.reject({
+      status,
+      code: error.code,
+      message,
+      raw: error,
+    });
   }
 );
 

@@ -29,6 +29,7 @@ const authApi = {
     try {
       await axiosClient.post('/auth/logout');
     } catch {
+      // Logout vẫn hoàn tất cục bộ khi API không phản hồi.
     }
   },
 

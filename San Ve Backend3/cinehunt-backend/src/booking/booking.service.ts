@@ -472,6 +472,11 @@ export class BookingService {
         showtime: { movie: true, room: { cinema: true } as any } as any,
         bookingCombos: { combo: true } as any,
       } as any,
+      /*
+       * Tách relation thành các truy vấn nhỏ, tránh JOIN booking_details ×
+       * booking_combos tạo dữ liệu nhân chéo và làm trang thanh toán chậm.
+       */
+      relationLoadStrategy: 'query',
     });
 
     if (!booking) {

@@ -308,7 +308,7 @@ export default function SeatBookingPage() {
     };
   }, [loading, refreshSeatStatuses, searchParams, usingMock]);
 
-  // Seat toggle
+  // Chọn hoặc bỏ chọn ghế.
   const handleSeatToggle = (seatId: string) => {
     if (holdExpired) {
       setHoldExpired(false);
@@ -371,6 +371,14 @@ export default function SeatBookingPage() {
 
   const handleProceed = async () => {
     if (selectedIds.size === 0) return;
+
+    if (usingMock) {
+      setNavError(
+        'Dữ liệu ghế mẫu chỉ dùng để xem giao diện. Hãy chọn một suất chiếu có sơ đồ ghế thật.',
+      );
+      return;
+    }
+
     if (
       holding ||
       navigating ||
@@ -450,27 +458,36 @@ export default function SeatBookingPage() {
         holdIds = newHoldIds;
       }
 
-      const idempotencyKey = (
-        `seat-${showtimeId}-${holdIds.join('.')}`
-      ).slice(0, 100);
+      const selectedSeatObjects = seats.filter((seat) =>
+        selectedIds.has(String(seat.id)),
+      );
 
-      const booking = await seatService.bookSeats(holdIds, {
-        idempotencyKey,
-      });
+      const seatCodes = selectedSeatObjects.map(
+        (seat) => `${seat.rowName}${seat.seatNumber}`,
+      );
 
-      const bookingId = String(
-        booking?.bookingId ?? '',
-      ).trim();
+      const seatTotal = selectedSeatObjects.reduce(
+        (sum, seat) => sum + Number(seat.price ?? 0),
+        0,
+      );
 
-      if (!bookingId) {
-        throw new Error(
-          'Backend không trả về bookingId sau khi tạo đơn.',
-        );
-      }
-
-      navigate('/my-tickets?tab=holding', {
-        replace: true,
-        state: { createdBookingId: bookingId },
+      navigate('/combo', {
+        state: {
+          holdIds,
+          holdExpiresAt: holdExpiresAtRef.current,
+          showtimeId: Number(showtimeId),
+          movieTitle:
+            movie?.title ??
+            showtimeInfo?.movieTitle ??
+            'Vé xem phim',
+          posterUrl: movie?.poster_url ?? null,
+          cinemaName: showtimeInfo?.cinemaName ?? null,
+          roomName: showtimeInfo?.roomName ?? null,
+          showDate: showtimeInfo?.showDate ?? null,
+          showTime: showtimeInfo?.showTime ?? null,
+          seatCodes,
+          seatTotal,
+        },
       });
     } catch (err: unknown) {
       const activeHoldIds = heldIdsRef.current.length
@@ -633,7 +650,7 @@ export default function SeatBookingPage() {
         {usingMock && (
           <div className="rounded-xl px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 text-sm">
             <p className="font-semibold">
-              ⚠️ Đang dùng dữ liệu ghế mẫu — kết quả đặt vé sẽ KHÔNG được lưu.
+              ⚠️ Đang dùng dữ liệu ghế mẫu — không thể đặt vé từ dữ liệu này.
             </p>
             {mockReason && (
               <p className="mt-1 text-yellow-500/80">{MOCK_REASON_USER_TEXT[mockReason]}</p>
@@ -732,9 +749,9 @@ export default function SeatBookingPage() {
 
             <button
               onClick={handleProceed}
-              disabled={holding || navigating || selectedIds.size === 0}
+              disabled={usingMock || holding || navigating || selectedIds.size === 0}
               className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${
-                selectedIds.size === 0 || holding || navigating
+                usingMock || selectedIds.size === 0 || holding || navigating
                   ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                   : 'bg-amber-500 hover:bg-amber-400 text-gray-950 active:scale-95 shadow-lg shadow-amber-500/20'
               }`}
@@ -747,9 +764,9 @@ export default function SeatBookingPage() {
               ) : navigating ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-                  Đang tạo đơn…
+                  Đang chuyển sang combo…
                 </span>
-              ) : `Đặt vé →`}
+              ) : usingMock ? 'Không thể đặt ghế mẫu' : `Tiếp tục chọn combo →`}
             </button>
 
           </div>{/* end panel */}
