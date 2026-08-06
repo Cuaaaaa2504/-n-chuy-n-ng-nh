@@ -10,6 +10,7 @@ import "./ui-fixes.css";
 import "./light-contrast.css";
 import "./light-neon-blue.css";
 import "./hero-banner-clarity.css";
+import "./auth-visual.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

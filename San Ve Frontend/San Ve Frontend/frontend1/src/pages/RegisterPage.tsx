@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
+import AuthVisual from '../components/AuthVisual';
 
 interface RegisterForm {
   fullName: string;
@@ -84,15 +85,7 @@ export default function RegisterPage() {
   return (
     <section className="stitch-auth-page">
       <div className="stitch-auth-grid">
-        <div className="stitch-auth-visual order-2 lg:order-1">
-          <div className="absolute inset-0 opacity-50 bg-[radial-gradient(circle_at_70%_25%,rgba(220,184,255,.34),transparent_19rem),radial-gradient(circle_at_25%_76%,rgba(83,216,244,.24),transparent_18rem)]" />
-          <div className="absolute inset-0 grid place-items-center"><span className="material-symbols-outlined text-[180px] text-white/10">movie_filter</span></div>
-          <div className="stitch-auth-copy">
-            <p className="stitch-kicker mb-3">Join the cinema network</p>
-            <h1 className="text-5xl font-extrabold tracking-[-.055em] text-white">Tạo tài khoản</h1>
-            <p className="text-white/65 mt-4 max-w-md leading-7">Lưu lịch sử mua vé, nhận ưu đãi thành viên và đặt chỗ nhanh hơn.</p>
-          </div>
-        </div>
+        <AuthVisual variant="register" />
 
         <div className="stitch-card stitch-auth-card order-1 lg:order-2">
           <p className="stitch-kicker mb-3">New member</p>
