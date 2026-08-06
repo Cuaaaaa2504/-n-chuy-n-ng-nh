@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import authApi from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
+import AuthVisual from '../components/AuthVisual';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -37,17 +38,7 @@ export default function LoginPage() {
   return (
     <section className="stitch-auth-page">
       <div className="stitch-auth-grid">
-        <div className="stitch-auth-visual">
-          <div className="absolute inset-0 opacity-45 bg-[radial-gradient(circle_at_50%_36%,rgba(83,216,244,.34),transparent_18rem),radial-gradient(circle_at_20%_70%,rgba(220,184,255,.28),transparent_18rem)]" />
-          <div className="absolute inset-0 grid place-items-center">
-            <span className="material-symbols-outlined text-[180px] text-white/10">theaters</span>
-          </div>
-          <div className="stitch-auth-copy">
-            <p className="stitch-kicker mb-3">Premium cinematic experience</p>
-            <h1 className="text-5xl font-extrabold tracking-[-.055em] text-white">CMC Cinema</h1>
-            <p className="text-white/65 mt-4 max-w-md leading-7">Đăng nhập để giữ ghế, thanh toán và quản lý vé trong không gian CineGlass.</p>
-          </div>
-        </div>
+        <AuthVisual variant="login" />
 
         <div className="stitch-card stitch-auth-card self-center">
           <p className="stitch-kicker mb-3">Welcome back</p>
