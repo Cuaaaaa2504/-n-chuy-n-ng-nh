@@ -15,9 +15,12 @@ import {
   SeatHoldStatus,
 } from '../entities/seat-hold.entity';
 import { Ticket } from '../entities/ticket.entity';
+import { Voucher } from '../entities/voucher.entity';
 import { BookingService } from '../booking/booking.service';
+import { COUNTER_PAYMENT_GRACE_MINUTES } from '../booking/booking-state.policy';
 import { PaymentRepository } from './payment.repository';
 import { CreatePaymentDto, PaymentResponse } from './dto';
+import { hasVoucherUsageRemaining } from './voucher-usage.policy';
 
 type CounterPaymentCheckRow = {
   booking_id: string;
@@ -148,8 +151,11 @@ export class PaymentService {
               WHEN CAST(
                 SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
                 AS DATETIME2
-              ) BETWEEN DATEADD(MINUTE, -30, st.start_time)
-                AND DATEADD(MINUTE, 30, st.start_time)
+              ) >= DATEADD(MINUTE, -30, st.start_time)
+                AND CAST(
+                  SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
+                  AS DATETIME2
+                ) < DATEADD(MINUTE, @1, st.start_time)
               THEN 1 ELSE 0
             END
             AS BIT
@@ -168,7 +174,7 @@ export class PaymentService {
         ) AS latest_payment
         WHERE bo.booking_code = @0;
       `,
-      [normalized],
+      [normalized, COUNTER_PAYMENT_GRACE_MINUTES],
     )) as CounterPaymentCheckRow[];
 
     const row = rows[0];
@@ -187,7 +193,7 @@ export class PaymentService {
 
     if (!Boolean(row.can_check_in)) {
       throw new BadRequestException(
-        'Đơn tại quầy chỉ được xác nhận trong khoảng 30 phút trước hoặc sau giờ chiếu',
+        'Đơn tại quầy chỉ được xác nhận từ 30 phút trước đến 10 phút sau giờ chiếu',
       );
     }
 
@@ -257,6 +263,28 @@ export class PaymentService {
 
       if (!bookingDetails.length) {
         throw new BadRequestException('Không tìm thấy ghế trong booking');
+      }
+
+      if (booking.promotionId) {
+        const voucher = await queryRunner.manager.findOne(Voucher, {
+          where: { promotionId: booking.promotionId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!voucher) {
+          throw new BadRequestException('Voucher của booking không còn tồn tại');
+        }
+
+        if (!hasVoucherUsageRemaining(voucher.usedCount, voucher.usageLimit)) {
+          throw new BadRequestException('Voucher đã hết lượt sử dụng');
+        }
+
+        await queryRunner.manager.increment(
+          Voucher,
+          { promotionId: booking.promotionId },
+          'usedCount',
+          1,
+        );
       }
 
       await queryRunner.manager.update(Payment, { paymentId }, {
