@@ -1344,10 +1344,24 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+    SET DEADLOCK_PRIORITY LOW;
 
+    DECLARE @LockResult INT;
     BEGIN TRANSACTION;
 
-    UPDATE ss WITH (UPDLOCK, ROWLOCK)
+    EXEC @LockResult = sys.sp_getapplock
+        @Resource = N'CineHunt.ReleaseExpiredHolds',
+        @LockMode = 'Exclusive',
+        @LockOwner = 'Transaction',
+        @LockTimeout = 0;
+
+    IF @LockResult < 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END;
+
+    UPDATE ss WITH (UPDLOCK, READPAST, ROWLOCK)
     SET status = 'AVAILABLE',
         held_by_user_id = NULL,
         hold_expires_at = NULL
@@ -1355,23 +1369,26 @@ BEGIN
     WHERE ss.status = 'HELD'
       AND ss.hold_expires_at <= SYSDATETIME();
 
-    UPDATE dbo.seat_holds
-    SET status = 'EXPIRED',
-        released_at = SYSDATETIME()
-    WHERE status = 'ACTIVE'
-      AND expires_at <= SYSDATETIME();
+    UPDATE h WITH (UPDLOCK, READPAST, ROWLOCK)
+    SET h.status = 'EXPIRED',
+        h.released_at = SYSDATETIME()
+    FROM dbo.seat_holds h
+    WHERE h.status = 'ACTIVE'
+      AND h.expires_at <= SYSDATETIME();
 
     /* Booking hết hạn */
-    UPDATE dbo.booking_orders
-    SET status = 'EXPIRED',
-        updated_at = SYSDATETIME()
-    WHERE status = 'PENDING_PAYMENT'
-      AND expires_at <= SYSDATETIME();
+    UPDATE bo WITH (UPDLOCK, READPAST, ROWLOCK)
+    SET bo.status = 'EXPIRED',
+        bo.updated_at = SYSDATETIME()
+    FROM dbo.booking_orders bo
+    WHERE bo.status = 'PENDING_PAYMENT'
+      AND bo.expires_at <= SYSDATETIME();
 
-    UPDATE bd
+    UPDATE bd WITH (UPDLOCK, READPAST, ROWLOCK)
     SET bd.status = 'EXPIRED'
     FROM dbo.booking_details bd
-    INNER JOIN dbo.booking_orders bo ON bo.booking_id = bd.booking_id
+    INNER JOIN dbo.booking_orders bo WITH (READPAST)
+        ON bo.booking_id = bd.booking_id
     WHERE bo.status = 'EXPIRED'
       AND bd.status = 'ACTIVE';
 
@@ -3250,4 +3267,153 @@ SELECT
 GO
 
 PRINT N'V6.5 - Đã bổ sung bản vá deadlock cho sp_release_expired_holds.';
+GO
+
+
+/* ============================================================================
+   25. BẢN VÁ SQL TIMEOUT KHI TẢI TRANG THANH TOÁN
+   ----------------------------------------------------------------------------
+   Mục đích:
+   - Bật READ_COMMITTED_SNAPSHOT để truy vấn đọc không phải chờ transaction
+     cập nhật ghế/hold hoàn tất.
+   - Bổ sung index phục vụ truy vấn booking đang chờ thanh toán.
+   - Bổ sung index phục vụ truy vấn các ghế ACTIVE của một booking.
+   - Không thay đổi dữ liệu nghiệp vụ hiện có.
+
+   LƯU Ý KHI CHẠY TRÊN DATABASE ĐANG HOẠT ĐỘNG:
+   - Dừng backend NestJS trước khi chạy đoạn này.
+   - WITH ROLLBACK IMMEDIATE sẽ đóng và rollback các kết nối đang mở vào DB.
+   ============================================================================ */
+
+USE master;
+GO
+
+IF DB_ID(N'CineHuntDB') IS NULL
+BEGIN
+    THROW 51000, N'Không tìm thấy database CineHuntDB.', 1;
+END;
+GO
+
+DECLARE @ReadCommittedSnapshotEnabled BIT =
+(
+    SELECT is_read_committed_snapshot_on
+    FROM sys.databases
+    WHERE name = N'CineHuntDB'
+);
+
+IF @ReadCommittedSnapshotEnabled = 0
+BEGIN
+    PRINT N'Đang bật READ_COMMITTED_SNAPSHOT cho CineHuntDB...';
+
+    ALTER DATABASE CineHuntDB
+    SET READ_COMMITTED_SNAPSHOT ON
+    WITH ROLLBACK IMMEDIATE;
+END
+ELSE
+BEGIN
+    PRINT N'READ_COMMITTED_SNAPSHOT đã được bật từ trước.';
+END;
+GO
+
+USE CineHuntDB;
+GO
+
+/*
+   Tối ưu truy vấn:
+   SELECT ... FROM booking_details
+   WHERE booking_id = @bookingId
+     AND status = 'ACTIVE'
+*/
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM sys.indexes
+    WHERE object_id = OBJECT_ID(N'dbo.booking_details')
+      AND name = N'IX_booking_details_active_booking'
+)
+BEGIN
+    CREATE INDEX IX_booking_details_active_booking
+    ON dbo.booking_details(booking_id)
+    INCLUDE (showtime_seat_id, seat_price)
+    WHERE status = 'ACTIVE';
+
+    PRINT N'Đã tạo IX_booking_details_active_booking.';
+END
+ELSE
+BEGIN
+    PRINT N'IX_booking_details_active_booking đã tồn tại.';
+END;
+GO
+
+/*
+   Tối ưu truy vấn booking đang chờ thanh toán theo user và booking_id.
+*/
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM sys.indexes
+    WHERE object_id = OBJECT_ID(N'dbo.booking_orders')
+      AND name = N'IX_booking_orders_user_pending'
+)
+BEGIN
+    CREATE INDEX IX_booking_orders_user_pending
+    ON dbo.booking_orders(user_id, booking_id)
+    INCLUDE
+    (
+        booking_code,
+        showtime_id,
+        total_amount,
+        expires_at,
+        created_at
+    )
+    WHERE status = 'PENDING_PAYMENT';
+
+    PRINT N'Đã tạo IX_booking_orders_user_pending.';
+END
+ELSE
+BEGIN
+    PRINT N'IX_booking_orders_user_pending đã tồn tại.';
+END;
+GO
+
+/*
+   Cập nhật statistics để SQL Server lập execution plan mới.
+*/
+UPDATE STATISTICS dbo.booking_orders WITH FULLSCAN;
+UPDATE STATISTICS dbo.booking_details WITH FULLSCAN;
+UPDATE STATISTICS dbo.showtime_seats WITH FULLSCAN;
+UPDATE STATISTICS dbo.seat_holds WITH FULLSCAN;
+GO
+
+/*
+   Kiểm tra kết quả sau khi áp dụng.
+*/
+SELECT
+    name AS database_name,
+    is_read_committed_snapshot_on,
+    snapshot_isolation_state_desc
+FROM sys.databases
+WHERE name = N'CineHuntDB';
+GO
+
+SELECT
+    i.name AS index_name,
+    OBJECT_NAME(i.object_id) AS table_name,
+    i.type_desc,
+    i.has_filter,
+    i.filter_definition
+FROM sys.indexes AS i
+WHERE i.object_id IN
+(
+    OBJECT_ID(N'dbo.booking_orders'),
+    OBJECT_ID(N'dbo.booking_details')
+)
+  AND i.name IN
+(
+    N'IX_booking_details_active_booking',
+    N'IX_booking_orders_user_pending'
+);
+GO
+
+PRINT N'V6.6 - Đã bổ sung bản vá SQL timeout cho trang thanh toán.';
 GO
