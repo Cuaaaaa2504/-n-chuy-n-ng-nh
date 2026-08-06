@@ -1,4 +1,13 @@
-import { IsArray, IsInt, IsOptional, Min, ArrayMinSize } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsInt,
+  IsOptional,
+  Max,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class HoldSeatDto {
@@ -11,12 +20,15 @@ export class HoldSeatDto {
   @IsInt()
   @Type(() => Number)
   @Min(1)
+  @Max(10, { message: 'Thời gian giữ ghế tối đa là 10 phút' })
   holdMinutes?: number = 5;
 }
 
 export class HoldSeatsDto {
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(8, { message: 'Mỗi đơn chỉ được giữ tối đa 8 ghế' })
+  @ArrayUnique({ message: 'Danh sách ghế không được trùng lặp' })
   @IsInt({ each: true })
   @Type(() => Number)
   showtimeSeatIds: number[];
@@ -25,6 +37,7 @@ export class HoldSeatsDto {
   @IsInt()
   @Type(() => Number)
   @Min(1)
+  @Max(10, { message: 'Thời gian giữ ghế tối đa là 10 phút' })
   holdMinutes?: number = 5;
 }
 

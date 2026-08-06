@@ -6,14 +6,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, FindOptionsWhere, In, LessThan, Repository } from 'typeorm';
+import { DataSource, FindOptionsWhere, In, Repository } from 'typeorm';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
 import { SeatHold, SeatHoldStatus } from '../entities/seat-hold.entity';
 import { Voucher } from '../entities/voucher.entity';
+import { Payment } from '../entities/payment.entity';
 import { ConcessionCombo } from '../entities/concession-combo.entity';
 import { BookingCombo } from '../entities/booking-combo.entity';
+import {
+  buildPendingPaymentSeatState,
+  canAdminTransitionBooking,
+  canUserCancelBooking,
+  COUNTER_PAYMENT_GRACE_MINUTES,
+} from './booking-state.policy';
 import {
   BookingResponse,
   CreateBookingRequest,
@@ -129,7 +136,7 @@ export class BookingService {
     }, 0);
 
     let discountAmount = 0;
-    let appliedPromotionId: number | null = request.promotionId ?? null;
+    let appliedPromotionId: number | null = null;
 
     if (request.voucherCode) {
       const voucher = await this.voucherRepo.findOne({
@@ -274,12 +281,8 @@ export class BookingService {
         await manager.update(
           ShowtimeSeat,
           { showtimeSeatId: In(showtimeSeatIds) },
-          { status: 'SOLD' },
+          buildPendingPaymentSeatState(userId, expiresAt),
         );
-
-        if (request.voucherCode && appliedPromotionId) {
-          await manager.increment(Voucher, { promotionId: appliedPromotionId }, 'usedCount', 1);
-        }
 
         return {
           bookingId: savedBookingId,
@@ -340,11 +343,45 @@ export class BookingService {
   async expirePendingBookings(): Promise<{ expiredCount: number }> {
     const now = new Date();
 
+    const rows = (await this.dataSource.query(
+      `
+        SELECT DISTINCT
+          CONVERT(VARCHAR(30), bo.booking_id) AS booking_id
+        FROM dbo.booking_orders AS bo
+        INNER JOIN dbo.showtimes AS st
+          ON st.showtime_id = bo.showtime_id
+        OUTER APPLY (
+          SELECT TOP (1)
+            p.payment_method,
+            p.payment_status
+          FROM dbo.payments AS p
+          WHERE p.booking_id = bo.booking_id
+          ORDER BY p.created_at DESC, p.payment_id DESC
+        ) AS latest_payment
+        WHERE bo.status = 'PENDING_PAYMENT'
+          AND (
+            (bo.expires_at IS NOT NULL AND bo.expires_at <= @1)
+            OR (
+              latest_payment.payment_method = 'CASH'
+              AND latest_payment.payment_status = 'PENDING'
+              AND DATEADD(MINUTE, @0, st.start_time) <= CAST(
+                SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
+                AS DATETIME2
+              )
+            )
+          );
+      `,
+      [COUNTER_PAYMENT_GRACE_MINUTES, now],
+    )) as Array<{ booking_id: string }>;
+
+    const expiredBookingIds = [...new Set(rows.map((row) => row.booking_id))];
+
+    if (!expiredBookingIds.length) {
+      return { expiredCount: 0 };
+    }
+
     const expiredBookings = await this.bookingRepo.find({
-      where: {
-        status: 'PENDING_PAYMENT',
-        expiresAt: LessThan(now),
-      },
+      where: { bookingId: In(expiredBookingIds) },
       relations: { bookingDetails: { showtimeSeat: true } },
     });
 
@@ -353,16 +390,28 @@ export class BookingService {
     }
 
     const bookingIds = expiredBookings.map((b) => b.bookingId);
-
-    const allSeatIds = expiredBookings.flatMap((b) =>
-      b.bookingDetails.map((d: any) => d.showtimeSeatId),
-    );
+    const allSeatIds = [
+      ...new Set(
+        expiredBookings.flatMap((b) =>
+          b.bookingDetails.map((d: any) => d.showtimeSeatId),
+        ),
+      ),
+    ];
 
     await this.dataSource.transaction(async (manager) => {
       await manager.update(
         BookingOrder,
         { bookingId: In(bookingIds) },
         { status: 'EXPIRED', cancelledAt: now },
+      );
+
+      await manager.update(
+        Payment,
+        {
+          bookingId: In(bookingIds),
+          paymentStatus: 'PENDING',
+        },
+        { paymentStatus: 'FAILED', failedReason: 'Booking expired' },
       );
 
       await manager.update(
@@ -380,7 +429,10 @@ export class BookingService {
 
         await manager.update(
           SeatHold,
-          { showtimeSeatId: In(allSeatIds), status: SeatHoldStatus.ACTIVE },
+          {
+            showtimeSeatId: In(allSeatIds),
+            status: In([SeatHoldStatus.ACTIVE, SeatHoldStatus.CONVERTED]),
+          },
           { status: SeatHoldStatus.EXPIRED, releasedAt: now },
         );
       }
@@ -498,7 +550,7 @@ export class BookingService {
       throw new NotFoundException('Không tìm thấy booking');
     }
 
-    if (!['PENDING_PAYMENT', 'CONFIRMED'].includes(booking.status)) {
+    if (!canUserCancelBooking(booking.status)) {
       throw new BadRequestException('Booking không thể hủy ở trạng thái hiện tại');
     }
 
@@ -511,6 +563,15 @@ export class BookingService {
         BookingOrder,
         { bookingId },
         { status: 'CANCELLED', cancelledAt: now },
+      );
+
+      await manager.update(
+        Payment,
+        {
+          bookingId,
+          paymentStatus: 'PENDING',
+        },
+        { paymentStatus: 'FAILED', failedReason: 'Booking cancelled by user' },
       );
 
       await manager.update(
@@ -640,6 +701,13 @@ export class BookingService {
     if (!booking) throw new NotFoundException('Không tìm thấy booking');
     if (booking.status === normalized) return booking;
 
+    if (!canAdminTransitionBooking(booking.status, normalized)) {
+      throw new BadRequestException(
+        'Admin chỉ được chuyển đơn PENDING_PAYMENT sang CANCELLED hoặc EXPIRED. ' +
+          'Đơn đã thanh toán phải đi qua luồng refund; xác nhận thanh toán phải đi qua PaymentService.',
+      );
+    }
+
     const now = new Date();
     const showtimeSeatIds = (booking.bookingDetails ?? []).map(
       (d: any) => d.showtimeSeatId,
@@ -654,6 +722,16 @@ export class BookingService {
       await manager.update(BookingOrder, { bookingId }, patch);
 
       if (['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(normalized)) {
+        if (['CANCELLED', 'EXPIRED'].includes(normalized)) {
+          await manager.update(
+            Payment,
+            { bookingId, paymentStatus: 'PENDING' },
+            {
+              paymentStatus: 'FAILED',
+              failedReason: `Booking marked ${normalized.toLowerCase()} by admin`,
+            },
+          );
+        }
         await manager.update(
           BookingDetail,
           { bookingId, status: 'ACTIVE' },
