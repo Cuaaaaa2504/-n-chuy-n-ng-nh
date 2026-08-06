@@ -144,31 +144,68 @@ export class ShowtimeSeatsService {
     releasedSeats?: number;
     expiredHolds?: number;
   }> {
-    try {
-      await this.dataSource.query('EXEC sp_release_expired_holds');
-      return { message: 'Expired seat holds released', strategy: 'stored-procedure' };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+    const retryDelays = [150, 400, 900];
 
-      const procedureMissing =
-        (error as { number?: number })?.number === 2812 ||
-        /could not find stored procedure|kh(ô|o)ng t(ì|i)m th(ấ|a)y th(ủ|u) t(ụ|u)c/i.test(
-          message,
-        );
+    for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+      try {
+        await this.dataSource.query('EXEC sp_release_expired_holds');
+        return {
+          message: 'Expired seat holds released',
+          strategy: 'stored-procedure',
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
 
-      if (!procedureMissing) {
-        this.logger.error(`sp_release_expired_holds lỗi: ${message}`);
-        throw new InternalServerErrorException(
-          `Không thể giải phóng ghế giữ hết hạn: ${message}`,
+        if (this.isDeadlock(error) && attempt < retryDelays.length) {
+          const delayMs = retryDelays[attempt];
+          this.logger.warn(
+            `sp_release_expired_holds gặp deadlock, thử lại sau ${delayMs}ms ` +
+              `(lần ${attempt + 2}/${retryDelays.length + 1}).`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+
+        const procedureMissing =
+          this.getSqlErrorNumber(error) === 2812 ||
+          /could not find stored procedure|kh(ô|o)ng t(ì|i)m th(ấ|a)y th(ủ|u) t(ụ|u)c/i.test(
+            message,
+          );
+
+        if (!procedureMissing) {
+          this.logger.error(`sp_release_expired_holds lỗi: ${message}`);
+          throw new InternalServerErrorException(
+            `Không thể giải phóng ghế giữ hết hạn: ${message}`,
+          );
+        }
+
+        this.logger.warn(
+          'Chưa có stored procedure sp_release_expired_holds — dùng fallback TypeORM. ' +
+            'Nên chạy file SQL để tạo procedure (nhanh và an toàn hơn).',
         );
+        return this.expireSeatHoldsFallback();
       }
-
-      this.logger.warn(
-        'Chưa có stored procedure sp_release_expired_holds — dùng fallback TypeORM. ' +
-          'Nên chạy file SQL để tạo procedure (nhanh và an toàn hơn).',
-      );
-      return this.expireSeatHoldsFallback();
     }
+
+    throw new InternalServerErrorException(
+      'Không thể giải phóng ghế giữ hết hạn sau nhiều lần thử.',
+    );
+  }
+
+  private getSqlErrorNumber(error: unknown): number | undefined {
+    const sqlError = error as {
+      number?: number;
+      originalError?: { info?: { number?: number } };
+    };
+    return sqlError.number ?? sqlError.originalError?.info?.number;
+  }
+
+  private isDeadlock(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return (
+      this.getSqlErrorNumber(error) === 1205 ||
+      /deadlock victim|was deadlocked/i.test(message)
+    );
   }
 
   private async expireSeatHoldsFallback(): Promise<{

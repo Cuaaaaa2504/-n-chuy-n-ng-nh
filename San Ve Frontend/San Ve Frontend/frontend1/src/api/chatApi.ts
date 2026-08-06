@@ -111,18 +111,24 @@ export async function* streamChat(
     });
 
   try {
-    let token = localStorage.getItem('accessToken');
+    let token =
+      sessionStorage.getItem('accessToken') ??
+      localStorage.getItem('accessToken');
+
     response = await requestStream(token);
 
     if (response.status === 401 && !signal?.aborted) {
       try {
         const refreshedToken = await refreshAccessToken();
         if (refreshedToken) {
-          localStorage.setItem('accessToken', refreshedToken);
+          sessionStorage.setItem('accessToken', refreshedToken);
+          localStorage.removeItem('accessToken');
+
           token = refreshedToken;
           response = await requestStream(token);
         }
       } catch {
+        // Phản hồi 401 ban đầu được xử lý phía dưới nếu refresh thất bại.
       }
     }
   } catch (err) {
@@ -151,6 +157,7 @@ export async function* streamChat(
       if (data?.code) code = data.code;
       message = data?.message;
     } catch {
+      // Dùng lỗi mặc định khi backend không trả về JSON hợp lệ.
     }
     yield { type: 'error', code, message: messageForCode(code, message) };
     return;
@@ -181,6 +188,7 @@ export async function* streamChat(
         try {
           yield JSON.parse(dataLine.slice(5).trim()) as ChatStreamEvent;
         } catch {
+          // Bỏ qua riêng sự kiện stream bị lỗi, không ngắt toàn bộ phiên chat.
         }
       }
     }

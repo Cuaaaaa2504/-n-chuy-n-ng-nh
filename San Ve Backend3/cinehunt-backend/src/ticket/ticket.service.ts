@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Ticket } from '../entities/ticket.entity';
+import { PaymentService } from '../payment/payment.service';
 import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 
 type LockedTicketRow = {
@@ -22,6 +23,7 @@ export class TicketService {
     @InjectRepository(Ticket)
     private readonly ticketRepo: Repository<Ticket>,
     private readonly dataSource: DataSource,
+    private readonly paymentService: PaymentService,
   ) {}
 
   private normalizeReference(reference: string): string {
@@ -70,9 +72,12 @@ export class TicketService {
       throw new BadRequestException('Thiếu mã vé hoặc mã đơn');
     }
 
-    return normalized.startsWith('BK-')
-      ? this.checkInBooking(normalized, staffId)
-      : this.checkInTicket(normalized, staffId);
+    if (normalized.startsWith('BK-')) {
+      await this.paymentService.confirmPendingCashPaymentForCheckIn(normalized);
+      return this.checkInBooking(normalized, staffId);
+    }
+
+    return this.checkInTicket(normalized, staffId);
   }
 
   private assertCheckInAllowed(rows: LockedTicketRow[]) {

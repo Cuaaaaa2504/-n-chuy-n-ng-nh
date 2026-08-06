@@ -153,6 +153,11 @@ export default function PaymentPage() {
         return;
       }
 
+      if (method === 'CASH') {
+        navigate('/my-tickets?tab=holding');
+        return;
+      }
+
       setFetchError(
         'Giao dịch đã được tạo và đang chờ cổng thanh toán xác nhận.',
       );
@@ -172,7 +177,22 @@ export default function PaymentPage() {
         <div className="stitch-card p-10 text-center max-w-lg">
           <span className="material-symbols-outlined text-[52px]" style={{ color: 'var(--st-danger)' }}>error</span>
           <p className="mt-3 mb-6" style={{ color: 'var(--st-danger)' }}>{fetchError}</p>
-          <button className="stitch-btn stitch-btn-outline" onClick={() => navigate(-1)}>Quay lại</button>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              className="stitch-btn stitch-btn-primary"
+              onClick={() => window.location.reload()}
+            >
+              Thử lại
+            </button>
+            <button
+              type="button"
+              className="stitch-btn stitch-btn-outline"
+              onClick={() => navigate(-1)}
+            >
+              Quay lại
+            </button>
+          </div>
         </div>
       </section>
     );
@@ -265,6 +285,22 @@ export default function PaymentPage() {
               </article>
             )}
 
+            {selectedMethod === 'CASH' && (
+              <article className="stitch-card p-6 flex items-start gap-3 text-sm">
+                <span className="material-symbols-outlined" style={{ color: 'var(--st-gold)' }}>
+                  point_of_sale
+                </span>
+                <div>
+                  <p className="font-bold">Thanh toán trực tiếp tại quầy</p>
+                  <p className="stitch-muted mt-1">
+                    Sau khi xác nhận, đơn sẽ chuyển vào Vé đang giữ và không đếm
+                    ngược. Nhân viên STAFF/ADMIN quét mã đơn tại rạp thì hệ thống
+                    mới phát hành vé và ghi nhận check-in.
+                  </p>
+                </div>
+              </article>
+            )}
+
             <article className="stitch-card p-6 flex items-start gap-3 text-sm stitch-muted">
               <span className="material-symbols-outlined" style={{ color: 'var(--st-cyan)' }}>verified_user</span>
               <p>Thông tin thanh toán được xử lý qua kết nối bảo mật. Không đóng trình duyệt trong lúc hệ thống xác nhận giao dịch.</p>
@@ -308,7 +344,11 @@ export default function PaymentPage() {
             {paymentError && <p className="mt-5 text-sm" style={{ color: 'var(--st-danger)' }}>{paymentError}</p>}
             {paymentStatus === 'SUCCESS' && <p className="mt-5 text-sm" style={{ color: 'var(--st-success)' }}>Thanh toán thành công!</p>}
             <button type="button" onClick={() => { void handlePay(); }} disabled={!canPay || !!isExpired || isProcessing} className="stitch-btn stitch-btn-primary w-full mt-6">
-              {isProcessing ? 'Đang xử lý...' : `Xác nhận thanh toán${order ? ` ${order.totalAmount.toLocaleString('vi-VN')}₫` : ''}`}
+              {isProcessing
+                ? 'Đang xử lý...'
+                : selectedMethod === 'CASH'
+                  ? 'Giữ vé và thanh toán tại quầy'
+                  : `Xác nhận thanh toán${order ? ` ${order.totalAmount.toLocaleString('vi-VN')}₫` : ''}`}
             </button>
           </aside>
         </div>

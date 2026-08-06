@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 import subprocess
 import sys
 import threading
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -109,6 +110,20 @@ class RecommendResponse(BaseModel):
     modelVersion: str | None = None
 
 
+def _require_admin_token(provided_token: str | None) -> None:
+    expected_token = os.getenv("RECOMMENDATION_ADMIN_TOKEN", "").strip()
+    if not expected_token:
+        raise HTTPException(
+            status_code=503,
+            detail="RECOMMENDATION_ADMIN_TOKEN chưa được cấu hình.",
+        )
+    if not provided_token or not secrets.compare_digest(
+        provided_token,
+        expected_token,
+    ):
+        raise HTTPException(status_code=401, detail="Admin token không hợp lệ.")
+
+
 @app.get("/health")
 def health() -> dict:
     """
@@ -118,7 +133,6 @@ def health() -> dict:
     return {
         "status": "ok",
         "modelLoaded": _model is not None,
-        "modelPath": str(settings.model_path),
         "modelFileExists": settings.model_path.exists(),
         "modelVersion": _model.model_version if _model else None,
         "trainedAt": _model.trained_at if _model else None,
@@ -189,7 +203,13 @@ def recommend(
 
 
 @app.post("/reload")
-def reload_model() -> JSONResponse:
+def reload_model(
+    x_recommendation_admin_token: str | None = Header(
+        default=None,
+        alias="X-Recommendation-Admin-Token",
+    ),
+) -> JSONResponse:
+    _require_admin_token(x_recommendation_admin_token)
     _load_model()
     return JSONResponse(
         {
@@ -256,7 +276,13 @@ def _run_training() -> None:
 
 
 @app.post("/train")
-def train(background_tasks: BackgroundTasks) -> JSONResponse:
+def train(
+    background_tasks: BackgroundTasks,
+    x_recommendation_admin_token: str | None = Header(
+        default=None,
+        alias="X-Recommendation-Admin-Token",
+    ),
+) -> JSONResponse:
     """
     Khởi động train ở NỀN và trả lời ngay.
 
@@ -264,6 +290,7 @@ def train(background_tasks: BackgroundTasks) -> JSONResponse:
     gọi này, còn train có thể mất vài phút. Trả 202 rồi để client theo dõi
     tiến độ qua GET /health -> training.
     """
+    _require_admin_token(x_recommendation_admin_token)
     if _train_state["running"]:
         return JSONResponse(
             status_code=409,

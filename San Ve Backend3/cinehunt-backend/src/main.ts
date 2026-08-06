@@ -35,20 +35,28 @@ async function bootstrap() {
     }),
   );
 
-  const config = new DocumentBuilder()
-    .setTitle('CineHunt API')
-    .setDescription('Hệ thống đặt vé xem phim CineHunt')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
+  const swaggerEnabled =
+    process.env.NODE_ENV !== 'production' ||
+    process.env.SWAGGER_ENABLED === 'true';
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  if (swaggerEnabled) {
+    const config = new DocumentBuilder()
+      .setTitle('CineHunt API')
+      .setDescription('Hệ thống đặt vé xem phim CineHunt')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+  }
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`CineHunt backend đang chạy tại http://localhost:${port}`);
-  console.log(`Swagger docs: http://localhost:${port}/api`);
+  if (swaggerEnabled) {
+    console.log(`Swagger docs: http://localhost:${port}/api`);
+  }
 }
 
 bootstrap();

@@ -7,11 +7,18 @@ export class SeatHoldSchedulerService {
   private readonly logger = new Logger(SeatHoldSchedulerService.name);
 
   private warnedAboutFallback = false;
+  private running = false;
 
   constructor(private readonly showtimeSeatsService: ShowtimeSeatsService) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
   async expireSeatHolds(): Promise<void> {
+    if (this.running) {
+      this.logger.warn('Bỏ qua lượt giải phóng ghế vì lượt trước chưa hoàn tất.');
+      return;
+    }
+
+    this.running = true;
     try {
       const result = await this.showtimeSeatsService.expireSeatHolds();
 
@@ -31,6 +38,8 @@ export class SeatHoldSchedulerService {
     } catch (error) {
       const stack = error instanceof Error ? error.stack : String(error);
       this.logger.error('Không thể giải phóng ghế giữ hết hạn', stack);
+    } finally {
+      this.running = false;
     }
   }
 }

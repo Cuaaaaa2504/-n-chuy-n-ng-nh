@@ -30,6 +30,7 @@ export class RecommendationScheduler implements OnModuleInit {
   private readonly logger = new Logger(RecommendationScheduler.name);
   private readonly baseUrl: string;
   private readonly enabled: boolean;
+  private readonly adminToken: string;
   private lastHealth: HealthSnapshot = {
     reachable: false,
     checkedAt: null,
@@ -44,6 +45,9 @@ export class RecommendationScheduler implements OnModuleInit {
       this.configService.get<string>('RECOMMENDATION_SERVICE_URL') ??
       'http://localhost:8000'
     ).replace(/\/+$/, '');
+
+    this.adminToken =
+      this.configService.get<string>('RECOMMENDATION_ADMIN_TOKEN')?.trim() ?? '';
 
     const isProduction =
       this.configService.get<string>('NODE_ENV')?.toLowerCase() === 'production';
@@ -84,12 +88,28 @@ export class RecommendationScheduler implements OnModuleInit {
       return { triggered: false, message: 'Lịch train tự động đang tắt.' };
     }
 
+    if (!this.adminToken) {
+      this.logger.warn('Thiếu RECOMMENDATION_ADMIN_TOKEN, không thể gọi train.');
+      return {
+        triggered: false,
+        message: 'Chưa cấu hình token quản trị recommendation service.',
+      };
+    }
+
     const url = `${this.baseUrl}/train`;
     this.logger.log(`Yêu cầu train lại model gợi ý (nguồn: ${source})...`);
 
     const result: { ok: boolean; status?: number; error?: Error } =
       await firstValueFrom(
-        this.httpService.post<unknown>(url, {}).pipe(
+        this.httpService.post<unknown>(
+          url,
+          {},
+          {
+            headers: {
+              'X-Recommendation-Admin-Token': this.adminToken,
+            },
+          },
+        ).pipe(
           timeout(20_000),
           map((response) => ({
             ok: response.status === 202 || response.status === 200,
