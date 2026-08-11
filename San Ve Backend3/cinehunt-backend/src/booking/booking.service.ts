@@ -431,7 +431,11 @@ export class BookingService {
     }
   }
 
-  async validateBookingForPayment(bookingRef: string, userId: number) {
+  async validateBookingForPayment(
+    bookingRef: string,
+    userId: number,
+    options: { skipExpiryCheck?: boolean } = {},
+  ) {
     const booking = await this.bookingRepo.findOne({
       where: { ...this.buildBookingRef(bookingRef), userId },
     });
@@ -446,7 +450,11 @@ export class BookingService {
       );
     }
 
-    if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
+    if (
+      !options.skipExpiryCheck &&
+      booking.expiresAt &&
+      new Date(booking.expiresAt) <= new Date()
+    ) {
       throw new BadRequestException('Booking đã hết hạn thanh toán');
     }
 

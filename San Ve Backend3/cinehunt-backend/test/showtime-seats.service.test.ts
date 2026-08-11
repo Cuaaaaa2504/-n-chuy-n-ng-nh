@@ -333,10 +333,32 @@ test('expireSeatHolds báo lỗi khi SQL Server gặp lỗi khác', async () => 
     throw sqlError;
   };
 
-  await assert.rejects(
-    () => service.expireSeatHolds(),
-    (error: unknown) =>
-      error instanceof InternalServerErrorException &&
-      error.message.includes('Không thể giải phóng ghế giữ hết hạn'),
-  );
+  // Đây là lỗi được cố ý tạo trong unit test. Bắt logger tại instance test
+  // để vẫn kiểm tra service có log đúng lỗi nhưng không in ERROR giả ra terminal.
+  const serviceLogger = (service as any).logger as {
+    error: (...args: unknown[]) => void;
+  };
+  const originalLoggerError = serviceLogger.error.bind(serviceLogger);
+  const loggedErrors: string[] = [];
+
+  serviceLogger.error = (...args: unknown[]) => {
+    loggedErrors.push(args.map(String).join(' '));
+  };
+
+  try {
+    await assert.rejects(
+      () => service.expireSeatHolds(),
+      (error: unknown) =>
+        error instanceof InternalServerErrorException &&
+        error.message.includes('Không thể giải phóng ghế giữ hết hạn'),
+    );
+
+    assert.equal(loggedErrors.length, 1);
+    assert.match(
+      loggedErrors[0],
+      /sp_release_expired_holds lỗi: SQL Server connection lost/,
+    );
+  } finally {
+    serviceLogger.error = originalLoggerError;
+  }
 });

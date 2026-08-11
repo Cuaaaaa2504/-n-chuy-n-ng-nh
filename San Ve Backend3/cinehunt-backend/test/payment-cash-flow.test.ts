@@ -18,7 +18,7 @@ test('createPayment chặn CASH PENDING đổi sang phương thức khác dướ
           userId: 25,
           status: 'PENDING_PAYMENT',
           totalAmount: 120000,
-          expiresAt: null,
+          expiresAt: new Date('2099-01-01T00:00:00.000Z'),
         };
       }
       if (entity === Payment) {
@@ -249,4 +249,71 @@ test('CASH generic confirm không được bỏ qua deadline; check-in flag thì
       error instanceof BadRequestException &&
       /không tìm thấy ghế/i.test(error.message),
   );
+});
+
+test('retry CASH sau deadline gốc vẫn idempotent', async () => {
+  let validateOptions: unknown;
+  let saveCalled = false;
+
+  const manager = {
+    findOne: async (entity: unknown) => {
+      if (entity === BookingOrder) {
+        return {
+          bookingId: '103',
+          userId: 25,
+          status: 'PENDING_PAYMENT',
+          totalAmount: 120000,
+          expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        };
+      }
+
+      if (entity === Payment) {
+        return {
+          paymentId: '903',
+          bookingId: '103',
+          paymentMethod: 'CASH',
+          paymentStatus: 'PENDING',
+          amount: 120000,
+          transactionCode: 'PAY-CASH-903',
+          createdAt: new Date('2026-08-11T03:00:00.000Z'),
+        };
+      }
+
+      return null;
+    },
+    save: async () => {
+      saveCalled = true;
+      throw new Error('Không được tạo payment mới khi retry CASH');
+    },
+  };
+
+  const service = new PaymentService(
+    { generatePaymentCode: () => 'PAY-NEW' } as any,
+    {
+      validateBookingForPayment: async (
+        _bookingId: string,
+        _userId: number,
+        options: unknown,
+      ) => {
+        validateOptions = options;
+        return { bookingId: '103', finalAmount: 120000 };
+      },
+    } as any,
+    {
+      transaction: async (callback: (manager: any) => Promise<any>) =>
+        callback(manager),
+    } as any,
+    { get: () => undefined } as any,
+  );
+
+  const result = await service.createPayment(
+    25,
+    { bookingId: '103', paymentMethod: 'CASH' } as any,
+  );
+
+  assert.deepEqual(validateOptions, { skipExpiryCheck: true });
+  assert.equal(result.paymentId, '903');
+  assert.equal(result.paymentStatus, 'PENDING');
+  assert.equal(result.paymentMethod, 'CASH');
+  assert.equal(saveCalled, false);
 });

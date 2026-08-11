@@ -35,6 +35,52 @@ export async function getOrder(bookingId: string): Promise<OrderDetail> {
   return normalizeBooking(raw);
 }
 
+export interface BookingPaymentSummary {
+  paymentId: string;
+  bookingId: string;
+  paymentMethod: string;
+  paymentStatus: string;
+}
+
+export function isPendingCashPayment(
+  payment: BookingPaymentSummary | null | undefined,
+): boolean {
+  return (
+    payment?.paymentMethod === 'CASH' &&
+    payment.paymentStatus === 'PENDING'
+  );
+}
+
+export async function getPaymentByBooking(
+  bookingId: string,
+): Promise<BookingPaymentSummary | null> {
+  if (!/^\d+$/.test(bookingId)) {
+    throw new Error('bookingId phải là ID số');
+  }
+
+  try {
+    const raw = (await axiosClient.get(
+      `/payments/booking/${bookingId}`,
+    )) as unknown as Record<string, unknown>;
+
+    return {
+      paymentId: String(raw.paymentId ?? raw.payment_id ?? ''),
+      bookingId: String(raw.bookingId ?? raw.booking_id ?? bookingId),
+      paymentMethod: String(
+        raw.paymentMethod ?? raw.payment_method ?? '',
+      ).toUpperCase(),
+      paymentStatus: String(
+        raw.paymentStatus ?? raw.payment_status ?? '',
+      ).toUpperCase(),
+    };
+  } catch (err) {
+    if ((err as { status?: number })?.status === 404) {
+      return null;
+    }
+    throw err;
+  }
+}
+
 export async function getPaymentMethods(): Promise<PaymentMethod[]> {
   try {
     const payload = await axiosClient.get('/payments/methods') as unknown;

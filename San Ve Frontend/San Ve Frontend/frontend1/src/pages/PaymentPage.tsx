@@ -1,10 +1,20 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getOrder, getPaymentMethods } from '../api/paymentApi';
+import {
+  getOrder,
+  getPaymentByBooking,
+  getPaymentMethods,
+  isPendingCashPayment,
+} from '../api/paymentApi';
 import { usePayment } from '../hooks/usePayment';
 import TicketQrCode from '../components/TicketQrCode';
-import type { OrderDetail, PaymentMethod, PaymentMethodCode } from '../api/paymentApi';
+import type {
+  BookingPaymentSummary,
+  OrderDetail,
+  PaymentMethod,
+  PaymentMethodCode,
+} from '../api/paymentApi';
 
 const METHOD_ICONS: Record<string, string> = {
   MOMO: '🟣', VNPAY: '🔵', BANKING: '🏦', MOCK: '🧪', CASH: '💵',
@@ -68,6 +78,8 @@ export default function PaymentPage() {
   const [loading, setLoading]                   = useState(true);
   const [fetchError, setFetchError]             = useState('');
   const [paymentNotice, setPaymentNotice]       = useState('');
+  const [existingPayment, setExistingPayment]     =
+    useState<BookingPaymentSummary | null>(null);
 
   const { isProcessing, paymentStatus, error: paymentError, handlePayment, resetPayment } = usePayment();
   const { seconds: countdown, display: countdownDisplay } = useCountdown(order?.expiresAt);
@@ -79,6 +91,7 @@ export default function PaymentPage() {
       setPaymentNotice('');
       try {
         if (isLocalMode) {
+          setExistingPayment(null);
           setOrder(buildLocalOrder(searchParams));
           setMethods([
             { code: 'MOCK', name: 'Thanh toán giả lập (Dev)' },
@@ -86,24 +99,32 @@ export default function PaymentPage() {
           ]);
           setSelectedMethod('MOCK');
         } else if (orderId) {
-          const [fetchedOrder, fetchedMethods] = await Promise.all([
-            getOrder(orderId),
-            getPaymentMethods(),
-          ]);
+          const [fetchedOrder, fetchedMethods, fetchedPayment] =
+            await Promise.all([
+              getOrder(orderId),
+              getPaymentMethods(),
+              getPaymentByBooking(orderId),
+            ]);
+
           setOrder(fetchedOrder);
           setMethods(fetchedMethods);
+          setExistingPayment(fetchedPayment);
 
-          const defaultMethod =
-            fetchedMethods.find(
-              (method) =>
-                method.code === 'MOCK' &&
-                method.enabled !== false,
-            ) ??
-            fetchedMethods.find(
-              (method) => method.enabled !== false,
-            );
+          if (isPendingCashPayment(fetchedPayment)) {
+            setSelectedMethod('CASH');
+          } else {
+            const defaultMethod =
+              fetchedMethods.find(
+                (method) =>
+                  method.code === 'MOCK' &&
+                  method.enabled !== false,
+              ) ??
+              fetchedMethods.find(
+                (method) => method.enabled !== false,
+              );
 
-          setSelectedMethod(defaultMethod?.code ?? null);
+            setSelectedMethod(defaultMethod?.code ?? null);
+          }
         }
       } catch (err: unknown) {
         const msg = (err as { message?: string })?.message ?? 'Không tải được thông tin đơn hàng';
@@ -115,7 +136,9 @@ export default function PaymentPage() {
     void load();
   }, [orderId, isLocalMode, searchParams]);
 
-  const isExpired = countdown === 0 && !!order?.expiresAt;
+  const isCounterHold = isPendingCashPayment(existingPayment);
+  const isExpired =
+    !isCounterHold && countdown === 0 && !!order?.expiresAt;
 
   const handlePay = async () => {
     if (!order) return;
@@ -239,13 +262,19 @@ export default function PaymentPage() {
                     key={method.code}
                     type="button"
                     onClick={() => {
-                      if (method.enabled !== false) {
+                      if (
+                        method.enabled !== false &&
+                        (!isCounterHold || method.code === 'CASH')
+                      ) {
                         setSelectedMethod(method.code);
                         setFetchError('');
                         setPaymentNotice('');
                       }
                     }}
-                    disabled={method.enabled === false}
+                    disabled={
+                      method.enabled === false ||
+                      (isCounterHold && method.code !== 'CASH')
+                    }
                     className="w-full flex items-center gap-4 px-4 py-4 rounded-xl border text-left transition disabled:cursor-not-allowed disabled:opacity-45"
                     style={selectedMethod === method.code
                       ? { borderColor: 'var(--st-purple)', background: 'color-mix(in srgb,var(--st-purple) 12%,transparent)', boxShadow: '0 0 20px rgba(174,112,229,.13)' }
@@ -341,7 +370,7 @@ export default function PaymentPage() {
                   <div><p className="stitch-kicker mb-2">Ghế</p><div className="flex flex-wrap gap-2">{order.seatCodes.map((seat) => <span key={seat} className="stitch-badge stitch-badge-cyan">{seat}</span>)}</div></div>
                 ) : null}
                 {order.orderCode && <div><p className="stitch-kicker mb-1">Mã đơn</p><p className="font-mono text-sm break-all">{order.orderCode}</p></div>}
-                {order.expiresAt && (
+                {order.expiresAt && !isCounterHold && (
                   <div className="rounded-xl border px-4 py-3 text-center" style={{ color: countdown < 60 ? 'var(--st-danger)' : 'var(--st-gold)', borderColor: countdown < 60 ? 'color-mix(in srgb,var(--st-danger) 40%,transparent)' : 'color-mix(in srgb,var(--st-gold) 40%,transparent)' }}>
                     <p className="stitch-kicker mb-1">Hết hạn sau</p><strong className="font-mono text-xl">{countdownDisplay}</strong>
                   </div>

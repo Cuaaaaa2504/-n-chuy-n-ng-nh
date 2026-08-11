@@ -51,6 +51,7 @@ export class PaymentService {
     const validatedBooking = await this.bookingService.validateBookingForPayment(
       dto.bookingId,
       userId,
+      { skipExpiryCheck: true },
     );
     const bookingId = String(validatedBooking.bookingId);
 
@@ -68,14 +69,23 @@ export class PaymentService {
           `Booking đang ở trạng thái ${booking.status}, không thể thanh toán`,
         );
       }
-      if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
-        throw new BadRequestException('Booking đã hết hạn thanh toán');
-      }
-
       const existingPending = await manager.findOne(Payment, {
         where: { bookingId, paymentStatus: 'PENDING' },
         lock: { mode: 'pessimistic_write' },
       });
+
+      // CASH/PENDING đã chuyển sang chính sách giữ tới showtime + grace.
+      // Retry cùng CASH phải trả lại payment cũ kể cả deadline gốc đã qua.
+      if (
+        existingPending?.paymentMethod === 'CASH' &&
+        dto.paymentMethod === 'CASH'
+      ) {
+        return this.toPaymentResponse(existingPending);
+      }
+
+      if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
+        throw new BadRequestException('Booking đã hết hạn thanh toán');
+      }
 
       if (existingPending) {
         if (existingPending.paymentMethod === dto.paymentMethod) {

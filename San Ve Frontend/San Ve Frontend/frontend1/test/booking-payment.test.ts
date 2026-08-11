@@ -20,7 +20,9 @@ import {
 } from '../src/api/bookingApi';
 import {
   getOrder,
+  getPaymentByBooking,
   getPaymentMethods,
+  isPendingCashPayment,
   payOrder,
 } from '../src/api/paymentApi';
 import { getPaymentErrorMessage } from '../src/hooks/usePayment';
@@ -189,5 +191,33 @@ describe('Payment error helpers', () => {
         },
       }),
     ).toBe('Booking đã hết hạn, Vui lòng đặt lại');
+  });
+});
+
+describe('Existing counter payment', () => {
+  it('nhận biết payment CASH/PENDING cũ để bỏ expiry UI', async () => {
+    axiosMocks.get.mockResolvedValue({
+      payment_id: 903,
+      booking_id: 103,
+      payment_method: 'cash',
+      payment_status: 'pending',
+    });
+
+    const payment = await getPaymentByBooking('103');
+
+    expect(axiosMocks.get).toHaveBeenCalledWith('/payments/booking/103');
+    expect(payment).toEqual({
+      paymentId: '903',
+      bookingId: '103',
+      paymentMethod: 'CASH',
+      paymentStatus: 'PENDING',
+    });
+    expect(isPendingCashPayment(payment)).toBe(true);
+  });
+
+  it('404 payment nghĩa là booking chưa chọn phương thức', async () => {
+    axiosMocks.get.mockRejectedValue({ status: 404 });
+
+    await expect(getPaymentByBooking('104')).resolves.toBeNull();
   });
 });
