@@ -70,7 +70,7 @@ export default function PaymentPage() {
   const [searchParams] = useSearchParams();
   const navigate    = useNavigate();
 
-  const isLocalMode = orderId === 'local';
+  const isLocalMode = import.meta.env.DEV && orderId === 'local';
 
   const [order, setOrder]                       = useState<OrderDetail | null>(null);
   const [methods, setMethods]                   = useState<PaymentMethod[]>([]);

@@ -66,6 +66,42 @@ export class BookingService {
     throw new BadRequestException(`Mã đơn đặt vé không hợp lệ: ${value}`);
   }
 
+
+  private normalizeIdempotencyKey(value?: string): string | null {
+    const normalized = String(value ?? '').trim();
+    return normalized || null;
+  }
+
+  private async findIdempotentBooking(
+    userId: number,
+    idempotencyKey: string,
+    manager?: EntityManager,
+  ): Promise<BookingResponse | null> {
+    const repository = manager
+      ? manager.getRepository(BookingOrder)
+      : this.bookingRepo;
+
+    const booking = await repository.findOne({
+      where: { userId, idempotencyKey },
+      relations: { bookingDetails: true },
+    });
+
+    if (!booking) return null;
+
+    return {
+      bookingId: String(booking.bookingId),
+      bookingCode: booking.bookingCode,
+      showtimeId: booking.showtimeId,
+      seatCount: booking.bookingDetails?.length ?? 0,
+      subtotalAmount: Number(booking.subtotalAmount),
+      productAmount: Number(booking.productAmount),
+      discountAmount: Number(booking.discountAmount),
+      totalAmount: Number(booking.totalAmount),
+      status: booking.status,
+      expiresAt: booking.expiresAt,
+    };
+  }
+
   private async releaseBookingSeatsSafely(
     manager: EntityManager,
     bookingId: string,
@@ -130,6 +166,18 @@ export class BookingService {
   }
 
   async createBooking(userId: number, request: CreateBookingRequest): Promise<BookingResponse> {
+    const idempotencyKey = this.normalizeIdempotencyKey(
+      request.idempotencyKey,
+    );
+
+    if (idempotencyKey) {
+      const replay = await this.findIdempotentBooking(
+        userId,
+        idempotencyKey,
+      );
+      if (replay) return replay;
+    }
+
     const now = new Date();
 
     const holdIds = [
@@ -154,6 +202,14 @@ export class BookingService {
     });
 
     if (holds.length !== holdIds.length) {
+      if (idempotencyKey) {
+        const replay = await this.findIdempotentBooking(
+          userId,
+          idempotencyKey,
+        );
+        if (replay) return replay;
+      }
+
       const found = new Set(holds.map((h) => String(h.holdId)));
       const missing = holdIds.filter((id) => !found.has(id));
       throw new BadRequestException(
@@ -305,6 +361,15 @@ export class BookingService {
           lockedHolds.length !== holdIds.length ||
           lockedHolds.some((hold) => new Date(hold.expiresAt) <= transactionNow)
         ) {
+          if (idempotencyKey) {
+            const replay = await this.findIdempotentBooking(
+              userId,
+              idempotencyKey,
+              manager,
+            );
+            if (replay) return replay;
+          }
+
           throw new BadRequestException(
             'Một hoặc nhiều hold đã hết hạn hoặc đã được xử lý bởi request khác.',
           );
@@ -316,6 +381,7 @@ export class BookingService {
           userId,
           showtimeId,
           promotionId: appliedPromotionId,
+          idempotencyKey,
           subtotalAmount: roundedSubtotal,
           discountAmount: roundedDiscount,
           productAmount: roundedProduct,
@@ -416,6 +482,21 @@ export class BookingService {
       });
     } catch (err) {
       if (err instanceof BadRequestException || err instanceof NotFoundException) throw err;
+
+      const driverNumber =
+        (err as { number?: number; driverError?: { number?: number } })?.number ??
+        (err as { driverError?: { number?: number } })?.driverError?.number;
+
+      if (
+        idempotencyKey &&
+        (driverNumber === 2601 || driverNumber === 2627)
+      ) {
+        const replay = await this.findIdempotentBooking(
+          userId,
+          idempotencyKey,
+        );
+        if (replay) return replay;
+      }
 
       const driverMessage =
         (err as { driverError?: { message?: string } })?.driverError?.message ??

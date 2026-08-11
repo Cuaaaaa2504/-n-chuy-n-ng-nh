@@ -59,6 +59,7 @@ jobs:
             fi
           done
           exit "$missing"
+      - run: npm run migration:run
       - run: npm run test:integration:sql
 
   frontend:

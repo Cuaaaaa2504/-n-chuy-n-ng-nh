@@ -260,3 +260,40 @@ test('migration concurrency quan trọng đã được áp dụng', async () => 
     'Chưa áp dụng HardenBookingLifecycleConcurrency1786423740000',
   );
 });
+
+test('critical lifecycle indexes đã được áp dụng', async () => {
+  const result = await pool.request().query<{
+    refundPendingIndex: number;
+    bookingIdempotencyIndex: number;
+    idempotencyColumn: number;
+  }>(`
+    SELECT
+      CAST((
+        SELECT COUNT(*)
+        FROM sys.indexes
+        WHERE object_id = OBJECT_ID('dbo.refunds')
+          AND name = 'UX_refunds_one_pending_per_booking'
+          AND is_unique = 1
+          AND has_filter = 1
+      ) AS INT) AS refundPendingIndex,
+      CAST((
+        SELECT COUNT(*)
+        FROM sys.indexes
+        WHERE object_id = OBJECT_ID('dbo.booking_orders')
+          AND name = 'UX_booking_orders_user_idempotency'
+          AND is_unique = 1
+          AND has_filter = 1
+      ) AS INT) AS bookingIdempotencyIndex,
+      CASE
+        WHEN COL_LENGTH('dbo.booking_orders', 'idempotency_key') IS NULL
+          THEN 0
+        ELSE 1
+      END AS idempotencyColumn
+  `);
+
+  assert.deepEqual(result.recordset[0], {
+    refundPendingIndex: 1,
+    bookingIdempotencyIndex: 1,
+    idempotencyColumn: 1,
+  });
+});

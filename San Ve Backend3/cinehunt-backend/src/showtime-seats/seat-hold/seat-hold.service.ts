@@ -291,28 +291,89 @@ export class SeatHoldService {
     await queryRunner.startTransaction();
 
     try {
-      const hold = await queryRunner.manager.findOne(SeatHold, {
+      const snapshot = await queryRunner.manager.findOne(SeatHold, {
         where: { holdId, userId, status: SeatHoldStatus.ACTIVE },
       });
 
-      if (!hold) throw new NotFoundException('Không tìm thấy hold hợp lệ');
+      if (!snapshot) {
+        throw new NotFoundException('Không tìm thấy hold hợp lệ');
+      }
 
-      await queryRunner.manager.update(
+      // Lock order phải giống createBooking: seat -> hold.
+      const lockedSeat = await queryRunner.manager.findOne(ShowtimeSeat, {
+        where: { showtimeSeatId: snapshot.showtimeSeatId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!lockedSeat) {
+        throw new NotFoundException('Ghế của hold không còn tồn tại');
+      }
+
+      const hold = await queryRunner.manager.findOne(SeatHold, {
+        where: { holdId, userId, status: SeatHoldStatus.ACTIVE },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!hold) {
+        throw new ConflictException(
+          'Hold đã được xử lý bởi request khác, không thể nhả ghế',
+        );
+      }
+
+      const cancelled = await queryRunner.manager.update(
         SeatHold,
-        { holdId },
+        { holdId, userId, status: SeatHoldStatus.ACTIVE },
         { status: SeatHoldStatus.CANCELLED, releasedAt: new Date() },
       );
 
-      await queryRunner.manager.update(
-        ShowtimeSeat,
-        { showtimeSeatId: hold.showtimeSeatId },
-        { status: 'AVAILABLE', heldByUserId: null, holdExpiresAt: null },
-      );
+      if ((cancelled.affected ?? 0) !== 1) {
+        throw new ConflictException(
+          'Hold đã thay đổi trạng thái trong lúc giải phóng',
+        );
+      }
+
+      const releasedRows = (await queryRunner.manager.query(
+        `
+          UPDATE ss
+          SET
+            ss.status = 'AVAILABLE',
+            ss.held_by_user_id = NULL,
+            ss.hold_expires_at = NULL
+          OUTPUT INSERTED.showtime_seat_id AS showtime_seat_id
+          FROM dbo.showtime_seats AS ss WITH (UPDLOCK, ROWLOCK)
+          WHERE ss.showtime_seat_id = @0
+            AND ss.status = 'HELD'
+            AND ss.held_by_user_id = @1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM dbo.seat_holds AS active_hold
+              WHERE active_hold.showtime_seat_id = ss.showtime_seat_id
+                AND active_hold.status = 'ACTIVE'
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM dbo.booking_details AS bd
+              INNER JOIN dbo.booking_orders AS bo
+                ON bo.booking_id = bd.booking_id
+              WHERE bd.showtime_seat_id = ss.showtime_seat_id
+                AND bd.status = 'ACTIVE'
+                AND bo.status IN ('PENDING_PAYMENT', 'PAID', 'ISSUED', 'CONFIRMED')
+            );
+        `,
+        [hold.showtimeSeatId, userId],
+      )) as Array<{ showtime_seat_id: number }>;
 
       await queryRunner.commitTransaction();
-      return { success: true, holdId };
+
+      return {
+        success: true,
+        holdId,
+        releasedSeat: releasedRows.length === 1,
+      };
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
       await queryRunner.release();

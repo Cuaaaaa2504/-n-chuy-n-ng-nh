@@ -19,7 +19,8 @@
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
     "test": "TS_NODE_PROJECT=test/tsconfig.json node --test --require ts-node/register test/*.test.ts",
-    "test:integration:sql": "TS_NODE_PROJECT=test/tsconfig.json node --test --require ts-node/register test/sql-server.integration.ts"
+    "test:integration:sql": "TS_NODE_PROJECT=test/tsconfig.json node --test --require ts-node/register test/sql-server.integration.ts",
+    "test:e2e:critical": "node test/e2e-critical-lifecycle.mjs"
   },
   "dependencies": {
     "@nestjs/axios": "^3.1.3",

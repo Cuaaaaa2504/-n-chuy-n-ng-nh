@@ -71,21 +71,53 @@ export class ShowtimeService {
     }
   }
 
+  private async acquireRoomScheduleLock(
+    manager: EntityManager,
+    roomId: number,
+  ): Promise<void> {
+    const rows = (await manager.query(
+      `
+        DECLARE @LockResult INT;
+
+        EXEC @LockResult = sys.sp_getapplock
+          @Resource = @0,
+          @LockMode = 'Exclusive',
+          @LockOwner = 'Transaction',
+          @LockTimeout = 10000;
+
+        SELECT @LockResult AS lock_result;
+      `,
+      [`CineHunt.ShowtimeRoom.${roomId}`],
+    )) as Array<{ lock_result: number }>;
+
+    if (Number(rows[0]?.lock_result ?? -999) < 0) {
+      throw new ConflictException(
+        `Không lấy được khóa lịch chiếu cho phòng #${roomId}. Vui lòng thử lại.`,
+      );
+    }
+  }
+
   private async ensureNoScheduleOverlap(
+    manager: EntityManager,
     roomId: number,
     startTime: Date,
     endTime: Date,
     excludeShowtimeId?: number,
   ): Promise<void> {
-    const qb = this.showtimeRepository
+    const qb = manager
+      .getRepository(Showtime)
       .createQueryBuilder('showtime')
       .where('showtime.roomId = :roomId', { roomId })
-      .andWhere('showtime.status != :cancelledStatus', { cancelledStatus: 'CANCELLED' })
+      .andWhere('showtime.status != :cancelledStatus', {
+        cancelledStatus: 'CANCELLED',
+      })
       .andWhere('showtime.startTime < :endTime', { endTime })
       .andWhere('showtime.endTime > :startTime', { startTime });
 
     if (excludeShowtimeId) {
-      qb.andWhere('showtime.showtimeId != :excludeShowtimeId', { excludeShowtimeId });
+      qb.andWhere('showtime.showtimeId != :excludeShowtimeId', {
+        excludeShowtimeId,
+      });
     }
 
     const overlappingShowtime = await qb.getOne();
@@ -95,7 +127,6 @@ export class ShowtimeService {
       );
     }
   }
-
 
   private async seedSeatsForShowtime(
     manager: EntityManager,
@@ -156,6 +187,100 @@ export class ShowtimeService {
     }
   }
 
+
+  private async cancelShowtimeWorkflow(
+    manager: EntityManager,
+    showtimeId: number,
+  ): Promise<void> {
+    const usedTickets = (await manager.query(
+      `
+        SELECT TOP (1) t.ticket_id
+        FROM dbo.tickets AS t WITH (UPDLOCK, HOLDLOCK)
+        INNER JOIN dbo.booking_details AS bd WITH (UPDLOCK, HOLDLOCK)
+          ON bd.booking_detail_id = t.booking_detail_id
+        INNER JOIN dbo.booking_orders AS bo WITH (UPDLOCK, HOLDLOCK)
+          ON bo.booking_id = bd.booking_id
+        WHERE bo.showtime_id = @0
+          AND t.ticket_status = 'USED';
+      `,
+      [showtimeId],
+    )) as Array<{ ticket_id: string }>;
+
+    if (usedTickets.length > 0) {
+      throw new ConflictException(
+        'Không thể hủy suất chiếu đã có vé được check-in',
+      );
+    }
+
+    const now = new Date();
+
+    await manager.query(
+      `
+        UPDATE p
+        SET
+          p.payment_status = 'FAILED',
+          p.failed_reason = COALESCE(
+            NULLIF(p.failed_reason, ''),
+            'Showtime cancelled'
+          )
+        FROM dbo.payments AS p
+        INNER JOIN dbo.booking_orders AS bo
+          ON bo.booking_id = p.booking_id
+        WHERE bo.showtime_id = @0
+          AND p.payment_status = 'PENDING';
+
+        UPDATE t
+        SET t.ticket_status = 'CANCELLED'
+        FROM dbo.tickets AS t
+        INNER JOIN dbo.booking_details AS bd
+          ON bd.booking_detail_id = t.booking_detail_id
+        INNER JOIN dbo.booking_orders AS bo
+          ON bo.booking_id = bd.booking_id
+        WHERE bo.showtime_id = @0
+          AND t.ticket_status = 'VALID';
+
+        UPDATE h
+        SET
+          h.status = 'CANCELLED',
+          h.released_at = @1
+        FROM dbo.seat_holds AS h
+        INNER JOIN dbo.showtime_seats AS ss
+          ON ss.showtime_seat_id = h.showtime_seat_id
+        WHERE ss.showtime_id = @0
+          AND h.status IN ('ACTIVE', 'CONVERTED', 'CONFIRMED');
+
+        UPDATE bd
+        SET bd.status = 'CANCELLED'
+        FROM dbo.booking_details AS bd
+        INNER JOIN dbo.booking_orders AS bo
+          ON bo.booking_id = bd.booking_id
+        WHERE bo.showtime_id = @0
+          AND bd.status = 'ACTIVE';
+
+        UPDATE bo
+        SET
+          bo.status = 'CANCELLED',
+          bo.cancelled_at = COALESCE(bo.cancelled_at, @1)
+        FROM dbo.booking_orders AS bo
+        WHERE bo.showtime_id = @0
+          AND bo.status IN (
+            'PENDING_PAYMENT',
+            'PAID',
+            'ISSUED',
+            'CONFIRMED'
+          );
+
+        UPDATE dbo.showtime_seats
+        SET
+          status = 'BLOCKED',
+          held_by_user_id = NULL,
+          hold_expires_at = NULL
+        WHERE showtime_id = @0;
+      `,
+      [showtimeId, now],
+    );
+  }
+
   async generateSeats(showtimeId: number): Promise<{
     message: string;
     showtimeId: number;
@@ -191,14 +316,25 @@ export class ShowtimeService {
 
     this.validateTimeRange(startTime, endTime);
 
-    const room = await this.roomRepository.findOne({ where: { roomId: dto.roomId } });
-    if (!room) {
-      throw new NotFoundException(`Không tìm thấy phòng chiếu #${dto.roomId}`);
-    }
-
-    await this.ensureNoScheduleOverlap(dto.roomId, startTime, endTime);
-
     return this.dataSource.transaction(async (manager) => {
+      const room = await manager.findOne(Room, {
+        where: { roomId: dto.roomId },
+      });
+
+      if (!room) {
+        throw new NotFoundException(
+          `Không tìm thấy phòng chiếu #${dto.roomId}`,
+        );
+      }
+
+      await this.acquireRoomScheduleLock(manager, dto.roomId);
+      await this.ensureNoScheduleOverlap(
+        manager,
+        dto.roomId,
+        startTime,
+        endTime,
+      );
+
       const saved = await manager.save(
         manager.create(Showtime, {
           movieId: dto.movieId,
@@ -216,34 +352,103 @@ export class ShowtimeService {
         saved.roomId,
         Number(saved.basePrice),
       );
-      this.logger.log(`Suất chiếu #${saved.showtimeId}: đã sinh ${created} ghế`);
+
+      this.logger.log(
+        `Suất chiếu #${saved.showtimeId}: đã sinh ${created} ghế`,
+      );
 
       return saved;
     });
   }
 
   async update(id: number, dto: UpdateShowtimeDto): Promise<Showtime> {
-    const existing = await this.findOne(id);
-
-    assertNotStale(existing.updatedAt, dto.expectedUpdatedAt, 'Suất chiếu này');
-
-    const nextMovieId = dto.movieId ?? existing.movieId;
-    const nextRoomId = dto.roomId ?? existing.roomId;
-    const nextStartTime = dto.startTime ? new Date(dto.startTime) : existing.startTime;
-    const nextEndTime = dto.endTime ? new Date(dto.endTime) : existing.endTime;
-    const nextBasePrice = dto.basePrice ?? existing.basePrice;
-    const nextStatus = dto.status ?? existing.status;
-
-    this.validateTimeRange(nextStartTime, nextEndTime);
-
-    if (nextStatus !== 'CANCELLED') {
-      await this.ensureNoScheduleOverlap(nextRoomId, nextStartTime, nextEndTime, id);
-    }
-
-    const roomChanged = nextRoomId !== existing.roomId;
-    const priceChanged = Number(nextBasePrice) !== Number(existing.basePrice);
-
     return this.dataSource.transaction(async (manager) => {
+      const existing = await manager
+        .getRepository(Showtime)
+        .createQueryBuilder('showtime')
+        .addSelect('showtime.updatedAt')
+        .setLock('pessimistic_write')
+        .where('showtime.showtimeId = :id', { id })
+        .getOne();
+
+      if (!existing) {
+        throw new NotFoundException('Showtime not found');
+      }
+
+      assertNotStale(
+        existing.updatedAt,
+        dto.expectedUpdatedAt,
+        'Suất chiếu này',
+      );
+
+      const nextMovieId = dto.movieId ?? existing.movieId;
+      const nextRoomId = dto.roomId ?? existing.roomId;
+      const nextStartTime = dto.startTime
+        ? new Date(dto.startTime)
+        : existing.startTime;
+      const nextEndTime = dto.endTime
+        ? new Date(dto.endTime)
+        : existing.endTime;
+      const nextBasePrice = dto.basePrice ?? existing.basePrice;
+      const nextStatus = dto.status ?? existing.status;
+
+      this.validateTimeRange(nextStartTime, nextEndTime);
+
+      if (
+        existing.status === 'CANCELLED' &&
+        nextStatus !== 'CANCELLED'
+      ) {
+        throw new ConflictException(
+          'Không thể mở lại một suất chiếu đã hủy',
+        );
+      }
+
+      const room = await manager.findOne(Room, {
+        where: { roomId: nextRoomId },
+      });
+      if (!room) {
+        throw new NotFoundException(
+          `Không tìm thấy phòng chiếu #${nextRoomId}`,
+        );
+      }
+
+      const roomIdsToLock = [
+        ...new Set([existing.roomId, nextRoomId]),
+      ].sort((left, right) => left - right);
+
+      for (const roomId of roomIdsToLock) {
+        await this.acquireRoomScheduleLock(manager, roomId);
+      }
+
+      if (nextStatus !== 'CANCELLED') {
+        await this.ensureNoScheduleOverlap(
+          manager,
+          nextRoomId,
+          nextStartTime,
+          nextEndTime,
+          id,
+        );
+      }
+
+      const roomChanged = nextRoomId !== existing.roomId;
+      const priceChanged =
+        Number(nextBasePrice) !== Number(existing.basePrice);
+
+      if (roomChanged && nextStatus !== 'CANCELLED') {
+        await this.assertNoCommittedSeats(
+          manager,
+          id,
+          'đổi phòng chiếu',
+        );
+      }
+
+      if (
+        nextStatus === 'CANCELLED' &&
+        existing.status !== 'CANCELLED'
+      ) {
+        await this.cancelShowtimeWorkflow(manager, id);
+      }
+
       const updated = await manager.save(
         manager.merge(Showtime, existing, {
           movieId: nextMovieId,
@@ -255,8 +460,11 @@ export class ShowtimeService {
         }),
       );
 
+      if (nextStatus === 'CANCELLED') {
+        return updated;
+      }
+
       if (roomChanged) {
-        await this.assertNoCommittedSeats(manager, id, 'đổi phòng chiếu');
         await manager.delete(ShowtimeSeat, { showtimeId: id });
         const created = await this.seedSeatsForShowtime(
           manager,
@@ -264,25 +472,33 @@ export class ShowtimeService {
           nextRoomId,
           Number(nextBasePrice),
         );
-        this.logger.log(`Suất chiếu #${id} đổi phòng -> sinh lại ${created} ghế`);
+        this.logger.log(
+          `Suất chiếu #${id} đổi phòng -> sinh lại ${created} ghế`,
+        );
       } else if (priceChanged) {
         const seats = await manager.find(ShowtimeSeat, {
-          where: { showtimeId: id, status: In(['AVAILABLE', 'BLOCKED']) },
+          where: {
+            showtimeId: id,
+            status: In(['AVAILABLE', 'BLOCKED']),
+          },
           relations: ['seat', 'seat.seatType'],
         });
-        seats.forEach((ss) => {
-          const multiplier = Number(ss.seat?.seatType?.priceMultiplier ?? 1);
-          ss.price = Math.round(Number(nextBasePrice) * multiplier);
-        });
-        if (seats.length > 0) await manager.save(ShowtimeSeat, seats, { chunk: 200 });
-        this.logger.log(`Suất chiếu #${id} đổi giá -> cập nhật ${seats.length} ghế`);
-      }
 
-      if (nextStatus === 'CANCELLED' && existing.status !== 'CANCELLED') {
-        await manager.update(
-          ShowtimeSeat,
-          { showtimeId: id, status: 'AVAILABLE' },
-          { status: 'BLOCKED', heldByUserId: null, holdExpiresAt: null },
+        seats.forEach((ss) => {
+          const multiplier = Number(
+            ss.seat?.seatType?.priceMultiplier ?? 1,
+          );
+          ss.price = Math.round(
+            Number(nextBasePrice) * multiplier,
+          );
+        });
+
+        if (seats.length > 0) {
+          await manager.save(ShowtimeSeat, seats, { chunk: 200 });
+        }
+
+        this.logger.log(
+          `Suất chiếu #${id} đổi giá -> cập nhật ${seats.length} ghế`,
         );
       }
 
@@ -291,18 +507,34 @@ export class ShowtimeService {
   }
 
   async remove(id: number): Promise<{ message: string }> {
-    const existing = await this.findOne(id);
-
     return this.dataSource.transaction(async (manager) => {
+      const existing = await manager
+        .getRepository(Showtime)
+        .createQueryBuilder('showtime')
+        .setLock('pessimistic_write')
+        .where('showtime.showtimeId = :id', { id })
+        .getOne();
+
+      if (!existing) {
+        throw new NotFoundException('Showtime not found');
+      }
+
+      if (existing.status === 'CANCELLED') {
+        return { message: 'Showtime already cancelled' };
+      }
+
+      await this.acquireRoomScheduleLock(
+        manager,
+        existing.roomId,
+      );
+      await this.cancelShowtimeWorkflow(manager, id);
+
       existing.status = 'CANCELLED';
       await manager.save(Showtime, existing);
 
-      const { affected } = await manager.update(
-        ShowtimeSeat,
-        { showtimeId: id, status: 'AVAILABLE' },
-        { status: 'BLOCKED', heldByUserId: null, holdExpiresAt: null },
+      this.logger.log(
+        `Hủy suất chiếu #${id}: đã vô hiệu hóa booking, ticket, hold và khóa toàn bộ ghế`,
       );
-      this.logger.log(`Hủy suất chiếu #${id}: đã khóa ${affected ?? 0} ghế trống`);
 
       return { message: 'Showtime cancelled successfully' };
     });

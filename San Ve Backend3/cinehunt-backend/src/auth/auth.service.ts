@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { IsNull, LessThan, Repository } from 'typeorm';
+import { EntityManager, IsNull, LessThan, Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
 import { RegisterDto } from './dto/register.dto';
@@ -94,42 +94,74 @@ export class AuthService {
     incomingToken: string,
     meta?: { deviceInfo?: string; ipAddress?: string },
   ) {
-    const user = await this.userRepository.findOne({ where: { userId } });
-    if (!user) throw new UnauthorizedException('Phiên đăng nhập không hợp lệ');
-    if (user.status !== 'ACTIVE')
-      throw new UnauthorizedException('Tài khoản đã bị khóa hoặc xóa');
+    return this.userRepository.manager.transaction(async (manager) => {
+      const user = await manager.findOne(User, {
+        where: { userId },
+      });
 
-    const activeTokens = await this.refreshTokenRepository.find({
-      where: { userId, revokedAt: IsNull() },
-    });
-
-    let matched: RefreshToken | null = null;
-    for (const rt of activeTokens) {
-      if (rt.expiresAt <= new Date()) continue;
-      const ok = await bcrypt.compare(incomingToken, rt.tokenHash);
-      if (ok) {
-        matched = rt;
-        break;
+      if (!user) {
+        throw new UnauthorizedException(
+          'Phiên đăng nhập không hợp lệ',
+        );
       }
-    }
 
-    if (!matched) throw new UnauthorizedException('Refresh token không hợp lệ hoặc đã hết hạn');
+      if (user.status !== 'ACTIVE') {
+        throw new UnauthorizedException(
+          'Tài khoản đã bị khóa hoặc xóa',
+        );
+      }
 
-    matched.revokedAt = new Date();
-    await this.refreshTokenRepository.save(matched);
+      const activeTokens = await manager
+        .getRepository(RefreshToken)
+        .createQueryBuilder('refreshToken')
+        .setLock('pessimistic_write')
+        .where('refreshToken.userId = :userId', { userId })
+        .andWhere('refreshToken.revokedAt IS NULL')
+        .getMany();
 
-    const tokens = await this.generateTokens(user);
-    const newRt = await this.storeRefreshToken(user.userId, tokens.refreshToken, meta);
+      let matched: RefreshToken | null = null;
 
-    matched.replacedById = newRt.refreshTokenId;
-    await this.refreshTokenRepository.save(matched);
+      for (const token of activeTokens) {
+        if (token.expiresAt <= new Date()) continue;
 
-    return {
-      message: 'Làm mới token thành công',
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      tokenType: 'Bearer',
-    };
+        const ok = await bcrypt.compare(
+          incomingToken,
+          token.tokenHash,
+        );
+
+        if (ok) {
+          matched = token;
+          break;
+        }
+      }
+
+      if (!matched) {
+        throw new UnauthorizedException(
+          'Refresh token không hợp lệ hoặc đã hết hạn',
+        );
+      }
+
+      matched.revokedAt = new Date();
+      await manager.save(RefreshToken, matched);
+
+      const tokens = await this.generateTokens(user);
+      const newRt = await this.storeRefreshToken(
+        user.userId,
+        tokens.refreshToken,
+        meta,
+        manager,
+      );
+
+      matched.replacedById = newRt.refreshTokenId;
+      await manager.save(RefreshToken, matched);
+
+      return {
+        message: 'Làm mới token thành công',
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        tokenType: 'Bearer',
+      };
+    });
   }
 
   async logout(userId: number, incomingToken?: string) {
@@ -222,6 +254,7 @@ export class AuthService {
     userId: number,
     rawToken: string,
     meta?: { deviceInfo?: string; ipAddress?: string },
+    manager?: EntityManager,
   ): Promise<RefreshToken> {
     const raw = (process.env.JWT_REFRESH_EXPIRES_IN || '7d').trim();
     let expiresInMs: number;
@@ -243,7 +276,11 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + expiresInMs);
     const tokenHash = await bcrypt.hash(rawToken, 10);
 
-    const rt = this.refreshTokenRepository.create({
+    const repository = manager
+      ? manager.getRepository(RefreshToken)
+      : this.refreshTokenRepository;
+
+    const rt = repository.create({
       userId,
       tokenHash,
       deviceInfo: meta?.deviceInfo ?? null,
@@ -252,7 +289,7 @@ export class AuthService {
       revokedAt: null,
     });
 
-    return this.refreshTokenRepository.save(rt);
+    return repository.save(rt);
   }
 
   private async revokeAllTokens(userId: number): Promise<void> {

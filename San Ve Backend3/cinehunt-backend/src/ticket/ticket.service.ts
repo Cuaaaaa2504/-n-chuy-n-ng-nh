@@ -14,6 +14,7 @@ type LockedTicketRow = {
   ticket_id: string;
   ticket_code: string;
   ticket_status: string;
+  showtime_status: string;
   can_check_in: boolean | number;
 };
 
@@ -82,6 +83,12 @@ export class TicketService {
 
   private assertCheckInAllowed(rows: LockedTicketRow[]) {
     for (const ticket of rows) {
+      if (ticket.showtime_status === 'CANCELLED') {
+        throw new BadRequestException(
+          `Suất chiếu của vé ${ticket.ticket_code} đã bị hủy`,
+        );
+      }
+
       if (ticket.ticket_status === 'USED') {
         throw new BadRequestException(
           `Vé ${ticket.ticket_code} đã được check-in rồi`,
@@ -122,6 +129,7 @@ export class TicketService {
             t.ticket_id,
             t.ticket_code,
             t.ticket_status,
+            st.status AS showtime_status,
             CAST(
               CASE
                 WHEN CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time' AS DATETIME2) BETWEEN DATEADD(MINUTE, -30, st.start_time)
@@ -191,6 +199,7 @@ export class TicketService {
             t.ticket_id,
             t.ticket_code,
             t.ticket_status,
+            st.status AS showtime_status,
             CAST(
               CASE
                 WHEN CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time' AS DATETIME2) BETWEEN DATEADD(MINUTE, -30, st.start_time)

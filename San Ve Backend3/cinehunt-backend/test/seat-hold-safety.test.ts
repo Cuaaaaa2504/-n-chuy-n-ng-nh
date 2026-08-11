@@ -8,6 +8,7 @@ import { HoldManySeatsDto } from '../src/showtime-seats/dto/hold-many-seats.dto'
 import { HoldSeatDto } from '../src/showtime-seats/dto/hold-seat.dto';
 import { FixExpiredSeatHoldConsistency1786016820000 } from '../src/migrations/1786016820000-FixExpiredSeatHoldConsistency';
 import { HardenBookingLifecycleConcurrency1786423740000 } from '../src/migrations/1786423740000-HardenBookingLifecycleConcurrency';
+import { HardenCriticalLifecycle1786431600000 } from '../src/migrations/1786431600000-HardenCriticalLifecycle';
 
 function hasConstraint(
   errors: Awaited<ReturnType<typeof validate>>,
@@ -105,4 +106,23 @@ test('migration rollback khôi phục procedure trước đó và xóa unique in
   assert.match(sql, /create or alter procedure dbo\.sp_release_expired_holds/);
   assert.match(sql, /update ss with \(updlock, readpast, rowlock\)/);
   assert.doesNotMatch(sql, /inner join dbo\.seat_holds/);
+});
+
+test('critical lifecycle migration chặn duplicate refund và idempotency key', async () => {
+  const statements: string[] = [];
+  const queryRunner = {
+    query: async (sql: string) => {
+      statements.push(sql);
+      return [];
+    },
+  } as unknown as QueryRunner;
+
+  await new HardenCriticalLifecycle1786431600000().up(queryRunner);
+
+  const sql = statements.join('\n').toLowerCase();
+
+  assert.match(sql, /ux_refunds_one_pending_per_booking/);
+  assert.match(sql, /where refund_status = 'pending'/);
+  assert.match(sql, /ux_booking_orders_user_idempotency/);
+  assert.match(sql, /where idempotency_key is not null/);
 });

@@ -7,6 +7,7 @@ import {
   ValidateNested,
   Min,
   Matches,
+  MaxLength,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -47,8 +48,13 @@ export class CreateBookingRequest {
   @Type(() => Number)
   promotionId?: number;
 
+  @ApiPropertyOptional({
+    description: 'Khóa idempotency để retry tạo booking mà không tạo đơn trùng',
+    maxLength: 100,
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   idempotencyKey?: string;
 
   @IsOptional()
