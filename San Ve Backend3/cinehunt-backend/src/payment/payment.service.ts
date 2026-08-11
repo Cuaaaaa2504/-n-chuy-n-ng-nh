@@ -21,6 +21,7 @@ import { COUNTER_PAYMENT_GRACE_MINUTES } from '../booking/booking-state.policy';
 import { PaymentRepository } from './payment.repository';
 import { CreatePaymentDto, PaymentResponse } from './dto';
 import { hasVoucherUsageRemaining } from './voucher-usage.policy';
+import { canSwitchPendingPaymentMethod } from './payment-method-switch.policy';
 
 type CounterPaymentCheckRow = {
   booking_id: string;
@@ -71,6 +72,17 @@ export class PaymentService {
           transactionCode: existingPending.transactionCode ?? '',
           createdAt: existingPending.createdAt,
         };
+      }
+
+      if (
+        !canSwitchPendingPaymentMethod(
+          existingPending.paymentMethod,
+          dto.paymentMethod,
+        )
+      ) {
+        throw new BadRequestException(
+          'Đơn đã chọn thanh toán tiền mặt tại quầy. Hãy hủy đơn nếu muốn đổi phương thức thanh toán.',
+        );
       }
 
       await this.paymentRepository.updatePaymentFailed(
@@ -226,6 +238,7 @@ export class PaymentService {
     try {
       const payment = await queryRunner.manager.findOne(Payment, {
         where: { paymentId },
+        lock: { mode: 'pessimistic_write' },
       });
 
       if (!payment) throw new NotFoundException('Không tìm thấy payment');
@@ -239,6 +252,7 @@ export class PaymentService {
       const booking = await queryRunner.manager.findOne(BookingOrder, {
         where: { bookingId: payment.bookingId },
         relations: { bookingDetails: true },
+        lock: { mode: 'pessimistic_write' },
       });
 
       if (!booking) throw new NotFoundException('Không tìm thấy booking');

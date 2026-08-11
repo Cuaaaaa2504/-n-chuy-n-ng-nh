@@ -8,6 +8,7 @@ import {
   isCounterPaymentExpired,
 } from '../src/booking/booking-state.policy';
 import { hasVoucherUsageRemaining } from '../src/payment/voucher-usage.policy';
+import { canSwitchPendingPaymentMethod } from '../src/payment/payment-method-switch.policy';
 
 test('đơn CASH hết hạn đúng 10 phút sau giờ chiếu', () => {
   const start = new Date('2026-08-06T12:00:00.000Z');
@@ -67,4 +68,11 @@ test('voucher chỉ hết lượt khi usedCount đạt usageLimit', () => {
   assert.equal(hasVoucherUsageRemaining(2, 3), true);
   assert.equal(hasVoucherUsageRemaining(3, 3), false);
   assert.equal(hasVoucherUsageRemaining(4, 3), false);
+});
+
+test('payment CASH đang chờ không được đổi sang phương thức khác', () => {
+  assert.equal(canSwitchPendingPaymentMethod('CASH', 'CASH'), true);
+  assert.equal(canSwitchPendingPaymentMethod('CASH', 'BANKING'), false);
+  assert.equal(canSwitchPendingPaymentMethod('cash', 'mock'), false);
+  assert.equal(canSwitchPendingPaymentMethod('BANKING', 'CASH'), true);
 });
