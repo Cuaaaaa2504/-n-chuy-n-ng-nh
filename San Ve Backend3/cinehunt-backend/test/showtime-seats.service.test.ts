@@ -292,14 +292,15 @@ test('expireSeatHolds dùng fallback khi stored procedure chưa tồn tại', as
     throw sqlError;
   };
 
-  const affectedResults = [2, 1];
+  let fallbackSql = '';
 
   dataSource.transaction = async (callback: AsyncCallback) => {
     const manager = {
-      createQueryBuilder: () => {
-        const affected = affectedResults.shift() ?? 0;
-        return createQueryBuilderMock(affected);
+      query: async (sql: string) => {
+        fallbackSql = sql.toLowerCase();
+        return [{ showtime_seat_id: 1 }, { showtime_seat_id: 2 }];
       },
+      createQueryBuilder: () => createQueryBuilderMock(1),
     };
 
     return callback(manager);
@@ -307,6 +308,9 @@ test('expireSeatHolds dùng fallback khi stored procedure chưa tồn tại', as
 
   const result = await service.expireSeatHolds();
 
+  assert.match(fallbackSql, /inner join dbo\.seat_holds/);
+  assert.match(fallbackSql, /h\.status = 'active'/);
+  assert.match(fallbackSql, /ss\.held_by_user_id = h\.user_id/);
   assert.deepEqual(result, {
     message: 'Expired seat holds released (fallback)',
     strategy: 'fallback',

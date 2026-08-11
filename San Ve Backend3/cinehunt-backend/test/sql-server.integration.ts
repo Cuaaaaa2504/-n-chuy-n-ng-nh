@@ -175,3 +175,30 @@ test('SQL Server rollback transaction đúng và không để transaction treo',
   assert.equal(result.recordset[0].beforeRollback, 1);
   assert.equal(result.recordset[0].afterRollback, 0);
 });
+
+
+test('stored procedure chỉ giải phóng ghế của ACTIVE hold đúng owner', async () => {
+  const result = await pool.request().query<{ definition: string | null }>(`
+    SELECT OBJECT_DEFINITION(
+      OBJECT_ID('dbo.sp_release_expired_holds', 'P')
+    ) AS definition
+  `);
+
+  const definition = String(result.recordset[0]?.definition ?? '').toLowerCase();
+  assert.match(definition, /inner join dbo\.seat_holds/);
+  assert.match(definition, /h\.status = 'active'/);
+  assert.match(definition, /ss\.held_by_user_id = h\.user_id/);
+});
+
+test('database chỉ cho phép một PENDING payment trên mỗi booking', async () => {
+  const result = await pool.request().query<{ indexCount: number }>(`
+    SELECT CAST(COUNT(*) AS INT) AS indexCount
+    FROM sys.indexes
+    WHERE object_id = OBJECT_ID('dbo.payments')
+      AND name = 'UX_payments_one_pending_per_booking'
+      AND is_unique = 1
+      AND has_filter = 1
+  `);
+
+  assert.equal(result.recordset[0].indexCount, 1);
+});

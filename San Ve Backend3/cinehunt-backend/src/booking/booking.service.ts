@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, FindOptionsWhere, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
@@ -64,6 +64,69 @@ export class BookingService {
     }
 
     throw new BadRequestException(`Mã đơn đặt vé không hợp lệ: ${value}`);
+  }
+
+  private async releaseBookingSeatsSafely(
+    manager: EntityManager,
+    bookingId: string,
+    userId: number,
+    seatIds: number[],
+    terminalHoldStatus: SeatHoldStatus.EXPIRED | SeatHoldStatus.CANCELLED,
+    now: Date,
+  ): Promise<number[]> {
+    const releasedSeatIds: number[] = [];
+
+    for (const seatId of [...new Set(seatIds)]) {
+      const rows = (await manager.query(
+        `
+          UPDATE ss
+          SET
+            ss.status = 'AVAILABLE',
+            ss.hold_expires_at = NULL,
+            ss.held_by_user_id = NULL
+          OUTPUT INSERTED.showtime_seat_id AS showtime_seat_id
+          FROM dbo.showtime_seats AS ss WITH (UPDLOCK, ROWLOCK)
+          WHERE ss.showtime_seat_id = @0
+            AND ss.status = 'HELD'
+            AND ss.held_by_user_id = @1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM dbo.seat_holds AS active_hold
+              WHERE active_hold.showtime_seat_id = ss.showtime_seat_id
+                AND active_hold.status = 'ACTIVE'
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM dbo.booking_details AS other_detail
+              INNER JOIN dbo.booking_orders AS other_booking
+                ON other_booking.booking_id = other_detail.booking_id
+              WHERE other_detail.showtime_seat_id = ss.showtime_seat_id
+                AND other_detail.booking_id <> @2
+                AND other_detail.status = 'ACTIVE'
+                AND other_booking.status IN ('PENDING_PAYMENT', 'PAID', 'CONFIRMED')
+            );
+        `,
+        [seatId, userId, bookingId],
+      )) as Array<{ showtime_seat_id: number }>;
+
+      if (rows.length > 0) {
+        releasedSeatIds.push(Number(rows[0].showtime_seat_id));
+      }
+    }
+
+    if (releasedSeatIds.length) {
+      await manager.update(
+        SeatHold,
+        {
+          showtimeSeatId: In(releasedSeatIds),
+          userId,
+          status: SeatHoldStatus.CONVERTED,
+        },
+        { status: terminalHoldStatus, releasedAt: now },
+      );
+    }
+
+    return releasedSeatIds;
   }
 
   async createBooking(userId: number, request: CreateBookingRequest): Promise<BookingResponse> {
@@ -203,6 +266,50 @@ export class BookingService {
 
     try {
       return await this.dataSource.transaction(async (manager) => {
+        const transactionNow = new Date();
+
+        const lockedSeats = await manager
+          .getRepository(ShowtimeSeat)
+          .createQueryBuilder('showtimeSeat')
+          .setLock('pessimistic_write')
+          .where('showtimeSeat.showtimeSeatId IN (:...seatIds)', {
+            seatIds: showtimeSeatIds,
+          })
+          .getMany();
+
+        if (
+          lockedSeats.length !== showtimeSeatIds.length ||
+          lockedSeats.some(
+            (seat) =>
+              seat.status !== 'HELD' ||
+              seat.heldByUserId !== userId ||
+              !seat.holdExpiresAt ||
+              new Date(seat.holdExpiresAt) <= transactionNow,
+          )
+        ) {
+          throw new BadRequestException(
+            'Một hoặc nhiều ghế không còn được giữ hợp lệ. Vui lòng chọn lại ghế.',
+          );
+        }
+
+        const lockedHolds = await manager
+          .getRepository(SeatHold)
+          .createQueryBuilder('hold')
+          .setLock('pessimistic_write')
+          .where('hold.holdId IN (:...holdIds)', { holdIds })
+          .andWhere('hold.userId = :userId', { userId })
+          .andWhere('hold.status = :active', { active: SeatHoldStatus.ACTIVE })
+          .getMany();
+
+        if (
+          lockedHolds.length !== holdIds.length ||
+          lockedHolds.some((hold) => new Date(hold.expiresAt) <= transactionNow)
+        ) {
+          throw new BadRequestException(
+            'Một hoặc nhiều hold đã hết hạn hoặc đã được xử lý bởi request khác.',
+          );
+        }
+
         const randomSuffix = Math.random().toString(36).slice(2, 6).toUpperCase();
         const booking = manager.create(BookingOrder, {
           bookingCode: `BK-${Date.now()}-${randomSuffix}`,
@@ -272,11 +379,21 @@ export class BookingService {
           );
         }
 
-        await manager.update(
+        const convertedHolds = await manager.update(
           SeatHold,
-          { holdId: In(holdIds) },
+          {
+            holdId: In(holdIds),
+            userId,
+            status: SeatHoldStatus.ACTIVE,
+          },
           { status: SeatHoldStatus.CONVERTED },
         );
+
+        if ((convertedHolds.affected ?? 0) !== holdIds.length) {
+          throw new BadRequestException(
+            'Hold đã thay đổi trong lúc tạo booking. Vui lòng đặt lại.',
+          );
+        }
 
         await manager.update(
           ShowtimeSeat,
@@ -374,75 +491,87 @@ export class BookingService {
       [COUNTER_PAYMENT_GRACE_MINUTES, now],
     )) as Array<{ booking_id: string }>;
 
-    const expiredBookingIds = [...new Set(rows.map((row) => row.booking_id))];
+    const candidateIds = [...new Set(rows.map((row) => String(row.booking_id)))];
+    let expiredCount = 0;
 
-    if (!expiredBookingIds.length) {
-      return { expiredCount: 0 };
-    }
+    for (const candidateId of candidateIds) {
+      const expired = await this.dataSource.transaction(async (manager) => {
+        const lockedRows = (await manager.query(
+          `
+            SELECT TOP (1)
+              CONVERT(VARCHAR(30), bo.booking_id) AS booking_id,
+              bo.user_id
+            FROM dbo.booking_orders AS bo WITH (UPDLOCK, HOLDLOCK)
+            INNER JOIN dbo.showtimes AS st
+              ON st.showtime_id = bo.showtime_id
+            OUTER APPLY (
+              SELECT TOP (1)
+                p.payment_method,
+                p.payment_status
+              FROM dbo.payments AS p
+              WHERE p.booking_id = bo.booking_id
+              ORDER BY p.created_at DESC, p.payment_id DESC
+            ) AS latest_payment
+            WHERE bo.booking_id = @0
+              AND bo.status = 'PENDING_PAYMENT'
+              AND (
+                (bo.expires_at IS NOT NULL AND bo.expires_at <= @2)
+                OR (
+                  latest_payment.payment_method = 'CASH'
+                  AND latest_payment.payment_status = 'PENDING'
+                  AND DATEADD(MINUTE, @1, st.start_time) <= CAST(
+                    SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
+                    AS DATETIME2
+                  )
+                )
+              );
+          `,
+          [candidateId, COUNTER_PAYMENT_GRACE_MINUTES, now],
+        )) as Array<{ booking_id: string; user_id: number }>;
 
-    const expiredBookings = await this.bookingRepo.find({
-      where: { bookingId: In(expiredBookingIds) },
-      relations: { bookingDetails: { showtimeSeat: true } },
-    });
+        const locked = lockedRows[0];
+        if (!locked) return false;
 
-    if (!expiredBookings.length) {
-      return { expiredCount: 0 };
-    }
-
-    const bookingIds = expiredBookings.map((b) => b.bookingId);
-    const allSeatIds = [
-      ...new Set(
-        expiredBookings.flatMap((b) =>
-          b.bookingDetails.map((d: any) => d.showtimeSeatId),
-        ),
-      ),
-    ];
-
-    await this.dataSource.transaction(async (manager) => {
-      await manager.update(
-        BookingOrder,
-        { bookingId: In(bookingIds) },
-        { status: 'EXPIRED', cancelledAt: now },
-      );
-
-      await manager.update(
-        Payment,
-        {
-          bookingId: In(bookingIds),
-          paymentStatus: 'PENDING',
-        },
-        { paymentStatus: 'FAILED', failedReason: 'Booking expired' },
-      );
-
-      await manager.update(
-        BookingDetail,
-        { bookingId: In(bookingIds), status: 'ACTIVE' },
-        { status: 'EXPIRED' },
-      );
-
-      if (allSeatIds.length) {
-        await manager.update(
-          ShowtimeSeat,
-          { showtimeSeatId: In(allSeatIds) },
-          { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
-        );
+        const bookingId = String(locked.booking_id);
+        const userId = Number(locked.user_id);
+        const details = await manager.find(BookingDetail, {
+          where: { bookingId, status: 'ACTIVE' },
+        });
+        const seatIds = [...new Set(details.map((d) => d.showtimeSeatId))];
 
         await manager.update(
-          SeatHold,
-          {
-            showtimeSeatId: In(allSeatIds),
-            status: In([SeatHoldStatus.ACTIVE, SeatHoldStatus.CONVERTED]),
-          },
-          { status: SeatHoldStatus.EXPIRED, releasedAt: now },
+          BookingOrder,
+          { bookingId, status: 'PENDING_PAYMENT' },
+          { status: 'EXPIRED', cancelledAt: now },
         );
-      }
+        await manager.update(
+          Payment,
+          { bookingId, paymentStatus: 'PENDING' },
+          { paymentStatus: 'FAILED', failedReason: 'Booking expired' },
+        );
+        await manager.update(
+          BookingDetail,
+          { bookingId, status: 'ACTIVE' },
+          { status: 'EXPIRED' },
+        );
 
-      if (bookingIds.length) {
-        await manager.delete(BookingCombo, { bookingId: In(bookingIds) });
-      }
-    });
+        await this.releaseBookingSeatsSafely(
+          manager,
+          bookingId,
+          userId,
+          seatIds,
+          SeatHoldStatus.EXPIRED,
+          now,
+        );
 
-    return { expiredCount: expiredBookings.length };
+        await manager.delete(BookingCombo, { bookingId });
+        return true;
+      });
+
+      if (expired) expiredCount += 1;
+    }
+
+    return { expiredCount };
   }
 
   async getMyBookings(userId: number) {
@@ -541,64 +670,52 @@ export class BookingService {
   async cancelBooking(bookingRef: string, userId: number) {
     const now = new Date();
 
-    const booking = await this.bookingRepo.findOne({
-      where: { ...this.buildBookingRef(bookingRef), userId },
-      relations: { bookingDetails: true },
-    });
+    return this.dataSource.transaction(async (manager) => {
+      const booking = await manager.findOne(BookingOrder, {
+        where: { ...this.buildBookingRef(bookingRef), userId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (!booking) {
-      throw new NotFoundException('Không tìm thấy booking');
-    }
+      if (!booking) {
+        throw new NotFoundException('Không tìm thấy booking');
+      }
+      if (!canUserCancelBooking(booking.status)) {
+        throw new BadRequestException('Booking không thể hủy ở trạng thái hiện tại');
+      }
 
-    if (!canUserCancelBooking(booking.status)) {
-      throw new BadRequestException('Booking không thể hủy ở trạng thái hiện tại');
-    }
+      const bookingId = String(booking.bookingId);
+      const details = await manager.find(BookingDetail, {
+        where: { bookingId, status: 'ACTIVE' },
+      });
+      const seatIds = [...new Set(details.map((d) => d.showtimeSeatId))];
 
-    const showtimeSeatIds = booking.bookingDetails.map((d: any) => d.showtimeSeatId);
-
-    const bookingId = String(booking.bookingId);
-
-    await this.dataSource.transaction(async (manager) => {
       await manager.update(
         BookingOrder,
-        { bookingId },
+        { bookingId, status: 'PENDING_PAYMENT' },
         { status: 'CANCELLED', cancelledAt: now },
       );
-
       await manager.update(
         Payment,
-        {
-          bookingId,
-          paymentStatus: 'PENDING',
-        },
+        { bookingId, paymentStatus: 'PENDING' },
         { paymentStatus: 'FAILED', failedReason: 'Booking cancelled by user' },
       );
-
       await manager.update(
         BookingDetail,
         { bookingId, status: 'ACTIVE' },
         { status: 'CANCELLED' },
       );
 
-      if (showtimeSeatIds.length) {
-        await manager.update(
-          ShowtimeSeat,
-          { showtimeSeatId: In(showtimeSeatIds) },
-          { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
-        );
+      await this.releaseBookingSeatsSafely(
+        manager,
+        bookingId,
+        booking.userId,
+        seatIds,
+        SeatHoldStatus.CANCELLED,
+        now,
+      );
 
-        await manager.update(
-          SeatHold,
-          {
-            showtimeSeatId: In(showtimeSeatIds),
-            status: In([SeatHoldStatus.ACTIVE, SeatHoldStatus.CONVERTED]),
-          },
-          { status: SeatHoldStatus.CANCELLED, releasedAt: now },
-        );
-      }
+      return { success: true };
     });
-
-    return { success: true };
   }
 
   // ADMIN
@@ -694,77 +811,64 @@ export class BookingService {
       );
     }
 
-    const booking = await this.bookingRepo.findOne({
-      where: { bookingId },
-      relations: { bookingDetails: true },
-    });
-    if (!booking) throw new NotFoundException('Không tìm thấy booking');
-    if (booking.status === normalized) return booking;
-
-    if (!canAdminTransitionBooking(booking.status, normalized)) {
-      throw new BadRequestException(
-        'Admin chỉ được chuyển đơn PENDING_PAYMENT sang CANCELLED hoặc EXPIRED. ' +
-          'Đơn đã thanh toán phải đi qua luồng refund; xác nhận thanh toán phải đi qua PaymentService.',
-      );
-    }
-
     const now = new Date();
-    const showtimeSeatIds = (booking.bookingDetails ?? []).map(
-      (d: any) => d.showtimeSeatId,
-    );
+    const previousStatus = await this.dataSource.transaction(async (manager) => {
+      const booking = await manager.findOne(BookingOrder, {
+        where: { bookingId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    await this.dataSource.transaction(async (manager) => {
-      const patch: Partial<BookingOrder> = { status: normalized };
-      if (normalized === 'PAID' || normalized === 'CONFIRMED') patch.paidAt = now;
-      if (['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(normalized))
-        patch.cancelledAt = now;
+      if (!booking) throw new NotFoundException('Không tìm thấy booking');
+      if (booking.status === normalized) return booking.status;
 
-      await manager.update(BookingOrder, { bookingId }, patch);
-
-      if (['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(normalized)) {
-        if (['CANCELLED', 'EXPIRED'].includes(normalized)) {
-          await manager.update(
-            Payment,
-            { bookingId, paymentStatus: 'PENDING' },
-            {
-              paymentStatus: 'FAILED',
-              failedReason: `Booking marked ${normalized.toLowerCase()} by admin`,
-            },
-          );
-        }
-        await manager.update(
-          BookingDetail,
-          { bookingId, status: 'ACTIVE' },
-          { status: 'CANCELLED' },
-        );
-        if (showtimeSeatIds.length) {
-          await manager.update(
-            ShowtimeSeat,
-            { showtimeSeatId: In(showtimeSeatIds) },
-            { status: 'AVAILABLE', holdExpiresAt: null, heldByUserId: null },
-          );
-          await manager.update(
-            SeatHold,
-            {
-              showtimeSeatId: In(showtimeSeatIds),
-              status: In([SeatHoldStatus.ACTIVE, SeatHoldStatus.CONFIRMED, SeatHoldStatus.CONVERTED]),
-            },
-            { status: SeatHoldStatus.CANCELLED, releasedAt: now },
-          );
-        }
-      }
-
-      if (['PAID', 'CONFIRMED'].includes(normalized) && showtimeSeatIds.length) {
-        await manager.update(
-          ShowtimeSeat,
-          { showtimeSeatId: In(showtimeSeatIds) },
-          { status: 'SOLD', holdExpiresAt: null },
+      if (!canAdminTransitionBooking(booking.status, normalized)) {
+        throw new BadRequestException(
+          'Admin chỉ được chuyển đơn PENDING_PAYMENT sang CANCELLED hoặc EXPIRED. ' +
+            'Đơn đã thanh toán phải đi qua luồng refund; xác nhận thanh toán phải đi qua PaymentService.',
         );
       }
+
+      const details = await manager.find(BookingDetail, {
+        where: { bookingId, status: 'ACTIVE' },
+      });
+      const seatIds = [...new Set(details.map((d) => d.showtimeSeatId))];
+      const terminalHoldStatus =
+        normalized === 'EXPIRED'
+          ? SeatHoldStatus.EXPIRED
+          : SeatHoldStatus.CANCELLED;
+
+      await manager.update(
+        BookingOrder,
+        { bookingId, status: 'PENDING_PAYMENT' },
+        { status: normalized, cancelledAt: now },
+      );
+      await manager.update(
+        Payment,
+        { bookingId, paymentStatus: 'PENDING' },
+        {
+          paymentStatus: 'FAILED',
+          failedReason: `Booking marked ${normalized.toLowerCase()} by admin`,
+        },
+      );
+      await manager.update(
+        BookingDetail,
+        { bookingId, status: 'ACTIVE' },
+        { status: normalized === 'EXPIRED' ? 'EXPIRED' : 'CANCELLED' },
+      );
+      await this.releaseBookingSeatsSafely(
+        manager,
+        bookingId,
+        booking.userId,
+        seatIds,
+        terminalHoldStatus,
+        now,
+      );
+
+      return booking.status;
     });
 
     this.logger.log(
-      `Admin đổi trạng thái booking #${bookingId}: ${booking.status} -> ${normalized}`,
+      `Admin đổi trạng thái booking #${bookingId}: ${previousStatus} -> ${normalized}`,
     );
 
     return this.bookingRepo.findOne({ where: { bookingId } });
