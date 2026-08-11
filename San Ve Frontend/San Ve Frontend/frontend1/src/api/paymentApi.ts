@@ -44,7 +44,7 @@ export async function getPaymentMethods(): Promise<PaymentMethod[]> {
     return [
       { code: 'MOMO', name: 'Ví MoMo', enabled: false, note: 'Chưa cấu hình cổng MoMo' },
       { code: 'VNPAY', name: 'VNPay', enabled: false, note: 'Chưa cấu hình cổng VNPay' },
-      { code: 'BANKING', name: 'Chuyển khoản ngân hàng', enabled: true, note: 'QR demo cho đồ án' },
+      { code: 'BANKING', name: 'Chuyển khoản ngân hàng', enabled: true, note: 'Tạo giao dịch chờ STAFF/ADMIN xác nhận' },
       {
         code: 'MOCK',
         name: 'Thanh toán giả lập (Dev)',

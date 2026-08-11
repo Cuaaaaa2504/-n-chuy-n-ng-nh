@@ -105,3 +105,27 @@ test('safe seat release bảo vệ ACTIVE hold và booking mới', async () => {
   assert.match(sql, /held_by_user_id = @1/);
   assert.equal(holdUpdateCalled, false);
 });
+test('expire scheduler bỏ qua deadline thường của CASH PENDING', async () => {
+  let candidateSql = '';
+
+  const service = createService({
+    query: async (sql: string) => {
+      candidateSql = sql.toLowerCase();
+      return [];
+    },
+  });
+
+  const result = await service.expirePendingBookings();
+
+  assert.deepEqual(result, { expiredCount: 0 });
+  assert.match(
+    candidateSql,
+    /isnull\(latest_payment\.payment_method, ''\) <> 'cash'/,
+  );
+  assert.match(
+    candidateSql,
+    /isnull\(latest_payment\.payment_status, ''\) <> 'pending'/,
+  );
+  assert.match(candidateSql, /latest_payment\.payment_method = 'cash'/);
+  assert.match(candidateSql, /dateadd\(minute, @0, st\.start_time\)/);
+});

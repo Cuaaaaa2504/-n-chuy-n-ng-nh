@@ -67,6 +67,7 @@ export default function PaymentPage() {
   const [selectedMethod, setSelectedMethod]     = useState<PaymentMethodCode | null>(null);
   const [loading, setLoading]                   = useState(true);
   const [fetchError, setFetchError]             = useState('');
+  const [paymentNotice, setPaymentNotice]       = useState('');
 
   const { isProcessing, paymentStatus, error: paymentError, handlePayment, resetPayment } = usePayment();
   const { seconds: countdown, display: countdownDisplay } = useCountdown(order?.expiresAt);
@@ -75,6 +76,7 @@ export default function PaymentPage() {
     const load = async () => {
       setLoading(true);
       setFetchError('');
+      setPaymentNotice('');
       try {
         if (isLocalMode) {
           setOrder(buildLocalOrder(searchParams));
@@ -121,6 +123,7 @@ export default function PaymentPage() {
     if (!method) return;
     resetPayment();
     setFetchError('');
+    setPaymentNotice('');
 
     if (isLocalMode) {
       setOrder((prev) => prev ? { ...prev, status: 'PAID' } : prev);
@@ -158,11 +161,14 @@ export default function PaymentPage() {
         return;
       }
 
-      setFetchError(
-        'Giao dịch đã được tạo và đang chờ cổng thanh toán xác nhận.',
+      setPaymentNotice(
+        method === 'BANKING'
+          ? 'Giao dịch chuyển khoản đã được tạo và đang chờ STAFF/ADMIN đối soát, xác nhận.'
+          : 'Giao dịch đã được tạo và đang chờ hệ thống xác nhận.',
       );
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Thanh toán thất bại';
+      setPaymentNotice('');
       setFetchError(msg);
     }
   };
@@ -217,6 +223,7 @@ export default function PaymentPage() {
         </div>
 
         {fetchError && <div className="stitch-card px-5 py-4 mb-6" style={{ color: 'var(--st-danger)' }}>{fetchError}</div>}
+        {paymentNotice && <div className="stitch-card px-5 py-4 mb-6" style={{ color: 'var(--st-cyan)' }}>{paymentNotice}</div>}
         {isExpired && <div className="stitch-card px-5 py-4 mb-6" style={{ color: 'var(--st-danger)' }}>Đơn hàng đã hết hạn. Vui lòng đặt lại.</div>}
 
         <div className="stitch-payment-grid">
@@ -232,7 +239,11 @@ export default function PaymentPage() {
                     key={method.code}
                     type="button"
                     onClick={() => {
-                      if (method.enabled !== false) setSelectedMethod(method.code);
+                      if (method.enabled !== false) {
+                        setSelectedMethod(method.code);
+                        setFetchError('');
+                        setPaymentNotice('');
+                      }
                     }}
                     disabled={method.enabled === false}
                     className="w-full flex items-center gap-4 px-4 py-4 rounded-xl border text-left transition disabled:cursor-not-allowed disabled:opacity-45"
@@ -279,8 +290,9 @@ export default function PaymentPage() {
                   </p>
                 </div>
                 <p className="text-xs stitch-muted mt-4">
-                  QR này dùng cho luồng demo đồ án. Sau khi quét, bấm
-                  “Xác nhận thanh toán” để hệ thống mô phỏng ngân hàng xác nhận.
+                  QR này là mã minh họa chuyển khoản cho đồ án. Sau khi chuyển
+                  khoản, tạo giao dịch chờ xác nhận. STAFF/ADMIN sẽ đối soát và
+                  xác nhận giao dịch; người dùng không tự xác nhận BANKING.
                 </p>
               </article>
             )}
@@ -348,7 +360,9 @@ export default function PaymentPage() {
                 ? 'Đang xử lý...'
                 : selectedMethod === 'CASH'
                   ? 'Giữ vé và thanh toán tại quầy'
-                  : `Xác nhận thanh toán${order ? ` ${order.totalAmount.toLocaleString('vi-VN')}₫` : ''}`}
+                  : selectedMethod === 'BANKING'
+                    ? 'Tạo giao dịch chờ xác nhận'
+                    : `Xác nhận thanh toán${order ? ` ${order.totalAmount.toLocaleString('vi-VN')}₫` : ''}`}
             </button>
           </aside>
         </div>

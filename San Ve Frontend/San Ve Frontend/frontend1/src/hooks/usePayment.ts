@@ -18,6 +18,41 @@ interface PaymentResult {
   transactionCode?: string;
 }
 
+
+export function getPaymentErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message.trim()) {
+    return err.message.trim();
+  }
+
+  if (err && typeof err === 'object') {
+    const directMessage = (err as { message?: unknown }).message;
+    if (typeof directMessage === 'string' && directMessage.trim()) {
+      return directMessage.trim();
+    }
+
+    const backendMessage = (
+      err as {
+        raw?: {
+          response?: {
+            data?: { message?: unknown };
+          };
+        };
+      }
+    ).raw?.response?.data?.message;
+
+    if (Array.isArray(backendMessage)) {
+      const joined = backendMessage.map(String).filter(Boolean).join(', ');
+      if (joined) return joined;
+    }
+
+    if (typeof backendMessage === 'string' && backendMessage.trim()) {
+      return backendMessage.trim();
+    }
+  }
+
+  return 'Thanh toán thất bại';
+}
+
 export const usePayment = () => {
   const [isProcessing, setIsProcessing]   = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('PENDING');
@@ -48,10 +83,10 @@ export const usePayment = () => {
         }
         throw new Error('Payment failed');
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Thanh toán thất bại';
+        const msg = getPaymentErrorMessage(err);
         setPaymentStatus('FAILED');
         setError(msg);
-        throw err;
+        throw new Error(msg, { cause: err });
       } finally {
         setIsProcessing(false);
       }

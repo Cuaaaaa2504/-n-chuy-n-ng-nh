@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, EntityManager, In } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { Payment } from '../entities/payment.entity';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
@@ -79,9 +79,6 @@ export class PaymentService {
 
       if (existingPending) {
         if (existingPending.paymentMethod === dto.paymentMethod) {
-          if (dto.paymentMethod === 'CASH') {
-            await this.applyCounterPaymentHold(manager, bookingId);
-          }
           return this.toPaymentResponse(existingPending);
         }
 
@@ -128,10 +125,9 @@ export class PaymentService {
         }),
       );
 
-      if (dto.paymentMethod === 'CASH') {
-        await this.applyCounterPaymentHold(manager, bookingId);
-      }
-
+      // CASH giữ nguyên expiresAt/holdExpiresAt trong DB.
+      // BookingExpireScheduler nhận biết CASH/PENDING và chỉ hết hạn
+      // theo mốc showtime + COUNTER_PAYMENT_GRACE_MINUTES.
       return this.toPaymentResponse(payment);
     });
   }
@@ -146,45 +142,6 @@ export class PaymentService {
       transactionCode: payment.transactionCode ?? '',
       createdAt: payment.createdAt,
     };
-  }
-
-  private async applyCounterPaymentHold(
-    manager: EntityManager,
-    bookingId: string,
-  ): Promise<void> {
-    const details = await manager.find(BookingDetail, {
-      where: { bookingId, status: 'ACTIVE' },
-    });
-    const seatIds = details.map((detail) => detail.showtimeSeatId);
-
-    await manager.update(
-      BookingOrder,
-      { bookingId, status: 'PENDING_PAYMENT' },
-      { expiresAt: null },
-    );
-
-    if (seatIds.length) {
-      await manager.update(
-        ShowtimeSeat,
-        { showtimeSeatId: In(seatIds), status: 'HELD' },
-        { holdExpiresAt: null },
-      );
-    }
-  }
-
-  private async disableCounterPaymentExpiry(bookingId: string): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      const booking = await manager.findOne(BookingOrder, {
-        where: { bookingId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!booking) {
-        throw new NotFoundException('Không tìm thấy booking');
-      }
-
-      await this.applyCounterPaymentHold(manager, bookingId);
-    });
   }
 
   async confirmPendingCashPaymentForCheckIn(bookingCode: string) {
@@ -263,9 +220,9 @@ export class PaymentService {
       );
     }
 
-    // Hỗ trợ cả các payment CASH được tạo trước khi bản sửa này được áp dụng.
-    await this.disableCounterPaymentExpiry(row.booking_id);
-    await this.processPaymentSuccess(row.payment_id);
+    await this.processPaymentSuccess(row.payment_id, {
+      allowExpiredCounterPayment: true,
+    });
 
     return {
       confirmed: true,
@@ -274,7 +231,10 @@ export class PaymentService {
     };
   }
 
-  async processPaymentSuccess(paymentId: string) {
+  async processPaymentSuccess(
+    paymentId: string,
+    options: { allowExpiredCounterPayment?: boolean } = {},
+  ) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -296,7 +256,16 @@ export class PaymentService {
       if (booking.status !== 'PENDING_PAYMENT') {
         throw new BadRequestException('Booking không ở trạng thái chờ thanh toán');
       }
-      if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
+      const mayConfirmExpiredCounterPayment =
+        options.allowExpiredCounterPayment === true &&
+        paymentSnapshot.paymentMethod === 'CASH' &&
+        paymentSnapshot.paymentStatus === 'PENDING';
+
+      if (
+        !mayConfirmExpiredCounterPayment &&
+        booking.expiresAt &&
+        new Date(booking.expiresAt) <= new Date()
+      ) {
         throw new BadRequestException('Booking đã hết hạn');
       }
 

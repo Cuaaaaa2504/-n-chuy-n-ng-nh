@@ -202,3 +202,58 @@ test('database chỉ cho phép một PENDING payment trên mỗi booking', async
 
   assert.equal(result.recordset[0].indexCount, 1);
 });
+test('schema expiry columns khớp metadata entity', async () => {
+  const result = await pool.request().query<{
+    bookingExpiresNullable: number | null;
+    bookingExpiresScale: number | null;
+    seatHoldExpiresNullable: number | null;
+    seatHoldExpiresScale: number | null;
+  }>(`
+    SELECT
+      (
+        SELECT CAST(c.is_nullable AS INT)
+        FROM sys.columns AS c
+        WHERE c.object_id = OBJECT_ID('dbo.booking_orders')
+          AND c.name = 'expires_at'
+      ) AS bookingExpiresNullable,
+      (
+        SELECT CAST(c.scale AS INT)
+        FROM sys.columns AS c
+        WHERE c.object_id = OBJECT_ID('dbo.booking_orders')
+          AND c.name = 'expires_at'
+      ) AS bookingExpiresScale,
+      (
+        SELECT CAST(c.is_nullable AS INT)
+        FROM sys.columns AS c
+        WHERE c.object_id = OBJECT_ID('dbo.showtime_seats')
+          AND c.name = 'hold_expires_at'
+      ) AS seatHoldExpiresNullable,
+      (
+        SELECT CAST(c.scale AS INT)
+        FROM sys.columns AS c
+        WHERE c.object_id = OBJECT_ID('dbo.showtime_seats')
+          AND c.name = 'hold_expires_at'
+      ) AS seatHoldExpiresScale
+  `);
+
+  assert.deepEqual(result.recordset[0], {
+    bookingExpiresNullable: 1,
+    bookingExpiresScale: 0,
+    seatHoldExpiresNullable: 1,
+    seatHoldExpiresScale: 0,
+  });
+});
+
+test('migration concurrency quan trọng đã được áp dụng', async () => {
+  const result = await pool.request().query<{ migrationCount: number }>(`
+    SELECT CAST(COUNT(*) AS INT) AS migrationCount
+    FROM dbo.typeorm_migrations
+    WHERE name = 'HardenBookingLifecycleConcurrency1786423740000'
+  `);
+
+  assert.equal(
+    result.recordset[0].migrationCount,
+    1,
+    'Chưa áp dụng HardenBookingLifecycleConcurrency1786423740000',
+  );
+});

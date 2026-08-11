@@ -23,6 +23,7 @@ import {
   getPaymentMethods,
   payOrder,
 } from '../src/api/paymentApi';
+import { getPaymentErrorMessage } from '../src/hooks/usePayment';
 
 describe('Booking/payment', () => {
   beforeEach(() => {
@@ -163,5 +164,30 @@ describe('Booking/payment', () => {
       transactionCode: 'TX-100',
       redirectUrl: undefined,
     });
+  });
+});
+
+describe('Payment error helpers', () => {
+  it('giữ nguyên lỗi plain-object từ axiosClient', () => {
+    expect(
+      getPaymentErrorMessage({
+        status: 500,
+        message: 'SQL Server connection lost',
+      }),
+    ).toBe('SQL Server connection lost');
+  });
+
+  it('đọc được mảng message từ backend validation', () => {
+    expect(
+      getPaymentErrorMessage({
+        raw: {
+          response: {
+            data: {
+              message: ['Booking đã hết hạn', 'Vui lòng đặt lại'],
+            },
+          },
+        },
+      }),
+    ).toBe('Booking đã hết hạn, Vui lòng đặt lại');
   });
 });
