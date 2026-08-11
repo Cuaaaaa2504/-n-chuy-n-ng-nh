@@ -30,3 +30,7 @@ recommendation-service/model/*.pkl
 # Local Stitch UI backups
 **/.stitch-v2*-backup*/
 **/*.bak-*
+
+# Generated test reports
+San Ve Frontend/San Ve Frontend/frontend1/playwright-report/
+San Ve Frontend/San Ve Frontend/frontend1/test-results/

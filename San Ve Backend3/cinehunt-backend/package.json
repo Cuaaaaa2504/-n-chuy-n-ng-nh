@@ -18,7 +18,8 @@
     "migration:create": "typeorm-ts-node-commonjs migration:create",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
-    "test": "TS_NODE_PROJECT=test/tsconfig.json node --test --require ts-node/register test/*.test.ts"
+    "test": "TS_NODE_PROJECT=test/tsconfig.json node --test --require ts-node/register test/*.test.ts",
+    "test:integration:sql": "TS_NODE_PROJECT=test/tsconfig.json node --test --require ts-node/register test/sql-server.integration.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^3.1.3",
