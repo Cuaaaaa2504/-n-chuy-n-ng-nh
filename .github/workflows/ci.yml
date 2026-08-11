@@ -34,7 +34,7 @@ jobs:
         working-directory: San Ve Backend3/cinehunt-backend
     env:
       DB_HOST: ${{ secrets.CI_DB_HOST }}
-      DB_PORT: ${{ secrets.CI_DB_PORT }}
+      DB_PORT: ${{ secrets.CI_DB_PORT || '1433' }}
       DB_USERNAME: ${{ secrets.CI_DB_USERNAME }}
       DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
       DB_DATABASE: ${{ secrets.CI_DB_DATABASE }}

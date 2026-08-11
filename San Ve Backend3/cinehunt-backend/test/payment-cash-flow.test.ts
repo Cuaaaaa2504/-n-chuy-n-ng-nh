@@ -251,9 +251,10 @@ test('CASH generic confirm không được bỏ qua deadline; check-in flag thì
   );
 });
 
-test('retry CASH sau deadline gốc vẫn idempotent', async () => {
+test('retry CASH sau deadline gốc vẫn idempotent khi còn trong grace', async () => {
   let validateOptions: unknown;
   let saveCalled = false;
+  let retryWindowParams: unknown[] = [];
 
   const manager = {
     findOne: async (entity: unknown) => {
@@ -261,6 +262,7 @@ test('retry CASH sau deadline gốc vẫn idempotent', async () => {
         return {
           bookingId: '103',
           userId: 25,
+          showtimeId: 10,
           status: 'PENDING_PAYMENT',
           totalAmount: 120000,
           expiresAt: new Date('2020-01-01T00:00:00.000Z'),
@@ -280,6 +282,10 @@ test('retry CASH sau deadline gốc vẫn idempotent', async () => {
       }
 
       return null;
+    },
+    query: async (_sql: string, params: unknown[]) => {
+      retryWindowParams = params;
+      return [{ within_grace: 1 }];
     },
     save: async () => {
       saveCalled = true;
@@ -312,8 +318,80 @@ test('retry CASH sau deadline gốc vẫn idempotent', async () => {
   );
 
   assert.deepEqual(validateOptions, { skipExpiryCheck: true });
+  assert.deepEqual(retryWindowParams, [10, 10]);
   assert.equal(result.paymentId, '903');
   assert.equal(result.paymentStatus, 'PENDING');
   assert.equal(result.paymentMethod, 'CASH');
+  assert.equal(saveCalled, false);
+});
+
+test('retry CASH sau showtime + grace bị chặn ngay cả khi cron chưa chạy', async () => {
+  let saveCalled = false;
+
+  const manager = {
+    findOne: async (entity: unknown) => {
+      if (entity === BookingOrder) {
+        return {
+          bookingId: '104',
+          userId: 25,
+          showtimeId: 11,
+          status: 'PENDING_PAYMENT',
+          totalAmount: 120000,
+          expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+        };
+      }
+
+      if (entity === Payment) {
+        return {
+          paymentId: '904',
+          bookingId: '104',
+          paymentMethod: 'CASH',
+          paymentStatus: 'PENDING',
+          amount: 120000,
+          transactionCode: 'PAY-CASH-904',
+          createdAt: new Date('2026-08-11T03:00:00.000Z'),
+        };
+      }
+
+      return null;
+    },
+    query: async (sql: string, params: unknown[]) => {
+      assert.match(sql, /DATEADD\(MINUTE, @1, st\.start_time\)/);
+      assert.match(sql, /SE Asia Standard Time/);
+      assert.deepEqual(params, [11, 10]);
+      return [{ within_grace: 0 }];
+    },
+    save: async () => {
+      saveCalled = true;
+      throw new Error('Không được tạo payment mới ngoài grace');
+    },
+  };
+
+  const service = new PaymentService(
+    { generatePaymentCode: () => 'PAY-NEW' } as any,
+    {
+      validateBookingForPayment: async () => ({
+        bookingId: '104',
+        finalAmount: 120000,
+      }),
+    } as any,
+    {
+      transaction: async (callback: (manager: any) => Promise<any>) =>
+        callback(manager),
+    } as any,
+    { get: () => undefined } as any,
+  );
+
+  await assert.rejects(
+    () =>
+      service.createPayment(
+        25,
+        { bookingId: '104', paymentMethod: 'CASH' } as any,
+      ),
+    (error: unknown) =>
+      error instanceof BadRequestException &&
+      /quá thời gian giữ/i.test(error.message),
+  );
+
   assert.equal(saveCalled, false);
 });

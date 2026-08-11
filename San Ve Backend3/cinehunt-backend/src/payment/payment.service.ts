@@ -75,11 +75,39 @@ export class PaymentService {
       });
 
       // CASH/PENDING đã chuyển sang chính sách giữ tới showtime + grace.
-      // Retry cùng CASH phải trả lại payment cũ kể cả deadline gốc đã qua.
+      // Retry cùng CASH chỉ idempotent khi vẫn còn trong cửa sổ giữ tại quầy.
+      // Dùng giờ SQL Server để đồng nhất với BookingExpireScheduler và loại
+      // race khi cron chưa kịp đánh dấu booking EXPIRED.
       if (
         existingPending?.paymentMethod === 'CASH' &&
         dto.paymentMethod === 'CASH'
       ) {
+        const retryWindowRows = (await manager.query(
+          `
+            SELECT TOP (1)
+              CAST(
+                CASE
+                  WHEN DATEADD(MINUTE, @1, st.start_time) >
+                    CAST(
+                      SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
+                      AS DATETIME2
+                    )
+                  THEN 1 ELSE 0
+                END
+                AS BIT
+              ) AS within_grace
+            FROM dbo.showtimes AS st
+            WHERE st.showtime_id = @0;
+          `,
+          [booking.showtimeId, COUNTER_PAYMENT_GRACE_MINUTES],
+        )) as Array<{ within_grace: boolean | number }>;
+
+        if (!Boolean(retryWindowRows[0]?.within_grace)) {
+          throw new BadRequestException(
+            'Đơn thanh toán tại quầy đã quá thời gian giữ',
+          );
+        }
+
         return this.toPaymentResponse(existingPending);
       }
 

@@ -6,8 +6,11 @@ import * as sql from 'mssql';
 let pool: sql.ConnectionPool;
 
 function readNumber(value: string | undefined, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  const normalized = value?.trim();
+  if (!normalized) return fallback;
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 const username = process.env.DB_USERNAME ?? process.env.DB_USER;
