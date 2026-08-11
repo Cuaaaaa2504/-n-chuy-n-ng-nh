@@ -107,5 +107,51 @@ export class HardenBookingLifecycleConcurrency1786423740000
         DROP INDEX UX_payments_one_pending_per_booking ON dbo.payments;
       END;
     `);
+
+    // Khôi phục đúng định nghĩa procedure của migration liền trước.
+    await queryRunner.query(`
+      CREATE OR ALTER PROCEDURE dbo.sp_release_expired_holds
+      AS
+      BEGIN
+        SET NOCOUNT ON;
+        SET XACT_ABORT ON;
+        SET DEADLOCK_PRIORITY LOW;
+
+        DECLARE @LockResult INT;
+        BEGIN TRANSACTION;
+
+        EXEC @LockResult = sys.sp_getapplock
+          @Resource = N'CineHunt.ReleaseExpiredHolds',
+          @LockMode = 'Exclusive',
+          @LockOwner = 'Transaction',
+          @LockTimeout = 0;
+
+        IF @LockResult < 0
+        BEGIN
+          ROLLBACK TRANSACTION;
+          RETURN;
+        END;
+
+        UPDATE ss WITH (UPDLOCK, READPAST, ROWLOCK)
+        SET
+          ss.status = 'AVAILABLE',
+          ss.held_by_user_id = NULL,
+          ss.hold_expires_at = NULL
+        FROM dbo.showtime_seats AS ss
+        WHERE ss.status = 'HELD'
+          AND ss.hold_expires_at IS NOT NULL
+          AND ss.hold_expires_at <= SYSDATETIME();
+
+        UPDATE h WITH (UPDLOCK, READPAST, ROWLOCK)
+        SET
+          h.status = 'EXPIRED',
+          h.released_at = SYSDATETIME()
+        FROM dbo.seat_holds AS h
+        WHERE h.status = 'ACTIVE'
+          AND h.expires_at <= SYSDATETIME();
+
+        COMMIT TRANSACTION;
+      END;
+    `);
   }
 }

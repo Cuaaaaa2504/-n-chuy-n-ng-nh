@@ -89,3 +89,20 @@ test('harden migration chỉ trả ghế có ACTIVE hold và chặn duplicate PE
   assert.match(sql, /ux_payments_one_pending_per_booking/);
   assert.match(sql, /where payment_status = 'pending'/);
 });
+test('migration rollback khôi phục procedure trước đó và xóa unique index', async () => {
+  const statements: string[] = [];
+  const queryRunner = {
+    query: async (sql: string) => {
+      statements.push(sql);
+      return [];
+    },
+  } as unknown as QueryRunner;
+
+  await new HardenBookingLifecycleConcurrency1786423740000().down(queryRunner);
+
+  const sql = statements.join('\n').toLowerCase();
+  assert.match(sql, /drop index ux_payments_one_pending_per_booking/);
+  assert.match(sql, /create or alter procedure dbo\.sp_release_expired_holds/);
+  assert.match(sql, /update ss with \(updlock, readpast, rowlock\)/);
+  assert.doesNotMatch(sql, /inner join dbo\.seat_holds/);
+});

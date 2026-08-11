@@ -477,7 +477,14 @@ export class BookingService {
         ) AS latest_payment
         WHERE bo.status = 'PENDING_PAYMENT'
           AND (
-            (bo.expires_at IS NOT NULL AND bo.expires_at <= @1)
+            (
+              (
+                ISNULL(latest_payment.payment_method, '') <> 'CASH'
+                OR ISNULL(latest_payment.payment_status, '') <> 'PENDING'
+              )
+              AND bo.expires_at IS NOT NULL
+              AND bo.expires_at <= @1
+            )
             OR (
               latest_payment.payment_method = 'CASH'
               AND latest_payment.payment_status = 'PENDING'
@@ -515,7 +522,14 @@ export class BookingService {
             WHERE bo.booking_id = @0
               AND bo.status = 'PENDING_PAYMENT'
               AND (
-                (bo.expires_at IS NOT NULL AND bo.expires_at <= @2)
+                (
+                  (
+                    ISNULL(latest_payment.payment_method, '') <> 'CASH'
+                    OR ISNULL(latest_payment.payment_status, '') <> 'PENDING'
+                  )
+                  AND bo.expires_at IS NOT NULL
+                  AND bo.expires_at <= @2
+                )
                 OR (
                   latest_payment.payment_method = 'CASH'
                   AND latest_payment.payment_status = 'PENDING'

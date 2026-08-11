@@ -186,3 +186,67 @@ test('processPaymentFailed hủy booking bằng lifecycle transaction thay vì f
   assert.equal(cancelCalled, true);
   assert.equal(directFailCalled, false);
 });
+test('CASH generic confirm không được bỏ qua deadline; check-in flag thì được', async () => {
+  const makeRunner = () => {
+    const manager = {
+      findOne: async (entity: unknown) => {
+        if (entity === Payment) {
+          return {
+            paymentId: '902',
+            bookingId: '102',
+            paymentMethod: 'CASH',
+            paymentStatus: 'PENDING',
+            amount: 120000,
+          };
+        }
+
+        if (entity === BookingOrder) {
+          return {
+            bookingId: '102',
+            userId: 25,
+            status: 'PENDING_PAYMENT',
+            totalAmount: 120000,
+            expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+            promotionId: null,
+          };
+        }
+
+        return null;
+      },
+      find: async () => [],
+    };
+
+    return {
+      manager,
+      connect: async () => undefined,
+      startTransaction: async () => undefined,
+      commitTransaction: async () => undefined,
+      rollbackTransaction: async () => undefined,
+      release: async () => undefined,
+    };
+  };
+
+  const service = new PaymentService(
+    {} as any,
+    {} as any,
+    { createQueryRunner: makeRunner } as any,
+    { get: () => undefined } as any,
+  );
+
+  await assert.rejects(
+    () => service.processPaymentSuccess('902'),
+    (error: unknown) =>
+      error instanceof BadRequestException &&
+      /booking đã hết hạn/i.test(error.message),
+  );
+
+  await assert.rejects(
+    () =>
+      service.processPaymentSuccess('902', {
+        allowExpiredCounterPayment: true,
+      }),
+    (error: unknown) =>
+      error instanceof BadRequestException &&
+      /không tìm thấy ghế/i.test(error.message),
+  );
+});
