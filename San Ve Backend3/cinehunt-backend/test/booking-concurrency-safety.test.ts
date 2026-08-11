@@ -27,16 +27,6 @@ function createMaintenanceQueryRunner(
   };
 }
 
-function createMaintenanceQueryRunner(
-  queryHandler: (sql: string, params?: unknown[]) => Promise<unknown[]>,
-) {
-  return {
-    connect: async () => undefined,
-    query: queryHandler,
-    release: async () => undefined,
-  };
-}
-
 test('expirePendingBookings re-check ứng viên dưới transaction lock', async () => {
   let mutationCalled = false;
   const maintenanceRunner = createMaintenanceQueryRunner(
