@@ -270,11 +270,16 @@ test('expireSeatHolds dùng stored procedure khi chạy thành công', async () 
 
   const result = await service.expireSeatHolds();
 
-  assert.equal(executedSql, 'EXEC sp_release_expired_holds');
+  assert.match(
+    executedSql,
+    /^EXEC (?:dbo\.)?sp_release_expired_holds$/,
+  );
 
   assert.deepEqual(result, {
     message: 'Expired seat holds released',
     strategy: 'stored-procedure',
+    releasedSeats: 0,
+    expiredHolds: 0,
   });
 });
 

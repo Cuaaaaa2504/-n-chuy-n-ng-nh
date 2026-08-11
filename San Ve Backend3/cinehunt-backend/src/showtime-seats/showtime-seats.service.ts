@@ -140,18 +140,50 @@ export class ShowtimeSeatsService {
 
   async expireSeatHolds(): Promise<{
     message: string;
-    strategy: 'stored-procedure' | 'fallback';
+    strategy: 'stored-procedure' | 'fallback' | 'skipped';
     releasedSeats?: number;
     expiredHolds?: number;
+    skippedReason?: string;
   }> {
     const retryDelays = [150, 400, 900];
 
     for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
       try {
-        await this.dataSource.query('EXEC sp_release_expired_holds');
+        const rows = (await this.dataSource.query(
+          'EXEC dbo.sp_release_expired_holds',
+        )) as Array<{
+          skipped?: boolean | number;
+          reason?: string | null;
+          releasedSeats?: number;
+          expiredHolds?: number;
+        }>;
+
+        const row = rows[0];
+        const releasedSeats = Number(row?.releasedSeats ?? 0);
+        const expiredHolds = Number(row?.expiredHolds ?? 0);
+
+        if (Boolean(row?.skipped)) {
+          const skippedReason = String(
+            row?.reason ?? 'maintenance-busy',
+          );
+          this.logger.warn(
+            `Bỏ qua lượt sp_release_expired_holds: ${skippedReason}`,
+          );
+
+          return {
+            message: 'Expired seat hold maintenance skipped',
+            strategy: 'skipped',
+            releasedSeats,
+            expiredHolds,
+            skippedReason,
+          };
+        }
+
         return {
           message: 'Expired seat holds released',
           strategy: 'stored-procedure',
+          releasedSeats,
+          expiredHolds,
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -164,6 +196,19 @@ export class ShowtimeSeatsService {
           );
           await new Promise((resolve) => setTimeout(resolve, delayMs));
           continue;
+        }
+
+        if (this.isMaintenanceTimeout(error)) {
+          this.logger.warn(
+            `Bỏ qua lượt sp_release_expired_holds do SQL đang bận: ${message}`,
+          );
+          return {
+            message: 'Expired seat hold maintenance skipped',
+            strategy: 'skipped',
+            releasedSeats: 0,
+            expiredHolds: 0,
+            skippedReason: 'sql-timeout',
+          };
         }
 
         const procedureMissing =
@@ -205,6 +250,14 @@ export class ShowtimeSeatsService {
     return (
       this.getSqlErrorNumber(error) === 1205 ||
       /deadlock victim|was deadlocked/i.test(message)
+    );
+  }
+
+  private isMaintenanceTimeout(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return (
+      this.getSqlErrorNumber(error) === 1222 ||
+      /lock request time out|request failed to complete|timeout/i.test(message)
     );
   }
 

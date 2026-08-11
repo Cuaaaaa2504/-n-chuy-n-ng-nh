@@ -297,3 +297,48 @@ test('critical lifecycle indexes đã được áp dụng', async () => {
     idempotencyColumn: 1,
   });
 });
+
+test('maintenance procedure skip nhanh khi lifecycle app-lock đang bận', async () => {
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+
+  try {
+    const lockRequest = new sql.Request(transaction);
+    const lockResult = await lockRequest.query<{
+      lockResult: number;
+    }>(`
+      DECLARE @LockResult INT;
+
+      EXEC @LockResult = sys.sp_getapplock
+        @Resource = N'CineHunt.LifecycleMaintenance',
+        @LockMode = 'Exclusive',
+        @LockOwner = 'Transaction',
+        @LockTimeout = 0;
+
+      SELECT @LockResult AS lockResult;
+    `);
+
+    assert.ok(
+      Number(lockResult.recordset[0]?.lockResult ?? -999) >= 0,
+      'Không lấy được lifecycle maintenance app-lock cho bài test',
+    );
+
+    const startedAt = Date.now();
+    const result = await pool.request().query<{
+      skipped: boolean | number;
+      reason: string | null;
+      releasedSeats: number;
+      expiredHolds: number;
+    }>('EXEC dbo.sp_release_expired_holds;');
+    const elapsedMs = Date.now() - startedAt;
+
+    assert.ok(
+      elapsedMs < 3000,
+      `Stored procedure phải skip dưới 3 giây khi app-lock bận, thực tế ${elapsedMs}ms`,
+    );
+    assert.equal(Boolean(result.recordset[0]?.skipped), true);
+    assert.equal(result.recordset[0]?.reason, 'maintenance-busy');
+  } finally {
+    await transaction.rollback();
+  }
+});

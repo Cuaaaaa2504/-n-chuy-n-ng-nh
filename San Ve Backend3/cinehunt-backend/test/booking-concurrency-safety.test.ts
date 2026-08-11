@@ -17,10 +17,42 @@ function createService(dataSource: any) {
   );
 }
 
+function createMaintenanceQueryRunner(
+  queryHandler: (sql: string, params?: unknown[]) => Promise<unknown[]>,
+) {
+  return {
+    connect: async () => undefined,
+    query: queryHandler,
+    release: async () => undefined,
+  };
+}
+
+function createMaintenanceQueryRunner(
+  queryHandler: (sql: string, params?: unknown[]) => Promise<unknown[]>,
+) {
+  return {
+    connect: async () => undefined,
+    query: queryHandler,
+    release: async () => undefined,
+  };
+}
+
 test('expirePendingBookings re-check ứng viên dưới transaction lock', async () => {
   let mutationCalled = false;
+  const maintenanceRunner = createMaintenanceQueryRunner(
+    async (sql: string) => {
+      if (/sp_getapplock/i.test(sql)) {
+        return [{ lock_result: 0 }];
+      }
+      if (/select distinct/i.test(sql)) {
+        return [{ booking_id: '101' }];
+      }
+      return [];
+    },
+  );
+
   const service = createService({
-    query: async () => [{ booking_id: '101' }],
+    createQueryRunner: () => maintenanceRunner,
     transaction: async (callback: (manager: any) => Promise<any>) =>
       callback({
         query: async () => [],
@@ -108,11 +140,22 @@ test('safe seat release bảo vệ ACTIVE hold và booking mới', async () => {
 test('expire scheduler bỏ qua deadline thường của CASH PENDING', async () => {
   let candidateSql = '';
 
-  const service = createService({
-    query: async (sql: string) => {
-      candidateSql = sql.toLowerCase();
+  const maintenanceRunner = createMaintenanceQueryRunner(
+    async (sql: string) => {
+      if (/sp_getapplock/i.test(sql)) {
+        return [{ lock_result: 0 }];
+      }
+
+      if (/select distinct/i.test(sql)) {
+        candidateSql = sql.toLowerCase();
+      }
+
       return [];
     },
+  );
+
+  const service = createService({
+    createQueryRunner: () => maintenanceRunner,
   });
 
   const result = await service.expirePendingBookings();

@@ -6,7 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  FindOptionsWhere,
+  In,
+  QueryRunner,
+  Repository,
+} from 'typeorm';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
 import { ShowtimeSeat } from '../entities/showtime-seat.entity';
@@ -47,6 +54,71 @@ export class BookingService {
     private readonly bookingComboRepo: Repository<BookingCombo>,
     private readonly dataSource: DataSource,
   ) {}
+
+
+  private getMaintenanceSqlErrorNumber(error: unknown): number | undefined {
+    const sqlError = error as {
+      number?: number;
+      driverError?: { number?: number };
+      originalError?: { info?: { number?: number } };
+      cause?: { number?: number };
+    };
+
+    return (
+      sqlError.number ??
+      sqlError.driverError?.number ??
+      sqlError.originalError?.info?.number ??
+      sqlError.cause?.number
+    );
+  }
+
+  private isMaintenanceContention(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const number = this.getMaintenanceSqlErrorNumber(error);
+
+    return (
+      number === 1205 ||
+      number === 1222 ||
+      /deadlock victim|was deadlocked|lock request time out|request failed to complete|timeout/i.test(
+        message,
+      )
+    );
+  }
+
+  private async tryAcquireLifecycleMaintenanceLock(
+    queryRunner: QueryRunner,
+  ): Promise<boolean> {
+    const rows = (await queryRunner.query(`
+      DECLARE @LockResult INT;
+
+      EXEC @LockResult = sys.sp_getapplock
+        @Resource = N'CineHunt.LifecycleMaintenance',
+        @LockMode = 'Exclusive',
+        @LockOwner = 'Session',
+        @LockTimeout = 0;
+
+      SELECT @LockResult AS lock_result;
+    `)) as Array<{ lock_result: number }>;
+
+    return Number(rows[0]?.lock_result ?? -999) >= 0;
+  }
+
+  private async releaseLifecycleMaintenanceLock(
+    queryRunner: QueryRunner,
+  ): Promise<void> {
+    try {
+      await queryRunner.query(`
+        EXEC sys.sp_releaseapplock
+          @Resource = N'CineHunt.LifecycleMaintenance',
+          @LockOwner = 'Session';
+      `);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Không release được lifecycle maintenance app-lock: ${message}`,
+      );
+    }
+  }
 
   private buildBookingRef(ref: string | number): FindOptionsWhere<BookingOrder> {
     const value = String(ref ?? '').trim();
@@ -546,135 +618,221 @@ export class BookingService {
     };
   }
 
-  async expirePendingBookings(): Promise<{ expiredCount: number }> {
+  async expirePendingBookings(): Promise<{
+    expiredCount: number;
+    skipped?: boolean;
+  }> {
     const now = new Date();
+    const maintenanceRunner = this.dataSource.createQueryRunner();
+    await maintenanceRunner.connect();
 
-    const rows = (await this.dataSource.query(
-      `
-        SELECT DISTINCT
-          CONVERT(VARCHAR(30), bo.booking_id) AS booking_id
-        FROM dbo.booking_orders AS bo
-        INNER JOIN dbo.showtimes AS st
-          ON st.showtime_id = bo.showtime_id
-        OUTER APPLY (
-          SELECT TOP (1)
-            p.payment_method,
-            p.payment_status
-          FROM dbo.payments AS p
-          WHERE p.booking_id = bo.booking_id
-          ORDER BY p.created_at DESC, p.payment_id DESC
-        ) AS latest_payment
-        WHERE bo.status = 'PENDING_PAYMENT'
-          AND (
-            (
-              (
-                ISNULL(latest_payment.payment_method, '') <> 'CASH'
-                OR ISNULL(latest_payment.payment_status, '') <> 'PENDING'
-              )
-              AND bo.expires_at IS NOT NULL
-              AND bo.expires_at <= @1
-            )
-            OR (
-              latest_payment.payment_method = 'CASH'
-              AND latest_payment.payment_status = 'PENDING'
-              AND DATEADD(MINUTE, @0, st.start_time) <= CAST(
-                SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
-                AS DATETIME2
-              )
-            )
-          );
-      `,
-      [COUNTER_PAYMENT_GRACE_MINUTES, now],
-    )) as Array<{ booking_id: string }>;
-
-    const candidateIds = [...new Set(rows.map((row) => String(row.booking_id)))];
+    let maintenanceLockAcquired = false;
     let expiredCount = 0;
 
-    for (const candidateId of candidateIds) {
-      const expired = await this.dataSource.transaction(async (manager) => {
-        const lockedRows = (await manager.query(
-          `
+    try {
+      maintenanceLockAcquired =
+        await this.tryAcquireLifecycleMaintenanceLock(maintenanceRunner);
+
+      if (!maintenanceLockAcquired) {
+        this.logger.warn(
+          'Bỏ qua lượt expire booking vì lifecycle maintenance đang được job khác xử lý.',
+        );
+        return { expiredCount: 0, skipped: true };
+      }
+
+      await maintenanceRunner.query('SET LOCK_TIMEOUT 2000;');
+
+      const rows = (await maintenanceRunner.query(
+        `
+          SELECT DISTINCT
+            CONVERT(VARCHAR(30), bo.booking_id) AS booking_id
+          FROM dbo.booking_orders AS bo
+          INNER JOIN dbo.showtimes AS st
+            ON st.showtime_id = bo.showtime_id
+          OUTER APPLY (
             SELECT TOP (1)
-              CONVERT(VARCHAR(30), bo.booking_id) AS booking_id,
-              bo.user_id
-            FROM dbo.booking_orders AS bo WITH (UPDLOCK, HOLDLOCK)
-            INNER JOIN dbo.showtimes AS st
-              ON st.showtime_id = bo.showtime_id
-            OUTER APPLY (
-              SELECT TOP (1)
-                p.payment_method,
-                p.payment_status
-              FROM dbo.payments AS p
-              WHERE p.booking_id = bo.booking_id
-              ORDER BY p.created_at DESC, p.payment_id DESC
-            ) AS latest_payment
-            WHERE bo.booking_id = @0
-              AND bo.status = 'PENDING_PAYMENT'
-              AND (
+              p.payment_method,
+              p.payment_status
+            FROM dbo.payments AS p
+            WHERE p.booking_id = bo.booking_id
+            ORDER BY p.created_at DESC, p.payment_id DESC
+          ) AS latest_payment
+          WHERE bo.status = 'PENDING_PAYMENT'
+            AND (
+              (
                 (
-                  (
-                    ISNULL(latest_payment.payment_method, '') <> 'CASH'
-                    OR ISNULL(latest_payment.payment_status, '') <> 'PENDING'
-                  )
-                  AND bo.expires_at IS NOT NULL
-                  AND bo.expires_at <= @2
+                  ISNULL(latest_payment.payment_method, '') <> 'CASH'
+                  OR ISNULL(latest_payment.payment_status, '') <> 'PENDING'
                 )
-                OR (
-                  latest_payment.payment_method = 'CASH'
-                  AND latest_payment.payment_status = 'PENDING'
-                  AND DATEADD(MINUTE, @1, st.start_time) <= CAST(
-                    SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
-                    AS DATETIME2
-                  )
+                AND bo.expires_at IS NOT NULL
+                AND bo.expires_at <= @1
+              )
+              OR (
+                latest_payment.payment_method = 'CASH'
+                AND latest_payment.payment_status = 'PENDING'
+                AND DATEADD(MINUTE, @0, st.start_time) <= CAST(
+                  SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
+                  AS DATETIME2
                 )
+              )
+            );
+        `,
+        [COUNTER_PAYMENT_GRACE_MINUTES, now],
+      )) as Array<{ booking_id: string }>;
+
+      const candidateIds = [
+        ...new Set(rows.map((row) => String(row.booking_id))),
+      ];
+
+      for (const candidateId of candidateIds) {
+        try {
+          const expired = await this.dataSource.transaction(async (manager) => {
+            await manager.query('SET LOCK_TIMEOUT 2000;');
+
+            try {
+              const lockedRows = (await manager.query(
+                `
+                  SELECT TOP (1)
+                    CONVERT(VARCHAR(30), bo.booking_id) AS booking_id,
+                    bo.user_id
+                  FROM dbo.booking_orders AS bo WITH (UPDLOCK, HOLDLOCK, ROWLOCK)
+                  INNER JOIN dbo.showtimes AS st
+                    ON st.showtime_id = bo.showtime_id
+                  OUTER APPLY (
+                    SELECT TOP (1)
+                      p.payment_method,
+                      p.payment_status
+                    FROM dbo.payments AS p
+                    WHERE p.booking_id = bo.booking_id
+                    ORDER BY p.created_at DESC, p.payment_id DESC
+                  ) AS latest_payment
+                  WHERE bo.booking_id = @0
+                    AND bo.status = 'PENDING_PAYMENT'
+                    AND (
+                      (
+                        (
+                          ISNULL(latest_payment.payment_method, '') <> 'CASH'
+                          OR ISNULL(latest_payment.payment_status, '') <> 'PENDING'
+                        )
+                        AND bo.expires_at IS NOT NULL
+                        AND bo.expires_at <= @2
+                      )
+                      OR (
+                        latest_payment.payment_method = 'CASH'
+                        AND latest_payment.payment_status = 'PENDING'
+                        AND DATEADD(MINUTE, @1, st.start_time) <= CAST(
+                          SYSDATETIMEOFFSET() AT TIME ZONE 'SE Asia Standard Time'
+                          AS DATETIME2
+                        )
+                      )
+                    );
+                `,
+                [candidateId, COUNTER_PAYMENT_GRACE_MINUTES, now],
+              )) as Array<{ booking_id: string; user_id: number }>;
+
+              const locked = lockedRows[0];
+              if (!locked) return false;
+
+              const bookingId = String(locked.booking_id);
+              const userId = Number(locked.user_id);
+              const details = await manager.find(BookingDetail, {
+                where: { bookingId, status: 'ACTIVE' },
+              });
+              const seatIds = [
+                ...new Set(details.map((detail) => detail.showtimeSeatId)),
+              ];
+
+              await manager.update(
+                BookingOrder,
+                { bookingId, status: 'PENDING_PAYMENT' },
+                { status: 'EXPIRED', cancelledAt: now },
               );
-          `,
-          [candidateId, COUNTER_PAYMENT_GRACE_MINUTES, now],
-        )) as Array<{ booking_id: string; user_id: number }>;
+              await manager.update(
+                Payment,
+                { bookingId, paymentStatus: 'PENDING' },
+                {
+                  paymentStatus: 'FAILED',
+                  failedReason: 'Booking expired',
+                },
+              );
+              await manager.update(
+                BookingDetail,
+                { bookingId, status: 'ACTIVE' },
+                { status: 'EXPIRED' },
+              );
 
-        const locked = lockedRows[0];
-        if (!locked) return false;
+              await this.releaseBookingSeatsSafely(
+                manager,
+                bookingId,
+                userId,
+                seatIds,
+                SeatHoldStatus.EXPIRED,
+                now,
+              );
 
-        const bookingId = String(locked.booking_id);
-        const userId = Number(locked.user_id);
-        const details = await manager.find(BookingDetail, {
-          where: { bookingId, status: 'ACTIVE' },
-        });
-        const seatIds = [...new Set(details.map((d) => d.showtimeSeatId))];
+              await manager.delete(BookingCombo, { bookingId });
+              return true;
+            } finally {
+              try {
+                await manager.query('SET LOCK_TIMEOUT -1;');
+              } catch (resetError) {
+                const resetMessage =
+                  resetError instanceof Error
+                    ? resetError.message
+                    : String(resetError);
+                this.logger.warn(
+                  `Không reset được LOCK_TIMEOUT cho booking ${candidateId}: ${resetMessage}`,
+                );
+              }
+            }
+          });
 
-        await manager.update(
-          BookingOrder,
-          { bookingId, status: 'PENDING_PAYMENT' },
-          { status: 'EXPIRED', cancelledAt: now },
+          if (expired) expiredCount += 1;
+        } catch (error) {
+          if (this.isMaintenanceContention(error)) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+              `Bỏ qua booking #${candidateId} trong lượt expire vì row đang bận: ${message}`,
+            );
+            continue;
+          }
+
+          throw error;
+        }
+      }
+
+      return { expiredCount };
+    } catch (error) {
+      if (this.isMaintenanceContention(error)) {
+        const message =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Bỏ qua lượt expire booking do SQL đang bận: ${message}`,
         );
-        await manager.update(
-          Payment,
-          { bookingId, paymentStatus: 'PENDING' },
-          { paymentStatus: 'FAILED', failedReason: 'Booking expired' },
-        );
-        await manager.update(
-          BookingDetail,
-          { bookingId, status: 'ACTIVE' },
-          { status: 'EXPIRED' },
-        );
+        return { expiredCount, skipped: true };
+      }
 
-        await this.releaseBookingSeatsSafely(
-          manager,
-          bookingId,
-          userId,
-          seatIds,
-          SeatHoldStatus.EXPIRED,
-          now,
+      throw error;
+    } finally {
+      try {
+        await maintenanceRunner.query('SET LOCK_TIMEOUT -1;');
+      } catch (resetError) {
+        const resetMessage =
+          resetError instanceof Error
+            ? resetError.message
+            : String(resetError);
+        this.logger.warn(
+          `Không reset được LOCK_TIMEOUT maintenance: ${resetMessage}`,
         );
+      }
 
-        await manager.delete(BookingCombo, { bookingId });
-        return true;
-      });
+      if (maintenanceLockAcquired) {
+        await this.releaseLifecycleMaintenanceLock(maintenanceRunner);
+      }
 
-      if (expired) expiredCount += 1;
+      await maintenanceRunner.release();
     }
-
-    return { expiredCount };
   }
 
   async getMyBookings(userId: number) {
