@@ -7,6 +7,7 @@ import type { QueryRunner } from 'typeorm';
 import { HoldManySeatsDto } from '../src/showtime-seats/dto/hold-many-seats.dto';
 import { HoldSeatDto } from '../src/showtime-seats/dto/hold-seat.dto';
 import { FixExpiredSeatHoldConsistency1786016820000 } from '../src/migrations/1786016820000-FixExpiredSeatHoldConsistency';
+import { HardenBookingLifecycleConcurrency1786423740000 } from '../src/migrations/1786423740000-HardenBookingLifecycleConcurrency';
 
 function hasConstraint(
   errors: Awaited<ReturnType<typeof validate>>,
@@ -67,4 +68,24 @@ test('expired-hold procedure leaves booking expiry to BookingExpireScheduler', a
   assert.match(sql, /seat_holds/);
   assert.doesNotMatch(sql, /booking_orders/);
   assert.doesNotMatch(sql, /booking_details/);
+});
+
+
+test('harden migration chỉ trả ghế có ACTIVE hold và chặn duplicate PENDING payment', async () => {
+  const statements: string[] = [];
+  const queryRunner = {
+    query: async (sql: string) => {
+      statements.push(sql);
+      return [];
+    },
+  } as unknown as QueryRunner;
+
+  await new HardenBookingLifecycleConcurrency1786423740000().up(queryRunner);
+  const sql = statements.join('\n').toLowerCase();
+
+  assert.match(sql, /inner join dbo\.seat_holds/);
+  assert.match(sql, /h\.status = 'active'/);
+  assert.match(sql, /ss\.held_by_user_id = h\.user_id/);
+  assert.match(sql, /ux_payments_one_pending_per_booking/);
+  assert.match(sql, /where payment_status = 'pending'/);
 });

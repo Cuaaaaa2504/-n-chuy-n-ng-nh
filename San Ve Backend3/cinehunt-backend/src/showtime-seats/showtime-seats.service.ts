@@ -217,14 +217,26 @@ export class ShowtimeSeatsService {
     return this.dataSource.transaction(async (manager) => {
       const now = new Date();
 
-      const seatResult = await manager
-        .createQueryBuilder()
-        .update(ShowtimeSeat)
-        .set({ status: 'AVAILABLE', heldByUserId: null, holdExpiresAt: null })
-        .where('status = :held', { held: 'HELD' })
-        .andWhere('hold_expires_at IS NOT NULL')
-        .andWhere('hold_expires_at <= :now', { now })
-        .execute();
+      const releasedRows = (await manager.query(
+        `
+          UPDATE ss
+          SET
+            ss.status = 'AVAILABLE',
+            ss.held_by_user_id = NULL,
+            ss.hold_expires_at = NULL
+          OUTPUT INSERTED.showtime_seat_id AS showtime_seat_id
+          FROM dbo.showtime_seats AS ss WITH (UPDLOCK, ROWLOCK)
+          INNER JOIN dbo.seat_holds AS h WITH (UPDLOCK, ROWLOCK)
+            ON h.showtime_seat_id = ss.showtime_seat_id
+          WHERE ss.status = 'HELD'
+            AND ss.hold_expires_at IS NOT NULL
+            AND ss.hold_expires_at <= @0
+            AND h.status = 'ACTIVE'
+            AND h.expires_at <= @0
+            AND ss.held_by_user_id = h.user_id;
+        `,
+        [now],
+      )) as Array<{ showtime_seat_id: number }>;
 
       const holdResult = await manager
         .createQueryBuilder()
@@ -234,7 +246,7 @@ export class ShowtimeSeatsService {
         .andWhere('expires_at <= :now', { now })
         .execute();
 
-      const releasedSeats = seatResult.affected ?? 0;
+      const releasedSeats = releasedRows.length;
       const expiredHolds = holdResult.affected ?? 0;
 
       if (releasedSeats > 0 || expiredHolds > 0) {
@@ -251,4 +263,5 @@ export class ShowtimeSeatsService {
       };
     });
   }
+
 }

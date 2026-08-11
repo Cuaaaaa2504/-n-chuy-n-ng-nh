@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, In } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { Payment } from '../entities/payment.entity';
 import { BookingOrder } from '../entities/booking-order.entity';
 import { BookingDetail } from '../entities/booking-detail.entity';
@@ -48,98 +48,142 @@ export class PaymentService {
       );
     }
 
-    const booking = await this.bookingService.validateBookingForPayment(
+    const validatedBooking = await this.bookingService.validateBookingForPayment(
       dto.bookingId,
       userId,
     );
+    const bookingId = String(validatedBooking.bookingId);
 
-    const bookingId = String(booking.bookingId);
+    return this.dataSource.transaction(async (manager) => {
+      const booking = await manager.findOne(BookingOrder, {
+        where: { bookingId, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    const existingPending =
-      await this.paymentRepository.findPendingByBookingId(bookingId);
-    if (existingPending) {
-      if (existingPending.paymentMethod === dto.paymentMethod) {
-        if (dto.paymentMethod === 'CASH') {
-          await this.disableCounterPaymentExpiry(bookingId);
-        }
-
-        return {
-          paymentId: existingPending.paymentId,
-          bookingId: existingPending.bookingId,
-          amount: Number(existingPending.amount),
-          paymentMethod: existingPending.paymentMethod,
-          paymentStatus: existingPending.paymentStatus,
-          transactionCode: existingPending.transactionCode ?? '',
-          createdAt: existingPending.createdAt,
-        };
+      if (!booking) {
+        throw new NotFoundException('Không tìm thấy booking');
+      }
+      if (booking.status !== 'PENDING_PAYMENT') {
+        throw new BadRequestException(
+          `Booking đang ở trạng thái ${booking.status}, không thể thanh toán`,
+        );
+      }
+      if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
+        throw new BadRequestException('Booking đã hết hạn thanh toán');
       }
 
-      if (
-        !canSwitchPendingPaymentMethod(
-          existingPending.paymentMethod,
-          dto.paymentMethod,
-        )
-      ) {
-        throw new BadRequestException(
-          'Đơn đã chọn thanh toán tiền mặt tại quầy. Hãy hủy đơn nếu muốn đổi phương thức thanh toán.',
+      const existingPending = await manager.findOne(Payment, {
+        where: { bookingId, paymentStatus: 'PENDING' },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (existingPending) {
+        if (existingPending.paymentMethod === dto.paymentMethod) {
+          if (dto.paymentMethod === 'CASH') {
+            await this.applyCounterPaymentHold(manager, bookingId);
+          }
+          return this.toPaymentResponse(existingPending);
+        }
+
+        if (
+          !canSwitchPendingPaymentMethod(
+            existingPending.paymentMethod,
+            dto.paymentMethod,
+          )
+        ) {
+          throw new BadRequestException(
+            'Đơn đã chọn thanh toán tiền mặt tại quầy. Hãy hủy đơn nếu muốn đổi phương thức thanh toán.',
+          );
+        }
+
+        const reason =
+          `User switched payment method from ${existingPending.paymentMethod} to ${dto.paymentMethod}`;
+
+        await manager.update(
+          Payment,
+          {
+            paymentId: existingPending.paymentId,
+            paymentStatus: 'PENDING',
+          },
+          {
+            paymentStatus: 'FAILED',
+            failedReason: reason,
+            providerResponse: reason,
+          },
         );
       }
 
-      await this.paymentRepository.updatePaymentFailed(
-        existingPending.paymentId,
-        `User switched payment method from ${existingPending.paymentMethod} to ${dto.paymentMethod}`,
+      const payment = await manager.save(
+        Payment,
+        manager.create(Payment, {
+          bookingId,
+          paymentMethod: dto.paymentMethod,
+          provider: dto.provider ?? null,
+          amount: Number(booking.totalAmount),
+          transactionCode: this.paymentRepository.generatePaymentCode(),
+          paymentStatus: 'PENDING',
+          providerResponse: null,
+          failedReason: null,
+          paidAt: null,
+        }),
       );
-    }
 
-    const transactionCode = this.paymentRepository.generatePaymentCode();
+      if (dto.paymentMethod === 'CASH') {
+        await this.applyCounterPaymentHold(manager, bookingId);
+      }
 
-    const payment = await this.paymentRepository.createPayment({
-      bookingId,
-      paymentMethod: dto.paymentMethod,
-      provider: dto.provider ?? null,
-      amount: booking.finalAmount,
-      transactionCode,
-      paymentStatus: 'PENDING',
-      providerResponse: null,
-      failedReason: null,
-      paidAt: null,
+      return this.toPaymentResponse(payment);
     });
+  }
 
-    if (dto.paymentMethod === 'CASH') {
-      await this.disableCounterPaymentExpiry(bookingId);
-    }
-
+  private toPaymentResponse(payment: Payment): PaymentResponse {
     return {
       paymentId: payment.paymentId,
       bookingId: payment.bookingId,
       amount: Number(payment.amount),
       paymentMethod: payment.paymentMethod,
       paymentStatus: payment.paymentStatus,
-      transactionCode: payment.transactionCode,
+      transactionCode: payment.transactionCode ?? '',
       createdAt: payment.createdAt,
     };
   }
 
+  private async applyCounterPaymentHold(
+    manager: EntityManager,
+    bookingId: string,
+  ): Promise<void> {
+    const details = await manager.find(BookingDetail, {
+      where: { bookingId, status: 'ACTIVE' },
+    });
+    const seatIds = details.map((detail) => detail.showtimeSeatId);
+
+    await manager.update(
+      BookingOrder,
+      { bookingId, status: 'PENDING_PAYMENT' },
+      { expiresAt: null },
+    );
+
+    if (seatIds.length) {
+      await manager.update(
+        ShowtimeSeat,
+        { showtimeSeatId: In(seatIds), status: 'HELD' },
+        { holdExpiresAt: null },
+      );
+    }
+  }
+
   private async disableCounterPaymentExpiry(bookingId: string): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      const details = await manager.find(BookingDetail, {
-        where: { bookingId, status: 'ACTIVE' },
+      const booking = await manager.findOne(BookingOrder, {
+        where: { bookingId },
+        lock: { mode: 'pessimistic_write' },
       });
-      const seatIds = details.map((detail) => detail.showtimeSeatId);
 
-      await manager.update(
-        BookingOrder,
-        { bookingId },
-        { expiresAt: null },
-      );
-
-      if (seatIds.length) {
-        await manager.update(
-          ShowtimeSeat,
-          { showtimeSeatId: In(seatIds) },
-          { holdExpiresAt: null },
-        );
+      if (!booking) {
+        throw new NotFoundException('Không tìm thấy booking');
       }
+
+      await this.applyCounterPaymentHold(manager, bookingId);
     });
   }
 
@@ -236,22 +280,15 @@ export class PaymentService {
     await queryRunner.startTransaction();
 
     try {
-      const payment = await queryRunner.manager.findOne(Payment, {
+      const paymentSnapshot = await queryRunner.manager.findOne(Payment, {
         where: { paymentId },
-        lock: { mode: 'pessimistic_write' },
       });
-
-      if (!payment) throw new NotFoundException('Không tìm thấy payment');
-
-      if (payment.paymentStatus !== 'PENDING') {
-        throw new BadRequestException(
-          `Payment status là ${payment.paymentStatus}, chỉ PENDING mới được xử lý`,
-        );
+      if (!paymentSnapshot) {
+        throw new NotFoundException('Không tìm thấy payment');
       }
 
       const booking = await queryRunner.manager.findOne(BookingOrder, {
-        where: { bookingId: payment.bookingId },
-        relations: { bookingDetails: true },
+        where: { bookingId: paymentSnapshot.bookingId },
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -259,9 +296,22 @@ export class PaymentService {
       if (booking.status !== 'PENDING_PAYMENT') {
         throw new BadRequestException('Booking không ở trạng thái chờ thanh toán');
       }
-
       if (booking.expiresAt && new Date(booking.expiresAt) <= new Date()) {
         throw new BadRequestException('Booking đã hết hạn');
+      }
+
+      const payment = await queryRunner.manager.findOne(Payment, {
+        where: { paymentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payment) throw new NotFoundException('Không tìm thấy payment');
+      if (payment.bookingId !== booking.bookingId) {
+        throw new BadRequestException('Payment không thuộc booking đang xử lý');
+      }
+      if (payment.paymentStatus !== 'PENDING') {
+        throw new BadRequestException(
+          `Payment status là ${payment.paymentStatus}, chỉ PENDING mới được xử lý`,
+        );
       }
 
       if (Number(payment.amount) !== Number(booking.totalAmount)) {
@@ -309,12 +359,20 @@ export class PaymentService {
 
       const seatIds = bookingDetails.map((d) => d.showtimeSeatId);
 
-      await queryRunner.manager
+      const soldResult = await queryRunner.manager
         .createQueryBuilder()
         .update(ShowtimeSeat)
         .set({ status: 'SOLD', holdExpiresAt: null, heldByUserId: null })
         .where('showtime_seat_id IN (:...ids)', { ids: seatIds })
+        .andWhere('status = :held', { held: 'HELD' })
+        .andWhere('held_by_user_id = :userId', { userId: booking.userId })
         .execute();
+
+      if ((soldResult.affected ?? 0) !== seatIds.length) {
+        throw new BadRequestException(
+          'Một hoặc nhiều ghế không còn được giữ bởi booking này',
+        );
+      }
 
       await queryRunner.manager.update(
         BookingOrder,
@@ -326,7 +384,8 @@ export class PaymentService {
         SeatHold,
         {
           showtimeSeatId: In(seatIds),
-          status: In([SeatHoldStatus.ACTIVE, SeatHoldStatus.CONVERTED]),
+          userId: booking.userId,
+          status: SeatHoldStatus.CONVERTED,
         },
         { status: SeatHoldStatus.CONFIRMED, releasedAt: new Date() },
       );
@@ -413,14 +472,33 @@ export class PaymentService {
     const booking = await this.dataSource.getRepository(BookingOrder).findOne({
       where: { bookingId: payment.bookingId },
     });
-
-    await this.paymentRepository.updatePaymentFailed(paymentId, 'Payment failed by system');
-
-    if (booking?.status === 'PENDING_PAYMENT') {
-      await this.bookingService.cancelBooking(payment.bookingId, booking.userId);
+    if (!booking) {
+      throw new NotFoundException('Không tìm thấy booking');
     }
 
-    return { success: true, idempotent: false, paymentId, status: 'FAILED' };
+    // cancelBooking tự khóa BookingOrder và fail toàn bộ PENDING payment
+    // trong cùng transaction. Không fail payment trước rồi mới cancel booking.
+    try {
+      await this.bookingService.cancelBooking(payment.bookingId, booking.userId);
+    } catch (error) {
+      const latest = await this.paymentRepository.findPaymentById(paymentId);
+      if (latest?.paymentStatus === 'FAILED') {
+        return {
+          success: true,
+          idempotent: true,
+          paymentId,
+          status: 'FAILED',
+        };
+      }
+      throw error;
+    }
+
+    return {
+      success: true,
+      idempotent: false,
+      paymentId,
+      status: 'FAILED',
+    };
   }
 
   async getPaymentByBookingId(bookingId: string) {
